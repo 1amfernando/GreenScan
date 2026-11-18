@@ -51,8 +51,18 @@ Wissen ging also nicht verloren, weil niemand schrieb, sondern weil nichts es zu
 dann die **frischen Branches** (wer arbeitet parallel — gerechnet aus den Branch-Spitzen,
 niemand muss es melden). Ohne `holen` liest der Befehl, was git lokal kennt.
 `zeige <id>` · `suche <wort>` (auch Geschlossenes) · `klasse [wort]` · `naechste` · Filter `--art`
-`--stichwort` `--an` · `--alles` · `--json` · `--nur-lokal`. Die vier Zeichen am Ende
-einer id genügen. Lesen schreibt nie.
+`--stichwort` `--an` `--dringlichkeit` · `--alles` · `--json` · `--nur-lokal`. Die vier Zeichen
+am Ende einer id genügen. Lesen schreibt nie.
+
+`naechste` sagt **vor einem Bump**, welche Version und welches STATUS-Kürzel frei sind: gerechnet
+über `main` und die frischen Branches (höchstens 14 Tage), als **Linien** (Vorfahren und Kopien
+desselben Release-Titels sind eine Vergabe), mit **ÜBERHOLT** für eine Nummer, die `main` schon für
+etwas anderes trägt. Die eigenen Marken zählen mit: wer (jg) schon trägt, bekommt für einen weiteren
+Eintrag (jh). Nicht gezählt werden ein Sprung von mehr als 20 Versionen über `main` (Tippfehler,
+er wird genannt) und ein Branch mit Commit-Zeit in der Zukunft (er bliebe sonst für immer „frisch").
+
+Schwarm-Befehle (unten erklärt): `lage` · `nehme <id>` · `halt` · `veto <id>` · `aufheben <id>` ·
+`sichern` (nur der Wächter). Wer koordiniert, liest zusätzlich `holen --an koordinator`.
 
 ## Schreiben
 
@@ -60,7 +70,7 @@ einer id genügen. Lesen schreibt nie.
 node scripts/austausch.mjs neu befund --titel "…" --beleg "…" --stichwort a,b \
      --anker "index.html::<wörtliches Stück der Stelle>" [--zaehle "index.html::<Text>"] [--klasse <id>]
 node scripts/austausch.mjs neu idee  --titel "…" --nutzen "…" --pruefbar "…" [--bezug baut_auf:<id>]
-node scripts/austausch.mjs neu frage --titel "…" --an alle|fernando [--haengt-daran "…"]
+node scripts/austausch.mjs neu frage --titel "…" --an alle|fernando|koordinator|sitzung/<branch> [--haengt-daran "…"]
 node scripts/austausch.mjs antworte <id> --text "…"            # auch Nachtrag: --anker · --zaehle · --gesucht · --waechter
 node scripts/austausch.mjs schliesse <id> --ergebnis erledigt --wohin "vXX.YY" --geschwister "gesucht: … → N Treffer"
 node scripts/austausch.mjs einspielen stapel.json               # viele auf einmal; Bezüge im Stapel als "@schluessel"
@@ -77,7 +87,7 @@ passende Fehlerklassen, Vorwissen im Tagebuch) — Lesen ist ins Schreiben einge
 |---|---|---|
 | `befund` | `beleg` | etwas Gemessenes: Fehler, Lücke, Widerspruch |
 | `idee` | `nutzen`, `pruefbar` | ein Vorschlag, der noch keinen Meilenstein verdient |
-| `frage` | `an` (`alle` · `fernando` · `koordinator`) | was die Sitzung nicht messen oder entscheiden konnte; `haengt_daran` sagt, was daran hängt |
+| `frage` | `an` (`alle` · `fernando` · `koordinator` · `sitzung/<branch>`) | was die Sitzung nicht messen oder entscheiden konnte; `haengt_daran` sagt, was daran hängt |
 | `klasse` | `regel`, `instanzen`, `waechter` oder `ohne_waechter` | ein Fehler-*Muster* mit `suchmuster` für Geschwister und `gesucht` (wann zuletzt, mit welchem Ergebnis) |
 | `antwort` | Bezug `beantwortet` · `baut_auf` · `widerspricht` | Antwort, Ergänzung, Widerspruch oder Nachtrag |
 | `abschluss` | `ergebnis`, Bezug `schliesst` | `erledigt` (+ `wohin`, beim Befund `geschwister`, optional `bewacht`) · `verworfen` (+ `text`: der Grund) · `aufgestiegen` (+ `wohin`) · `aufgehoben` (nur für einen Halt, + `text`) |
@@ -151,52 +161,91 @@ Sitzung von sich aus melden muss, meldet sie nicht (`widerspricht` 0×, `ernten`
 alle" 1× ohne Antwort). Deshalb wird **gerechnet, was git schon weiss**, und gemeldet nur die
 Absicht. Alles hier ist eine **Pflicht zur Kenntnisnahme, keine Sperre** — ein Eintrag kommt
 von einer anderen Sitzung (Regel 4), und entschieden wird beim Merge (Koordinator, Fernando).
-`holen` zeigt zuerst **DICH BETREFFEND** — nur, wenn etwas zutrifft.
+
+`holen` zeigt zuerst **DICH BETREFFEND** — nur, wenn etwas zutrifft. **„Dein" heisst: von dir
+geschrieben** (`von` = `sitzung/<dein Branch>` bzw. `--von`), nicht „liegt in deinem
+Arbeitsbaum" — dort liegt auch alles, was von `main` kam. Darunter stehen: ein fremder Halt,
+der deine Änderung berührt · ein Veto gegen *deinen* Eintrag · eine Übernahme von dir, die nicht
+gilt · **Antworten und Lieferungen auf deine Einträge** (mit dem fertigen `git show`) · was
+ausdrücklich an dich geht (`an: sitzung/<dein Branch>`, oder dein Branch-Name im Titel) · was
+nur in deinem Arbeitsbaum liegt (nicht gepusht) und was ein Force-Push löschen würde. Danach
+**KRITISCH**, **LAGE** und **HALT UND VETO**.
 
 - **Dringlichkeit:** `dringlichkeit` = `kritisch` (Nutzer werden *jetzt* live geschädigt oder
   gefährdet; main ist rot) oder `dringend` (eine Frist, oder es blockiert andere) an Befund, Frage,
   Halt. Kein eigenes Grund-Feld (bei einem Sicherheitsbefund wäre es ein Kanal für den Weg): der
-  Grund steht im Beleg, bei der Frage in `haengt_daran`. `holen` zeigt KRITISCH oben, mit „niemand
-  dran" oder wer daran arbeitet — und **jeder offene kritische Eintrag steht mit `brett:<id>` in
-  STATUS §2 oder FUER-FERNANDO** (Prüfstand A7): er ist der Einzige, der live etwas ändern kann.
-- **Aufgaben:** `nehme <id>` übernimmt (schreibt eine Lage mit Bezug `baut_auf`). **Die älteste
+  Grund steht im Beleg, bei der Frage in `haengt_daran`. KRITISCH oben zeigt nur `kritisch` (mit
+  „niemand dran" oder wer daran arbeitet, und der Zahl der Antworten); `dringend` steht in den
+  Listen zuerst und lässt sich filtern (`--dringlichkeit dringend`). **Jeder offene kritische
+  Eintrag steht mit `brett:<id>` in STATUS §2 oder FUER-FERNANDO** (Prüfstand A7, gezählt wird
+  die *genaue* id): er ist der Einzige, der live etwas ändern kann. `ernten` holt einen fremden
+  kritischen Eintrag erst, wenn dieser Baum ihn dort zitiert — sonst würde die eigene CI rot.
+- **Aufgaben:** `nehme <id>` übernimmt (schreibt eine Lage mit Bezug `baut_auf`, höchstens drei
+  Ziele). Eine Übernahme gilt **je Schreiber und Ziel**, bis eine spätere Lage desselben Schreibers
+  mit `fertig` sie freigibt — ohne Bezug alle, mit `--bezug baut_auf:<id>` genau diese; ein
+  Fortschritt (`lage` ohne Bezug) oder eine zweite Übernahme nimmt der ersten nichts. **Die älteste
   Übernahme gilt** (in derselben Sekunde entscheidet die id — für jeden Leser gleich); wer später
-  nimmt, wird abgewiesen (`--auch`: daneben mithelfen). Eine Bitte
-  „wer kann X liefern?" ist eine `frage --an alle` (oder `--an koordinator`); geliefert wird mit
-  `antworte <id> --geliefert <pfad>` — `geliefert` nennt Pfad und volle Commit-Kennung, jeder kann
-  `git show <commit>:<pfad>` fahren. **Ohne dass jemand etwas meldet**, trägt ein offener Eintrag
-  „in Arbeit auf <branch>", wenn dort seine Stelle (der Anker) geändert wurde oder seine id in
-  einem Commit steht — ein squash-gemergter, stehengebliebener Branch zählt nicht.
+  nimmt, wird abgewiesen (`--auch`: daneben mithelfen). Das ist eine **Selbstauskunft** mit
+  eigenem Zeitstempel: geprüft wird nur, dass `von` zum Branch passt, auf dem die Lage liegt
+  (`sitzung/<b>` auf `origin/<b>`, im Arbeitsbaum nur die eigene, auf `main` jede) — eine Lage mit
+  fremdem Namen ist UNWIRKSAM. Eine Bitte „Agent sucht diese Datei, bitte hochladen" ist eine
+  `frage --an alle` (oder `--an koordinator`, `--an sitzung/<branch>`); geliefert wird mit
+  `antworte <id> --geliefert <pfad>` — `geliefert` nennt Pfad und volle Commit-Kennung, und der
+  Fragende sieht unter DICH BETREFFEND `git fetch origin && git show <commit>:<pfad>`. **Ohne
+  dass jemand etwas meldet**, trägt ein offener Eintrag „in Arbeit auf <branch>", wenn dort seine
+  Stelle (der Anker) *nach* dem Eintrag geändert wurde oder seine id in einem Commit steht — der
+  Branch, auf dem er nur angelegt wurde, zählt nicht, ein squash-gemergter, stehengebliebener auch
+  nicht.
 - **Fortschritt:** `lage --phase laeuft|letzte_runde|fertig --bis 3h [--runde 4/5]` — die Absicht,
-  die git nicht kennt („Runde 5 ist die letzte"). Sie steht in der Zeile ihres Branches unter FRISCHE
-  BRANCHES; je Schreiber gilt die jüngste, `fertig` beendet sie. `bis` höchstens 24 h, `runde` hat
-  die Form „4" oder „4/5".
-- **Halt:** `halt --geltung "index.html,gsKalender,bump" --bis 24h --text "Grund"`. `geltung` sind
-  Pfade (Verzeichnis mit `/`), Funktionsnamen oder `bump` — **nie `*`**. `bis` höchstens 72 h. Ein
-  Halt erscheint unter DICH BETREFFEND bei jeder Sitzung, deren Änderung er berührt (gerechnet:
-  geändert seit dem Abzweigen *und* heute anders als main; in `index.html` auf Funktionsebene;
-  Änderungen unter `docs/austausch/` nie). `naechste` endet mit Exit 1, solange ein Halt `bump`
-  wirkt. **Veto** = `veto <id> --text "Grund"`: ein Halt mit Bezug `widerspricht` gegen *eine*
-  Handlung (Befund, Idee, Lage, Halt). Aufheben: `aufheben <id> --text "Grund"` → Ergebnis
-  `aufgehoben`, von jedem, immer mit Grund, über alle Branches.
-- **Fristen:** `bis` (UTC, mit Z) wird *relativ zum eigenen Zeitstempel* geprüft — der Prüfstand
-  hängt nie an der Uhr. Ob ein Halt oder eine Lage **jetzt wirkt**, rechnet nur das Werkzeug, und
-  nur für Einträge, die beim **Lesen** gültig sind: ein Zeitstempel in der Zukunft, ein `bis` ohne Z
-  oder eine Geltung `*` auf einem fremden Branch heissen UNWIRKSAM und halten nichts an. Datum und
-  Zeit einer Lage oder eines Halts setzt das Werkzeug.
+  die git nicht kennt („Runde 5 ist die letzte"). Phasen: `laeuft` · `letzte_runde` · `fertig`.
+  Sie steht im Block LAGE und in der Zeile ihres Branches unter FRISCHE BRANCHES; je Schreiber
+  zeigt sich die jüngste, `fertig` beendet die Anzeige. `bis` höchstens 24 h, `runde` hat die Form
+  „4" oder „4/5". `ernten` holt weder Lage noch Halt: beide sind Absichten auf Zeit, kein Wissen.
+- **Halt:** `halt --geltung "gsKalenderEreignisse,scripts/kalender_check.js,bump" --bis 24h --text
+  "Grund"`. `geltung` sind Pfade (Verzeichnis mit `/`, eine Datei ohne Punkt wie `_headers` geht
+  auch), Funktionsnamen aus `index.html` oder `bump` — **nie `*`, nie `.`/`./`, nie `STATUS.md`
+  und nie `index.html` als Ganzes**: das trifft (fast) jede Sitzung und wirkt wie `*`. Ein Name,
+  den es weder als Funktion noch als Datei gibt, wird beim Schreiben abgewiesen. `bis` höchstens
+  72 h. Ein Halt erscheint unter DICH BETREFFEND bei jeder Sitzung, deren Änderung er berührt
+  (gerechnet: geändert seit dem Abzweigen *und* heute anders als main; eine Umbenennung mit beiden
+  Namen; in `index.html` auf Funktionsebene aus Zeilennummern, auch eingerückt; Änderungen unter
+  `docs/austausch/` nie; `bump` nur, wenn *du* die Version geändert hast). `naechste` endet mit
+  Exit 1, solange ein fremder Halt `bump` wirkt. Im PR nennt der Prüfstand-Fall A8 jeden
+  wirksamen Halt, den der PR berührt — wer merged, liest es dort. **Veto** = `veto <id> --text
+  "Grund"`: ein Halt mit Bezug `widerspricht` gegen *eine* Handlung (Befund, Idee, Lage, Halt).
+  Aufheben: `aufheben <id> --text "Grund"` → Ergebnis `aufgehoben`, von jedem, immer mit Grund,
+  über alle Branches — und **nur so**: ein ungültiger Abschluss hebt nichts auf, und `ersetzt`
+  gibt es an Halt und Lage nicht.
+- **Fristen:** `bis` (UTC, mit Z, ein echter Zeitpunkt) wird *relativ zum eigenen Zeitstempel*
+  geprüft — der Prüfstand hängt nie an der Uhr. Ob ein Halt oder eine Lage **jetzt wirkt**,
+  rechnet nur das Werkzeug (`zeige <id>` sagt es), und nur für Einträge, die beim **Lesen** gültig
+  sind: ein Zeitstempel mehr als 15 min in der Zukunft, ein `bis` ohne Z, eine Zeit 99:00:00 oder
+  eine Geltung `*` auf einem fremden Branch heissen UNWIRKSAM und halten nichts an. Datum und Zeit
+  einer Lage oder eines Halts setzt das Werkzeug.
 - **Wächter 1** (Prüfstand A6): keine Eintragsdatei, die an der **Abzweigstelle** lag (lokal
   `merge-base` mit origin/main, in CI `HEAD^1` des PR-Merge-Commits), fehlt oder ist umgeschrieben.
   Was bewusst weg muss (Personenname, Geheimnis), kommt auf die **Grabstein-Liste**
   `docs/austausch/zurueckgezogen.json` — `[{id, datum, grund}]`, nie der Inhalt; die Vereinigung,
-  `ernten` und die Sicherung lassen solche ids aus.
+  `ernten` und die Sicherung lassen solche ids aus (auch wenn die Liste erst auf `origin/main`
+  liegt), und eine Datei mit Grabstein, die noch im Baum liegt, ist ein Fehler.
 - **Wächter 2 und die Sicherung:** `.github/workflows/brett-waechter.yml` läuft **ohne Sitzung**
-  stündlich, kopiert jede Eintragsdatei jedes Branches byte-gleich auf den Branch **`zz-sicherung`**
-  (das Z-Präfix: er sortiert hinter allen und wird nur gelesen, wo kein Original mehr liegt) und
-  meldet, was nur noch dort liegt. `holen` holt mit `--prune` und zeigt GERETTET (nur noch in der
-  Sicherung — `ernten` holt zurück, was hier stimmt) und GEFÄHRDET (auf nur einem Branch, noch nicht
-  gesichert); dazu unter DICH BETREFFEND, was nur im eigenen Arbeitsbaum liegt (nicht gepusht) und
-  was ein Force-Push des eigenen Branches löschen würde. Gemessen am 17.11.2026: 72 von 165
-  Einträgen lagen auf genau einem Branch.
+  stündlich (`node scripts/austausch.mjs sichern`) und kopiert jede Eintragsdatei jedes Branches
+  byte-gleich auf den Branch **`zz-sicherung`** (das Z-Präfix: er sortiert hinter allen und wird
+  zuletzt gelesen — nur, wo kein Original mehr liegt). Die Sicherung behält die **erste** Fassung;
+  eine umgeschriebene steht als „Umgeschrieben?", zwei verschiedene Fassungen auf zwei Branches
+  (keine auf `main`) als „Strittig" und werden nicht gerechnet. Jeder Lauf schreibt **einen Stand
+  ohne Geschichte** (Orphan-Commit, `--force-with-lease` auf den vorigen): was ein Grabstein
+  entfernt, steht danach in keinem Commit des Branches mehr. *Grenze:* GitHub kann einen nicht mehr
+  erreichbaren Commit über seine Kennung noch eine Weile ausliefern — ein echtes Geheimnis wird
+  gewechselt, nicht nur entfernt (CLAUDE.md §3.6). Das **Gedächtnis** des Wächters liegt
+  ausserhalb der Sicherung (Actions-Cache): fehlt vor dem Lauf, was zuletzt gesichert war, wurde
+  `zz-sicherung` zurückgesetzt oder gelöscht — und liegt ein Eintrag neu nur noch in der
+  Sicherung, wurde ein Branch gelöscht. Beides ist ein **ALARM** (Exit 3, der Lauf wird rot, einmal
+  je Verlust). Sieht er höchstens einen Branch, sichert er nichts und sagt es. Die Action holt mit
+  dem Token nur für den einen Push (`persist-credentials: false`). `holen` holt mit `--prune` und
+  zeigt GERETTET (nur noch in der Sicherung — `ernten` holt zurück, was hier stimmt) und GEFÄHRDET
+  (auf nur einem Branch, noch nicht gesichert). Gemessen am 17.11.2026: 72 von 165 Einträgen lagen
+  auf genau einem Branch.
 
 Ids haben seit dem 18.11.2026 acht Hexstellen (am 11.11. entstanden 131 Einträge an einem Tag;
 bei vier Stellen 12 % Kollisionsrisiko). Alte Einträge behalten ihre vier.

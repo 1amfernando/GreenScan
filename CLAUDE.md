@@ -1229,10 +1229,22 @@ node scripts/austausch.mjs hilfe     # schreiben: neu befund|idee|frage · antwo
 „FRISCHE BRANCHES" zeigt, wer parallel arbeitet — nachsehen, bevor du dieselbe
 Stelle anfasst. Die Fehlerklassen (`klasse <wort>`) sind das Suchraster: Regel,
 Suchmuster für Geschwister, der Prüfstand-Fall, der sie bewacht. **Seit 18.11.2026 steht
-ganz oben „DICH BETREFFEND"** (ein Halt auf deinen Dateien oder Funktionen, ein Veto gegen
-deinen Eintrag, was nur in deinem Arbeitsbaum liegt), dann KRITISCH und HALT; wer einen
-Eintrag aufgreift, sagt es mit `nehme <id>` (die älteste Übernahme gilt). Dringlichkeit, Lage,
-Halt/Veto, Wächter und die Sicherung `zz-sicherung`: `docs/austausch/README.md` „Der Schwarm".
+ganz oben „DICH BETREFFEND"** — gerechnet am SCHREIBER (`von`), nicht am Fundort: ein fremder
+Halt auf deinen Dateien oder Funktionen (auch einer, der per `main` in deinen Arbeitsbaum kam),
+ein Veto gegen deinen Eintrag, Antworten und Lieferungen auf deine Fragen (mit dem fertigen
+`git show`), was nur in deinem Arbeitsbaum liegt; dann KRITISCH, LAGE und HALT. Wer einen
+Eintrag aufgreift, sagt es mit `nehme <id>` (die älteste Übernahme gilt, je Schreiber und Ziel,
+bis `lage --phase fertig`). Dringlichkeit, Lage, Halt/Veto, Wächter und die Sicherung
+`zz-sicherung`: `docs/austausch/README.md` „Der Schwarm".
+
+> **„Mein" heisst: von mir geschrieben — nicht: liegt bei mir** (18.11.2026). Die erste Fassung
+> des Schwarms hielt alles im Arbeitsbaum für eigen. Ein Halt, der per Merge auf `main` kam,
+> wirkte damit bei keiner späteren Sitzung, `ernten` machte jeden fremden Halt wirkungslos, und
+> ein Veto gegen irgendeinen Eintrag auf `main` hiess bei jedem „gegen deinen Eintrag". Vier von
+> fünf Linsen der Gegenprüfung fanden dieselbe Gleichsetzung, jede an einer anderen Stelle.
+> **Wer eine Regel über „meine" Dinge baut, rechnet am Schreiber.** Und **eine Sicherung mit
+> Geschichte vergisst nichts**: was ein Grabstein entfernte, blieb in `git log -p zz-sicherung`
+> lesbar — der Wächter schreibt seither je Lauf einen Stand ohne Geschichte.
 
 **Und noch einmal VOR dem Bump** (`git fetch origin main`, `git log HEAD..origin/main`).
 Wer lange auf einem Zweig arbeitet, sieht sonst nicht, dass eine andere Sitzung

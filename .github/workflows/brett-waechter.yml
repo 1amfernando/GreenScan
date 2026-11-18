@@ -9,7 +9,15 @@ name: Brett-Wächter
 # hätte sie ohne jede Meldung vernichtet — eine Sitzung, die das bemerken könnte, gibt es dann nicht
 # mehr. Deshalb läuft der Wächter OHNE Sitzung: stündlich kopiert er jede Eintragsdatei jedes Branches
 # byte-gleich auf den Branch `zz-sicherung` (Z-Präfix: er sortiert hinter allen anderen, und das Brett
-# liest ihn nur dort, wo kein Original mehr liegt). Was nur noch dort liegt, meldet er.
+# liest ihn zuletzt — nur, wo kein Original mehr liegt). Was nur noch dort liegt, meldet er.
+#
+# Drei Regeln aus der Gegenprüfung (18.11.2026):
+# - Zugangsdaten nur für den EINEN Push (persist-credentials: false; der Token geht als Kopfzeile
+#   genau an fetch und push, nie in .git/config) — `node scripts/austausch.mjs` liest fremde Branches.
+# - Jeder Lauf schreibt EINEN Stand ohne Geschichte (Orphan-Commit, --force-with-lease auf den
+#   vorigen): was ein Grabstein entfernt, liegt danach in keinem Commit des Branches mehr.
+# - Das Gedächtnis liegt AUSSERHALB der Sicherung (Actions-Cache): fehlt vor dem Lauf, was zuletzt
+#   gesichert war, wurde zz-sicherung zurückgesetzt oder gelöscht — dann wird der Lauf ROT.
 #
 # Er schreibt NUR auf zz-sicherung. Keine Migration, kein Ausliefern, kein Löschen fremder Branches.
 on:
@@ -34,25 +42,55 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
         with:
           fetch-depth: 1
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: 22
-      - name: Alle Branches holen (nur die Spitzen)
-        run: git fetch --quiet --no-tags --depth=1 origin '+refs/heads/*:refs/remotes/origin/*'
+      - name: Gedaechtnis holen
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4.3.0
+        with:
+          path: ${{ runner.temp }}/brett-stand
+          key: brett-waechter-stand-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: brett-waechter-stand-
       - name: Sicherung schreiben und melden
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if git rev-parse --verify --quiet refs/remotes/origin/zz-sicherung >/dev/null; then
-            git worktree add --quiet --detach ../sicherung refs/remotes/origin/zz-sicherung
+          B64=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          echo "::add-mask::$B64"
+          kopf() { git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $B64" "$@"; }
+          kopf fetch --quiet --no-tags --depth=1 origin '+refs/heads/*:refs/remotes/origin/*'
+          STAND="$RUNNER_TEMP/brett-stand/stand.json"
+          ALT=$(git rev-parse --verify --quiet refs/remotes/origin/zz-sicherung || true)
+          rm -rf ../sicherung
+          if [ -n "$ALT" ]; then
+            git worktree add --quiet --detach ../sicherung "$ALT"
           else
             git worktree add --quiet --detach ../sicherung HEAD
-            git -C ../sicherung checkout --quiet --orphan zz-sicherung
             git -C ../sicherung rm -rfq .
-            printf '%s\n' '# zz-sicherung — die Sicherung des Bretts' '' 'Geschrieben vom Brett-Wächter (.github/workflows/brett-waechter.yml auf main).' 'Byte-gleiche Kopien jeder Eintragsdatei jedes Branches. Nie von Hand ändern.' 'Regeln: docs/austausch/README.md auf main.' > ../sicherung/README.md
+            if [ -f "$STAND" ]; then echo "::error::zz-sicherung fehlt, das Gedaechtnis kennt sie — der Branch wurde geloescht. Er wird neu angelegt; was nur dort lag, ist weg (siehe unten)."; fi
           fi
-          node scripts/austausch.mjs sichern --nach ../sicherung | tee -a "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' '# zz-sicherung — die Sicherung des Bretts' '' 'Geschrieben vom Brett-Wächter (.github/workflows/brett-waechter.yml auf main).' 'Byte-gleiche Kopien jeder Eintragsdatei jedes Branches, je Lauf EIN Stand ohne Geschichte. Nie von Hand ändern.' 'Regeln: docs/austausch/README.md auf main.' > ../sicherung/README.md
+          set +e
+          node scripts/austausch.mjs sichern --nach ../sicherung --gedaechtnis "$STAND" > ../bericht.md
+          RC=$?
+          set -e
+          tee -a "$GITHUB_STEP_SUMMARY" < ../bericht.md
+          if [ "$RC" -ne 0 ] && [ "$RC" -ne 3 ]; then exit "$RC"; fi
           cd ../sicherung
           git add -A
-          if git diff --cached --quiet; then echo "Nichts Neues zu sichern."; exit 0; fi
-          git -c user.name='brett-waechter' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit --quiet -m "Brett-Sicherung $(date -u +%Y-%m-%dT%H:%MZ)"
-          git push --quiet origin HEAD:refs/heads/zz-sicherung
+          TREE=$(git write-tree)
+          if [ -n "$ALT" ] && [ "$TREE" = "$(git rev-parse "$ALT^{tree}")" ]; then
+            echo "Nichts Neues zu sichern."
+          else
+            NEU=$(git -c user.name='brett-waechter' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit-tree "$TREE" -m "Brett-Sicherung $(date -u +%Y-%m-%dT%H:%MZ)")
+            kopf push --quiet --force-with-lease="refs/heads/zz-sicherung:$ALT" origin "$NEU:refs/heads/zz-sicherung"
+          fi
+          exit "$RC"
+      - name: Gedaechtnis ablegen
+        if: always()
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4.3.0
+        with:
+          path: ${{ runner.temp }}/brett-stand
+          key: brett-waechter-stand-${{ github.run_id }}-${{ github.run_attempt }}

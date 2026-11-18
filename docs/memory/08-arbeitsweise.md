@@ -18,9 +18,12 @@ was du nicht messen konntest und was dir einfaellt, gehoert aufs Brett
 (`node scripts/austausch.mjs hilfe`, Regeln: `docs/austausch/README.md`) —
 und der STATUS-Eintrag am Ende traegt zwei feste Zeilen: `**Offen:**` (mit
 `brett:<id>` oder „nichts") und `**Nicht geprüft:**`. `holen` zeigt zuerst DICH
-BETREFFEND (Halt auf deinen Dateien, Veto, nicht Gepushtes); eine Aufgabe nimmst du mit
-`nehme <id>`, einen Halt setzt `halt`, `naechste` endet unter einem Bump-Halt mit Exit 1
-(README „Der Schwarm").
+BETREFFEND (fremder Halt auf deinen Dateien, Veto gegen deinen Eintrag, Antworten und
+Lieferungen auf deine Fragen, nicht Gepushtes — „dein" heisst: von dir geschrieben, nicht: liegt
+in deinem Arbeitsbaum); eine Aufgabe nimmst du mit `nehme <id>` und gibst sie mit
+`lage --phase fertig` frei, einen Halt setzt `halt` (Funktionsnamen oder Pfade — nie
+`STATUS.md` oder `index.html` als Ganzes), `naechste` endet unter einem fremden Bump-Halt mit
+Exit 1 (README „Der Schwarm").
 
 Arbeite in einer **Kopie** (`tar --exclude=.git -cf - . | (cd KOPIE && tar -xf -)`),
 nie im Repo selbst, solange die Suite nicht gruen ist. Beide Dateien eines

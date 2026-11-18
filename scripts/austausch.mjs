@@ -16,7 +16,7 @@
 //   node scripts/austausch.mjs nehme <id> [--bis 6h]               # eine Aufgabe uebernehmen (eine Lage mit Bezug) — die AELTESTE Uebernahme gilt
 //   node scripts/austausch.mjs halt --geltung "index.html,bump" --bis 24h --text "…"   # Halt fuer den Schwarm (Pfade, Funktionsnamen, bump)
 //   node scripts/austausch.mjs veto <id> --text "…" [--bis 48h]    # Einspruch gegen eine Handlung · aufheben <id> --text "…"
-//   node scripts/austausch.mjs sichern --nach <ordner>             # NUR fuer den Waechter (.github/workflows/brett-waechter.yml)
+//   node scripts/austausch.mjs sichern --nach <ordner> [--gedaechtnis <datei>]   # NUR fuer den Waechter (.github/workflows/brett-waechter.yml); Exit 3 = Alarm
 //   node scripts/austausch.mjs hilfe [art]
 //
 // Anlass (10.11.2026, Fernando): „Alle Agenten müssen sich austauschen und die
@@ -42,7 +42,7 @@ const ende = (code, s) => { if (s) aus(s); process.exit(code); };
 //    ein unbekannter Schalter ist ein Fehler, kein stilles Nichts.
 const WERT = new Set(['titel', 'text', 'von', 'stand', 'beleg', 'stichwort', 'bezug', 'klasse', 'anker', 'zaehle', 'nutzen', 'pruefbar', 'an', 'haengt_daran',
   'vorschlag', 'regel', 'suchmuster', 'gesucht', 'instanz', 'waechter', 'ohne_waechter', 'ergebnis', 'wohin', 'geschwister', 'bewacht', 'details_bei', 'datum', 'art',
-  'dringlichkeit', 'phase', 'runde', 'bis', 'geltung', 'geliefert', 'nehme', 'nach']);
+  'dringlichkeit', 'phase', 'runde', 'bis', 'geltung', 'geliefert', 'nehme', 'nach', 'gedaechtnis']);
 const JA = new Set(['nur_lokal', 'alles', 'json', 'sicherheit', 'widerspricht', 'auch']);
 function argumente(liste) {
   const o = { _: [] };
@@ -76,6 +76,14 @@ function ich() {
   if (!b || b === 'HEAD' || b === 'main' || b === 'master') ende(2, 'Wer schreibt? Auf „' + (b || 'keinem Branch') + '" laesst sich das nicht ablesen — bitte --von "sitzung/<name>" (kein Personenname).');
   return 'sitzung/' + b;
 }
+// Lesen bricht nie ab: ohne erkennbaren Schreiber gibt es nur keine „eigenen" Eintraege.
+function ichVon() {
+  if (o.von) return String(o.von);
+  if (process.env.AUSTAUSCH_VON) return process.env.AUSTAUSCH_VON;
+  const b = (A.git(WURZEL, ['rev-parse', '--abbrev-ref', 'HEAD']) || '').trim();
+  return b && b !== 'HEAD' && b !== 'main' && b !== 'master' ? 'sitzung/' + b : null;
+}
+const schwarmVon = (b) => A.schwarm(b.eintraege, Date.now(), { wo: b.gitDa ? b.wo : null, ich: ichVon() });
 // Eine id darf abgekuerzt werden: die vier Zeichen am Ende reichen, wenn sie eindeutig sind.
 function finde(b, kennung) {
   kennung = String(kennung || '').trim();
@@ -104,25 +112,36 @@ const zeichen = { offen: ' ', beantwortet: '✓', geschlossen: '×', ersetzt: '�
 // ── Der Schwarm in der Ausgabe: zuerst, was DICH betrifft — nur wenn etwas zutrifft.
 function kopfName() { const n = (A.git(WURZEL, ['rev-parse', '--abbrev-ref', 'HEAD']) || '').trim(); return n && n !== 'HEAD' ? n : null; }
 function dichBetreffend(b, abl, sw, aend) {
-  const z = [], name = kopfName(), ichVon = name ? 'sitzung/' + name : null;
-  const hier = (e) => !e._quelle || e._quelle === 'Arbeitsbaum';
+  const z = [], name = kopfName(), ich0 = ichVon();
+  const hier = (e) => !e._quelle || e._quelle === 'Arbeitsbaum', meins = (e) => !!ich0 && e.von === ich0;
   for (const h of sw.halts) {
-    if (h.veto || hier(h.e)) continue;
+    if (h.veto || meins(h.e)) continue;
     const t = A.haltBeruehrt(h.e, aend);
     if (!t.length) continue;
-    const gesehen = h.antworten.some(hier);
-    z.push('HALT ' + h.e.id + ' {' + h.e._quelle + '} bis ' + uhr(h.bis) + ': ' + knapp(h.e.titel, 70) + ' — beruehrt ' + t.slice(0, 4).join(', ') + (gesehen ? '   [du hast geantwortet]' : '   → lies ihn (zeige ' + h.e.id.slice(-4) + '), dann warten, aufheben mit Grund oder antworten'));
+    const gesehen = h.antworten.some(meins);
+    z.push('HALT ' + h.e.id + ' {' + h.e._quelle + '} von ' + h.e.von + ' bis ' + uhr(h.bis) + ': ' + knapp(h.e.titel, 70) + ' — beruehrt ' + t.slice(0, 4).join(', ') + (gesehen ? '   [du hast geantwortet]' : '   → lies ihn (zeige ' + h.e.id.slice(-4) + '), dann warten, aufheben mit Grund oder antworten'));
   }
   for (const [ziel, hs] of sw.vetos) {
     const t = abl.proId.get(ziel);
-    if (!t || !(hier(t) || (ichVon && t.von === ichVon))) continue;
-    for (const h of hs) z.push('VETO ' + h.e.id + ' {' + h.e._quelle + '} bis ' + uhr(h.bis) + ' gegen deinen Eintrag ' + ziel + ': ' + knapp(h.e.text, 90));
+    if (!t || !meins(t)) continue;
+    for (const h of hs) if (!meins(h.e)) z.push('VETO ' + h.e.id + ' {' + h.e._quelle + '} von ' + h.e.von + ' bis ' + uhr(h.bis) + ' gegen deinen Eintrag ' + ziel + ': ' + knapp(h.e.text, 90));
   }
-  for (const [ziel, u] of sw.uebernahme) for (const l of u.auch) if (hier(l.e)) z.push('Deine Uebernahme von ' + ziel + ' gilt nicht: ' + u.lage.e.von + ' war zuerst (bis ' + uhr(u.lage.bis) + ')');
-  if (name && name.length >= 6) {
-    const an = b.eintraege.filter(e => !hier(e) && abl.zustand.get(e.id).z === 'offen' && A.textVon({ t: e.titel, s: e.stichworte }).indexOf(name) >= 0);
-    an.slice(0, 4).forEach(e => z.push('AN DICH ' + e.id + ' {' + e._quelle + '}: ' + knapp(e.titel, 100)));
+  for (const [ziel, u] of sw.uebernahme) for (const l of u.auch) if (meins(l.e)) z.push('Deine Uebernahme von ' + ziel + ' gilt nicht: ' + u.lage.e.von + ' war zuerst (bis ' + uhr(u.lage.bis) + ')');
+  // Antworten und Lieferungen auf DEINE Eintraege — der Weg „Agent sucht diese Datei, bitte hochladen" endet hier.
+  const antw = [];
+  for (const e of b.eintraege) {
+    if (!meins(e) || ['frage', 'befund', 'idee', 'klasse'].indexOf(e.art) < 0) continue;
+    for (const r of (abl.rueck.get(e.id) || [])) if (r.von.art === 'antwort' && !meins(r.von)) antw.push({ auf: e, x: r.von });
   }
+  antw.sort((p, q) => A.ordnung(q.x).localeCompare(A.ordnung(p.x)));
+  for (const { auf, x } of antw.slice(0, o.alles ? 1e9 : 6)) {
+    z.push('ANTWORT ' + x.id + ' {' + x._quelle + '} von ' + x.von + ' auf deine' + (auf.art === 'frage' ? ' Frage ' : 'n Eintrag ') + auf.id + ': ' + knapp(x.text || x.titel, 90));
+    for (const g of A.alsListe(x.geliefert)) z.push('  GELIEFERT ' + g.pfad + ' @ ' + String(g.commit).slice(0, 12) + '   → git fetch origin && git show ' + g.commit + ':' + g.pfad);
+  }
+  if (antw.length > 6 && !o.alles) z.push('… +' + (antw.length - 6) + ' weitere Antworten auf deine Eintraege — `--alles`');
+  // AN DICH: ausdruecklich (`an: sitzung/<branch>`) oder dein Branch-Name im Titel/in den Stichworten.
+  const an = b.eintraege.filter(e => !meins(e) && abl.zustand.get(e.id).z === 'offen' && ((ich0 && e.an === ich0) || (name && name.length >= 6 && A.textVon({ t: e.titel, s: e.stichworte }).indexOf(name) >= 0)));
+  an.slice(0, 4).forEach(e => z.push('AN DICH ' + e.id + ' {' + e._quelle + '} von ' + e.von + ': ' + knapp(e.titel, 100)));
   const nurHier = b.eintraege.filter(e => hier(e) && (b.wo.get(e.id) || new Set()).size === 1);
   if (b.gitDa && nurHier.length) z.push(nurHier.length + ' Eintrag/Eintraege liegen NUR in diesem Arbeitsbaum — nicht gepusht, mit dem Container weg: ' + nurHier.slice(0, 4).map(e => e.id).join(', '));
   if (name) {
@@ -136,18 +155,23 @@ function dichBetreffend(b, abl, sw, aend) {
 }
 function schwarmBloecke(b, abl, sw, inArbeit) {
   const offen = (e) => abl.zustand.get(e.id).z === 'offen';
-  const kritisch = b.eintraege.filter(e => offen(e) && (e.dringlichkeit === 'kritisch' || e.sicherheit === true)).sort((x, y) => A.ordnung(y).localeCompare(A.ordnung(x)));
+  const kritisch = b.eintraege.filter(e => offen(e) && e.dringlichkeit === 'kritisch' && !A.eintragPruefen(e, e._datei).length).sort((x, y) => A.ordnung(y).localeCompare(A.ordnung(x)));
   const dringend = b.eintraege.filter(e => offen(e) && e.dringlichkeit === 'dringend');
   if (kritisch.length || dringend.length) {
-    aus('\nKRITISCH (' + kritisch.length + ')' + (dringend.length ? ' · DRINGEND (' + dringend.length + ' — `--stichwort` oder `suche`)' : '') + ' — wer es aufnimmt: `nehme <id>`');
-    for (const e of kritisch.slice(0, o.alles ? 1e9 : 6)) aus('    ' + e.id + '  ' + knapp(e.titel, 100) + '   [' + arbeitsMarke(e, sw, inArbeit) + ']' + (e._quelle !== 'Arbeitsbaum' ? '   {' + e._quelle + '}' : ''));
+    aus('\nKRITISCH (' + kritisch.length + ')' + (dringend.length ? ' · DRINGEND (' + dringend.length + ' — in den Listen unten zuerst, oder `--dringlichkeit dringend`)' : '') + ' — wer es aufnimmt: `nehme <id>`');
+    for (const e of kritisch.slice(0, o.alles ? 1e9 : 6)) { const n = (abl.rueck.get(e.id) || []).filter(r => r.von.art === 'antwort').length; aus('    ' + e.id + '  ' + knapp(e.titel, 100) + '   [' + arbeitsMarke(e, sw, inArbeit) + (n ? ' · ' + n + ' Antwort(en)' : '') + ']' + (e._quelle !== 'Arbeitsbaum' ? '   {' + e._quelle + '}' : '')); }
     if (!o.alles && kritisch.length > 6) aus('    … +' + (kritisch.length - 6) + ' weitere — `--alles`');
+  }
+  if (sw.lagen.length) {
+    aus('\nLAGE (' + sw.lagen.length + ') — woran andere gerade arbeiten und bis wann (Selbstauskunft, an ihrem Branch geprueft)');
+    for (const l of sw.lagen.slice(0, o.alles ? 1e9 : 8)) aus('    ' + l.e.von + '   ' + l.e.phase.replace('_', ' ') + (l.e.runde ? ' ' + l.e.runde : '') + ', bis ' + uhr(l.bis) + '   „' + knapp(l.e.titel, 80) + '"');
+    if (!o.alles && sw.lagen.length > 8) aus('    … +' + (sw.lagen.length - 8) + ' weitere — `--alles`');
   }
   if (sw.halts.length) {
     aus('\nHALT UND VETO (' + sw.halts.length + ' wirksam) — eine Pflicht zur Kenntnisnahme, keine Sperre: lesen, dann warten, antworten oder mit Grund aufheben');
     for (const h of sw.halts.slice(0, o.alles ? 1e9 : 6)) aus('    ' + h.e.id + '  bis ' + uhr(h.bis) + '  ' + (h.veto ? 'VETO gegen ' + h.veto : 'Geltung: ' + (h.e.geltung || []).join(', ')) + ' — ' + knapp(h.e.titel, 80) + '   {' + h.e._quelle + '}' + (h.antworten.length ? '   [' + h.antworten.length + ' Antwort(en)]' : ''));
   }
-  if (sw.unwirksam.length) aus('  (' + sw.unwirksam.length + ' Halt/Lage UNWIRKSAM — ungueltig oder Zeit in der Zukunft: ' + sw.unwirksam.slice(0, 3).map(u => u.e.id + ' ' + knapp(u.grund, 60)).join(' · ') + ')');
+  if (sw.unwirksam.length) aus('  (' + sw.unwirksam.length + ' Halt/Lage UNWIRKSAM — ungueltig, Zeit in der Zukunft oder „von" passt nicht zum Branch: ' + sw.unwirksam.slice(0, 3).map(u => u.e.id + ' ' + knapp(u.grund, 60)).join(' · ') + ')');
 }
 function arbeitsMarke(e, sw, inArbeit) {
   const u = sw.uebernahme.get(e.id), g = inArbeit.get(e.id), m = [];
@@ -173,15 +197,16 @@ function lesen() {
   const b = brett(), abl = A.ableiten(b.eintraege), src = quelltext();
   if (o.json) return aus(JSON.stringify(b.eintraege.map(e => Object.assign({}, e, { zustand: abl.zustand.get(e.id).z, quelle: e._quelle })), null, 1));
   kopf(b, abl);
-  const jetzt = Date.now(), sw = A.schwarm(b.eintraege, jetzt);
-  const gefiltert0 = !!(o.art || o.stichwort || o.an);
+  const jetzt = Date.now(), sw = schwarmVon(b);
+  const gefiltert0 = !!(o.art || o.stichwort || o.an || o.dringlichkeit);
   const inArbeit = gefiltert0 || !b.gitDa ? new Map() : A.inArbeitAusGit(WURZEL, b.eintraege, jetzt, 14, b.wo);
   if (!gefiltert0) { dichBetreffend(b, abl, sw, A.eigeneAenderung(WURZEL)); schwarmBloecke(b, abl, sw, inArbeit); }
   let sicht = b.eintraege.filter(e => abl.zustand.get(e.id).z === 'offen');
   if (o.art) sicht = sicht.filter(e => e.art === o.art);
   if (o.stichwort) { const w = String(o.stichwort).toLowerCase(); sicht = sicht.filter(e => A.alsListe(e.stichworte).some(s => String(s).toLowerCase() === w)); }
   if (o.an) sicht = sicht.filter(e => String(e.an || '').toLowerCase() === String(o.an).toLowerCase());
-  const gefiltert = !!(o.art || o.stichwort || o.an), deckel = o.alles ? 1e9 : 12;
+  if (o.dringlichkeit) sicht = sicht.filter(e => e.dringlichkeit === o.dringlichkeit);
+  const gefiltert = gefiltert0, deckel = o.alles ? 1e9 : 12;
   if (!gefiltert) {
     // Was der Code ueber MEHRERE Eintraege hinweg sieht — nur wenn es etwas gibt.
     const an = A.anstoesse(b.eintraege, liesRel);
@@ -193,11 +218,13 @@ function lesen() {
     if (!o.alles && an.length > 10) aus('  … +' + (an.length - 10) + ' weitere — `--alles`');
   }
   const block = (titel, art) => {
-    const l = sicht.filter(e => e.art === art).sort((x, y) => A.ordnung(y).localeCompare(A.ordnung(x)));
+    const rang = (e) => e.dringlichkeit === 'kritisch' ? 0 : (e.dringlichkeit === 'dringend' ? 1 : 2);
+    const l = sicht.filter(e => e.art === art).sort((x, y) => rang(x) - rang(y) || A.ordnung(y).localeCompare(A.ordnung(x)));
     if (!l.length) return;
     aus('\n' + titel + ' (' + l.length + ')');
     for (const e of l.slice(0, deckel)) {
       const m = A.marken(e, abl, src), am = arbeitsMarke(e, sw, inArbeit);
+      if (e.dringlichkeit) m.unshift(e.dringlichkeit.toUpperCase());
       if (am !== 'niemand dran') m.push(am);
       aus('    ' + e.id + '  ' + knapp(e.titel, 104) + (m.length ? '   [' + m.join(' · ') + ']' : '') + (e._quelle !== 'Arbeitsbaum' ? '   {' + e._quelle + '}' : ''));
     }
@@ -214,9 +241,10 @@ function lesen() {
     if (fz && fz.length) {
       aus('\nFRISCHE BRANCHES (hoechstens 14 Tage alt) — hier arbeitet jemand parallel; sieh nach, bevor du dieselbe Stelle anfasst');
       // Die angekuendigte Absicht steht in der Zeile ihres Branches (keine eigene Liste).
-      const lageVon = (ref) => sw.lagen.find(l => (b.wo.get(l.e.id) || new Set()).has(ref));
-      fz.slice(0, 8).forEach(z => { const l = lageVon(z.ref); aus('    ' + z.ref + '   ' + (z.tage === 0 ? 'heute' : 'vor ' + z.tage + (z.tage === 1 ? ' Tag' : ' Tagen')) + '   „' + knapp(z.betreff, 90) + '"' + (l ? '   · Lage: ' + l.e.phase.replace('_', ' ') + (l.e.runde ? ' ' + l.e.runde : '') + ', bis ' + uhr(l.bis) : '')); });
-      if (fz.length > 8) aus('    … +' + (fz.length - 8) + ' weitere');
+      const lageVon = (ref) => sw.lagen.find(l => l.e.von === 'sitzung/' + ref.replace(/^[^/]+\//, ''));
+      fz.slice(0, o.alles ? 1e9 : 8).forEach(z => { const l = lageVon(z.ref); aus('    ' + z.ref + '   ' + (z.tage === 0 ? 'heute' : 'vor ' + z.tage + (z.tage === 1 ? ' Tag' : ' Tagen')) + '   „' + knapp(z.betreff, 90) + '"' + (l ? '   · Lage: ' + l.e.phase.replace('_', ' ') + (l.e.runde ? ' ' + l.e.runde : '') + ', bis ' + uhr(l.bis) : '')); });
+      if (!o.alles && fz.length > 8) aus('    … +' + (fz.length - 8) + ' weitere — `--alles`');
+      if (fz.zukunft && fz.zukunft.length) aus('    !! ' + fz.zukunft.length + ' Branch(es) mit Commit-Zeit in der Zukunft — nicht als frisch gezaehlt: ' + fz.zukunft.slice(0, 3).map(x => x.ref + ' (' + x.zeit.slice(0, 10) + ')').join(', '));
     }
     markenBlock(A.vergebeneMarken(WURZEL, Date.now(), 14), false);
     sicherungsZeile(b);
@@ -247,6 +275,9 @@ function markenBlock(m, ausfuehrlich) {
   if (m.hier.auchAuf.version.length) aus('  !! Dein Arbeitsbaum traegt ' + m.hier.version + ' — auch vergeben auf ' + m.hier.auchAuf.version.map(kurzRef).join(', ') + ' (andere Linie). Frei waere ' + m.naechsteVersion + '.');
   if (m.hier.auchAuf.kuerzel.length) aus('  !! Dein STATUS-Eintrag heisst (' + m.hier.kuerzel + ') — auch vergeben auf ' + m.hier.auchAuf.kuerzel.map(kurzRef).join(', ') + ' (andere Linie). Frei waere (' + m.naechstesKuerzel + ').');
   if (m.hier.ueberholt.version) aus('  !! Dein Arbeitsbaum traegt eine Version, die main schon fuer „' + knapp(m.hier.ueberholt.version, 70) + '" fuehrt. Frei waere ' + m.naechsteVersion + '.');
+  if (m.hier.version) aus('  (Dein Arbeitsbaum traegt schon ' + m.hier.version + ' — sie ist in „naechste freie" eingerechnet.)');
+  if (m.hier.kuerzel) aus('  (Dein juengster STATUS-Eintrag heisst schon (' + m.hier.kuerzel + ') — fuer einen WEITEREN Eintrag (' + m.naechstesKuerzel + ').)');
+  if (m.unplausibel && m.unplausibel.length) aus('  !! Nicht gezaehlt — mehr als ' + A.SPRUNG_MAX + ' Versionen ueber main (Tippfehler?): ' + m.unplausibel.map(u => kurzRef(u.ref) + ' ' + u.wert).join(', '));
   if (m.hier.ueberholt.kuerzel) aus('  !! Dein juengster STATUS-Eintrag nutzt ein Kuerzel, das auf main schon „' + knapp(m.hier.ueberholt.kuerzel, 70) + '" heisst. Frei waere (' + m.naechstesKuerzel + ').');
   if (ausfuehrlich) {
     for (const x of m.versionen.concat(m.kuerzel)) for (const l of x.linien) if (l.titel) aus('    ' + (x.wert[0] === 'v' ? x.wert : '(' + x.wert + ')') + '  ' + l.refs.map(kurzRef).join(', ') + '   „' + knapp(l.titel, 90) + '"');
@@ -259,8 +290,8 @@ function naechste() {
   if (m.grund) ende(2, 'Nicht rechenbar: ' + m.grund + '\n(erst `node scripts/austausch.mjs holen`)');
   markenBlock(m, true);
   // Vor einem Bump laeuft `naechste` ohnehin — hier wirkt ein Halt mit Geltung bump.
-  const b = brett(), sw = A.schwarm(b.eintraege, Date.now());
-  const bumpHalt = sw.halts.filter(h => !h.veto && (h.e.geltung || []).indexOf('bump') >= 0 && h.e._quelle !== 'Arbeitsbaum');
+  const b = brett(), sw = schwarmVon(b), ich0 = ichVon();
+  const bumpHalt = sw.halts.filter(h => !h.veto && (h.e.geltung || []).map(A.geltungNorm).indexOf('bump') >= 0 && !(ich0 && h.e.von === ich0));
   if (bumpHalt.length) {
     bumpHalt.forEach(h => aus('\n!! HALT fuer Bumps: ' + h.e.id + ' {' + h.e._quelle + '} bis ' + uhr(h.bis) + ' — ' + knapp(h.e.text, 160)));
     ende(1, '\nJetzt keine neue Version. Lies den Halt (zeige <id>); er endet ' + uhr(Math.min(...bumpHalt.map(h => h.bis))) + ' von selbst oder wird mit Grund aufgehoben.\nNichts geschrieben.');
@@ -273,12 +304,15 @@ function ganz(e, abl) {
   aus('\n' + String((A.ARTEN[e.art] || { wort: e.art + ' (unbekannte Art)' }).wort).toUpperCase() + '  ' + e.id + '   ' + z.z + (z.durch ? ' durch ' + z.durch.id : '') + '   {' + (e._quelle || 'Arbeitsbaum') + '}');
   aus('  ' + e.titel + '\n  von ' + e.von + ' · ' + e.datum + (e.zeit ? ' ' + e.zeit + ' UTC' : '') + (e.stand ? ' · Stand ' + e.stand : ''));
   const namen = { text: 'Text', beleg: 'Beleg', vorschlag: 'Vorschlag', nutzen: 'Nutzen', pruefbar: 'Pruefbar', an: 'An', haengt_daran: 'Haengt daran', regel: 'Regel', instanzen: 'Instanzen',
-    suchmuster: 'Suchmuster (Geschwister)', gesucht: 'Gesucht', ohne_waechter: 'Ohne Waechter', ergebnis: 'Ergebnis', wohin: 'Wohin', geschwister: 'Geschwister', bewacht: 'Bewacht von', details_bei: 'Einzelheiten bei', stichworte: 'Stichworte' };
+    suchmuster: 'Suchmuster (Geschwister)', gesucht: 'Gesucht', ohne_waechter: 'Ohne Waechter', ergebnis: 'Ergebnis', wohin: 'Wohin', geschwister: 'Geschwister', bewacht: 'Bewacht von', details_bei: 'Einzelheiten bei', stichworte: 'Stichworte',
+    dringlichkeit: 'Dringlichkeit', phase: 'Phase', runde: 'Runde', bis: 'Frist bis (UTC)', geltung: 'Geltung' };
   for (const k of Object.keys(namen)) {
     const v = e[k]; if (v == null || v === '' || (Array.isArray(v) && !v.length)) continue;
     if (Array.isArray(v)) { aus('  ' + namen[k] + ':'); v.forEach(x => aus('    - ' + x)); } else aus('  ' + namen[k] + ': ' + String(v).split('\n').join('\n    '));
   }
   A.alsListe(e.waechter).forEach(w => aus('  Waechter: ' + w.datei + ' · „' + w.fall + '"'));
+  A.alsListe(e.geliefert).forEach(g => aus('  Geliefert: ' + g.pfad + ' @ ' + g.commit + '   → git show ' + g.commit + ':' + g.pfad));
+  if (e.art === 'halt' || e.art === 'lage') { const w = A.wirksam(e, Date.now()); aus('  Wirkt jetzt: ' + (w.ok ? 'ja, bis ' + uhr(w.bis) : 'nein — ' + w.grund)); }
   if (e.sicherheit) aus('  Sicherheit: ja — Einzelheiten stehen bewusst nicht hier (public Repo)');
   const hier = !e._quelle || e._quelle === 'Arbeitsbaum';
   for (const x of A.ankerWirksam(e, abl.rueck)) { const t = A.messtext(x.datei, liesRel(x.datei)); aus('  Anker: ' + x.datei + ' :: ' + x.text + (hier ? (t == null ? '   ← DATEI FEHLT' : (t.indexOf(x.text) < 0 ? '   ← STEHT NICHT MEHR DA' : '')) : '')); }
@@ -446,7 +480,9 @@ function lageBefehl(ziele) {
   const b = brett(), zielE = (ziele || []).map(k => finde(b, k));
   const e = ausSchaltern('lage');
   e.phase = phase; if (!e.bis) e.bis = bisAus('6h');
-  if (zielE.length) e.bezug = zielE.map(z => ({ art: 'baut_auf', id: z.id }));
+  const bz = zielE.map(z => ({ art: 'baut_auf', id: z.id })).concat(bezuege(b));
+  if (bz.some(x => x.art !== 'baut_auf')) ende(2, 'Eine Lage traegt nur baut_auf:<id> (die Eintraege, die sie nimmt oder mit „fertig" freigibt).');
+  if (bz.length) e.bezug = bz;
   if (!e.titel) e.titel = (zielE.length ? 'Nehme: ' + knapp(zielE[0].titel, 140) : 'Lage: ' + phase.replace('_', ' ') + (e.runde ? ' (Runde ' + e.runde + ')' : ''));
   schreiben(e);
 }
@@ -454,7 +490,7 @@ function nehme() {
   if (!o._.length) ende(2, 'Gebrauch: node scripts/austausch.mjs nehme <id> [--bis 6h] [--text "…"]   (schreibt eine Lage mit Bezug baut_auf)');
   // Vorher holen: wer gleichzeitig nimmt, soll es sehen. Die AELTESTE Uebernahme gilt.
   const geholt = holenStill();
-  const b = brett(), sw = A.schwarm(b.eintraege, Date.now()), ich0 = ich();
+  const b = brett(), sw = schwarmVon(b), ich0 = ich();
   for (const k of o._) {
     const z = finde(b, k), u = sw.uebernahme.get(z.id);
     if (u && u.lage.e.von !== ich0 && !o.auch) ende(1, '\n' + z.id + ' ist schon uebernommen: ' + u.lage.e.von + ' (seit ' + u.lage.e.datum + ' ' + u.lage.e.zeit + ' UTC, bis ' + uhr(u.lage.bis) + ').\nDie aelteste Uebernahme gilt. Mithelfen statt uebernehmen: --auch (deine Lage steht dann daneben). Nichts geschrieben.');
@@ -466,6 +502,15 @@ function haltBefehl(vetoZiel) {
   if (o.datum) ende(2, 'Datum und Zeit eines Halts setzt das Werkzeug.');
   const b = brett(), e = ausSchaltern('halt');
   if (!e.bis) e.bis = bisAus(vetoZiel ? '48h' : '24h');
+  if (e.geltung) {
+    const fn = A.funktionsNamen(liesRel('index.html') || ''), dateien = new Set((A.git(WURZEL, ['ls-files']) || '').split('\n').filter(Boolean));
+    for (const g0 of e.geltung) {
+      const g = A.geltungNorm(g0), w = A.geltungFehler(g);
+      if (w) ende(2, 'geltung „' + g0 + '": ' + w);
+      if (/^[A-Za-z_$][\w$]*$/.test(g) && g !== 'bump' && !fn.has(g) && !dateien.has(g) && ![...dateien].some(d => d.indexOf(g + '/') === 0)) ende(2, 'geltung „' + g0 + '": weder eine Funktion in index.html noch eine Datei oder ein Ordner im Baum — der Halt traefe nie. Eine Datei in einem Ordner: mit Pfad (scripts/x_check.js).');
+    }
+    e.geltung = e.geltung.map(A.geltungNorm);
+  }
   if (vetoZiel) { const z = finde(b, vetoZiel); e.bezug = [{ art: 'widerspricht', id: z.id }].concat(bezuege(b)); if (!e.titel) e.titel = 'Veto gegen: ' + knapp(z.titel, 150); }
   else { const bz = bezuege(b); if (bz.length) e.bezug = bz; if (!e.titel) e.titel = 'Halt: ' + (e.geltung || []).join(', '); }
   schreiben(e);
@@ -480,19 +525,23 @@ function aufheben() {
   schreiben(e);
 }
 function sichern() {
-  if (!o.nach) ende(2, 'Gebrauch: node scripts/austausch.mjs sichern --nach <ordner>   (der Arbeitsbaum des Branches ' + A.SICHERUNG_ZWEIG + ' — das tut der Waechter, nicht eine Sitzung)');
+  if (!o.nach) ende(2, 'Gebrauch: node scripts/austausch.mjs sichern --nach <ordner> [--gedaechtnis <datei>]   (der Arbeitsbaum des Branches ' + A.SICHERUNG_ZWEIG + ' — das tut der Waechter, nicht eine Sitzung)');
   const ziel = path.resolve(String(o.nach));
   if (ziel === WURZEL || fs.existsSync(path.join(ziel, 'index.html'))) ende(2, '--nach zeigt auf das Repo selbst — die Sicherung gehoert in einen eigenen Arbeitsbaum (Branch ' + A.SICHERUNG_ZWEIG + ').');
-  const r = A.sicherungSchreiben(WURZEL, ziel);
+  const r = A.sicherungSchreiben(WURZEL, ziel, { stand: o.gedaechtnis ? path.resolve(String(o.gedaechtnis)) : null });
   if (r.grund) ende(2, 'Nicht gesichert: ' + r.grund);
   aus('## Brett-Waechter — Sicherung');
+  for (const a of r.alarm) aus('- **ALARM:** ' + a);
   aus('- ' + r.refs + ' Remote-Refs gelesen · neu gesichert: ' + r.neu.length + ' · schon gesichert: ' + r.gleich + (r.unlesbar ? ' · unlesbar (nicht gesichert): ' + r.unlesbar : ''));
+  if (o.gedaechtnis) aus(r.erstlauf ? '- Gedaechtnis neu angelegt (erster Lauf oder Cache abgelaufen) — ein Zuruecksetzen faellt ab dem naechsten Lauf auf.' : '- Gedaechtnis gelesen: nichts von dem, was zuletzt gesichert war, fehlte' + (r.fehlenInSicherung.length ? ' — AUSSER den oben genannten' : '') + '.');
   r.neu.slice(0, 40).forEach(x => aus('  - ' + x.id + ' {' + x.quelle + '} ' + knapp(x.titel, 90)));
   if (r.neu.length > 40) aus('  - … +' + (r.neu.length - 40) + ' weitere');
   if (r.abweichend.length) aus('- **Umgeschrieben?** ' + r.abweichend.length + ' Eintrag/Eintraege sehen anders aus als in der Sicherung (die Sicherung behaelt die erste Fassung): ' + r.abweichend.map(x => x.id + ' {' + x.quelle + '}').join(', '));
-  if (r.uebersprungen.length) aus('- **Nicht gesichert (Geheimnis?)**: ' + r.uebersprungen.map(x => x.id + ' {' + x.quelle + '} ' + x.grund).join(' · '));
+  if (r.strittig.length) aus('- **Strittig** (zwei Branches tragen verschiedene Fassungen, keine davon auf main — nicht neu gesichert): ' + r.strittig.join(', '));
+  if (r.uebersprungen.length) aus('- **Nicht gesichert**: ' + r.uebersprungen.map(x => x.id + ' {' + x.quelle + '} ' + x.grund).join(' · '));
   if (r.entfernt.length) aus('- Entfernt (Grabstein): ' + r.entfernt.join(', '));
   aus(r.nurHier.length ? '- **NUR NOCH IN DER SICHERUNG: ' + r.nurHier.length + '** — ein Branch wurde geloescht oder zurueckgesetzt: ' + r.nurHier.join(', ') + '. `node scripts/austausch.mjs ernten` holt in einen Arbeitsbaum, was dort stimmt.' : '- Nichts verloren: jede gesicherte id liegt noch auf einem Branch.');
+  if (r.alarm.length) process.exitCode = 3;
 }
 
 const BEISPIELE = {
@@ -509,7 +558,7 @@ function hilfe() {
   const art = o._[0];
   if (art && A.ARTEN[art]) {
     const a = A.ARTEN[art];
-    return aus('\n' + a.wort + ' — ' + a.sinn + '\n  Pflicht: titel' + (a.pflicht.length ? ', ' + a.pflicht.join(', ') : '') + (a.brauchtBezug ? ', ein Bezug (' + a.brauchtBezug.join(' / ') + ')' : '') + '   (id, datum, zeit, von, stand setzt das Werkzeug)\n  Beispiel: node scripts/austausch.mjs ' + BEISPIELE[art] + '\n  Alle Felder: docs/austausch/README.md\n\nNichts geschrieben.');
+    return aus('\n' + a.wort + ' — ' + a.sinn + '\n  Pflicht: titel' + (a.pflicht.length ? ', ' + a.pflicht.join(', ') : '') + (a.brauchtBezug ? ', ein Bezug (' + a.brauchtBezug.join(' / ') + ')' : '') + '   (id, datum, zeit, von, stand setzt das Werkzeug)' + (a.bedingt ? '\n  Bedingt: ' + a.bedingt : '') + '\n  Beispiel: node scripts/austausch.mjs ' + BEISPIELE[art] + '\n  Alle Felder: docs/austausch/README.md\n\nNichts geschrieben.');
   }
   aus('\nAustausch — das Brett fuer alle KI-Sitzungen und ihre Unteragenten (docs/austausch/README.md)\n');
   aus('  LESEN     node scripts/austausch.mjs [holen | zeige <id> | suche <wort> | klasse <wort> | naechste]   [--art x] [--stichwort x] [--an x] [--alles] [--json] [--nur-lokal]');

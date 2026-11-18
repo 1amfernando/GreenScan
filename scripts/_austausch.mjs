@@ -36,8 +36,8 @@ export const ARTEN = Object.assign(Object.create(null), {
   // ── Seit 18.11.2026 (Fernando: Fortschrittskontrolle, Halt und Veto). Beide tragen eine FRIST
   //    (`bis`), relativ zum eigenen Zeitstempel geprueft; ob sie JETZT wirken, rechnet nur das
   //    Werkzeug (`wirksam`), nie der Pruefstand — sonst haenge ein Fall an der Uhr.
-  lage:      { wort: 'Lage',         pflicht: ['phase', 'bis'], offenbar: false, sinn: 'woran eine Sitzung gerade arbeitet und bis wann: Phase (laeuft · letzte_runde · fertig), optional Runde „4/5"; mit Bezug baut_auf:<id> nimmt sie diesen Eintrag (Uebernahme)' },
-  halt:      { wort: 'Halt',         pflicht: ['text', 'bis'], offenbar: false, sinn: 'ein Halt fuer den Schwarm: Grund, Geltung (Pfade, Funktionsnamen, bump) und Frist; mit Bezug widerspricht:<id> ein VETO gegen diesen Eintrag. Eine Pflicht zur Kenntnisnahme, keine Sperre' },
+  lage:      { wort: 'Lage',         pflicht: ['phase', 'bis'], offenbar: false, bedingt: 'bezug baut_auf:<id> nur bei einer Uebernahme (hoechstens 3); „fertig" gibt sie frei — ohne Bezug alle, mit Bezug genau diese', sinn: 'woran eine Sitzung gerade arbeitet und bis wann: Phase (laeuft · letzte_runde · fertig), optional Runde „4/5"; mit Bezug baut_auf:<id> nimmt sie diesen Eintrag (Uebernahme)' },
+  halt:      { wort: 'Halt',         pflicht: ['text', 'bis'], offenbar: false, bedingt: 'geltung (Pfade, Funktionsnamen aus index.html, bump; nicht STATUS.md, nicht index.html als Ganzes) — ausser beim Veto (bezug widerspricht:<id>)', sinn: 'ein Halt fuer den Schwarm: Grund, Geltung (Pfade, Funktionsnamen, bump) und Frist; mit Bezug widerspricht:<id> ein VETO gegen diesen Eintrag. Eine Pflicht zur Kenntnisnahme, keine Sperre' },
 });
 export const BEZUEGE = Object.assign(Object.create(null), {
   baut_auf:     'nimmt den anderen Eintrag als Grundlage — so entsteht aus zwei Koepfen eine Idee',
@@ -49,11 +49,14 @@ export const BEZUEGE = Object.assign(Object.create(null), {
 });
 export const ERGEBNISSE = ['erledigt', 'verworfen', 'aufgestiegen', 'aufgehoben'];
 export const AN = ['alle', 'fernando', 'koordinator'];
+export const AN_SITZUNG = /^sitzung\/[A-Za-z0-9._\/-]{1,120}$/;
+export function anGueltig(a) { return AN.indexOf(a) >= 0 || AN_SITZUNG.test(String(a || '')); }
 export const DRINGLICHKEIT = ['kritisch', 'dringend'];
 export const PHASEN = ['laeuft', 'letzte_runde', 'fertig'];
 // Hoechstdauer je Art (ab dem eigenen Zeitstempel): eine Lage ist ein Arbeitsschub, ein Halt
 // eine Atempause — beides endet von selbst, auch wenn die Sitzung nie wiederkommt.
 export const FRIST_MAX_H = { lage: 24, halt: 72 };
+export const LAGE_NIMMT_MAX = 3;
 const LISTENFELDER = ['beleg', 'stichworte', 'instanzen', 'geltung'];
 const TEXTFELDER = ['titel', 'text', 'von', 'stand', 'zeit', 'nutzen', 'pruefbar', 'an', 'haengt_daran', 'vorschlag', 'regel', 'suchmuster',
   'gesucht', 'ohne_waechter', 'ergebnis', 'wohin', 'geschwister', 'bewacht', 'details_bei', 'dringlichkeit', 'bis', 'phase', 'runde'];
@@ -73,8 +76,25 @@ export const GRABSTEINE = 'docs/austausch/zurueckgezogen.json';
 // Die Sicherung des Waechters: ein Branch mit Z-Praefix. Er sortiert hinter allen anderen und wird
 // deshalb nur gelesen, wo kein Original mehr liegt (brettLesen liest main zuerst, dann alphabetisch).
 export const SICHERUNG_ZWEIG = 'zz-sicherung';
-export const istSicherungsRef = (ref) => /(^|\/)zz-/.test(String(ref || ''));
+// Genau DIESER eine Ref — nicht jeder Name mit „zz-“ (claude/zz-kalender-aufraeumen ist ein Arbeitszweig).
+export const istSicherungsRef = (ref) => new RegExp('(^|/)(refs/remotes/)?[^/]+/' + SICHERUNG_ZWEIG + '$').test(String(ref || ''));
+// Groesser ist kein Eintrag (der groesste vom 18.11.2026 hat 7 KB) — und eine 600-KB-Datei auf einem
+// fremden Branch legte `holen` fuer drei Minuten lahm (Gegenpruefung: quadratische Suche).
+export const EINTRAG_MAX_BYTES = 64 * 1024;
+export const NAME_FORM = /^(\d{4}-\d{2}-\d{2}-[0-9a-f]{4}(?:[0-9a-f]{4})?)-([a-z]+)-([a-z0-9-]*)\.json$/;
 export const BRETT_ZITAT = /\bbrett:(\d{4}-\d{2}-\d{2}-[0-9a-f]{4}(?:[0-9a-f]{4})?)\b/g;
+export function zitierteIds(text) { return new Set([...String(text || '').matchAll(BRETT_ZITAT)].map(m => m[1])); }
+// Wo Fernando liest: STATUS.md §2 und docs/FUER-FERNANDO.md — nicht der Rest von STATUS.md.
+export function fernandoText(statusText, fuerFernandoText) {
+  const st = String(statusText || ''), a2 = st.indexOf('\n## 2 '), e2 = a2 < 0 ? -1 : st.indexOf('\n## ', a2 + 5);
+  return (a2 < 0 ? '' : st.slice(a2, e2 < 0 ? undefined : e2)) + '\n' + String(fuerFernandoText || '');
+}
+// Kritisch erreicht Fernando: EINE Rechnung fuer den Pruefstand (A7, C11) und fuers Ernten.
+export function kritischOhneZitat(eintraege, wo) {
+  const abl = ableiten(eintraege), ids = zitierteIds(wo);
+  const kritisch = eintraege.filter(e => e.dringlichkeit === 'kritisch' && abl.zustand.get(e.id).z === 'offen');
+  return { kritisch, ohne: kritisch.filter(e => !ids.has(e.id)) };
+}
 // Namen, die wie App-Code aussehen — dieselbe Form, die robust_check „Memory" prueft.
 export const APP_NAME = /^(_?gs[A-Z]|dq[A-Z]|sb[A-Z]|GS_[A-Z]|_gs[a-z])[\w]*$/;
 
@@ -88,7 +108,8 @@ const GEHEIM = [
   [/\bgh[pousr]_[A-Za-z0-9]{20,}/, 'ein GitHub-Token'],
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, 'ein privater Schluessel'],
   [/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i, 'eine UUID (eine Nutzer- oder Datensatz-Kennung aus der Datenbank?)'],
-  [/[A-Za-z0-9._%+-]+@(?!users\.noreply\.github\.com|example\.(?:com|org)|anthropic\.com|greenscan\.ch)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/, 'eine E-Mail-Adresse'],
+  // Begrenzte Wiederholungen: mit „+" suchte das Muster in einem langen Text ohne @ quadratisch (600 KB: 3 min).
+  [/[A-Za-z0-9._%+-]{1,64}@(?!users\.noreply\.github\.com|example\.(?:com|org)|anthropic\.com|greenscan\.ch)[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){0,8}\.[A-Za-z]{2,24}/, 'eine E-Mail-Adresse'],
 ];
 
 export function slug(s) {
@@ -131,12 +152,22 @@ export function zeitpunkt(e) { if (!e || !datumGueltig(e.datum) || !/^\d{2}:\d{2
 // Was ein Halt anhalten darf: einen Pfad (Datei oder Verzeichnis mit /), einen Funktionsnamen oder
 // `bump` (keine neue Version). Kein `*`: ein Halt fuer alles, gesetzt von einer fluechtigen Sitzung,
 // haelt den ganzen Schwarm an, und niemand ist da, der ihn aufhebt.
-export function geltungFehler(g) {
-  g = String(g == null ? '' : g).trim();
-  if (!g) return 'leer';
+export function geltungNorm(g) { return String(g == null ? '' : g).trim().replace(/^(\.\/)+/, '').replace(/\/{2,}/g, '/'); }
+// Dateien, die (fast) jede Sitzung anfasst: eine Geltung darauf wirkt wie * (gemessen 17.11.2026:
+// von 16 frischen Branches aendern 12 STATUS.md und 12 index.html). Fuer die App: Funktionsnamen.
+export const ZU_BREIT = {
+  'STATUS.md': 'jede Sitzung schreibt dort ihren Eintrag (CLAUDE.md §5) — das wirkt wie *',
+  'index.html': 'die App als Ganzes wirkt wie * — Funktionsnamen nennen (z.B. gsEscHtml, _gsArtAnzeige)',
+};
+export function geltungFehler(g0) {
+  const g = geltungNorm(g0);
+  if (!g) return String(g0 == null ? '' : g0).trim() ? 'das ist das ganze Repo — wie *' : 'leer';
   if (g === 'bump') return null;
   if (/[*?]/.test(g)) return 'kein Platzhalter (* oder ?) — einen Pfad, einen Funktionsnamen oder bump nennen';
-  if (/^[A-Za-z_$][\w$]*$/.test(g)) return null;
+  if (g === '.' || g === '/' || /(^|\/)\.{1,2}(\/|$)/.test(g)) return 'das ist das ganze Repo oder ein Weg hinaus — wie *';
+  const b = g.replace(/\/+$/, '');
+  if (ZU_BREIT[b]) return ZU_BREIT[b];
+  if (/^[A-Za-z_$][\w$]*$/.test(g)) return null;   // ein Funktionsname ODER eine Datei ohne Punkt (_headers)
   if (imRepo(g) && /[/.]/.test(g)) return null;
   return 'weder bump noch ein Pfad im Repo noch ein Funktionsname';
 }
@@ -154,6 +185,7 @@ export function eintragPruefen(e, dateiname) {
   if (!datumGueltig(e.datum)) f.push('datum fehlt oder ist kein gueltiges JJJJ-MM-TT');
   else if (idOk && String(e.id).slice(0, 10) !== e.datum) f.push('id beginnt nicht mit dem datum');
   if (e.zeit != null && !/^\d{2}:\d{2}:\d{2}$/.test(String(e.zeit))) f.push('zeit hat nicht die Form HH:MM:SS');
+  else if (e.zeit != null && datumGueltig(e.datum) && zeitpunkt(e) == null) f.push('zeit ist keine Uhrzeit (' + e.zeit + ')');
   if (typeof e.von !== 'string' || !e.von.trim()) f.push('von fehlt (wer schreibt: Sitzung/Branch/Rolle — kein Personenname)');
   if (typeof e.titel !== 'string' || !e.titel.trim()) f.push('titel fehlt');
   else if (e.titel.length > TITEL_MAX) f.push('titel hat ' + e.titel.length + ' Zeichen (hoechstens ' + TITEL_MAX + ' — der Rest gehoert in text)');
@@ -195,7 +227,8 @@ export function eintragPruefen(e, dateiname) {
     if (v == null || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && !v.length)) f.push(art.wort + ' ohne „' + k + '"');
   }
   if (art.brauchtBezug && !alsListe(e.bezug).some(b => b && art.brauchtBezug.indexOf(b.art) >= 0)) f.push(art.wort + ' braucht einen Bezug der Art ' + art.brauchtBezug.join(' / '));
-  if (e.art === 'frage' && e.an != null && AN.indexOf(e.an) < 0) f.push('an: ' + AN.join(' oder '));
+  if (e.an != null && !anGueltig(e.an)) f.push('an: ' + AN.join(' · ') + ' oder sitzung/<branch>');
+  if (e.an != null && ['frage', 'befund', 'idee', 'halt'].indexOf(e.art) < 0) f.push('an gehoert an eine Frage, einen Befund, eine Idee oder einen Halt');
   if (e.art === 'abschluss') {
     if (e.ergebnis != null && ERGEBNISSE.indexOf(e.ergebnis) < 0) f.push('ergebnis: ' + ERGEBNISSE.join(' · '));
     if (e.ergebnis === 'verworfen' && !(e.text && e.text.trim())) f.push('verworfen ohne Grund (text)');
@@ -215,6 +248,7 @@ export function eintragPruefen(e, dateiname) {
     else {
       if (e.zeit == null) f.push(ARTEN[e.art].wort + ' braucht „zeit" — die Frist rechnet ab dem eigenen Zeitstempel');
       if (!BIS_FORM.test(String(e.bis || ''))) f.push('bis hat nicht die Form JJJJ-MM-TTTHH:MM:SSZ (UTC, mit Z)');
+      else if (isNaN(Date.parse(e.bis)) || new Date(Date.parse(e.bis)).toISOString().slice(0, 19) + 'Z' !== e.bis) f.push('bis ist kein Zeitpunkt (' + e.bis + ')');
       else {
         const t0 = zeitpunkt(e), t1 = Date.parse(e.bis);
         // Relativ zum EIGENEN Zeitstempel, nie zu „jetzt": sonst haenge der Pruefstand an der Uhr.
@@ -229,6 +263,8 @@ export function eintragPruefen(e, dateiname) {
   for (const [k, arten] of [['phase', ['lage']], ['runde', ['lage']], ['geltung', ['halt']], ['geliefert', ['antwort']]]) if (e[k] != null && arten.indexOf(e.art) < 0) f.push(k + ' gehoert an: ' + arten.map(a => ARTEN[a].wort).join(' / '));
   if (e.phase != null && PHASEN.indexOf(e.phase) < 0) f.push('phase: ' + PHASEN.join(' · '));
   if (e.runde != null && !/^\d{1,3}(\/\d{1,3})?$/.test(String(e.runde))) f.push('runde hat die Form „4" oder „4/5"');
+  if (e.art === 'lage' && alsListe(e.bezug).filter(b => b && b.art === 'baut_auf').length > LAGE_NIMMT_MAX) f.push('eine Lage nimmt hoechstens ' + LAGE_NIMMT_MAX + ' Eintraege — wer mehr nimmt, haelt sie fest, ohne daran zu arbeiten');
+  if ((e.art === 'lage' || e.art === 'halt') && alsListe(e.bezug).some(b => b && b.art === 'ersetzt')) f.push(ARTEN[e.art].wort + ' traegt kein „ersetzt" — ' + (e.art === 'halt' ? 'ein Halt wird mit Grund aufgehoben (aufheben <id>)' : 'eine Lage endet mit --phase fertig'));
   if (e.art === 'halt') {
     const veto = alsListe(e.bezug).some(b => b && b.art === 'widerspricht');
     if (!veto && !alsListe(e.geltung).length) f.push('ein Halt ohne Bezug widerspricht:<id> (Veto) braucht „geltung": Pfade, Funktionsnamen oder bump');
@@ -249,7 +285,9 @@ export function eintragPruefen(e, dateiname) {
     if (zuviel.length) f.push('sicherheit: true — nur Titel, Stichworte und „details_bei" stehen auf dem Brett (das Repo ist public); nicht: ' + zuviel.join(', '));
     if (!(e.details_bei && e.details_bei.trim())) f.push('sicherheit: true braucht „details_bei" (wo die Einzelheiten liegen)');
   }
-  const roh = textVon(e);
+  // Gesucht wird auch im ROHEN Text und im Dateinamen: bei doppelten JSON-Schluesseln behaelt
+  // JSON.parse nur den letzten Wert — das Geheimnis im ersten stand sonst unbemerkt in der Datei.
+  const roh = textVon(e) + '\n' + (e._roh || '') + '\n' + (e._datei || dateiname || '');
   for (const [re, was] of GEHEIM) if (re.test(roh)) f.push('enthaelt etwas, das wie ' + was + ' aussieht — das Repo ist public');
   // Ein Beleg, den niemand nachfahren kann, ist keiner: Pfade aus dem Arbeitsverzeichnis EINER Sitzung.
   if (/(^|[\s"'`(=:])\/(tmp|root|home|Users|var\/folders)\//.test(roh)) f.push('nennt einen Pfad, der nur auf einer Maschine stimmt (/tmp, /root, /home …) — Belege nennen Pfade im Repo oder den Befehl mit seiner Zahl');
@@ -261,8 +299,29 @@ export function git(wurzel, args) {
   try { return cp.execFileSync('git', ['-C', wurzel].concat(args), { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 }); }
   catch (_) { return null; }
 }
-function lies(roh, datei, quelle, unlesbar) {
+// Viele Blobs in EINEM Prozess, als Puffer (byte-gleich, auch ausserhalb von UTF-8).
+export function blobsLesen(wurzel, shas) {
+  const aus = new Map();
+  if (!shas.length) return aus;
+  let r;
+  try { r = cp.spawnSync('git', ['-C', wurzel, 'cat-file', '--batch'], { input: shas.join('\n') + '\n', maxBuffer: 1024 * 1024 * 1024 }); } catch (_) { return aus; }
+  if (!r || r.status !== 0 || !r.stdout) return aus;
+  const b = r.stdout;
+  let i = 0;
+  while (i < b.length) {
+    const nl = b.indexOf(10, i);
+    if (nl < 0) break;
+    const kopf = b.slice(i, nl).toString('utf8').split(' ');
+    if (kopf[1] !== 'blob') { i = nl + 1; continue; }   // „<sha> missing“
+    const n = Number(kopf[2]);
+    aus.set(kopf[0], b.slice(nl + 1, nl + 1 + n));
+    i = nl + 1 + n + 1;
+  }
+  return aus;
+}
+function lies(roh, datei, quelle, unlesbar, extra) {
   let e;
+  if (Buffer.byteLength(roh, 'utf8') > EINTRAG_MAX_BYTES) { unlesbar.push({ datei, quelle, grund: 'groesser als ' + (EINTRAG_MAX_BYTES / 1024) + ' KB — kein Eintrag' }); return null; }
   try { e = JSON.parse(roh); } catch (x) { unlesbar.push({ datei, quelle, grund: 'kein gueltiges JSON: ' + String(x.message).split('\n')[0] }); return null; }
   if (!e || typeof e !== 'object' || Array.isArray(e)) { unlesbar.push({ datei, quelle, grund: 'kein JSON-Objekt' }); return null; }
   // Ohne brauchbare id kann nichts auf den Eintrag zeigen und nichts ihn ordnen.
@@ -272,7 +331,11 @@ function lies(roh, datei, quelle, unlesbar) {
   // jede Rechnung abstuerzen lassen — und zwar in JEDER Sitzung, die den Branch liest.
   const ff = formFehler(e);
   if (ff) { unlesbar.push({ datei, quelle, grund: 'falsch geformt: ' + ff }); return null; }
-  for (const [k, v] of [['_datei', datei], ['_quelle', quelle], ['_roh', roh]]) Object.defineProperty(e, k, { value: v, enumerable: false });
+  // Der Name ist die Adresse: `<id>-<art>-<slug>.json`. Eine Datei, deren Name eine andere id
+  // traegt als ihr Inhalt, legte den Waechter dauerhaft lahm (EEXIST) und verwirrt jede Zuordnung.
+  const nm = String(datei).match(NAME_FORM);
+  if (!nm || nm[1] !== e.id || nm[2] !== e.art) { unlesbar.push({ datei, quelle, grund: 'Dateiname passt nicht zu id und art (erwartet ' + e.id + '-' + e.art + '-<slug>.json)' }); return null; }
+  for (const [k, v] of [['_datei', datei], ['_quelle', quelle], ['_roh', roh], ['_pfad', (extra && extra.pfad) || null], ['_blob', (extra && extra.blob) || null]]) Object.defineProperty(e, k, { value: v, enumerable: false });
   return e;
 }
 function formFehler(e) {
@@ -288,7 +351,7 @@ function formFehler(e) {
 }
 export function brettLesen(wurzel, opts) {
   opts = opts || {};
-  const aus = { eintraege: [], unlesbar: [], doppelt: [], abweichend: [], quellen: ['Arbeitsbaum'], gitDa: null, refs: 0, wo: new Map(), zurueckgezogen: 0 };
+  const aus = { eintraege: [], unlesbar: [], doppelt: [], abweichend: [], strittig: [], quellen: ['Arbeitsbaum'], gitDa: null, refs: 0, wo: new Map(), zurueckgezogen: 0, grabDateien: [] };
   const proId = new Map();
   // Wo liegt jede id? (Arbeitsbaum, jeder Ref) — VOR dem Ueberspringen gleicher Blobs festgehalten,
   // sonst laesst sich „nur auf EINEM Branch" gar nicht rechnen.
@@ -296,7 +359,7 @@ export function brettLesen(wurzel, opts) {
   const grab = grabsteine(wurzel, !!opts.alleRefs).ids;
   const nimm = (e) => {
     if (!e) return false;
-    if (grab.has(e.id)) { aus.zurueckgezogen++; return false; }
+    if (grab.has(e.id)) { aus.zurueckgezogen++; if (e._quelle === 'Arbeitsbaum') aus.grabDateien.push(e._datei); return false; }
     const vor = proId.get(e.id);
     if (!vor) { proId.set(e.id, e); aus.eintraege.push(e); return true; }
     if (vor._quelle === e._quelle) aus.doppelt.push({ id: e.id, dateien: [vor._datei, e._datei], quelle: e._quelle });
@@ -313,7 +376,7 @@ export function brettLesen(wurzel, opts) {
     else if (/\.json$/.test(n)) {
       let roh = null;
       try { roh = fs.readFileSync(p, 'utf8'); } catch (x) { aus.unlesbar.push({ datei: n, quelle: 'Arbeitsbaum', grund: 'nicht lesbar: ' + String(x.message).split('\n')[0] }); }
-      if (roh != null) { liegt(idAusName(n), 'Arbeitsbaum'); nimm(lies(roh, n, 'Arbeitsbaum', aus.unlesbar)); }
+      if (roh != null) { liegt(idAusName(n), 'Arbeitsbaum'); nimm(lies(roh, n, 'Arbeitsbaum', aus.unlesbar, { pfad: path.relative(wurzel, p).split(path.sep).join('/') })); }
     }
   } };
   if (fs.existsSync(dir)) liesOrdner(dir);
@@ -323,31 +386,51 @@ export function brettLesen(wurzel, opts) {
     const refs = git(wurzel, ['for-each-ref', '--format=%(refname)', 'refs/remotes']);
     aus.gitDa = refs != null;
     if (refs != null) {
-      // main zuerst: weicht ein Branch von main ab, gilt main.
-      const liste = refs.split('\n').map(s => s.trim()).filter(s => s && !/\/HEAD$/.test(s))
-        .sort((a, b) => (/\/main$/.test(b) ? 1 : 0) - (/\/main$/.test(a) ? 1 : 0) || a.localeCompare(b));
-      // Derselbe Blob ist derselbe Inhalt: einmal lesen genuegt. (Ohne das kostet das Lesen
-      // Branches × Eintraege git-Prozesse, sobald Branches von einem main mit Brett abzweigen.)
+      // main zuerst (weicht ein Branch von main ab, gilt main), die Sicherung ausdruecklich zuletzt:
+      // sie wird nur dort gelesen, wo kein Original mehr liegt.
+      const rang = (x) => /\/main$/.test(x) ? 0 : (istSicherungsRef(x) ? 2 : 1);
+      const liste = refs.split('\n').map(x => x.trim()).filter(x => x && !/\/HEAD$/.test(x)).sort((a, b) => rang(a) - rang(b) || (a < b ? -1 : a > b ? 1 : 0));
+      // Erst alle Baeume, dann EIN `git cat-file --batch` fuer alle Blobs (vorher ein Prozess je Blob:
+      // 3 000 Eintraege auf einem Branch kosteten 9 s). Derselbe Blob ist derselbe Inhalt.
+      const jeRef = [], blobs = [];
       const blobGesehen = new Set();
       for (const voll of liste) {
         const ref = voll.replace(/^refs\/remotes\//, '');
         aus.refs++;
-        // -z: Dateinamen mit Sonderzeichen kommen unveraendert an.
-        const ls = git(wurzel, ['ls-tree', '-r', '-z', voll, '--', ORDNER + '/']);
-        if (!ls) continue;
-        let neu = 0;
-        for (const zeile of ls.split('\0')) {
+        const ls = git(wurzel, ['ls-tree', '-r', '-z', voll, '--', ORDNER + '/']);   // -z: Sonderzeichen kommen unveraendert an
+        const z = [];
+        for (const zeile of (ls || '').split('\0')) {
           const m = zeile.match(/^\d+ blob ([0-9a-f]+)\t(.+\.json)$/);
-          if (m) liegt(idAusName(path.posix.basename(m[2])), ref);
-          if (!m || blobGesehen.has(m[1])) continue;
-          blobGesehen.add(m[1]);
-          const name = path.posix.basename(m[2]);
-          const roh = git(wurzel, ['cat-file', 'blob', m[1]]);
-          if (roh != null && nimm(lies(roh, name, ref, aus.unlesbar))) neu++;
+          if (!m) continue;
+          liegt(idAusName(path.posix.basename(m[2])), ref);
+          z.push({ blob: m[1], pfad: m[2] });
+          if (!blobGesehen.has(m[1])) { blobGesehen.add(m[1]); blobs.push(m[1]); }
+        }
+        jeRef.push({ ref, z });
+      }
+      const inhalt = blobsLesen(wurzel, blobs);
+      const gelesen = new Set();
+      for (const { ref, z } of jeRef) {
+        let neu = 0;
+        for (const x of z) {
+          if (gelesen.has(x.blob)) continue;
+          gelesen.add(x.blob);
+          const buf = inhalt.get(x.blob);
+          if (buf == null) continue;
+          if (nimm(lies(buf.toString('utf8'), path.posix.basename(x.pfad), ref, aus.unlesbar, { pfad: x.pfad, blob: x.blob }))) neu++;
         }
         if (neu) aus.quellen.push(ref + ' (+' + neu + ')');
       }
     }
+  }
+  // STRITTIG: dieselbe id in verschiedenen Fassungen, und keine liegt im Arbeitsbaum oder auf main.
+  // Dann entscheidet kein Alphabet (ein Branch „0-angriff“ gewann sonst gegen jeden anderen) — der
+  // Eintrag wird nicht gerechnet und genannt.
+  const strittigIds = new Set();
+  for (const x of aus.abweichend) if (x.gilt !== 'Arbeitsbaum' && !/(^|\/)main$/.test(x.gilt)) strittigIds.add(x.id);
+  if (strittigIds.size) {
+    for (const id of strittigIds) aus.strittig.push({ id, quellen: [...new Set(aus.abweichend.filter(x => x.id === id).flatMap(x => [x.gilt, x.weichtAb]))] });
+    aus.eintraege = aus.eintraege.filter(e => !strittigIds.has(e.id));
   }
   aus.eintraege.sort((a, b) => ordnung(a).localeCompare(ordnung(b)));
   return aus;
@@ -360,10 +443,12 @@ export function frischeZweige(wurzel, jetzt, tage) {
   if (roh == null) return null;
   const kopf = (git(wurzel, ['rev-parse', '--abbrev-ref', 'HEAD']) || '').trim();
   const aus = [];
+  aus.zukunft = [];   // Committer-Zeit in der Zukunft: sonst bliebe der Branch fuer immer „frisch“
   for (const z of roh.split('\n')) {
     const [voll, t, ...rest] = z.split('\t');
     const ref = String(voll || '').replace(/^refs\/remotes\//, '');
     if (!ref || /\/HEAD$/.test(ref) || /\/main$/.test(ref) || istSicherungsRef(ref) || ref.replace(/^[^/]+\//, '') === kopf) continue;
+    if (Number(t) * 1000 > jetzt + VORLAUF_MS) { aus.zukunft.push({ ref, zeit: new Date(Number(t) * 1000).toISOString() }); continue; }
     const alter = Math.floor((jetzt - Number(t) * 1000) / 864e5);
     if (alter <= tage) aus.push({ ref, tage: Math.max(0, alter), betreff: rest.join('\t') });
   }
@@ -378,6 +463,9 @@ export function frischeZweige(wurzel, jetzt, tage) {
 //    Gelesen werden nur sw.js (klein, traegt die Version, robust_check haelt sie mit
 //    GS_VERSION gleich) und der juengste Kopf in STATUS.md §0.
 const SW_VERSION = /\bVERSION\s*=\s*'gs-(v\d+\.\d+)'/;
+// Mehr als 20 Versionen ueber main ist kein Bump, sondern ein Tippfehler oder ein Angriff
+// (gemessen: ein Branch mit gs-v99.99 liess `naechste` fuer immer v100.00 empfehlen).
+export const SPRUNG_MAX = 20;
 const KOPF_KUERZEL = /^\d{4}-\d{2}-\d{2} \(([a-z]{1,3})\)/;
 export function versionNr(v) { const m = /^v(\d+)\.(\d+)$/.exec(String(v || '')); return m ? Number(m[1]) * 100 + Number(m[2]) : null; }
 function versionAus(n) { return 'v' + Math.floor(n / 100) + '.' + String(n % 100).padStart(2, '0'); }
@@ -450,7 +538,7 @@ export function vergebeneMarken(wurzel, jetzt, tage) {
   const vorfahr = (a, b) => git(wurzel, ['merge-base', '--is-ancestor', a, b]) != null;
   const eineLinie = (a, b) => vorfahr(a, b) || vorfahr(b, a);
   const zweige = frischeZweige(wurzel, jetzt, tage) || [];
-  const vGruppen = new Map(), kGruppen = new Map(), ueberholt = [], nachRef = [];
+  const vGruppen = new Map(), kGruppen = new Map(), ueberholt = [], nachRef = [], unplausibel = [];
   const dazu = (m, wert, eintrag) => { if (!m.has(wert)) m.set(wert, []); m.get(wert).push(eintrag); };
   for (const z of zweige) {
     const voll = 'refs/remotes/' + z.ref;
@@ -458,7 +546,8 @@ export function vergebeneMarken(wurzel, jetzt, tage) {
     let v = null, k = null;
     if (versionNr(m.version) != null) {
       const titel = refTitel(voll, m.version);
-      if (versionNr(m.version) > versionNr(basis.version)) { v = m.version; dazu(vGruppen, v, { ref: z.ref, voll, titel }); }
+      if (versionNr(m.version) > versionNr(basis.version) + SPRUNG_MAX) unplausibel.push({ ref: z.ref, wert: m.version });
+      else if (versionNr(m.version) > versionNr(basis.version)) { v = m.version; dazu(vGruppen, v, { ref: z.ref, voll, titel }); }
       else {
         // Gleich oder kleiner als main: nur ein Zusammenstoss, wenn main fuer DIESE Version einen
         // anderen Release traegt. Unbekannter Titel auf einer Seite: keine Behauptung.
@@ -477,6 +566,7 @@ export function vergebeneMarken(wurzel, jetzt, tage) {
   const linienAus = (liste) => {
     const eltern = liste.map((_, i) => i), wurzelVon = (i) => (eltern[i] === i ? i : (eltern[i] = wurzelVon(eltern[i])));
     for (let i = 0; i < liste.length; i++) for (let j = i + 1; j < liste.length; j++) {
+      if (wurzelVon(i) === wurzelVon(j)) continue;
       if ((liste[i].titel && liste[i].titel === liste[j].titel) || eineLinie(liste[i].voll, liste[j].voll)) eltern[wurzelVon(i)] = wurzelVon(j);
     }
     const proWurzel = new Map();
@@ -495,19 +585,20 @@ export function vergebeneMarken(wurzel, jetzt, tage) {
   const kopfMarken = markenAus(git(wurzel, ['show', 'HEAD:sw.js']), git(wurzel, ['show', 'HEAD:STATUS.md']));
   const eigeneLinie = (v, wert, art) => vorfahr(v, 'HEAD') || ((art === 'version' ? kopfMarken.version : kopfMarken.kuerzel) === wert && vorfahr('HEAD', v));
   const fremdeLinien = (g, titel, art) => !g ? [] : g.linien.filter((l, i) => !(titel && g._titel[i].indexOf(titel) >= 0) && !g._voll[i].some(v => eigeneLinie(v, g.wert, art))).map(l => l.refs).flat().sort();
-  const hierV = versionNr(hier.version) > versionNr(basis.version) ? hier.version : null;
+  const hierV = versionNr(hier.version) > versionNr(basis.version) && versionNr(hier.version) <= versionNr(basis.version) + SPRUNG_MAX ? hier.version : null;
   const hierK = hier.kuerzel && !mainKopf.has(hier.kuerzel) ? hier.kuerzel : null;
   const auchAuf = { version: fremdeLinien(versionen.find(x => x.wert === hierV), hierTitel, 'version'), kuerzel: fremdeLinien(kuerzel.find(x => x.wert === hierK), hierKopf, 'kuerzel') };
   const hierUeberholt = { version: null, kuerzel: null };
   if (hier.version && !hierV) { const mt = mainTitel(hier.version); if (hierTitel && mt && hierTitel !== mt) hierUeberholt.version = mt; }
   if (hier.kuerzel && mainKopf.has(hier.kuerzel) && hierKopf && mainKopf.get(hier.kuerzel) !== hierKopf) hierUeberholt.kuerzel = mainKopf.get(hier.kuerzel);
   for (const g of versionen.concat(kuerzel)) { delete g._voll; delete g._titel; }
-  const maxV = Math.max(versionNr(basis.version), ...versionen.map(x => versionNr(x.wert)));
-  const alleK = basis.alle.concat(kuerzel.map(x => x.wert)).sort(kuerzelVor);
+  // Die eigenen Marken zaehlen mit: wer (jg) schon traegt, bekommt fuer einen WEITEREN Eintrag (jh).
+  const maxV = Math.max(versionNr(basis.version), ...versionen.map(x => versionNr(x.wert)), hierV ? versionNr(hierV) : 0);
+  const alleK = basis.alle.concat(kuerzel.map(x => x.wert), hierK ? [hierK] : []).sort(kuerzelVor);
   return {
     basis: { version: basis.version, kuerzel: basis.kuerzel },
     hier: { version: hierV, kuerzel: hierK, auchAuf, ueberholt: hierUeberholt },
-    versionen, kuerzel, ueberholt: ueberholt.sort((a, b) => a.ref.localeCompare(b.ref) || a.art.localeCompare(b.art)), nachRef,
+    versionen, kuerzel, ueberholt: ueberholt.sort((a, b) => a.ref.localeCompare(b.ref) || a.art.localeCompare(b.art)), nachRef, unplausibel, zukunft: zweige.zukunft || [],
     naechsteVersion: versionAus(maxV + 1), naechstesKuerzel: alleK.length ? kuerzelNach(alleK[alleK.length - 1]) : null,
   };
 }
@@ -531,7 +622,7 @@ export function ableiten(eintraege) {
     // waehrend der Fehler in diesem Baum steht. „Verworfen" und „aufgestiegen" sind Aussagen
     // ueber die BEHAUPTUNG und gelten ueber alle Branches.
     const schluss = r.filter(x => x.art === 'schliesst' && x.von.art === 'abschluss');
-    const zu = schluss.find(x => x.von.ergebnis !== 'erledigt' || imBaum(x.von)), ers = r.find(x => x.art === 'ersetzt' && x.von.art === e.art);
+    const zu = schluss.find(x => x.von.ergebnis !== 'erledigt' || imBaum(x.von)), ers = (e.art === 'halt' || e.art === 'lage') ? null : r.find(x => x.art === 'ersetzt' && x.von.art === e.art);
     const anderswo = zu ? null : (schluss.find(x => x.von.ergebnis === 'erledigt') || {}).von || null;
     let z = 'offen', durch = null;
     if (zu) { z = 'geschlossen'; durch = zu.von; }
@@ -573,6 +664,7 @@ export function brettPruefen(brett) {
   const f = [];
   for (const u of brett.unlesbar) f.push({ wo: u.datei, grund: u.grund });
   for (const d of brett.doppelt) f.push({ wo: d.dateien.join(' + '), grund: 'dieselbe id ' + d.id + ' in zwei Dateien' });
+  for (const d of brett.grabDateien || []) f.push({ wo: d, grund: 'steht auf der Grabstein-Liste (' + GRABSTEINE + ') und liegt noch hier — die Datei gehoert entfernt (git rm)' });
   const proId = new Map(brett.eintraege.map(e => [e.id, e]));
   for (const e of brett.eintraege) {
     for (const g of eintragPruefen(e, e._datei)) f.push({ wo: e._datei || e.id, grund: g });
@@ -846,116 +938,195 @@ export function wirksam(e, jetzt) {
   if (t1 <= jetzt) return { ok: false, abgelaufen: true, grund: 'abgelaufen (' + e.bis + ')' };
   return { ok: true, bis: t1 };
 }
+// Nur ein GUELTIGER Eintrag wirkt auf einen anderen (Gegenpruefung: ein fremder Abschluss mit
+// Ergebnis „egal" hob jeden Halt auf).
+function gueltig(e, proId) { return !eintragPruefen(e, e._datei).length && !bezugsRegeln(e, proId).length; }
+// `von` ist freier Text — gegen die Quelle gehalten: eine Lage von „sitzung/<b>" zaehlt nur, wenn ihre
+// Datei auf <remote>/<b> liegt, oder im Arbeitsbaum, wenn <b> der eigene Branch ist. Sonst beendete
+// jeder mit einem fremden Namen und „fertig" die Uebernahme einer anderen Sitzung. Ohne `wo` (gebaute
+// Eintraege ohne git) wird nicht geprueft.
+export function vonPasst(e, wo, ich) {
+  if (!wo) return true;
+  const m = String(e.von || '').match(/^sitzung\/(.+)$/);
+  if (!m) return false;
+  const q = wo.get(e.id) || new Set();
+  return [...q].some(x => x !== 'Arbeitsbaum' && x.replace(/^[^/]+\//, '') === m[1]) || (q.has('Arbeitsbaum') && ich === e.von);
+}
+// Reihenfolge der Lagen: Zeit, bei gleicher Sekunde „fertig" zuletzt, dann die id.
+const lageOrd = (e) => String(e.datum) + 'T' + String(e.zeit) + (e.phase === 'fertig' ? '~' : ' ') + e.id;
+const nimmt = (e) => alsListe(e.bezug).filter(b => b && b.art === 'baut_auf').map(b => b.id);
 // Halts, Vetos, Lagen, Uebernahmen — mit AUSDRUECKLICHER Uhr. Nichts davon aendert `zustand`
 // (offen/geschlossen): die Faelle des Pruefstands haengen so nie an der Uhr.
-export function schwarm(eintraege, jetzt) {
-  const abl = ableiten(eintraege);
-  const halts = [], lagen = [], unwirksam = [];
+//   opts.wo  — Map id → Quellen (brettLesen), fuer die Pruefung von `von`
+//   opts.ich — „sitzung/<eigener Branch>"
+export function schwarm(eintraege, jetzt, opts) {
+  opts = opts || {};
+  const abl = ableiten(eintraege), proId = abl.proId;
+  const halts = [], unwirksam = [], gueltigeLagen = [];
+  // Ein Halt endet durch Ablauf oder einen GUELTIGEN Abschluss „aufgehoben" — nie durch `ersetzt`.
+  const aufgehoben = (e) => (abl.rueck.get(e.id) || []).some(x => x.art === 'schliesst' && x.von.art === 'abschluss' && x.von.ergebnis === 'aufgehoben' && gueltig(x.von, proId));
   for (const e of eintraege) {
     if (e.art !== 'halt' && e.art !== 'lage') continue;
-    const z = abl.zustand.get(e.id).z;
-    if (z === 'geschlossen' || z === 'ersetzt') continue;
+    if (e.art === 'halt' && aufgehoben(e)) continue;
+    if (e.art === 'lage' && !vonPasst(e, opts.wo, opts.ich)) { unwirksam.push({ e, grund: '„von" (' + e.von + ') passt nicht zum Branch, auf dem die Lage liegt' }); continue; }
     const w = wirksam(e, jetzt);
+    if (e.art === 'lage') {
+      // Ein „fertig" beendet auch nach seiner eigenen Frist — es haelt nichts, es beendet.
+      if (w.ok || (w.abgelaufen && e.phase === 'fertig')) gueltigeLagen.push({ e, bis: w.ok ? w.bis : Date.parse(e.bis), aktiv: w.ok });
+      else if (!w.abgelaufen) unwirksam.push({ e, grund: w.grund });
+      continue;
+    }
     if (!w.ok) { if (!w.abgelaufen) unwirksam.push({ e, grund: w.grund }); continue; }
-    if (e.art === 'halt') {
-      const veto = (alsListe(e.bezug).find(b => b && b.art === 'widerspricht') || {}).id || null;
-      halts.push({ e, bis: w.bis, veto, antworten: (abl.rueck.get(e.id) || []).filter(x => x.von.art === 'antwort').map(x => x.von) });
-    } else lagen.push({ e, bis: w.bis });
+    const veto = (alsListe(e.bezug).find(b => b && b.art === 'widerspricht') || {}).id || null;
+    halts.push({ e, bis: w.bis, veto, antworten: (abl.rueck.get(e.id) || []).filter(x => x.von.art === 'antwort').map(x => x.von) });
   }
-  // Je Schreiber gilt seine JUENGSTE Lage; „fertig" beendet sie.
+  // Je Schreiber: JEDE wirksame Lage mit baut_auf ist eine Uebernahme, bis eine spaetere „fertig"
+  // desselben Schreibers sie beendet (ohne Bezug: alle; mit Bezug: genau diese). Vorher galt nur die
+  // juengste Lage — wer seinen Fortschritt meldete oder ein zweites Ziel nahm, verlor das erste.
   const proVon = new Map();
-  for (const l of lagen.sort((a, b) => ordnung(a.e).localeCompare(ordnung(b.e)))) proVon.set(l.e.von, l);
-  const aktiv = [...proVon.values()].filter(l => l.e.phase !== 'fertig');
-  // Uebernahme = aktive Lage mit baut_auf:<id>. Mehrere auf dasselbe Ziel: die AELTESTE gilt — wer
-  // zuletzt schreibt, gewinnt sonst immer, und der Erste erfaehrt es nie.
+  for (const l of gueltigeLagen) { if (!proVon.has(l.e.von)) proVon.set(l.e.von, []); proVon.get(l.e.von).push(l); }
+  const ansprueche = [], lagen = [];
+  for (const liste of proVon.values()) {
+    liste.sort((a, b) => lageOrd(a.e).localeCompare(lageOrd(b.e)));
+    liste.forEach((l, i) => {
+      if (!l.aktiv || l.e.phase === 'fertig') return;   // ein „fertig" mit Bezug GIBT frei, es nimmt nicht
+      for (const ziel of nimmt(l.e)) {
+        const beendet = liste.slice(i + 1).some(f => f.e.phase === 'fertig' && (!nimmt(f.e).length || nimmt(f.e).indexOf(ziel) >= 0));
+        if (!beendet) ansprueche.push({ ziel, lage: l });
+      }
+    });
+    // Fortschritt: die juengste Lage des Schreibers; „fertig" beendet die Anzeige.
+    const neueste = liste[liste.length - 1];
+    if (neueste && neueste.aktiv && neueste.e.phase !== 'fertig') lagen.push(neueste);
+  }
+  // Mehrere Schreiber auf dasselbe Ziel: die AELTESTE Uebernahme gilt (Selbstauskunft — README).
   const uebernahme = new Map();
-  for (const l of aktiv.slice().sort((a, b) => ordnung(a.e).localeCompare(ordnung(b.e)))) for (const b of alsListe(l.e.bezug)) if (b && b.art === 'baut_auf') {
-    if (!uebernahme.has(b.id)) uebernahme.set(b.id, { lage: l, auch: [] }); else uebernahme.get(b.id).auch.push(l);
+  for (const a of ansprueche.sort((x, y) => lageOrd(x.lage.e).localeCompare(lageOrd(y.lage.e)))) {
+    if (!uebernahme.has(a.ziel)) uebernahme.set(a.ziel, { lage: a.lage, auch: [] });
+    else { const u = uebernahme.get(a.ziel); if (u.lage.e.von !== a.lage.e.von && !u.auch.some(x => x.e.von === a.lage.e.von)) u.auch.push(a.lage); }
   }
   const vetos = new Map();
   for (const h of halts) if (h.veto) { if (!vetos.has(h.veto)) vetos.set(h.veto, []); vetos.get(h.veto).push(h); }
-  return { halts, lagen: aktiv, uebernahme, vetos, unwirksam };
+  return { halts, lagen, uebernahme, vetos, unwirksam };
 }
 
-// Was hat DIESE Sitzung geaendert? Seit dem Abzweigen UND heute anders als main — sonst zaehlt ein
-// weiterbenutzter, squash-gemergter Branch alles mit, was laengst auf main liegt (gemessen: 240
-// Dateien statt 0). Fuer index.html auf FUNKTIONEN: 13 von 17 frischen Branches aendern die Datei,
-// eine Ueberschneidung auf Dateiebene waere die Zahl, die man zu ignorieren lernt (v32.21).
-export function funktionenImDiff(diff) {
-  const aus = new Set();
-  const name = (z) => { const x = z.match(/function\s+([A-Za-z_$][\w$]*)/) || z.match(/([A-Za-z_$][\w$]*)\s*[:=]\s*(?:async\s+)?function\b/); return x ? x[1] : null; };
-  // Der Kopf eines Hunks nennt die Funktion VOR seiner ersten Zeile. Beginnt der Hunk mit einer
-  // Deklaration, ist das die vorige Funktion — dann zaehlt nur die geaenderte Zeile selbst.
-  let kopf = null, erste = true;
-  const schliesse = () => { if (kopf) aus.add(kopf); kopf = null; };
-  for (const z of String(diff).split('\n')) {
-    if (z.slice(0, 2) === '@@') { schliesse(); kopf = name(z.replace(/^@@[^@]*@@/, '')); erste = true; continue; }
-    if ((z[0] === '+' || z[0] === '-') && z.slice(0, 3) !== '+++' && z.slice(0, 3) !== '---') {
-      const n = name(z.slice(1));
-      if (n) { aus.add(n); if (erste) kopf = null; }
-      erste = false;
-    }
-  }
-  schliesse();
+// Funktionen einer Aenderung aus ZEILENNUMMERN: fuer jede geaenderte Zeile die naechste vorausgehende
+// Deklaration im Vor- bzw. Nachbild — auch eingerueckte. Der Kopf eines git-Hunks kennt nur Zeilen in
+// Spalte 0; in index.html stehen ueber 370 eingerueckte Deklarationen (Gegenpruefung: eine Aenderung
+// in gsTastaturNachruesten hiess dort gsRegisterServiceWorker).
+const DEKLARATION = /^[ \t]*(?:async[ \t]+)?function[ \t*]+([A-Za-z_$][\w$]*)|^[ \t]*(?:window\.|var[ \t]+|let[ \t]+|const[ \t]+)?([A-Za-z_$][\w$]*)[ \t]*=[ \t]*(?:async[ \t]+)?function\b/;
+function deklarationen(text) {
+  const aus = [];
+  if (!text) return aus;
+  const z = text.split('\n');
+  for (let i = 0; i < z.length; i++) { const m = DEKLARATION.exec(z[i]); if (m) aus.push({ zeile: i + 1, name: m[1] || m[2] }); }
   return aus;
 }
-export function eigeneAenderung(wurzel) {
-  const MAIN = 'refs/remotes/origin/main';
-  if (git(wurzel, ['rev-parse', '--verify', '--quiet', MAIN]) == null) return { grund: 'origin/main ist nicht bekannt (erst `holen`)' };
-  const basis = (git(wurzel, ['merge-base', 'HEAD', MAIN]) || '').trim();
-  if (!basis) return { grund: 'kein gemeinsamer Vorfahr mit origin/main (flacher Klon? `git fetch --unshallow`)' };
+export function funktionsNamen(text) { return new Set(deklarationen(text).map(d => d.name)); }
+function umschliessend(dekl, zeile) {
+  let lo = 0, hi = dekl.length - 1, gef = null;
+  while (lo <= hi) { const mi = (lo + hi) >> 1; if (dekl[mi].zeile <= zeile) { gef = dekl[mi].name; lo = mi + 1; } else hi = mi - 1; }
+  return gef;
+}
+export function funktionenAusDiff(diff, altText, neuText) {
+  const alt = deklarationen(altText), neu = deklarationen(neuText), aus = new Set();
+  for (const m of String(diff).matchAll(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/gm)) {
+    const a = +m[1], an = m[2] == null ? 1 : +m[2], c = +m[3], cn = m[4] == null ? 1 : +m[4];
+    for (let i = 0; i < an; i++) { const n = umschliessend(alt, a + i); if (n) aus.add(n); }
+    for (let i = 0; i < cn; i++) { const n = umschliessend(neu, c + i); if (n) aus.add(n); }
+  }
+  return aus;
+}
+// Was hat DIESE Sitzung geaendert? Seit dem Abzweigen UND heute anders als main — sonst zaehlt ein
+// weiterbenutzter, squash-gemergter Branch alles mit, was laengst auf main liegt (gemessen: 240
+// Dateien statt 0). Fuer index.html auf FUNKTIONEN. `bump` nur, wenn die Version SEIT DEM ABZWEIGEN
+// geaendert ist — sonst „bumpte" jede Sitzung, hinter der main weitergezaehlt hat.
+//   opts.basis: eine feste Basis (im PR die Basis-Seite des Merge-Commits, waechterBasis) — dann ist sie
+//   zugleich „main"; sonst merge-base mit origin/main.
+export function eigeneAenderung(wurzel, opts) {
+  opts = opts || {};
+  let MAIN = 'refs/remotes/origin/main', basis;
+  if (opts.basis) { basis = opts.basis; MAIN = opts.basis; }
+  else {
+    if (git(wurzel, ['rev-parse', '--verify', '--quiet', MAIN]) == null) return { grund: 'origin/main ist nicht bekannt (erst `holen`)' };
+    basis = (git(wurzel, ['merge-base', 'HEAD', MAIN]) || '').trim();
+    if (!basis) return { grund: 'kein gemeinsamer Vorfahr mit origin/main (flacher Klon? `git fetch --unshallow`)' };
+  }
   const namen = (args) => new Set((git(wurzel, args) || '').split('\n').map(x => x.trim()).filter(Boolean));
   const neuDa = namen(['ls-files', '--others', '--exclude-standard']);
-  const seitBasis = namen(['diff', '--name-only', basis]), gegenMain = namen(['diff', '--name-only', MAIN]);
+  // --no-renames: bei einer Umbenennung zaehlen der alte UND der neue Name.
+  const seitBasis = namen(['diff', '--name-only', '--no-renames', basis]), gegenMain = namen(['diff', '--name-only', '--no-renames', MAIN]);
   neuDa.forEach(n => { seitBasis.add(n); gegenMain.add(n); });
   // Eintraege des Bretts beruehren nie einen Halt — sonst haelt ein Halt auch die Antwort darauf an.
   const dateien = [...seitBasis].filter(n => gegenMain.has(n) && n.indexOf('docs/austausch/') !== 0).sort();
-  const fa = funktionenImDiff(git(wurzel, ['diff', '-U0', basis, '--', 'index.html']) || ''), fm = funktionenImDiff(git(wurzel, ['diff', '-U0', MAIN, '--', 'index.html']) || '');
+  let funktionen = [];
+  if (dateien.indexOf('index.html') >= 0) {
+    let hier = null; try { hier = fs.readFileSync(path.join(wurzel, 'index.html'), 'utf8'); } catch (_) {}
+    const fa = funktionenAusDiff(git(wurzel, ['diff', '-U0', basis, '--', 'index.html']) || '', git(wurzel, ['show', basis + ':index.html']), hier);
+    const fm = funktionenAusDiff(git(wurzel, ['diff', '-U0', MAIN, '--', 'index.html']) || '', git(wurzel, ['show', MAIN + ':index.html']), hier);
+    funktionen = [...fa].filter(x => fm.has(x)).sort();
+  }
   const v = (t) => ((t || '').match(SW_VERSION) || [])[1] || null;
   let swHier = null; try { swHier = fs.readFileSync(path.join(wurzel, 'sw.js'), 'utf8'); } catch (_) {}
-  const vHier = v(swHier), vMain = v(git(wurzel, ['show', MAIN + ':sw.js']));
-  return { basis, dateien, funktionen: [...fa].filter(x => fm.has(x)).sort(), bump: !!(vHier && vMain && vHier !== vMain) };
+  const vHier = v(swHier), vMain = v(git(wurzel, ['show', MAIN + ':sw.js'])), vBasis = v(git(wurzel, ['show', basis + ':sw.js']));
+  return { basis, dateien, funktionen, bump: !!(vHier && vHier !== vBasis && vHier !== vMain) };
 }
-// Welche Geltung eines Halts beruehrt diese Aenderung?
+// Welche Geltung eines Halts beruehrt diese Aenderung? Ein Name ohne / und ohne Punkt kann eine
+// Funktion ODER eine Datei sein (`_headers`, `_redirects`) — beides zaehlt.
 export function haltBeruehrt(h, aend) {
   if (!aend || aend.grund) return [];
   const t = [];
   for (const g0 of alsListe(h.geltung)) {
-    const g = String(g0).trim();
+    const g = geltungNorm(g0);
     if (g === 'bump') { if (aend.bump) t.push('bump'); continue; }
-    if (/^[A-Za-z_$][\w$]*$/.test(g)) { if (aend.funktionen.indexOf(g) >= 0) t.push(g + '()'); continue; }
+    if (/^[A-Za-z_$][\w$]*$/.test(g) && aend.funktionen.indexOf(g) >= 0) t.push(g + '()');
     const pre = g.replace(/\/+$/, '');
     for (const d of aend.dateien) if (d === pre || d.indexOf(pre + '/') === 0) t.push(d);
   }
   return [...new Set(t)];
 }
 
-// Wer arbeitet laut git an einem offenen Eintrag? Niemand muss es melden: (a) sein Anker steht an der
-// Abzweigstelle eines frischen Branches noch, an dessen Spitze nicht mehr; (b) seine id steht in einer
-// Commit-Nachricht eines Branches, auf dem er nicht geschrieben wurde.
+// Wer arbeitet laut git an einem offenen Eintrag? Niemand muss es melden: (a) seine Stelle (der Anker)
+// wurde auf einem frischen Branch NACH dem Eintrag geaendert; (b) seine id steht in einer
+// Commit-Nachricht eines Branches, auf dem er nicht ANGELEGT wurde.
 export function inArbeitAusGit(wurzel, eintraege, jetzt, tage, wo) {
   const MAIN = 'refs/remotes/origin/main', aus = new Map();
   if (git(wurzel, ['rev-parse', '--verify', '--quiet', MAIN]) == null) return aus;
-  const { rueck, zustand } = ableiten(eintraege);
+  const { rueck, zustand, proId } = ableiten(eintraege);
   const offen = eintraege.filter(e => zustand.get(e.id).z === 'offen' && ['befund', 'idee', 'frage', 'klasse'].indexOf(e.art) >= 0);
   const offenIds = new Set(offen.map(e => e.id));
   const dazu = (id, ref, wie) => { if (!aus.has(id)) aus.set(id, []); if (!aus.get(id).some(x => x.ref === ref)) aus.get(id).push({ ref, wie }); };
-  const cache = new Map(), zeige = (rev, datei) => { const k = rev + ':' + datei; if (!cache.has(k)) cache.set(k, messtext(datei, git(wurzel, ['show', k]))); return cache.get(k); };
+  // Je BLOB einmal lesen: viele Branches teilen dieselbe Abzweigstelle.
+  const cache = new Map(), zeige = (rev, datei) => {
+    const blob = (git(wurzel, ['rev-parse', '--verify', '--quiet', rev + ':' + datei]) || '').trim();
+    if (!blob) return null;
+    if (!cache.has(blob)) cache.set(blob, messtext(datei, git(wurzel, ['cat-file', 'blob', blob])));
+    return cache.get(blob);
+  };
   for (const z of frischeZweige(wurzel, jetzt, tage) || []) {
     const voll = 'refs/remotes/' + z.ref, mb = (git(wurzel, ['merge-base', MAIN, voll]) || '').trim();
     if (!mb) continue;
-    // Squash-Merge: ein gemergter, stehengebliebener Branch unterscheidet sich nicht mehr von main —
-    // er arbeitet an nichts. Geaendert ist, was seit dem Abzweigen anders ist UND heute anders als main.
+    // Squash-Merge: ein gemergter, stehengebliebener Branch unterscheidet sich nicht mehr von main.
     const gegenMain = new Set((git(wurzel, ['diff', '--name-only', MAIN, voll]) || '').split('\n').filter(Boolean));
     if (!gegenMain.size) continue;
     const geaendert = new Set((git(wurzel, ['diff', '--name-only', mb, voll]) || '').split('\n').filter(n => n && gegenMain.has(n)));
     for (const e of offen) for (const a of ankerWirksam(e, rueck)) {
       if (!geaendert.has(a.datei)) continue;
       const vor = zeige(mb, a.datei), nach = zeige(voll, a.datei);
-      if (vor != null && vor.indexOf(a.text) >= 0 && (nach == null || nach.indexOf(a.text) < 0)) { dazu(e.id, z.ref, 'Stelle dort geaendert'); break; }
+      if (!(vor != null && vor.indexOf(a.text) >= 0 && (nach == null || nach.indexOf(a.text) < 0))) continue;
+      // Nur eine Aenderung NACH dem Eintrag ist Arbeit daran — sonst war die Stelle schon anders,
+      // als der Eintrag geschrieben wurde (Gegenpruefung: alle vier Marken am echten Brett).
+      const t0 = zeitpunkt(e) || Date.parse(e.datum + 'T00:00:00Z');
+      const ct = Number((git(wurzel, ['log', '-1', '--format=%ct', '-S' + a.text, mb + '..' + voll, '--', a.datei]) || '').trim());
+      if (!ct || ct * 1000 < t0 - 1000) continue;
+      dazu(e.id, z.ref, 'Stelle dort geaendert'); break;
     }
     for (const m of (git(wurzel, ['log', '--format=%B', mb + '..' + voll]) || '').matchAll(/\b(\d{4}-\d{2}-\d{2}-[0-9a-f]{4}(?:[0-9a-f]{4})?)\b/g)) {
-      if (!offenIds.has(m[1]) || (wo && wo.get(m[1]) && wo.get(m[1]).has(z.ref))) continue;
+      if (!offenIds.has(m[1])) continue;
+      // Ausgenommen ist nur der Branch, auf dem der Eintrag ANGELEGT wurde (an der Abzweigstelle
+      // lag er noch nicht) — wer ihn von main erbt, hat ihn nicht geschrieben.
+      const w = wo && wo.get(m[1]), e = proId.get(m[1]);
+      if (w && w.has(z.ref) && e && e._pfad && git(wurzel, ['cat-file', '-e', mb + ':' + e._pfad]) == null) continue;
       dazu(m[1], z.ref, 'im Commit genannt');
     }
   }
@@ -966,48 +1137,97 @@ export function inArbeitAusGit(wurzel, eintraege, jetzt, tage, wo) {
 //    merge-base mit origin/main, in CI die Basis-Seite des PR-Merge-Commits), nie gegen die
 //    bewegliche Spitze von main: gegen die waeren 15 von 17 frischen Branches rot gewesen, ohne
 //    etwas geloescht zu haben (gemessen 17.11.2026). Erlaubt: was auf der Grabstein-Liste steht.
+export function waechterBasis(wurzel, umgebung) {
+  const ist = (args) => { const x = git(wurzel, args); return x == null ? null : x.trim(); };
+  if ((umgebung || {}).GITHUB_EVENT_NAME === 'pull_request') {
+    const b = ist(['rev-parse', '--verify', '--quiet', 'HEAD^1']);
+    return b ? { basis: b, woher: 'HEAD^1 (Basis des PR-Merge-Commits)' } : { grund: 'HEAD^1 fehlt — actions/checkout braucht fetch-depth: 2' };
+  }
+  if (ist(['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/main']) == null) return { grund: 'origin/main ist nicht bekannt (`git fetch origin main`) — ohne Abzweigstelle laesst sich nicht sagen, was verschwunden ist' };
+  const b = ist(['merge-base', 'HEAD', 'refs/remotes/origin/main']);
+  if (!b) return { grund: 'kein gemeinsamer Vorfahr mit origin/main (flacher Klon)' };
+  // Basis == HEAD bei sauberem Baum: es gibt nichts, was verschwunden sein koennte — das ist keine Aussage.
+  const kopf = ist(['rev-parse', 'HEAD']), sauber = (git(wurzel, ['status', '--porcelain', '--', ORDNER]) || '').trim() === '';
+  if (b === kopf && sauber) return { leer: true, grund: 'keine Abzweigstelle: HEAD hat keinen eigenen Commit, und im Brett ist nichts geaendert — nichts kann verschwunden sein' };
+  return { basis: b, woher: 'merge-base(HEAD, origin/main)' };
+}
 export function geloeschtSeit(wurzel, basis) {
   const ls = git(wurzel, ['ls-tree', '-r', '-z', basis, '--', ORDNER + '/']);
   if (ls == null) return { grund: 'Basis ' + basis + ' ist nicht lesbar' };
   const grab = grabsteine(wurzel, false).ids, fehlt = [], anders = [];
   let n = 0;
-  for (const z of ls.split('\0')) {
-    const m = z.match(/^\d+ blob ([0-9a-f]+)\t(.+\.json)$/);
-    if (!m) continue;
+  const z = ls.split('\0').map(x => x.match(/^\d+ blob ([0-9a-f]+)\t(.+\.json)$/)).filter(Boolean);
+  const inhalt = blobsLesen(wurzel, z.map(m => m[1]));
+  for (const m of z) {
     n++;
-    let hier = null; try { hier = fs.readFileSync(path.join(wurzel, m[2]), 'utf8'); } catch (_) {}
+    let hier = null; try { hier = fs.readFileSync(path.join(wurzel, m[2])); } catch (_) {}
     if (hier == null) { if (!grab.has(idAusName(path.posix.basename(m[2])))) fehlt.push(m[2]); continue; }
-    const alt = git(wurzel, ['cat-file', 'blob', m[1]]);
-    if (alt != null && alt !== hier) anders.push(m[2]);
+    const alt = inhalt.get(m[1]);
+    if (alt != null && !alt.equals(hier)) anders.push(m[2]);
   }
   return { n, fehlt, anders };
 }
 
 // ── Die Sicherung: was der Waechter (eine Action, ohne Sitzung) stuendlich nach `zz-sicherung`
-//    schreibt. Byte-gleich, derselbe Pfad wie im Brett (dieselbe id ergibt dieselbe Datei — keine
-//    Dubletten), ohne Geheimnisse, ohne Grabsteine. Was NUR noch hier liegt, hat ein Branch verloren.
-export function sicherungSchreiben(wurzel, ziel) {
+//    schreibt. Byte-gleich (als Puffer), unter dem Namen, den die id vorgibt, ohne Geheimnisse, ohne
+//    Grabsteine, ohne strittige Fassungen. Was NUR noch hier liegt, hat ein Branch verloren.
+//    opts.stand: eine Datei AUSSERHALB der Sicherung (der Actions-Cache) — das Gedaechtnis des
+//    Waechters. Fehlt vor dem Lauf, was er zuletzt sicherte, wurde die Sicherung zurueckgesetzt.
+export function sicherungSchreiben(wurzel, ziel, opts) {
+  opts = opts || {};
   const brett = brettLesen(wurzel, { alleRefs: true });
-  const aus = { neu: [], gleich: 0, abweichend: [], uebersprungen: [], entfernt: [], nurHier: [], refs: brett.refs, unlesbar: brett.unlesbar.length };
+  const aus = { neu: [], gleich: 0, abweichend: [], uebersprungen: [], entfernt: [], nurHier: [], refs: brett.refs, unlesbar: brett.unlesbar.length,
+    strittig: brett.strittig.map(x => x.id), fehlenInSicherung: [], unwiederbringlich: [], neuVerloren: [], alarm: [], erstlauf: false };
   if (!brett.gitDa) return Object.assign(aus, { grund: 'git ist nicht verfuegbar' });
+  const eigeneRefs = brett.refs - ((git(wurzel, ['for-each-ref', '--format=%(refname)', 'refs/remotes']) || '').split('\n').some(istSicherungsRef) ? 1 : 0);
+  if (eigeneRefs < 2) return Object.assign(aus, { grund: 'hoechstens ein Branch sichtbar (' + eigeneRefs + ') — das Holen aller Branches hat nicht geklappt; nichts gesichert' });
   const grab = grabsteine(wurzel, true).ids, dir = path.join(ziel, ORDNER), vorhanden = new Map();
-  const liesOrdner = (d) => { if (!fs.existsSync(d)) return; for (const n of fs.readdirSync(d).sort()) { const p = path.join(d, n); if (fs.statSync(p).isDirectory()) liesOrdner(p); else if (/\.json$/.test(n) && idAusName(n)) vorhanden.set(idAusName(n), p); } };
+  // Was liegt schon in der Sicherung? Nach der id im INHALT (nicht im Namen).
+  const liesOrdner = (d) => { if (!fs.existsSync(d)) return; for (const n of fs.readdirSync(d).sort()) {
+    const p = path.join(d, n);
+    if (fs.statSync(p).isDirectory()) { liesOrdner(p); continue; }
+    if (!/\.json$/.test(n)) continue;
+    let id = null; try { id = JSON.parse(fs.readFileSync(p, 'utf8')).id; } catch (_) {}
+    if (!ID_FORM.test(String(id || ''))) id = idAusName(n);
+    if (id) vorhanden.set(id, p);
+  } };
   liesOrdner(dir);
+  const vorher = new Set(vorhanden.keys());
+  const neuBlobs = blobsLesen(wurzel, brett.eintraege.filter(e => e._blob && !vorhanden.has(e.id)).map(e => e._blob));
+  const bytes = (e) => e._blob ? (neuBlobs.get(e._blob) || blobsLesen(wurzel, [e._blob]).get(e._blob)) : (() => { try { return fs.readFileSync(path.join(wurzel, e._pfad)); } catch (_) { return null; } })();
   for (const e of brett.eintraege) {
     if (istSicherungsRef(e._quelle)) continue;
-    const geheim = GEHEIM.find(([re]) => re.test(textVon(e)));
+    const geheim = GEHEIM.find(([re]) => re.test(textVon(e) + '\n' + (e._roh || '') + '\n' + (e._datei || '')));
     if (geheim) { aus.uebersprungen.push({ id: e.id, quelle: e._quelle, grund: 'sieht aus wie ' + geheim[1] }); continue; }
     const p = vorhanden.get(e.id);
-    if (p) { let alt = null; try { alt = fs.readFileSync(p, 'utf8'); } catch (_) {} if (alt === e._roh) aus.gleich++; else aus.abweichend.push({ id: e.id, quelle: e._quelle }); continue; }
-    const neuP = path.join(dir, e.id.slice(0, 7), e._datei);
-    fs.mkdirSync(path.dirname(neuP), { recursive: true });
-    fs.writeFileSync(neuP, e._roh, { flag: 'wx' });
-    aus.neu.push({ id: e.id, quelle: e._quelle, titel: e.titel });
+    if (p) { const b = bytes(e); let alt = null; try { alt = fs.readFileSync(p); } catch (_) {} if (b && alt && alt.equals(b)) aus.gleich++; else aus.abweichend.push({ id: e.id, quelle: e._quelle }); continue; }
+    const b = bytes(e);
+    if (!b) { aus.uebersprungen.push({ id: e.id, quelle: e._quelle, grund: 'Inhalt nicht lesbar' }); continue; }
+    try {
+      const neuP = path.join(dir, e.id.slice(0, 7), e._datei);
+      fs.mkdirSync(path.dirname(neuP), { recursive: true });
+      fs.writeFileSync(neuP, b, { flag: 'wx' });
+      vorhanden.set(e.id, neuP);
+      aus.neu.push({ id: e.id, quelle: e._quelle, titel: e.titel });
+    } catch (x) { aus.uebersprungen.push({ id: e.id, quelle: e._quelle, grund: 'nicht geschrieben: ' + String(x.message).split('\n')[0] }); }   // ein Eintrag haelt nie den ganzen Lauf an
   }
-  for (const [id, p] of vorhanden) {
-    if (grab.has(id)) { fs.unlinkSync(p); aus.entfernt.push(id); continue; }
+  for (const [id, p] of [...vorhanden]) {
+    if (grab.has(id)) { try { fs.unlinkSync(p); } catch (_) {} vorhanden.delete(id); aus.entfernt.push(id); continue; }
     const w = brett.wo.get(id);
     if (!(w && [...w].some(q => !istSicherungsRef(q)))) aus.nurHier.push(id);
+  }
+  if (opts.stand) {
+    let alt = null; try { alt = JSON.parse(fs.readFileSync(opts.stand, 'utf8')); } catch (_) {}
+    if (alt && Array.isArray(alt.ids)) {
+      aus.fehlenInSicherung = alt.ids.filter(id => !vorher.has(id) && !grab.has(id));
+      aus.unwiederbringlich = aus.fehlenInSicherung.filter(id => !vorhanden.has(id));
+      const vorherNur = new Set(Array.isArray(alt.nurHier) ? alt.nurHier : []);
+      aus.neuVerloren = aus.nurHier.filter(id => !vorherNur.has(id));
+      if (aus.fehlenInSicherung.length) aus.alarm.push('Die Sicherung wurde zurueckgesetzt oder geloescht: ' + aus.fehlenInSicherung.length + ' gesicherte Eintraege fehlten vor diesem Lauf' + (aus.unwiederbringlich.length ? ', davon ' + aus.unwiederbringlich.length + ' auf keinem Branch mehr (verloren): ' + aus.unwiederbringlich.join(', ') : ' (alle wieder gesichert)'));
+      if (aus.neuVerloren.length) aus.alarm.push('Ein Branch wurde geloescht oder zurueckgesetzt: ' + aus.neuVerloren.length + ' Eintraege liegen nur noch in der Sicherung: ' + aus.neuVerloren.join(', '));
+    } else aus.erstlauf = true;
+    fs.mkdirSync(path.dirname(path.resolve(opts.stand)), { recursive: true });
+    fs.writeFileSync(opts.stand, JSON.stringify({ stand: new Date().toISOString(), ids: [...vorhanden.keys()].sort(), nurHier: aus.nurHier.slice().sort() }, null, 1) + '\n');
   }
   return aus;
 }
@@ -1109,11 +1329,14 @@ export function ernten(wurzel) {
   const brett = brettLesen(wurzel, { alleRefs: true }), dir = path.join(wurzel, ORDNER);
   const liesRoh = (rel) => { try { return fs.readFileSync(path.join(wurzel, rel), 'utf8'); } catch (_) { return null; } }, liesRel = leser(liesRoh);
   const imTree = new Set(brett.eintraege.filter(imBaum).map(e => e.id)), proId = new Map(brett.eintraege.map(e => [e.id, e]));
+  const zitiert = zitierteIds(fernandoText(liesRoh('STATUS.md'), liesRoh('docs/FUER-FERNANDO.md')));
   const geholt = [], uebergangen = brett.unlesbar.filter(u => u.quelle !== 'Arbeitsbaum').map(u => ({ id: u.datei, quelle: u.quelle, grund: u.grund }));
   let kand = [];
   for (const e of brett.eintraege) {
     if (imBaum(e)) continue;
     let grund = eintragPruefen(e, e._datei)[0] || bezugsRegeln(e, proId)[0] || null;
+    if (!grund && (e.art === 'halt' || e.art === 'lage')) grund = ARTEN[e.art].wort + ' ist eine Absicht von ' + e.von + ' auf Zeit, kein Wissen — er wirkt von seinem Branch aus und kommt nicht mit';
+    if (!grund && e.dringlichkeit === 'kritisch' && !zitiert.has(e.id)) grund = 'kritisch, aber in diesem Baum nicht an Fernando weitergegeben — erst eine Zeile mit brett:' + e.id + ' in STATUS.md §2, dann ernten (sonst wird austausch_check A7 rot)';
     if (!grund && e.art === 'abschluss' && e.ergebnis === 'erledigt') grund = '„erledigt" beschreibt den Baum von ' + e._quelle + ' — es kommt mit dessen Merge, nicht durch Ernten';
     if (!grund && e.art === 'antwort' && (alsListe(e.anker).length || alsListe(e.zaehle).length)) grund = 'ein Nachtrag mit Anker oder Zaehlung beschreibt den Baum von ' + e._quelle;
     if (!grund) for (const a of alsListe(e.anker)) { const t = liesRel(a.datei); if (t == null || t.indexOf(a.text) < 0) { grund = 'sein Anker steht in diesem Baum nicht (' + a.datei + ') — er beschreibt ' + e._quelle; break; } }
