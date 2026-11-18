@@ -63,6 +63,27 @@ jobs:
           git config remote.origin.promisor true
           git config remote.origin.partialclonefilter 'blob:limit=200k'
           git fetch --quiet --no-tags --depth=1 --filter=blob:limit=200k origin '+refs/heads/*:refs/remotes/origin/*' || echo "::warning::Branches nicht geholt — A8 sieht nur Halts im Baum"
+          # zz-sicherung zusaetzlich OHNE Filter (Gegenpruefung 5b, R5b-fassungen-1): ihr Verzeichnis (sicherung.json) waechst mit
+          # jeder gesicherten Fassung — gemessen 900 gesicherte Befunde: 272 KB, also ueber 200k (C33). Fehlt es, ist jeder gesicherte und danach
+          # berichtigte Halt strittig, und A8 ist „nicht pruefbar". --refetch, weil der Ref nach dem Abruf oben schon „aktuell" ist
+          # (ohne holte git nichts); --no-auto-maintenance: kein Umpacken des ganzen Abrufs. Nur, wenn es den Branch gibt.
+          if git rev-parse --verify --quiet refs/remotes/origin/zz-sicherung >/dev/null; then
+            git fetch --quiet --no-tags --depth=1 --no-filter --refetch --no-auto-maintenance origin '+refs/heads/zz-sicherung:refs/remotes/origin/zz-sicherung' || echo "::warning::zz-sicherung nicht ohne Filter geholt — ein Verzeichnis ueber 200 KB fehlt, A8 ist bei berichtigten gesicherten Halts nicht pruefbar"
+          fi
+      # Die Geschichte dazu (austausch_check A10, Gegenpruefung 5b, R5b-identitaet-0): wann eine Lage oder ein Halt auf dem
+      # Branch seines Schreibers ankam, rechnet das Brett aus dessen GESCHICHTE — im flachen Abruf oben gibt es keine, und eine
+      # um 15 h rueckdatierte eigene Lage war in A10 gruen (gemergt misst auf main niemand mehr nach). --unshallow ergaenzt JEDE
+      # flache Grenze, auch die des Merge-Commits aus actions/checkout; derselbe Filter wie oben (Eintraege und ihre aelteren
+      # Fassungen sind klein, index.html bleibt weg). zz-sicherung bleibt aussen vor (negative Refspec): ihr Ref bleibt der Stand
+      # aus dem Schritt oben — zoege der Waechter dazwischen nach, kaeme der neue Stand hier mit dem Filter, und ein Verzeichnis
+      # ueber 200 KB fehlte. Ihre Wurzel wird trotzdem vollstaendig (--unshallow ergaenzt jede Grenze, die der Klon meldet).
+      # Gemessen 18.11.2026 am echten origin (PR 329): 3 s, 16 → 22 MB, danach `git rev-parse --is-shallow-repository` = false.
+      # Scheitert er, sagt A10 „nicht pruefbar" (nie still ok).
+      - name: Geschichte fuer das Brett (nur lesend)
+        run: |
+          if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
+            git fetch --quiet --no-tags --filter=blob:limit=200k --unshallow origin '+refs/heads/*:refs/remotes/origin/*' '^refs/heads/zz-sicherung' || echo "::warning::Geschichte nicht geholt — A10 ist fuer Lagen und Halts im Baum nicht pruefbar"
+          fi
       - name: psql + python
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client python3
       # v33.49: apk_check baut das Android-Paket WIRKLICH und sieht darin nach.
