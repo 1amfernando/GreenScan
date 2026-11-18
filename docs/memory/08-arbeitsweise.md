@@ -30,6 +30,12 @@ fremdem Namen (Pruefstand A10). Eine Identitaet ist genau EIN Ref (`origin/main`
 oder ein Feld — nie ein Muster oder ein Titel (CLAUDE.md §5, Runde 3).
 Ein Upstream ist nur nach einem im Reflog belegten `git branch -m` ein eigener Name; was im
 Teilabruf fehlt (Datei, Baum, Ankunft), heisst „nicht rechenbar" mit Quelle, nie „leer" (Runde 4).
+Konvergiert eine gegnerische Pruefung nicht, hilft keine weitere Runde, sondern ein Schutzziel mit
+Rangfolge, festgelegt VOR der zweiten Runde: (1) ehrlich Geschriebenes geht nie still verloren,
+(2) nicht rechenbar → sagen und die sichere Richtung nehmen, (3) Faelschungen erkennen, wo es geht —
+verhindern kann sie nur ein Branch-Schutz. Danach prueft der Skeptiker nur noch: haelt die Reparatur,
+bricht sie Richtiges, laesst sich ein TEIL ausbauen, ohne dass ein Fall rot wird. Was bleibt, ist eine
+benannte Grenze mit Zahl (CLAUDE.md §5, Runden 5–5d).
 
 Arbeite in einer **Kopie** (`tar --exclude=.git -cf - . | (cd KOPIE && tar -xf -)`),
 nie im Repo selbst, solange die Suite nicht gruen ist. Beide Dateien eines

@@ -1283,6 +1283,23 @@ bis `lage --phase fertig`). Dringlichkeit, Lage, Halt/Veto, Wächter und die Sic
 > sieht nicht, welchen ANDEREN Fall die Reparatur bricht** — erst die volle Suite fand zwei: C12 baute seine
 > nachrangige Übernahme über genau den Weg, den die Reparatur schloss; und die Frage nach einem gelöschten
 > Branch, die jetzt seine Commits nennt, trug dabei wieder den Push-Befehl, den Runde 4 aus ihr entfernt hatte.
+>
+> **Eine Prüfung, die nicht konvergiert, braucht ein Schutzziel — keine sechste Runde** (18.11.2026, Runden 5
+> bis 5d — 56 Funde, dann 23, 14 und 17). Jede Reparaturrunde riss kleinere Lücken, als sie schloss, und einige
+> in genau der Klasse, die sie schliessen sollte: die gerechte Frist je Branch machte aus 25 ehrlichen Branches
+> eine Klippe (`naechste` endete jedes Mal mit Exit 2, wo vorher EIN Abruf reichte); die strengere
+> Rückzugs-Regel verlor einen ehrlichen Rückzug, sobald eine Kopie auf einem dritten Branch lag; die neue
+> Auskunft „für die anderen wirkt er NICHT" stand auch unter einem abgelaufenen Halt. Konvergiert hat es erst
+> mit einer Rangfolge, an der jede Abwägung gemessen wurde: (1) ein ehrlicher Eintrag geht nie still verloren,
+> (2) was sich nicht rechnen lässt, sagt es und nimmt die sichere Richtung, (3) Fälschungen werden erkannt, wo
+> es geht — verhindern kann sie nur ein Branch-Schutz. **Wer gegnerisch prüft, legt VOR der zweiten Runde fest,
+> was geschützt wird und was als benannte Grenze stehen darf** — sonst findet jede Runde die Grenzen der
+> letzten. Ab dann fragt der Skeptiker nur drei Dinge: hält die Reparatur, bricht sie etwas, das vorher richtig
+> lief, und lässt sich ein TEIL von ihr ausbauen, ohne dass ein Fall rot wird (nach 5c waren es neun Teile —
+> **eine Gegenprobe je Reparatur ist nicht eine je Teil**). Zwei Bauformen daraus: **eine gerecht verteilte
+> Frist ist eine Klippe** (erst EIN Abruf, dann halbieren, wenn er hängt), und **ein Werkzeug, das einen
+> Konflikt auflöst, kann still den Schluss eines Falls verschlucken** — `node --check` und der Vergleich jedes
+> Falls mit seiner Einzelfassung VOR dem Commit, nicht in derselben Befehlskette danach.
 
 **Und noch einmal VOR dem Bump** (`git fetch origin main`, `git log HEAD..origin/main`; `naechste`
 holt seit 18.11.2026 selbst alle Branches — ein fremder Bump-Halt liegt auf einem fremden Branch,
