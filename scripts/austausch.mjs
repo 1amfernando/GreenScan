@@ -85,21 +85,35 @@ function ichVon() {
   const b = zweig.name;
   return b && b !== 'main' && b !== 'master' ? 'sitzung/' + b : null;
 }
+// Alle Namen, die „ich" sind: der lokale Branch — und nach `git branch -m` auch der Name, unter dem der Branch
+// auf origin liegt (der Upstream). Vorher spaltete sich die Identitaet: der eigene Halt sperrte den eigenen
+// Bump, Antworten darauf verschwanden (Gegenpruefung 3). Mit --von / AUSTAUSCH_VON genau dieser eine.
+function meineNamen() {
+  if (o.von) return [String(o.von)];
+  if (process.env.AUSTAUSCH_VON) return [process.env.AUSTAUSCH_VON];
+  const n = [];
+  if (zweig.name && zweig.name !== 'main' && zweig.name !== 'master') n.push('sitzung/' + zweig.name);
+  if (zweig.upstream) n.push('sitzung/' + zweig.upstream);
+  return n;
+}
 // Eine Lage oder ein Halt wirkt nur, wenn `von` zum Branch passt, auf dem sie liegen — eine andere Kennung
 // waere fuer alle anderen sofort UNWIRKSAM (Gegenpruefung 2: `--von koordinator` schrieb still eine).
 function vonFuerAbsicht(art) {
+  // Auf main liegt nichts, was fuer andere wirkt — vorher verwiesen zwei Meldungen im Kreis („bitte --von" /
+  // „ohne --von schreiben"), Gegenpruefung 3.
+  if (zweig.name === 'main' || zweig.name === 'master') ende(2, ARTEN_WORT(art) + ' nur von einem EIGENEN Branch: auf ' + zweig.name + ' gilt „von" fuer niemanden (und auf main wird nie direkt gepusht) — git checkout -b claude/<thema>, dann schreiben und pushen.');
   const v = ich();
   if (zweig.upstream && v === 'sitzung/' + zweig.upstream) return v;   // ausdruecklich als der Name, unter dem gepusht wird
   if (zweig.name && v !== 'sitzung/' + zweig.name) ende(2, ARTEN_WORT(art) + ' von „' + v + '" auf dem Branch ' + zweig.name + ': fuer alle anderen waere ' + (art === 'lage' ? 'sie' : 'er') + ' UNWIRKSAM („von" passt nicht zum Branch). Ohne --von / AUSTAUSCH_VON schreiben.');
   if (!zweig.name) aus('(Losgeloester HEAD: ' + ARTEN_WORT(art) + ' traegt „' + v + '" — er wirkt erst, wenn er auf ' + v.replace(/^sitzung\//, 'origin/') + ' liegt.)');
-  if (zweig.upstream) aus('(Achtung: dieser Branch heisst ' + zweig.name + ', sein Upstream origin/' + zweig.upstream + ' — landet der Eintrag dort, gilt ' + ARTEN_WORT(art) + ' von „' + v + '" fuer alle anderen NICHT. Nach origin/' + zweig.name + ' pushen (git push -u origin HEAD:' + zweig.name + ') oder mit --von sitzung/' + zweig.upstream + ' schreiben.)');
+  if (zweig.upstream) aus('(Achtung: dieser Branch heisst ' + zweig.name + ', sein Upstream origin/' + zweig.upstream + ' — landet der Eintrag dort, gilt ' + ARTEN_WORT(art) + ' von „' + v + '" fuer alle anderen NICHT. Entweder mit --von sitzung/' + zweig.upstream + ' schreiben (dann bleibt alles beim alten Namen), oder nach origin/' + zweig.name + ' pushen (git push -u origin HEAD:' + zweig.name + ') — dann erloeschen deine Lagen und Halts unter dem alten Namen fuer alle anderen; schreib sie neu.)');
   return v;
 }
 const ARTEN_WORT = (art) => (A.ARTEN[art] || { wort: art }).wort;
-const schwarmVon = (b) => A.schwarm(b.eintraege, Date.now(), { wo: b.gitDa ? b.wo : null, ich: ichVon() });
+const schwarmVon = (b) => A.schwarm(b.eintraege, Date.now(), { wo: b.gitDa ? b.wo : null, ich: meineNamen() });
 // „Meins" heisst: von mir geschrieben — und dort, wo ich schreibe (vonPasst). Ein Eintrag mit meinem Namen
 // auf einem fremden Branch ist nicht meiner (Gegenpruefung 2: er schaltete DICH BETREFFEND ab).
-const meinsVon = (b, ich0) => (e) => !!ich0 && e.von === ich0 && A.vonPasst(e, b.gitDa ? b.wo : null, ich0);
+const meinsVon = (b, ich0) => { const namen = ich0 ? meineNamen() : []; return (e) => namen.indexOf(e.von) >= 0 && A.vonPasst(e, b.gitDa ? b.wo : null, namen); };
 // Eine id darf abgekuerzt werden: die vier Zeichen am Ende reichen, wenn sie eindeutig sind.
 function finde(b, kennung) {
   kennung = String(kennung || '').trim();
@@ -148,8 +162,8 @@ function dichBetreffend(b, abl, sw, aend) {
     if (!t || !meins(t) || !wirktNoch(t)) continue;
     for (const h of hs) if (!meins(h.e)) z.push('VETO ' + h.e.id + ' {' + h.e._quelle + '} von ' + h.e.von + ' bis ' + uhr(h.bis) + ' gegen deinen Eintrag ' + ziel + ': ' + knapp(h.e.text, 90));
   }
-  // Wer mithilft (nehme --auch, Titel „Mithelfen: …"), weiss, dass ein anderer zuerst war.
-  for (const [ziel, u] of sw.uebernahme) if (u.auch.some(l => meins(l.e) && !/^Mithelfen: /.test(l.e.titel || ''))) z.push('Deine Uebernahme von ' + ziel + ' gilt nicht: ' + u.lage.e.von + ' war zuerst (bis ' + uhr(u.lage.bis) + ')');
+  // Wer mithilft (nehme --auch: das Feld `mithelfen`, nicht der Titel), weiss, dass ein anderer zuerst war.
+  for (const [ziel, u] of sw.uebernahme) if (u.auch.some(l => meins(l.e) && l.e.mithelfen !== true)) z.push('Deine Uebernahme von ' + ziel + ' gilt nicht: ' + u.lage.e.von + ' war zuerst (bis ' + uhr(u.lage.bis) + ')');
   // Dein Halt wurde aufgehoben — mit Grund, und du erfaehrst ihn hier (vorher verschwand er still).
   for (const a of sw.aufgehoben) if (meins(a.e) && !meins(a.durch) && Date.parse(a.e.bis) > Date.now()) z.push('AUFGEHOBEN dein Halt ' + a.e.id + ' durch ' + a.durch.id + ' {' + a.durch._quelle + '} von ' + a.durch.von + ': ' + knapp(a.durch.text, 120));
   // Antworten und Lieferungen auf DEINE offenen Eintraege — auch auf deinen Halt und deine Lage. Der Weg
@@ -225,7 +239,9 @@ function arbeitsMarke(e, sw, inArbeit) {
 function sicherungsZeile(b) {
   if (!b.gitDa) return;
   let nurSicherung = 0, einzeln = 0;
+  const zurueck = A.zurueckgezogenVomSchreiber(WURZEL, b.eintraege);
   for (const [id, q] of b.wo) {
+    if (zurueck.has(id)) continue;   // vom Schreiber auf seinem Branch zurueckgezogen — kein Verlust
     const echt = [...q].filter(x => !A.istSicherungsRef(x));
     const gesichert = [...q].some(A.istSicherungsRef);
     if (!echt.length && gesichert) nurSicherung++;
@@ -377,12 +393,16 @@ function ganz(e, abl, sw) {
 // vorher sagte `zeige` „ja" fuer einen aufgehobenen Halt und eine Lage, die das Brett UNWIRKSAM nennt.
 function wirktJetzt(e, sw) {
   const a = sw.aufgehoben.find(x => x.e === e); if (a) return 'nein — aufgehoben durch ' + a.durch.id + ' (' + a.durch.von + '): ' + knapp(a.durch.text, 120);
-  const u = sw.unwirksam.find(x => x.e === e); if (u) return 'nein — ' + u.grund;
+  // Ein Deckel trifft einzelne ZIELE, nicht die ganze Lage: nimmt sie zwei ihrer drei Ziele wirksam, sagt
+  // `zeige` „teilweise" (vorher „nein" — Gegenpruefung 3).
+  const u = sw.unwirksam.find(x => x.e === e); if (u && !u.teil) return 'nein — ' + u.grund;
   const h = sw.halts.find(x => x.e === e); if (h) return 'ja, bis ' + uhr(h.bis) + (sw.vetos.get(e.id) ? ' · ' + sw.vetos.get(e.id).length + ' Veto(s) dagegen' : '');
   if (e.art === 'lage') {
     const nimmt = [...sw.uebernahme].filter(([, x]) => x.lage.e === e).map(([z]) => z), auch = [...sw.uebernahme].filter(([, x]) => x.auch.some(l => l.e === e)).map(([z]) => z);
     const l = sw.lagen.find(x => x.e === e), w = A.wirksam(e, Date.now());
-    if (w.ok && (l || nimmt.length || auch.length)) return 'ja, bis ' + uhr(w.bis) + (nimmt.length ? ' · uebernimmt ' + nimmt.join(', ') : '') + (auch.length ? ' · hilft mit an ' + auch.join(', ') + ' (ein anderer war zuerst)' : '');
+    const teil = u ? ' · fuer ' + u.ziele.join(', ') + ' NICHT (mehr als ' + A.LAGE_NIMMT_MAX + ' Uebernahmen zugleich)' : '';
+    if (w.ok && (l || nimmt.length || auch.length)) return (u ? 'teilweise' : 'ja') + ', bis ' + uhr(w.bis) + (nimmt.length ? ' · uebernimmt ' + nimmt.join(', ') : '') + (auch.length ? ' · hilft mit an ' + auch.join(', ') + (e.mithelfen === true ? '' : ' (ein anderer war zuerst)') : '') + teil;
+    if (u) return 'nein — ' + u.grund;
     if (w.ok) return 'nein — eine spaetere Lage desselben Schreibers ersetzt die Anzeige, oder „fertig" hat sie beendet';
     return 'nein — ' + w.grund;
   }
@@ -464,9 +484,10 @@ function bezuege(b) {
     return { art: x.slice(0, i).trim(), id: finde(b, x.slice(i + 1)).id };
   }));
 }
-function schreiben(e) {
+function schreiben(e, vonVorab) {
   if (!e.stand) { const v = laufendeVersion(); if (v) e.stand = v; }
-  const r = A.einspielen(WURZEL, [e], { von: (e.art === 'lage' || e.art === 'halt') ? vonFuerAbsicht(e.art) : ich(), datum: e.datum, alleRefs: !o.nur_lokal });
+  const absicht = e.art === 'lage' || e.art === 'halt', von = absicht ? (vonVorab || vonFuerAbsicht(e.art)) : ich();
+  const r = A.einspielen(WURZEL, [e], { von, absichtVon: absicht ? [von] : null, datum: e.datum, alleRefs: !o.nur_lokal });
   if (!r.ok) { aus('\nNICHT geschrieben — ' + r.fehler.length + ' Grund/Gruende:'); r.fehler.forEach(f => aus('  !! ' + f.grund)); ende(1, '\nFelder und ein Beispiel: node scripts/austausch.mjs hilfe ' + e.art); }
   const g = r.geschrieben[0];
   aus('\nGeschrieben: ' + g.datei + '\n  ' + g.id + '  ' + g.titel);
@@ -517,7 +538,10 @@ function einspielen() {
   const v = laufendeVersion();
   if (Array.isArray(roh) && v) roh.forEach(e => { if (e && typeof e === 'object' && !e.stand) e.stand = v; });
   const braucht = Array.isArray(roh) && roh.some(e => e && typeof e === 'object' && !e.von);
-  const r = A.einspielen(WURZEL, roh, { von: braucht ? ich() : undefined, sitzung: ichVon(), datum: o.datum, alleRefs: !o.nur_lokal });
+  // Lage und Halt: dieselbe Pruefung wie beim Schreiben — vorher schrieb ein Stapel sie still mit fremdem `von`,
+  // und gemergt beendete ein „fertig" im Namen eines anderen dessen Uebernahmen (Gegenpruefung 3).
+  const absicht = Array.isArray(roh) && roh.some(e => e && typeof e === 'object' && (e.art === 'lage' || e.art === 'halt'));
+  const r = A.einspielen(WURZEL, roh, { von: braucht ? ich() : undefined, sitzung: ichVon(), absichtVon: absicht ? [vonFuerAbsicht('lage')] : null, datum: o.datum, alleRefs: !o.nur_lokal });
   if (!r.ok) { aus('\nNICHTS geschrieben (alles oder nichts) — ' + r.fehler.length + ' Grund/Gruende:'); r.fehler.slice(0, 40).forEach(f => aus('  !! ' + f.wo + ': ' + f.grund)); if (r.fehler.length > 40) aus('  … +' + (r.fehler.length - 40) + ' weitere'); process.exit(1); }
   aus('\nGeschrieben: ' + r.geschrieben.length + ' Eintraege nach ' + A.ORDNER + '/');
   r.geschrieben.forEach(g => aus('  ' + g.id + '  (' + g.art + ')  ' + knapp(g.titel, 100)));
@@ -546,7 +570,32 @@ function holen() {
 
 // ── Der Schwarm: Lage, Uebernahme, Halt, Veto, Aufheben, Sichern.
 function holenStill() { return A.git(WURZEL, ['fetch', '--quiet', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*']) != null; }
-function lageBefehl(ziele) {
+// Darf diese Sitzung diese Ziele nehmen (bzw. dabei mithelfen)? EINE Rechnung mit dem Brett: die neue Lage wird
+// probeweise dazugelegt und `schwarm` rechnet — vorher zaehlte `nehme` den Deckel anders als das Brett
+// (Mithelf-Lagen nicht), sagte „Geschrieben", und die Uebernahme galt still nicht (Gegenpruefung 3).
+function uebernahmePruefen(b, zielIds, ich0, auch) {
+  const sw = schwarmVon(b), namen = meineNamen(), meins = (v) => namen.indexOf(v) >= 0;
+  for (const id of zielIds) {
+    const u = sw.uebernahme.get(id);
+    if (auch && !u) return id + ' ist frei — niemand hat es genommen. Uebernehmen statt mithelfen: nehme ' + id.slice(-4) + ' (ohne --auch).';
+    if (auch && meins(u.lage.e.von)) return id + ' hast du selbst genommen — mithelfen braucht es nicht.';
+    if (!auch && u && !meins(u.lage.e.von)) return id + ' ist schon uebernommen: ' + u.lage.e.von + ' (seit ' + u.lage.e.datum + ' ' + u.lage.e.zeit + ' UTC, bis ' + uhr(u.lage.bis) + ').\nDie aelteste Uebernahme gilt. Mithelfen statt uebernehmen: --auch (deine Lage steht dann daneben).';
+  }
+  if (auch) return null;
+  const t = A.heute(), probe = { id: t.datum + '-ffffffff', art: 'lage', datum: t.datum, zeit: t.zeit, von: ich0, titel: 'Probe', phase: 'laeuft', bis: bisAus(o.bis || '6h'), bezug: zielIds.map(z => ({ art: 'baut_auf', id: z })) };
+  const wo = b.gitDa ? new Map(b.wo) : null;
+  if (wo) wo.set(probe.id, new Set(['Arbeitsbaum']));
+  const sw2 = A.schwarm(b.eintraege.concat([probe]), Date.now(), { wo, ich: namen });
+  const zv = sw2.unwirksam.find(x => x.e === probe);
+  if (zv) {
+    const schon = [...sw.uebernahme].filter(([, u]) => meins(u.lage.e.von)).map(([z]) => z);
+    return 'Du haeltst schon ' + schon.length + ' Uebernahme(n)' + (schon.length ? ' (' + schon.join(', ') + ')' : '') + ' — hoechstens ' + A.LAGE_NIMMT_MAX + ' zugleich; ' + zv.grund + '. Erst eine freigeben: lage --phase fertig --bezug baut_auf:<id>.';
+  }
+  for (const id of zielIds) { const u = sw2.uebernahme.get(id); if (!u || !meins(u.lage.e.von)) return id + ' ginge nicht an dich: ' + (u ? u.lage.e.von + ' war zuerst' : 'die Uebernahme rechnet nicht') + '.'; }
+  return null;
+}
+function lageBefehl(ziele, vorab) {
+  vorab = vorab || {};
   if (o.datum) ende(2, 'Datum und Zeit einer Lage setzt das Werkzeug.');
   const phase = o.phase || 'laeuft';
   const b = brett(), zielE = (ziele || []).map(k => finde(b, k));
@@ -555,25 +604,23 @@ function lageBefehl(ziele) {
   const bz = zielE.map(z => ({ art: 'baut_auf', id: z.id })).concat(bezuege(b));
   if (bz.some(x => x.art !== 'baut_auf')) ende(2, 'Eine Lage traegt nur baut_auf:<id> (die Eintraege, die sie nimmt oder mit „fertig" freigibt).');
   if (bz.length) e.bezug = bz;
-  if (!e.titel) e.titel = (zielE.length ? (o.auch ? 'Mithelfen: ' : 'Nehme: ') + knapp(zielE[0].titel, 140) : 'Lage: ' + phase.replace('_', ' ') + (e.runde ? ' (Runde ' + e.runde + ')' : ''));
-  schreiben(e);
+  const von = vorab.von || vonFuerAbsicht('lage');
+  // `lage --bezug baut_auf:<id>` ist eine Uebernahme wie `nehme` — dieselbe Pruefung (vorher ging sie daran vorbei).
+  if (bz.length && phase !== 'fertig' && !vorab.geprueft) { const f = uebernahmePruefen(b, bz.map(x => x.id), von, !!o.auch); if (f) ende(1, '\n' + f + '\nNichts geschrieben.'); }
+  if (o.auch) { if (!bz.length || phase === 'fertig') ende(2, '--auch gehoert an eine Lage, die einen genommenen Eintrag mitbearbeitet: nehme <id> --auch.'); e.mithelfen = true; }
+  if (!e.titel) e.titel = (zielE.length || bz.length ? (o.auch ? 'Mithelfen: ' : 'Nehme: ') + knapp((zielE[0] || b.eintraege.find(x => x.id === bz[0].id) || { titel: bz[0].id }).titel, 140) : 'Lage: ' + phase.replace('_', ' ') + (e.runde ? ' (Runde ' + e.runde + ')' : ''));
+  schreiben(e, von);
 }
 function nehme() {
-  if (!o._.length) ende(2, 'Gebrauch: node scripts/austausch.mjs nehme <id> [--bis 6h] [--text "…"]   (schreibt eine Lage mit Bezug baut_auf)');
+  if (!o._.length) ende(2, 'Gebrauch: node scripts/austausch.mjs nehme <id> [--bis 6h] [--text "…"] [--auch]   (schreibt eine Lage mit Bezug baut_auf)');
   // Vorher holen: wer gleichzeitig nimmt, soll es sehen. Die AELTESTE Uebernahme gilt.
   const geholt = holenStill();
-  const b = brett(), sw = schwarmVon(b), ich0 = vonFuerAbsicht('lage');
-  const neuZiele = [];
-  for (const k of o._) {
-    const z = finde(b, k), u = sw.uebernahme.get(z.id);
-    if (u && u.lage.e.von !== ich0 && !o.auch) ende(1, '\n' + z.id + ' ist schon uebernommen: ' + u.lage.e.von + ' (seit ' + u.lage.e.datum + ' ' + u.lage.e.zeit + ' UTC, bis ' + uhr(u.lage.bis) + ').\nDie aelteste Uebernahme gilt. Mithelfen statt uebernehmen: --auch (deine Lage steht dann daneben). Nichts geschrieben.');
-    if (!(u && u.lage.e.von === ich0)) neuZiele.push(z.id);
-  }
-  // Hoechstens LAGE_NIMMT_MAX Uebernahmen je Schreiber ZUGLEICH — eine vierte gaelte nicht.
-  const schon = [...sw.uebernahme].filter(([, u]) => u.lage.e.von === ich0).map(([z]) => z);
-  if (!o.auch && schon.length + neuZiele.length > A.LAGE_NIMMT_MAX) ende(1, '\nDu haeltst schon ' + schon.length + ' Uebernahme(n) (' + schon.join(', ') + ') — hoechstens ' + A.LAGE_NIMMT_MAX + ' zugleich. Erst eine freigeben: lage --phase fertig --bezug baut_auf:<id>. Nichts geschrieben.');
+  // `von` EINMAL rechnen (vorher zweimal — die Upstream-Warnung stand doppelt da).
+  const b = brett(), von = vonFuerAbsicht('lage');
+  const f = uebernahmePruefen(b, o._.map(k => finde(b, k).id), von, !!o.auch);
+  if (f) ende(1, '\n' + f + '\nNichts geschrieben.');
   if (!geholt) aus('(Holen hat nicht geklappt — gerechnet auf dem Stand, den git kennt.)');
-  lageBefehl(o._);
+  lageBefehl(o._, { von, geprueft: true });
 }
 function haltBefehl(vetoZiel) {
   if (o.datum) ende(2, 'Datum und Zeit eines Halts setzt das Werkzeug.');
@@ -615,13 +662,23 @@ function sichern() {
   if (o.gedaechtnis && !r.erstlauf) aus('- Gedaechtnis gelesen: nichts von dem, was zuletzt gesichert war, fehlte' + (r.fehlenInSicherung.length ? ' — AUSSER den oben genannten' : '') + '.');
   r.neu.slice(0, 40).forEach(x => aus('  - ' + x.id + ' {' + x.quelle + '}'));
   if (r.neu.length > 40) aus('  - … +' + (r.neu.length - 40) + ' weitere');
-  if (r.weitere.length) aus('- **Weitere Fassung(en)** (umgeschrieben, oder auf zwei Branches verschieden — jede wird gesichert, unter fassungen/): ' + r.weitere.map(x => x.id + ' {' + x.quelle + '}').join(', '));
+  if (r.weitere.length) aus('- **Weitere Fassung(en)** (umgeschrieben, oder auf zwei Branches verschieden — jede wird gesichert; unter eintraege/ liegt die, die fuer Leser gilt): ' + r.weitere.map(x => x.id + ' {' + x.quelle + '}').join(', '));
+  if (r.doppelt.length) aus('- **Doppelt** (zwei Dateien derselben id auf einem Branch — die zweite ist gesichert, unter fassungen/): ' + r.doppelt.map(x => x.id + ' {' + x.quelle + '}').join(', '));
   if (r.strittig.length) aus('- **Strittig** (verschiedene Fassungen, keine zuzuordnen — fuer Leser nicht gerechnet, hier jede gesichert): ' + r.strittig.join(', '));
-  if (r.unlesbar.length) aus('- **Unlesbar** (keine gueltigen Eintraege, nicht gesichert — ihr Verschwinden wird gemeldet): ' + r.unlesbar.slice(0, 20).map(u => u.pfad + ' {' + u.quelle + '}').join(', '));
-  if (r.verworfen.length) aus('- **In der Sicherung verworfen** (kein gueltiger Eintrag unter einem Namen der Sicherung — der neue Stand traegt sie nicht): ' + r.verworfen.slice(0, 20).map(v => v.pfad + ' (' + v.grund + ')').join(', '));
+  // Unlesbare werden nie mit Dateinamen genannt: der Name traegt den Titel, und dieser Bericht ist oeffentlich (Gegenpruefung 3).
+  const ul = (u) => (u.id || 'ohne id') + ' {' + u.quelle + '} Blob ' + String(u.blob).slice(0, 8);
+  if (r.unlesbar.length) aus('- **Unlesbar** (keine gueltigen Eintraege, nicht gesichert — verschwinden sie mit ihrem Branch, wird es gemeldet): ' + r.unlesbar.slice(0, 20).map(ul).join(', '));
+  if (r.unlesbarEntfernt.length) aus('- Unlesbare Datei(en) entfernt, ihr Branch besteht (vom Schreiber entfernt oder ersetzt): ' + r.unlesbarEntfernt.map(ul).join(', '));
+  if (r.verworfen.length) aus('- **In der Sicherung verworfen** (kein gueltiger Eintrag unter einem Namen der Sicherung, oder ein Geheimnis — der neue Stand traegt sie nicht): ' + r.verworfen.slice(0, 20).map(v => (v.id || 'fremde Datei') + ' Blob ' + String(v.blob).slice(0, 8) + ' (' + v.grund + ')').join(', '));
+  if (r.umgelegt.length) aus('- Umgelegt (einmal gesichert, also bleibt es): ' + r.umgelegt.map(x => (x.id || 'ohne id') + ' Blob ' + String(x.blob).slice(0, 8) + ' — ' + x.grund).join(', '));
   if (r.uebersprungen.length) aus('- **Nicht gesichert**: ' + r.uebersprungen.map(x => x.id + ' {' + x.quelle + '} ' + x.grund).join(' · '));
   if (r.entfernt.length) aus('- Entfernt (Grabstein): ' + r.entfernt.join(', '));
-  aus(r.nurHier.length ? '- **NUR NOCH IN DER SICHERUNG: ' + ids(r.nurHier).length + '** — ein Branch wurde geloescht oder zurueckgesetzt: ' + ids(r.nurHier).join(', ') + '. `node scripts/austausch.mjs ernten` holt in einen Arbeitsbaum, was dort stimmt.' : '- Nichts verloren: jede gesicherte Fassung liegt noch auf einem Branch (oder ihr Eintrag auf main bzw. dem Branch seines Schreibers).');
+  if (r.vomSchreiber.length) aus('- Vom Schreiber zurueckgezogen (Grabstein auf seinem Branch; aus der Sicherung erst mit dem Grabstein auf main): ' + r.vomSchreiber.map(x => x.id + ' {' + x.quelle + '}').join(', '));
+  if (r.abgebaut.length) aus('- Abgebaut (abgeloeste Fassung, Eintrag auf main, ' + A.SICHERUNG_ABBAU_TAGE + ' Tage auf keinem Branch): ' + ids(r.abgebaut).join(', '));
+  if (r.zurueckgenommen.length) aus('- **Zurueckgenommen?** Auf dem Branch des Schreibers liegt jetzt eine AELTERE Fassung als die zuletzt gesicherte (Ruecknahme — oder ein Force-Push hat zurueckgesetzt); die neuere liegt nur noch hier, unter fassungen/: ' + ids(r.zurueckgenommen).join(', '));
+  const still = !r.nurHier.length && !r.zurueckgenommen.length && !r.uebersprungenWeg.length && !r.unlesbarWeg.length;
+  aus(r.nurHier.length ? '- **NUR NOCH IN DER SICHERUNG: ' + ids(r.nurHier).length + '** — ein Branch wurde geloescht oder zurueckgesetzt: ' + ids(r.nurHier).join(', ') + '. `node scripts/austausch.mjs ernten` holt in einen Arbeitsbaum, was dort stimmt.'
+    : (still ? '- Nichts verloren: jede gesicherte Fassung liegt noch auf einem Branch (oder der Eintrag ihres Schreibers in neuerer Fassung auf main bzw. seinem Branch).' : '- Keine Fassung liegt nur noch hier — aber siehe oben.'));
   if (r.alarm.length) process.exitCode = 3;
 }
 

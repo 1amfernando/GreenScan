@@ -61,7 +61,7 @@ export const LAGE_NIMMT_MAX = 3;
 const LISTENFELDER = ['beleg', 'stichworte', 'instanzen', 'geltung'];
 const TEXTFELDER = ['titel', 'text', 'von', 'rolle', 'stand', 'zeit', 'nutzen', 'pruefbar', 'an', 'haengt_daran', 'vorschlag', 'regel', 'suchmuster',
   'gesucht', 'ohne_waechter', 'ergebnis', 'wohin', 'geschwister', 'bewacht', 'details_bei', 'dringlichkeit', 'bis', 'phase', 'runde'];
-const BEKANNT = new Set(['id', 'art', 'datum', 'bezug', 'waechter', 'anker', 'zaehle', 'sicherheit', 'schluessel', 'geliefert'].concat(LISTENFELDER, TEXTFELDER));
+const BEKANNT = new Set(['id', 'art', 'datum', 'bezug', 'waechter', 'anker', 'zaehle', 'sicherheit', 'schluessel', 'geliefert', 'mithelfen'].concat(LISTENFELDER, TEXTFELDER));
 export const FELDER = [...BEKANNT];
 const SICHERHEIT_NICHT = ['text', 'beleg', 'vorschlag', 'anker', 'zaehle', 'haengt_daran', 'nutzen', 'pruefbar', 'regel', 'instanzen', 'suchmuster', 'gesucht', 'geschwister', 'bewacht', 'waechter', 'ohne_waechter', 'wohin', 'geliefert'];
 export const GEHEIM_FORMEN = () => GEHEIM.length;
@@ -77,10 +77,19 @@ export const GRABSTEINE = 'docs/austausch/zurueckgezogen.json';
 // Die Sicherung des Waechters: ein Branch mit Z-Praefix. Er sortiert hinter allen anderen und wird
 // deshalb nur gelesen, wo kein Original mehr liegt (brettLesen liest main zuerst, dann alphabetisch).
 export const SICHERUNG_ZWEIG = 'zz-sicherung';
+// Das EINE Remote, gegen das gemessen wird: dorthin pusht und von dort holt das Werkzeug, dort laeuft der Waechter.
+export const REMOTE = 'origin';
 // Genau DIESER eine Ref — nicht jeder Name mit „zz-“ (claude/zz-kalender-aufraeumen ist ein Arbeitszweig).
-// Genau EIN Ref: <remote>/zz-sicherung. Vorher galt jeder Branch, dessen Name auf „/zz-sicherung" endet
-// (claude/zz-sicherung), als die Sicherung — seine Eintraege wurden nie gesichert (Gegenpruefung 2).
-export const istSicherungsRef = (ref) => new RegExp('^(refs/remotes/)?[^/]+/' + SICHERUNG_ZWEIG + '$').test(String(ref || ''));
+// Genau EIN Ref: origin/zz-sicherung. Vorher galt jeder Branch, dessen Name auf „/zz-sicherung" endet
+// (claude/zz-sicherung), als die Sicherung — seine Eintraege wurden nie gesichert (Gegenpruefung 2); und
+// jedes Remote (fork/zz-sicherung) — ein zweites Remote ist fremde Eingabe (Gegenpruefung 3).
+export const istSicherungsRef = (ref) => new RegExp('^(refs/remotes/)?' + REMOTE + '/' + SICHERUNG_ZWEIG + '$').test(String(ref || ''));
+// main ist GENAU origin/main. Vorher galt jeder Ref, der auf „/main" endet: ein pushbarer Branch
+// „claude/main" (oder fork/main) trug dann Faelschungen, die fuer alle Leser galten — ein Halt im
+// fremden Namen wirkte, ein „ersetzt" versteckte einen kritischen Befund (Gegenpruefung 3).
+export const istMainRef = (ref) => new RegExp('^(refs/remotes/)?' + REMOTE + '/main$').test(String(ref || ''));
+// Der Branch des Schreibers als Ref: origin/<b> — nie derselbe Name auf einem anderen Remote.
+export const istAutorRef = (ref, b) => !!b && String(ref || '') === REMOTE + '/' + b;
 export const FASSUNGEN = 'docs/austausch/fassungen';
 // Groesser ist kein Eintrag (der groesste vom 18.11.2026 hat 7 KB) — und eine 600-KB-Datei auf einem
 // fremden Branch legte `holen` fuer drei Minuten lahm (Gegenpruefung: quadratische Suche).
@@ -293,6 +302,12 @@ export function eintragPruefen(e, dateiname) {
   if (e.phase != null && PHASEN.indexOf(e.phase) < 0) f.push('phase: ' + PHASEN.join(' · '));
   if (e.runde != null && !/^\d{1,3}(\/\d{1,3})?$/.test(String(e.runde))) f.push('runde hat die Form „4" oder „4/5"');
   if (e.art === 'lage' && alsListe(e.bezug).filter(b => b && b.art === 'baut_auf').length > LAGE_NIMMT_MAX) f.push('eine Lage nimmt hoechstens ' + LAGE_NIMMT_MAX + ' Eintraege — wer mehr nimmt, haelt sie fest, ohne daran zu arbeiten');
+  // Mithelfen ist eine ABSICHT, kein Titel (Gegenpruefung 3: der Praefix „Mithelfen: " entschied — ein eigener
+  // Titel gab bei jedem Lesen einen Fehlalarm, der Praefix allein verschluckte eine echte Warnung).
+  if (e.mithelfen != null) {
+    if (e.mithelfen !== true) f.push('mithelfen ist true oder fehlt');
+    if (e.art !== 'lage' || e.phase === 'fertig' || !alsListe(e.bezug).some(b => b && b.art === 'baut_auf')) f.push('mithelfen gehoert an eine Lage mit baut_auf:<id>, die nicht „fertig" ist (nehme <id> --auch)');
+  }
   if ((e.art === 'lage' || e.art === 'halt') && alsListe(e.bezug).some(b => b && b.art === 'ersetzt')) f.push(ARTEN[e.art].wort + ' traegt kein „ersetzt" — ' + (e.art === 'halt' ? 'ein Halt wird mit Grund aufgehoben (aufheben <id>)' : 'eine Lage endet mit --phase fertig'));
   if (e.art === 'halt') {
     const veto = alsListe(e.bezug).some(b => b && b.art === 'widerspricht');
@@ -385,10 +400,8 @@ function formFehler(e) {
 // Die Kennung, die git einem Blob gibt (sha1 ueber „blob <n>\0" und den Inhalt) — fuer Dateien des
 // Arbeitsbaums, damit eine Fassung ueberall dieselbe Kennung traegt.
 export function blobKennung(buf) { return crypto.createHash('sha1').update('blob ' + buf.length + '\0').update(buf).digest('hex'); }
-const istMainRef = (x) => /(^|\/)main$/.test(String(x || ''));
 // Der Branch, den `von` nennt („sitzung/claude/x" → „claude/x"), oder null.
 export function autorZweig(e) { const m = String((e && e.von) || '').match(/^sitzung\/(.+)$/); return m ? m[1] : null; }
-const ohneRemote = (ref) => String(ref).replace(/^[^/]+\//, '');
 export function brettLesen(wurzel, opts) {
   opts = opts || {};
   const aus = { eintraege: [], unlesbar: [], doppelt: [], abweichend: [], strittig: [], quellen: ['Arbeitsbaum'], gitDa: null, refs: 0, wo: new Map(), zurueckgezogen: 0, grabDateien: [],
@@ -396,15 +409,18 @@ export function brettLesen(wurzel, opts) {
   // Wo liegt jede id? Nur GUELTIG gelesene Kopien zaehlen: eine kaputte oder falsch benannte Kopie
   // auf einem anderen Branch verdeckte sonst den Verlust des Originals (Gegenpruefung 2).
   const liegt = (id, quelle) => { if (!id) return; if (!aus.wo.has(id)) aus.wo.set(id, new Set()); aus.wo.get(id).add(quelle); };
-  const grab = grabsteine(wurzel, !!opts.alleRefs).ids;
+  const grabG = grabsteine(wurzel, !!opts.alleRefs), grab = grabG.ids, grabBlob = grabG.blobs;
+  aus.doppeltFassungen = [];
   // Jede FASSUNG (Blob) einer id mit allen Quellen, in Lesereihenfolge: Arbeitsbaum, main, Branches, Sicherung.
   const fass = aus.fassungen, jeQuelle = new Map(), neu = new Map();
   const nimm = (e, blob, quelle, pfad) => {
     if (!e) return;
-    if (grab.has(e.id)) { aus.zurueckgezogen++; if (quelle === 'Arbeitsbaum') aus.grabDateien.push(e._datei); return; }
+    if (grab.has(e.id) || grabBlob.has(blob)) { aus.zurueckgezogen++; if (quelle === 'Arbeitsbaum') aus.grabDateien.push(e._datei); return; }
     if (!jeQuelle.has(quelle)) jeQuelle.set(quelle, new Map());
     const vorDatei = jeQuelle.get(quelle).get(e.id);
-    if (vorDatei != null && vorDatei !== pfad) { aus.doppelt.push({ id: e.id, dateien: [path.posix.basename(vorDatei), path.posix.basename(pfad)], quelle }); return; }
+    // Zwei Dateien derselben id auf EINEM Branch: fuer Leser zaehlt die erste (genannt als doppelt) — der Waechter
+    // sichert auch die zweite (vorher wurde sie nie gesichert und nirgends genannt, Gegenpruefung 3).
+    if (vorDatei != null && vorDatei !== pfad) { aus.doppelt.push({ id: e.id, dateien: [path.posix.basename(vorDatei), path.posix.basename(pfad)], quelle }); aus.doppeltFassungen.push({ id: e.id, e, blob, quelle, pfad }); return; }
     jeQuelle.get(quelle).set(e.id, pfad);
     liegt(e.id, quelle);
     let l = fass.get(e.id);
@@ -473,40 +489,58 @@ export function brettLesen(wurzel, opts) {
       for (const { ref } of jeRef) if (neu.get(ref)) aus.quellen.push(ref + ' (+' + neu.get(ref) + ')');
     }
   }
-  // WELCHE Fassung gilt? Der Arbeitsbaum, sonst main, sonst die auf dem Branch, den `von` nennt (der
-  // Autor darf seinen ungemergten Eintrag berichtigen), sonst die erste gesicherte (zz-sicherung). Eine
-  // Kopie auf einem DRITTEN Branch nimmt dem Original nichts — vorher fielen beide Fassungen weg, und
-  // ein Byte genuegte, um jeden Halt fuer alle Leser zu loeschen (Gegenpruefung 2). Lassen sich
-  // die Fassungen so nicht entscheiden, ist der Eintrag STRITTIG: nicht gerechnet, aber genannt.
+  // WELCHE Fassung gilt? Der Arbeitsbaum, sonst origin/main, sonst die des SCHREIBERS auf seinem Branch
+  // (der Autor darf seinen ungemergten Eintrag berichtigen), sonst die gesicherte (origin/zz-sicherung).
+  // Eine Kopie auf einem DRITTEN Branch nimmt dem Original nichts — vorher fielen beide Fassungen weg, und
+  // ein Byte genuegte, um jeden Halt fuer alle Leser zu loeschen (Gegenpruefung 2).
+  // Der Schreiber ist eine Eigenschaft des EINTRAGS, nicht jeder Fassung: steht er in der Sicherung, gilt
+  // dessen `von`; sonst, wenn alle Fassungen dasselbe `von` tragen, dieses. Vorher zaehlte jede Fassung,
+  // deren EIGENES `von` zu ihrem Branch passte — eine Kopie, die ihr `von` auf den eigenen Branch
+  // umschrieb, machte das Original STRITTIG, und nach dem Loeschen gewann sie gegen die Sicherung
+  // (Gegenpruefung 3). Lassen sich die Fassungen so nicht entscheiden, ist der Eintrag STRITTIG: nicht
+  // gerechnet, aber genannt — bis der Waechter eine Fassung gesichert hat (stuendlich).
+  aus.gilt = new Map();
   for (const [id, l] of fass) {
     let gilt = null;
     if (l.length === 1) gilt = l[0];
     else {
       gilt = l.find(v => v.quellen.has('Arbeitsbaum')) || l.find(v => [...v.quellen].some(istMainRef)) || null;
       if (!gilt) {
-        const autor = l.filter(v => { const b = autorZweig(v.e); return b && [...v.quellen].some(q => q !== 'Arbeitsbaum' && !istSicherungsRef(q) && ohneRemote(q) === b); });
+        const gesichert = l.find(v => [...v.quellen].some(istSicherungsRef)) || null;
+        const vons = new Set(l.map(v => v.e.von));
+        const schreiber = gesichert ? gesichert.e.von : (vons.size === 1 ? [...vons][0] : null);
+        const autor = l.filter(v => (schreiber == null || v.e.von === schreiber) && [...v.quellen].some(q => istAutorRef(q, autorZweig(v.e))));
         if (autor.length === 1) gilt = autor[0];
-        else if (!autor.length) gilt = l.find(v => [...v.quellen].some(istSicherungsRef)) || null;
+        else if (!autor.length) gilt = gesichert;
       }
       if (!gilt) { aus.strittig.push({ id, quellen: [...new Set(l.flatMap(v => [...v.quellen]))] }); continue; }
-      for (const v of l) if (v !== gilt) aus.abweichend.push({ id, gilt: [...gilt.quellen][0], weichtAb: [...v.quellen].join(', ') });
+      for (const v of l) if (v !== gilt) aus.abweichend.push({ id, gilt: [...gilt.quellen][0], weichtAb: [...v.quellen].join(', '), schreiber: v.e.von !== gilt.e.von ? v.e.von : null });
     }
     Object.defineProperty(gilt.e, '_quellen', { value: gilt.quellen, enumerable: false });
+    aus.gilt.set(id, gilt);
     aus.eintraege.push(gilt.e);
   }
-  // Wann kam eine Lage oder ein Halt auf seinem FREMDEN Branch an? (git log, ein Aufruf je Branch.)
-  // Ein Zeitstempel weit vor dem Commit, der die Datei brachte, ist rueckdatiert — damit „stahl" eine
+  // Wann kam eine Lage oder ein Halt auf seinem Branch an? (git log, ein Aufruf je Branch.) Ein Zeitstempel
+  // weit vor dem Commit, der DIESEN Inhalt an diesen Pfad brachte, ist rueckdatiert — damit „stahl" eine
   // spaeter geschriebene Lage die Uebernahme (die aelteste gilt); einer weit danach ist vordatiert.
-  // Auch der Commit-Zeitstempel ist eine Selbstauskunft — das macht das Faelschen muehsamer, nicht unmoeglich.
-  // In einem flachen Klon (CI: --depth=1) traegt jeder Datei-Ursprung die Zeit der Branch-Spitze — dort wird
-  // nicht geprueft (sonst hiesse jeder aeltere Halt „rueckdatiert").
+  // Gemessen wird die JUENGSTE Aenderung des Pfads auf der Erst-Eltern-Linie, Merges gegen ihren ersten
+  // Elternteil, ohne Umbenennungserkennung — vorher (nur „hinzugefuegt", mit Umbenennung) kam eine
+  // rueckdatierte Lage per Merge-Commit, per `git mv` oder als Umschreibung eines alten Pfads ohne Zeit
+  // davon (Gegenpruefung 3). Und die AUTOR-Zeit (%at): `git rebase`, `cherry-pick` und `commit --amend`
+  // behalten sie — mit der Committer-Zeit wurde jeder ehrliche Halt nach einem Rebase „rueckdatiert".
+  // Beide Zeiten sind eine Selbstauskunft des Commits: das macht das Faelschen muehsamer, nicht unmoeglich.
+  // Gerechnet wird auch, wenn die Fassung zugleich im Arbeitsbaum liegt (aus den Remote-Quellen) — sonst
+  // hielt der Schreiber seine Lage fuer wirksam, waehrend alle anderen sie rueckdatiert nannten.
+  // Nicht gerechnet: auf origin/main (gemergt) und in einem flachen Klon (CI: --depth=1 — dort traegt jede
+  // Datei die Zeit der Branch-Spitze, und jeder aeltere Halt hiesse „rueckdatiert").
   if (opts.alleRefs && aus.gitDa && (git(wurzel, ['rev-parse', '--is-shallow-repository']) || '').trim() !== 'true') {
     const mainDa = git(wurzel, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/main']) != null;
-    const ankunft = new Map();   // ref → Map(pfad → frueheste Zeit in ms)
+    const ankunft = new Map();   // ref → Map(pfad → Zeit der juengsten Aenderung in ms)
     const zeitAuf = (ref, pfad) => {
       if (!ankunft.has(ref)) {
-        const m = new Map(), log = git(wurzel, ['log', '--diff-filter=A', '--format=%x00%ct', '--name-only', 'refs/remotes/' + ref].concat(mainDa ? ['--not', 'refs/remotes/origin/main'] : []).concat(['--', ORDNER + '/'])) || '';
-        for (const block of log.split('\0')) { const z = block.split('\n').map(x => x.trim()).filter(Boolean); const t = Number(z[0]) * 1000; if (!t) continue; for (const p of z.slice(1)) m.set(p, t); }   // aelteste zuletzt: sie gewinnt
+        const m = new Map(), log = git(wurzel, ['log', '--first-parent', '--diff-merges=first-parent', '--no-renames', '--diff-filter=AM', '--format=%x00%at', '--name-only', 'refs/remotes/' + ref]
+          .concat(mainDa ? ['--not', 'refs/remotes/origin/main'] : []).concat(['--', ORDNER + '/'])) || '';
+        for (const block of log.split('\0')) { const z = block.split('\n').map(x => x.trim()).filter(Boolean); const t = Number(z[0]) * 1000; if (!t) continue; for (const p of z.slice(1)) if (!m.has(p)) m.set(p, t); }   // juengste zuerst: sie gewinnt
         ankunft.set(ref, m);
       }
       return ankunft.get(ref).get(pfad);
@@ -514,9 +548,9 @@ export function brettLesen(wurzel, opts) {
     for (const e of aus.eintraege) {
       if ((e.art !== 'halt' && e.art !== 'lage') || !e._quellen) continue;
       const q = [...e._quellen];
-      if (q.some(x => x === 'Arbeitsbaum' || istMainRef(x))) continue;
+      if (q.some(istMainRef)) continue;
       const l = aus.fassungen.get(e.id).find(v => v.e === e);
-      const zeiten = q.filter(x => !istSicherungsRef(x)).map(x => zeitAuf(x, l.pfade.get(x))).filter(Boolean);
+      const zeiten = q.filter(x => x !== 'Arbeitsbaum' && !istSicherungsRef(x)).map(x => zeitAuf(x, l.pfade.get(x))).filter(Boolean);
       if (zeiten.length) Object.defineProperty(e, '_angekommen', { value: Math.min(...zeiten), enumerable: false });
     }
   }
@@ -547,7 +581,7 @@ export function frischeZweige(wurzel, jetzt, tage) {
   for (const z of roh.split('\n')) {
     const [voll, t, ...rest] = z.split('\t');
     const ref = String(voll || '').replace(/^refs\/remotes\//, '');
-    if (!ref || /\/HEAD$/.test(ref) || /\/main$/.test(ref) || istSicherungsRef(ref) || eigen.has(ref.replace(/^[^/]+\//, ''))) continue;
+    if (!ref || /\/HEAD$/.test(ref) || istMainRef(ref) || istSicherungsRef(ref) || eigen.has(ref.replace(/^[^/]+\//, ''))) continue;
     if (Number(t) * 1000 > jetzt + VORLAUF_MS) { aus.zukunft.push({ ref, zeit: new Date(Number(t) * 1000).toISOString() }); continue; }
     const alter = Math.floor((jetzt - Number(t) * 1000) / 864e5);
     if (alter <= tage) aus.push({ ref, tage: Math.max(0, alter), betreff: rest.join('\t') });
@@ -720,7 +754,7 @@ function herkunftOk(e) {
   if (!q) return true;
   if (q.has('Arbeitsbaum') || [...q].some(istMainRef)) return true;
   const b = autorZweig(e);
-  return !!b && [...q].some(x => !istSicherungsRef(x) && ohneRemote(x) === b);
+  return [...q].some(x => istAutorRef(x, b));
 }
 // ── Der Zustand wird GERECHNET. Kein Feld „status" — das waere eine zweite Kopie.
 export function ableiten(eintraege) {
@@ -1030,29 +1064,61 @@ export function statusZeilen(statusText) {
 //    widerspricht 0×, ernten 0×, „frage an alle" 1× ohne Antwort — was eine Sitzung von sich aus
 //    melden muss, meldet sie nicht). Gemeldet wird nur die ABSICHT: Lage, Halt, Veto.
 
-// Grabsteine (docs/austausch/zurueckgezogen.json): [{id, datum, grund}] — nie der Inhalt.
+// Grabsteine (docs/austausch/zurueckgezogen.json): [{id, datum, grund}] — nie der Inhalt. Mit `blob` (40 Hex,
+// die Kennung EINER Fassung) gilt er nur fuer diese Fassung: eine fremde Kopie mit einem Namen im Text liess
+// sich vorher nur mit der ganzen id entfernen — samt dem legitimen Original (Gegenpruefung 3).
 export function grabsteinePruefen(roh) {
-  const fehler = [], ids = new Set();
+  const fehler = [], ids = new Set(), blobs = new Set();
   let l;
-  try { l = JSON.parse(roh); } catch (x) { return { ids, fehler: ['kein gueltiges JSON'] }; }
-  if (!Array.isArray(l)) return { ids, fehler: ['keine Liste'] };
+  try { l = JSON.parse(roh); } catch (x) { return { ids, blobs, fehler: ['kein gueltiges JSON'] }; }
+  if (!Array.isArray(l)) return { ids, blobs, fehler: ['keine Liste'] };
   l.forEach((x, i) => {
     if (!x || typeof x !== 'object' || Array.isArray(x)) { fehler.push('[' + i + '] kein Objekt'); return; }
-    for (const k of Object.keys(x)) if (['id', 'datum', 'grund'].indexOf(k) < 0) fehler.push('[' + i + '] Feld „' + k + '" — ein Grabstein traegt nur id, datum und grund, nie den Inhalt');
-    if (!ID_FORM.test(String(x.id || ''))) fehler.push('[' + i + '] id fehlt oder hat die falsche Form'); else ids.add(x.id);
+    for (const k of Object.keys(x)) if (['id', 'datum', 'grund', 'blob'].indexOf(k) < 0) fehler.push('[' + i + '] Feld „' + k + '" — ein Grabstein traegt nur id, datum, grund (und fuer eine einzelne Fassung blob), nie den Inhalt');
+    const blobOk = x.blob == null || /^[0-9a-f]{40}$/.test(String(x.blob));
+    if (!blobOk) fehler.push('[' + i + '] blob ist die volle Kennung einer Fassung (40 Zeichen, git hash-object)');
+    if (!ID_FORM.test(String(x.id || ''))) fehler.push('[' + i + '] id fehlt oder hat die falsche Form'); else if (x.blob == null) ids.add(x.id); else if (blobOk) blobs.add(x.blob);
     if (!datumGueltig(x.datum)) fehler.push('[' + i + '] datum fehlt');
     if (typeof x.grund !== 'string' || !x.grund.trim()) fehler.push('[' + i + '] grund fehlt');
     for (const [re, was] of GEHEIM) if (re.test(textVon(x))) fehler.push('[' + i + '] enthaelt etwas, das wie ' + was + ' aussieht');
   });
-  return { ids, fehler };
+  return { ids, blobs, fehler };
 }
 export function grabsteine(wurzel, mitMain) {
-  const ids = new Set(), fehler = [];
+  const ids = new Set(), blobs = new Set(), fehler = [];
   const quellen = [];
   try { quellen.push(fs.readFileSync(path.join(wurzel, GRABSTEINE), 'utf8')); } catch (_) {}
   if (mitMain) { const t = git(wurzel, ['show', 'refs/remotes/origin/main:' + GRABSTEINE]); if (t != null) quellen.push(t); }
-  for (const roh of quellen) { const g = grabsteinePruefen(roh); g.ids.forEach(i => ids.add(i)); fehler.push(...g.fehler); }
-  return { ids, fehler };
+  for (const roh of quellen) { const g = grabsteinePruefen(roh); g.ids.forEach(i => ids.add(i)); g.blobs.forEach(b => blobs.add(b)); fehler.push(...g.fehler); }
+  return { ids, blobs, fehler };
+}
+// Was hat ein SCHREIBER auf seinem eigenen Branch zurueckgezogen (Grabstein dort, vor dem Merge — README
+// Waechter 1)? Entfernt wird erst mit dem Grabstein auf main; bis dahin ist sein Verschwinden kein Verlust
+// (vorher: ALARM, und `ernten` holte ihn zurueck — Gegenpruefung 3). Nur der Branch, den `von` nennt:
+// ein Grabstein auf einem FREMDEN Branch zieht nichts zurueck.
+export function zurueckgezogenVomSchreiber(wurzel, eintraegeOderVon) {
+  const refs = (git(wurzel, ['for-each-ref', '--format=%(refname)', 'refs/remotes/' + REMOTE + '/']) || '').split('\n').filter(x => x && !/\/HEAD$/.test(x));
+  const aus = new Map();   // id → ref
+  if (!refs.length) return aus;
+  let r;
+  try { r = cp.spawnSync('git', ['-C', wurzel, 'cat-file', '--batch'], { input: refs.map(x => x + ':' + GRABSTEINE).join('\n') + '\n', maxBuffer: 256 * 1024 * 1024, env: Object.assign({}, process.env, { GIT_NO_LAZY_FETCH: '1' }) }); } catch (_) { return aus; }
+  const b = r && r.stdout; if (!b) return aus;
+  let i = 0, k = 0;
+  const jeRef = new Map();
+  while (i < b.length && k < refs.length) {
+    const nl = b.indexOf(10, i); if (nl < 0) break;
+    const kopf = b.slice(i, nl).toString('utf8').split(' ');
+    const ref = refs[k++].replace(/^refs\/remotes\//, '');
+    if (kopf[1] !== 'blob') { i = nl + 1; continue; }
+    const n = Number(kopf[2]);
+    const g = grabsteinePruefen(b.slice(nl + 1, nl + 1 + n).toString('utf8'));
+    jeRef.set(ref, g.ids);
+    i = nl + 1 + n + 1;
+  }
+  const vonId = new Map();
+  for (const x of eintraegeOderVon) if (x && x.id && !vonId.has(x.id)) vonId.set(x.id, x.von || (x.e && x.e.von));
+  for (const [ref, ids] of jeRef) for (const id of ids) { const v = vonId.get(id); if (v && istAutorRef(ref, autorZweig({ von: v }))) aus.set(id, ref); }
+  return aus;
 }
 
 // WIRKT ein zeitgebundener Eintrag JETZT? Nur, was beim LESEN gueltig ist: ein fremder Branch ist
@@ -1071,17 +1137,20 @@ export function wirksam(e, jetzt) {
 // Ergebnis „egal" hob jeden Halt auf).
 function gueltig(e, proId) { return !eintragPruefen(e, e._datei).length && !bezugsRegeln(e, proId).length; }
 // `von` ist freier Text — gegen die Quelle gehalten: ein Eintrag von „sitzung/<b>" zaehlt als seiner nur,
-// wenn seine Fassung auf <remote>/<b> liegt, im Arbeitsbaum, wenn <b> der eigene Branch ist, oder auf
-// main (dort liegt, was jemand gemergt hat — README „auf main jede"; vorher verfiel eine Uebernahme mit
-// dem Merge und dem Loeschen des Branches mitten in ihrer Frist). Die Sicherung zaehlt nie. Ohne `wo`
-// (gebaute Eintraege ohne git) wird nicht geprueft. Gilt fuer Lage, Halt, Veto — und fuer „meins".
+// wenn seine Fassung auf origin/<b> liegt (nie derselbe Name auf einem anderen Remote), im Arbeitsbaum,
+// wenn <b> der eigene Branch ist, oder auf origin/main (dort liegt, was jemand gemergt hat — README „auf
+// main jede"; vorher verfiel eine Uebernahme mit dem Merge und dem Loeschen des Branches mitten in ihrer
+// Frist). Die Sicherung zaehlt nie. Ohne `wo` (gebaute Eintraege ohne git) wird nicht geprueft. Gilt fuer
+// Lage, Halt, Veto — und fuer „meins". `ich`: ein Name oder eine Liste (nach `git branch -m` zaehlt auch
+// der Name, unter dem der Branch auf origin liegt — Gegenpruefung 3).
 export function vonPasst(e, wo, ich) {
   if (!wo) return true;
   const q = e._quellen || wo.get(e.id) || new Set();
   if ([...q].some(istMainRef)) return true;
   const b = autorZweig(e);
   if (!b) return false;
-  return [...q].some(x => x !== 'Arbeitsbaum' && !istSicherungsRef(x) && ohneRemote(x) === b) || (q.has('Arbeitsbaum') && ich === e.von);
+  const istIch = Array.isArray(ich) ? ich.indexOf(e.von) >= 0 : ich === e.von;
+  return [...q].some(x => istAutorRef(x, b)) || (q.has('Arbeitsbaum') && istIch);
 }
 // So weit darf der Zeitstempel einer Lage oder eines Halts VOR dem Commit liegen, der ihn auf seinen
 // Branch brachte (schreiben, weiterarbeiten, committen). Was weiter zurueckliegt, ist rueckdatiert.
@@ -1104,11 +1173,12 @@ export function schwarm(eintraege, jetzt, opts) {
     if (e.art !== 'halt' && e.art !== 'lage') continue;
     if (e.art === 'halt') { const a = aufhebung(e); if (a) { aufgehoben.push({ e, durch: a }); continue; } }
     const w = wirksam(e, jetzt);
-    // Ein „fertig" beendet auch nach seiner eigenen Frist — es haelt nichts, es beendet.
-    const nachwirkend = e.art === 'lage' && e.phase === 'fertig' && w.abgelaufen;
-    if (!w.ok && !nachwirkend) { if (!w.abgelaufen) unwirksam.push({ e, grund: w.grund }); continue; }
+    // Eine ABGELAUFENE Lage zaehlt still weiter mit: ein „fertig" beendet auch nach seiner eigenen Frist, und
+    // was eine Lage zu IHRER Zeit hielt, belegte damals den Deckel (Gegenpruefung 3).
+    const abgelaufen = e.art === 'lage' && w.abgelaufen === true;
+    if (!w.ok && !abgelaufen) { if (!w.abgelaufen) unwirksam.push({ e, grund: w.grund }); continue; }
     // Erst jetzt, was nur fuer WIRKENDE zaehlt: ein abgelaufener Eintrag wird nie mehr gemeldet.
-    const melde = (grund) => { if (!nachwirkend) unwirksam.push({ e, grund }); };
+    const melde = (grund) => { if (!abgelaufen) unwirksam.push({ e, grund }); };
     const bz = bezugsRegeln(e, proId);
     if (bz.length) { melde('ungueltig: ' + bz[0]); continue; }
     if (!vonPasst(e, opts.wo, opts.ich)) { melde('„von" (' + e.von + ') passt nicht zum Branch, auf dem ' + (e.art === 'lage' ? 'die Lage' : 'der Halt') + ' liegt'); continue; }
@@ -1121,30 +1191,38 @@ export function schwarm(eintraege, jetzt, opts) {
     const veto = (alsListe(e.bezug).find(b => b && b.art === 'widerspricht') || {}).id || null;
     halts.push({ e, bis: w.bis, veto, antworten: (abl.rueck.get(e.id) || []).filter(x => x.von.art === 'antwort').map(x => x.von) });
   }
-  // Je Schreiber: JEDE wirksame Lage mit baut_auf ist eine Uebernahme, bis eine spaetere „fertig"
+  // Je Schreiber: JEDE gueltige Lage mit baut_auf ist eine Uebernahme, bis eine spaetere „fertig"
   // desselben Schreibers sie beendet (ohne Bezug: alle; mit Bezug: genau diese). „Spaeter" heisst: mit
   // spaeterem Zeitstempel — ein „fertig" in derselben Sekunde gab sonst die eben genommene Aufgabe frei.
   // Und hoechstens LAGE_NIMMT_MAX Uebernahmen je Schreiber zugleich (die aeltesten gelten): sonst hielt
-  // einer mit vierzehn Lagen 42 Eintraege fest (Gegenpruefung 2).
+  // einer mit vierzehn Lagen 42 Eintraege fest (Gegenpruefung 2). Der Deckel gilt ZUR ZEIT DER LAGE: was
+  // beim eigenen Zeitstempel ueber dem Deckel lag, bleibt fuer dieses Ziel unwirksam — ein spaeteres „fertig"
+  // (oder Ablaufen) gibt nur fuer SPAETERE Lagen Platz frei. Vorher wurde am Endstand gerechnet, und eine
+  // bei ihrem Schreiben unwirksame vierte Uebernahme eroberte mit ihrem alten Zeitstempel ein Ziel zurueck
+  // (Gegenpruefung 3). Mithelfen (`mithelfen: true`) nimmt nichts und belegt keinen Platz.
   const proVon = new Map();
   for (const l of gueltigeLagen) { if (!proVon.has(l.e.von)) proVon.set(l.e.von, []); proVon.get(l.e.von).push(l); }
-  const ansprueche = [], lagen = [], zeitKey = (e) => String(e.datum) + 'T' + String(e.zeit);
+  const ansprueche = [], lagen = [], helfer = [], zeitKey = (e) => String(e.datum) + 'T' + String(e.zeit);
+  const gibtFrei = (f, l, ziel) => f.e.phase === 'fertig' && zeitKey(f.e) > zeitKey(l.e) && (!nimmt(f.e).length || nimmt(f.e).indexOf(ziel) >= 0);
   for (const liste of proVon.values()) {
     liste.sort((a, b) => lageOrd(a.e).localeCompare(lageOrd(b.e)));
-    const ziele = [], zuViel = new Map();
-    liste.forEach((l, i) => {
-      if (!l.aktiv || l.e.phase === 'fertig') return;   // ein „fertig" mit Bezug GIBT frei, es nimmt nicht
+    const angenommen = [], zuViel = new Map();
+    for (const l of liste) {
+      if (l.e.phase === 'fertig') continue;   // ein „fertig" mit Bezug GIBT frei, es nimmt nicht
+      if (l.e.mithelfen === true) { helfer.push(l); continue; }
+      const t = zeitKey(l.e), tMs = zeitpunkt(l.e);
+      // Was hielt dieser Schreiber, als er DIESE Lage schrieb? Angenommene Ziele frueherer Lagen, deren Frist
+      // da noch lief und die kein „fertig" vor diesem Zeitstempel freigab.
+      const gehalten = new Set();
+      for (const a of angenommen) if (a.l.bis > tMs && !liste.some(f => gibtFrei(f, a.l, a.ziel) && zeitKey(f.e) < t)) gehalten.add(a.ziel);
       for (const ziel of nimmt(l.e)) {
-        const beendet = liste.slice(i + 1).some(f => f.e.phase === 'fertig' && zeitKey(f.e) > zeitKey(l.e) && (!nimmt(f.e).length || nimmt(f.e).indexOf(ziel) >= 0));
-        if (beendet) continue;
-        if (ziele.indexOf(ziel) < 0) {
-          if (ziele.length >= LAGE_NIMMT_MAX) { if (!zuViel.has(l.e.id)) zuViel.set(l.e.id, { l, z: [] }); zuViel.get(l.e.id).z.push(ziel); continue; }
-          ziele.push(ziel);
-        }
-        ansprueche.push({ ziel, lage: l });
+        if (!gehalten.has(ziel) && gehalten.size >= LAGE_NIMMT_MAX) { if (!zuViel.has(l.e.id)) zuViel.set(l.e.id, { l, z: [] }); zuViel.get(l.e.id).z.push(ziel); continue; }
+        gehalten.add(ziel); angenommen.push({ l, ziel });
       }
-    });
-    for (const { l, z } of zuViel.values()) unwirksam.push({ e: l.e, grund: 'mehr als ' + LAGE_NIMMT_MAX + ' Uebernahmen zugleich — fuer ' + z.join(', ') + ' gilt sie nicht (die aeltesten gelten)' });
+    }
+    // Was gilt JETZT: angenommen, die Lage laeuft noch, und kein spaeteres „fertig" hat sie beendet.
+    for (const a of angenommen) if (a.l.aktiv && !liste.some(f => gibtFrei(f, a.l, a.ziel))) ansprueche.push({ ziel: a.ziel, lage: a.l });
+    for (const { l, z } of zuViel.values()) if (l.aktiv) unwirksam.push({ e: l.e, grund: 'mehr als ' + LAGE_NIMMT_MAX + ' Uebernahmen zugleich — fuer ' + z.join(', ') + ' gilt sie nicht (die aeltesten gelten)', ziele: z, teil: z.length < nimmt(l.e).length });
     // Fortschritt: die juengste Lage des Schreibers; „fertig" beendet die Anzeige.
     const neueste = liste[liste.length - 1];
     if (neueste && neueste.aktiv && neueste.e.phase !== 'fertig') lagen.push(neueste);
@@ -1153,7 +1231,17 @@ export function schwarm(eintraege, jetzt, opts) {
   const uebernahme = new Map();
   for (const a of ansprueche.sort((x, y) => lageOrd(x.lage.e).localeCompare(lageOrd(y.lage.e)))) {
     if (!uebernahme.has(a.ziel)) uebernahme.set(a.ziel, { lage: a.lage, auch: [] });
-    else { const u = uebernahme.get(a.ziel); if (u.lage.e.von !== a.lage.e.von && u.auch.indexOf(a.lage) < 0) u.auch.push(a.lage); }   // jede nachrangige Lage (ein Schreiber kann mithelfen UND nehmen)
+    else { const u = uebernahme.get(a.ziel); if (u.lage.e.von !== a.lage.e.von && u.auch.indexOf(a.lage) < 0) u.auch.push(a.lage); }   // jede nachrangige Lage
+  }
+  // Wer mithilft, steht daneben — nur bei einem Ziel, das jemand anderes genommen hat, und solange seine Lage laeuft.
+  for (const l of helfer) {
+    if (!l.aktiv) continue;
+    const eigeneListe = proVon.get(l.e.von) || [];
+    for (const ziel of nimmt(l.e)) {
+      const u = uebernahme.get(ziel);
+      if (!u || u.lage.e.von === l.e.von || u.auch.indexOf(l) >= 0 || eigeneListe.some(f => gibtFrei(f, l, ziel))) continue;
+      u.auch.push(l);
+    }
   }
   const vetos = new Map();
   for (const h of halts) if (h.veto) { if (!vetos.has(h.veto)) vetos.set(h.veto, []); vetos.get(h.veto).push(h); }
@@ -1457,14 +1545,14 @@ export function waechterBasis(wurzel, umgebung) {
 export function geloeschtSeit(wurzel, basis) {
   const ls = git(wurzel, ['ls-tree', '-r', '-z', basis, '--', ORDNER + '/']);
   if (ls == null) return { grund: 'Basis ' + basis + ' ist nicht lesbar' };
-  const grab = grabsteine(wurzel, false).ids, fehlt = [], anders = [];
+  const gs = grabsteine(wurzel, false), grab = gs.ids, fehlt = [], anders = [];
   let n = 0;
   const z = ls.split('\0').map(x => x.match(/^\d+ blob ([0-9a-f]+)\t(.+\.json)$/)).filter(Boolean);
   const inhalt = blobsLesen(wurzel, z.map(m => m[1]));
   for (const m of z) {
     n++;
     let hier = null; try { hier = fs.readFileSync(path.join(wurzel, m[2])); } catch (_) {}
-    if (hier == null) { if (!grab.has(idAusName(path.posix.basename(m[2])))) fehlt.push(m[2]); continue; }
+    if (hier == null) { if (!grab.has(idAusName(path.posix.basename(m[2]))) && !gs.blobs.has(m[1])) fehlt.push(m[2]); continue; }
     const alt = inhalt.get(m[1]);
     if (alt != null && !alt.equals(hier)) anders.push(m[2]);
   }
@@ -1475,110 +1563,192 @@ export function geloeschtSeit(wurzel, basis) {
 //    Jeder Lauf baut den Stand AUS DEM NICHTS — ein leerer Index, nur gepruefte Dateien unter festen Namen,
 //    gelesen ueber git, nie ueber ein ausgechecktes Verzeichnis: vorher uebernahm er den Baum der Sicherung
 //    ungeprueft, und eine .gitignore, ein Symlink oder eine fremde Datei dort legte ihn lahm oder machte
-//    „gesichert" zur blossen Behauptung (Gegenpruefung 2). Gesichert wird JEDE Fassung eines Eintrags
-//    (die erste unter eintraege/, jede weitere unter fassungen/<id>/<blob>.json) — byte-gleich, ohne
-//    Geheimnisse, ohne Grabsteine. Was NUR noch hier liegt, hat ein Branch verloren.
+//    „gesichert" zur blossen Behauptung (Gegenpruefung 2). Gesichert wird JEDE Fassung eines Eintrags —
+//    byte-gleich, ohne Geheimnisse, ohne Grabsteine: unter eintraege/ die Fassung, die in diesem Lauf fuer
+//    Leser GILT (vorher die erste — nach dem Loeschen des Branches holte `ernten` still den veralteten Stand
+//    zurueck, Gegenpruefung 3), jede andere unter fassungen/<id>/<blob>.json. Was NUR noch hier liegt, hat
+//    ein Branch verloren.
 //      opts.alt      — der bisherige Stand (Commit von zz-sicherung) oder null
 //      opts.stand    — das Gedaechtnis des letzten ERFOLGREICHEN Laufs (ausserhalb der Sicherung: Actions-Cache)
 //      opts.standNeu — wohin das neue Gedaechtnis geht; die Action legt es erst nach dem Push ab
+//      opts.jetzt    — die Uhr (ms), fuer den Pruefstand
 export const SICHERUNG_README = ['# zz-sicherung — die Sicherung des Bretts', '', 'Geschrieben vom Brett-Waechter (.github/workflows/brett-waechter.yml auf main).',
   'Byte-gleiche Kopien jeder Eintragsdatei jedes Branches, je Lauf EIN Stand ohne Geschichte. Nie von Hand aendern — der naechste Lauf baut den Stand neu.',
-  'Unter fassungen/ liegen weitere Fassungen derselben id (umgeschrieben oder auf zwei Branches verschieden).', 'Regeln: docs/austausch/README.md auf main.', ''].join('\n');
+  'Unter eintraege/ liegt je id die Fassung, die zuletzt fuer Leser galt; unter fassungen/ jede weitere (umgeschrieben, oder auf zwei Branches verschieden);',
+  'unter quarantaene/ eine einmal gesicherte Fassung, die die heutigen Leseregeln nicht mehr annehmen.', 'Regeln: docs/austausch/README.md auf main.', ''].join('\n');
+export const QUARANTAENE = 'docs/austausch/quarantaene';
+// Eine abgeloeste Fassung, deren Eintrag auf main liegt und die so lange auf keinem Branch mehr lag, wird abgebaut —
+// sonst blieb jede Berichtigung fuer immer (Gegenpruefung 3: fuenf Kopien einer id nach Merge und Loeschen).
+export const SICHERUNG_ABBAU_TAGE = 30;
 function gitRoh(wurzel, args, env, input) {
   const r = cp.spawnSync('git', ['-C', wurzel, '-c', 'core.quotePath=false'].concat(args), { input, env: Object.assign({}, process.env, env || {}), maxBuffer: 256 * 1024 * 1024 });
   return r && r.status === 0 ? String(r.stdout) : null;
 }
+const geheimIn = (e, roh, datei) => GEHEIM.find(([re]) => re.test((e ? textVon(e) : '') + '\n' + (roh || '') + '\n' + (datei || '')));
+const ortKennung = (quelle, pfad) => crypto.createHash('sha1').update(String(quelle) + '\0' + String(pfad)).digest('hex').slice(0, 16);
 export function sicherungSchreiben(wurzel, opts) {
   opts = opts || {};
+  const jetzt = opts.jetzt != null ? opts.jetzt : Date.now(), jetztIso = new Date(jetzt).toISOString();
   const brett = brettLesen(wurzel, { alleRefs: true });
   const aus = { baum: null, neu: [], weitere: [], gleich: 0, uebersprungen: [], entfernt: [], nurHier: [], refs: brett.refs, unlesbar: [], verworfen: [],
-    strittig: brett.strittig.map(x => x.id), fehlenInSicherung: [], unwiederbringlich: [], neuVerloren: [], unlesbarWeg: [], alarm: [], erstlauf: false, warnung: null };
+    strittig: brett.strittig.map(x => x.id), fehlenInSicherung: [], unwiederbringlich: [], neuVerloren: [], unlesbarWeg: [], unlesbarEntfernt: [], uebersprungenWeg: [],
+    zurueckgenommen: [], vomSchreiber: [], umgelegt: [], abgebaut: [], doppelt: [], alarm: [], erstlauf: false, warnung: null };
   if (!brett.gitDa) return Object.assign(aus, { grund: 'git ist nicht verfuegbar' });
   if (!brett.refs) return Object.assign(aus, { grund: 'kein Remote-Ref sichtbar — nichts geholt, nichts gesichert' });
-  const grab = grabsteine(wurzel, true).ids;
+  const gs = grabsteine(wurzel, true), grab = gs.ids, grabBlob = gs.blobs;
+  // 0. Das Gedaechtnis des letzten erfolgreichen Laufs (ohne Titel: ids, Blobs, Quellen, Zeiten).
+  let alt = null;
+  if (opts.stand) { try { alt = JSON.parse(fs.readFileSync(opts.stand, 'utf8')); } catch (_) {} }
+  const ged = new Map();   // blob → { id, erst, zuletzt, orte }
+  if (alt && Array.isArray(alt.fassungen)) for (const x of alt.fassungen) if (x && typeof x.blob === 'string') ged.set(x.blob, x);
+  const gedQuar = new Set(alt && Array.isArray(alt.quarantaene) ? alt.quarantaene.filter(x => x && x.blob).map(x => x.blob) : []);
   // 1. Der bisherige Stand, ueber git gelesen: nur normale Dateien unter den festen Namen, nur gueltige Eintraege.
-  const vorhanden = new Map();   // blob → { id, pfad }
+  //    Was einmal gesichert war (das Gedaechtnis kennt den Blob), entfernt nur ein Grabstein — oder ein Geheimnis:
+  //    liegt es verschoben, wird es an seinen Platz gelegt; nehmen es die heutigen Leseregeln nicht mehr an, kommt
+  //    es in die Quarantaene (vorher vernichtete der Waechter selbst die einzige Kopie, Gegenpruefung 3).
+  const vorhanden = new Map();   // blob → { id, pfad, prim, e }
+  const vorherRoh = new Set();   // jeder Blob, der im alten Stand lag (gleich wo)
+  const quarantaene = new Map(); // blob → { id }
   if (opts.alt) {
     const ls = gitRoh(wurzel, ['ls-tree', '-r', '-z', opts.alt]);
     if (ls == null) return Object.assign(aus, { grund: 'der bisherige Stand ' + opts.alt + ' ist nicht lesbar' });
     const kand = [];
+    const ORD = ORDNER.replace(/\//g, '\\/'), FAS = FASSUNGEN.replace(/\//g, '\\/'), QUA = QUARANTAENE.replace(/\//g, '\\/');
     for (const z of ls.split('\0').filter(Boolean)) {
       const m = z.match(/^(\d+) (\w+) ([0-9a-f]+)\t(.+)$/);
       if (!m) continue;
       const [, mode, typ, blob, pfad] = m;
+      if (typ === 'blob') vorherRoh.add(blob);
       if (pfad === 'README.md' && mode === '100644') continue;   // wird neu geschrieben
-      const prim = pfad.match(new RegExp('^' + ORDNER.replace(/\//g, '\\/') + '\\/(\\d{4}-\\d{2})\\/([^/]+)$')), weit = pfad.match(new RegExp('^' + FASSUNGEN.replace(/\//g, '\\/') + '\\/([^/]+)\\/([0-9a-f]{40})\\.json$'));
-      if (mode !== '100644' || typ !== 'blob' || !(prim || weit)) { aus.verworfen.push({ pfad, grund: mode === '120000' ? 'ein Symlink' : (typ !== 'blob' ? 'kein Blob (' + typ + ')' : 'kein Pfad der Sicherung') }); continue; }
-      kand.push({ blob, pfad, prim, weit });
+      const prim = pfad.match(new RegExp('^' + ORD + '\\/(\\d{4}-\\d{2})\\/([^/]+)$')), weit = pfad.match(new RegExp('^' + FAS + '\\/([^/]+)\\/([0-9a-f]{40})\\.json$')), quar = pfad.match(new RegExp('^' + QUA + '\\/([0-9a-f]{40})\\.json$'));
+      const bekannt = typ === 'blob' && (ged.has(blob) || gedQuar.has(blob));
+      if (mode !== '100644' || typ !== 'blob' || !(prim || weit || quar || bekannt)) { aus.verworfen.push({ id: null, blob, grund: mode === '120000' ? 'ein Symlink' : (typ !== 'blob' ? 'kein Blob (' + typ + ')' : 'kein Pfad der Sicherung') }); continue; }
+      kand.push({ blob, pfad, prim, weit, quar, bekannt });
     }
     const inhalt = blobsLesen(wurzel, kand.map(k => k.blob)), weg = [];
     for (const k of kand) {
-      const buf = inhalt.get(k.blob);
-      const e = buf == null ? null : lies(buf.toString('utf8'), k.prim ? k.prim[2] : null, 'zz-sicherung', weg, { ohneName: !k.prim });
-      const passt = e && (k.prim ? k.prim[1] === e.id.slice(0, 7) : (k.weit[1] === e.id && k.weit[2] === k.blob));
-      if (!passt) { aus.verworfen.push({ pfad: k.pfad, grund: 'kein gueltiger Eintrag unter diesem Namen' }); continue; }
-      if (!vorhanden.has(k.blob)) vorhanden.set(k.blob, { id: e.id, pfad: k.pfad });
+      const buf = inhalt.get(k.blob), roh = buf == null ? null : buf.toString('utf8');
+      const e = roh == null ? null : lies(roh, k.prim ? k.prim[2] : null, 'zz-sicherung', weg, { ohneName: true });
+      const geheim = roh != null && geheimIn(e, roh, k.prim ? k.prim[2] : '');
+      if (geheim) { aus.verworfen.push({ id: e ? e.id : null, blob: k.blob, grund: 'sieht aus wie ' + geheim[1] + ' — entfernt' }); continue; }
+      const nm = k.prim && e ? String(k.prim[2]).match(NAME_FORM) : null;
+      const passt = e && (k.prim ? (k.prim[1] === e.id.slice(0, 7) && nm && nm[1] === e.id && nm[2] === e.art) : (k.weit ? (k.weit[1] === e.id && k.weit[2] === k.blob) : false));
+      if (passt) { if (!vorhanden.has(k.blob)) vorhanden.set(k.blob, { id: e.id, pfad: k.pfad, prim: !!k.prim, e }); continue; }
+      if (k.bekannt && e && blobKennung(buf) === k.blob) { if (!vorhanden.has(k.blob)) { vorhanden.set(k.blob, { id: e.id, pfad: FASSUNGEN + '/' + e.id + '/' + k.blob + '.json', prim: false, e }); aus.umgelegt.push({ id: e.id, blob: k.blob, grund: 'lag an einem falschen Platz der Sicherung' }); } continue; }
+      if (k.bekannt && roh != null && blobKennung(buf) === k.blob) { const id = (ged.get(k.blob) || {}).id || null; quarantaene.set(k.blob, { id }); if (!k.quar) aus.umgelegt.push({ id, blob: k.blob, grund: 'nach den heutigen Leseregeln kein Eintrag mehr — in die Quarantaene' }); continue; }
+      aus.verworfen.push({ id: e ? e.id : idAusName(path.posix.basename(k.pfad)), blob: k.blob, grund: 'kein gueltiger Eintrag unter diesem Namen' });
     }
   }
-  const vorher = new Set(vorhanden.keys()), primaer = new Map();
-  for (const [b, v] of vorhanden) if (v.pfad.indexOf(ORDNER + '/') === 0 && !primaer.has(v.id)) primaer.set(v.id, b);
+  const idsVorher = new Set([...vorhanden.values()].map(v => v.id));
   // 2. Jede Fassung jedes Branches (und des Arbeitsbaums) — die Sicherung selbst zaehlt nicht als Quelle.
   const echt = (q) => [...q].filter(x => !istSicherungsRef(x));
-  for (const [id, liste] of brett.fassungen) {
-    if (grab.has(id)) continue;
-    for (const v of liste) {
-      const q = echt(v.quellen);
-      if (!q.length) continue;
-      const quelle = q[0];
-      const geheim = GEHEIM.find(([re]) => re.test(textVon(v.e) + '\n' + (v.e._roh || '') + '\n' + (v.e._datei || '')));
-      if (geheim) { aus.uebersprungen.push({ id, quelle, grund: 'sieht aus wie ' + geheim[1] }); continue; }
-      if (vorhanden.has(v.blob)) { aus.gleich++; continue; }
-      // Ein Blob aus dem Arbeitsbaum muss erst in die Objekt-Datenbank (hash-object -w).
-      if (gitRoh(wurzel, ['cat-file', '-e', v.blob]) == null) {
-        const b = gitRoh(wurzel, ['hash-object', '-w', '--stdin'], null, Buffer.from(v.e._roh, 'utf8'));
-        if (!b || b.trim() !== v.blob) { aus.uebersprungen.push({ id, quelle, grund: 'Inhalt nicht in die Objekt-Datenbank zu schreiben' }); continue; }
-      }
-      if (!primaer.has(id)) { primaer.set(id, v.blob); vorhanden.set(v.blob, { id, pfad: ORDNER + '/' + id.slice(0, 7) + '/' + v.e._datei }); aus.neu.push({ id, quelle }); }
-      else { vorhanden.set(v.blob, { id, pfad: FASSUNGEN + '/' + id + '/' + v.blob + '.json' }); aus.weitere.push({ id, quelle }); }
+  const sichere = (id, e, blob, quelle) => {
+    if (grab.has(id) || grabBlob.has(blob)) return false;
+    const geheim = geheimIn(e, e._roh, e._datei);
+    if (geheim) { aus.uebersprungen.push({ id, quelle, blob, von: e.von, grund: 'sieht aus wie ' + geheim[1] }); return false; }
+    if (vorhanden.has(blob)) { aus.gleich++; return true; }
+    // Ein Blob aus dem Arbeitsbaum muss erst in die Objekt-Datenbank (hash-object -w).
+    if (gitRoh(wurzel, ['cat-file', '-e', blob]) == null) {
+      const b = gitRoh(wurzel, ['hash-object', '-w', '--stdin'], null, Buffer.from(e._roh, 'utf8'));
+      if (!b || b.trim() !== blob) { aus.uebersprungen.push({ id, quelle, blob, von: e.von, grund: 'Inhalt nicht in die Objekt-Datenbank zu schreiben' }); return false; }
+    }
+    vorhanden.set(blob, { id, pfad: FASSUNGEN + '/' + id + '/' + blob + '.json', prim: false, e });
+    (idsVorher.has(id) ? aus.weitere : aus.neu).push({ id, quelle });
+    return true;
+  };
+  for (const [id, liste] of brett.fassungen) for (const v of liste) { const q = echt(v.quellen); if (q.length) sichere(id, v.e, v.blob, q[0]); }
+  for (const d of brett.doppeltFassungen || []) if (!istSicherungsRef(d.quelle) && sichere(d.id, d.e, d.blob, d.quelle)) aus.doppelt.push({ id: d.id, quelle: d.quelle });
+  // 3. Grabsteine: jede Fassung der id (bzw. genau die genannte Fassung) geht — aus dem neuen Stand, und damit aus dem Branch.
+  for (const [b, v] of [...vorhanden]) if (grab.has(v.id) || grabBlob.has(b)) { vorhanden.delete(b); if (aus.entfernt.indexOf(v.id) < 0) aus.entfernt.push(v.id); }
+  for (const b of [...quarantaene.keys()]) { const q = quarantaene.get(b); if ((q.id && grab.has(q.id)) || grabBlob.has(b)) quarantaene.delete(b); }
+  // 4. Unter eintraege/ liegt je id die Fassung, die GILT (brettLesen); sonst die bisherige; ist der Eintrag strittig
+  //    und war nie eine gesichert, keine (alle unter fassungen/) — sonst entschiede die Sortierung, wer der Schreiber ist.
+  const jeId = new Map();
+  for (const [b, v] of vorhanden) { if (!jeId.has(v.id)) jeId.set(v.id, []); jeId.get(v.id).push(b); }
+  for (const [id, blobs] of jeId) {
+    const g = brett.gilt.get(id), alter = blobs.find(b => vorhanden.get(b).prim);
+    let p = g && vorhanden.has(g.blob) ? g.blob : (alter || null);
+    if (!p && !brett.strittig.some(x => x.id === id) && blobs.length) p = blobs.slice().sort((x, y) => String((ged.get(x) || {}).erst || '9').localeCompare(String((ged.get(y) || {}).erst || '9')) || x.localeCompare(y))[0];
+    for (const b of blobs) {
+      const v = vorhanden.get(b);
+      if (b === p) { const name = (g && g.blob === b && g.e._datei) || (v.prim ? path.posix.basename(v.pfad) : v.e._datei) || (v.e.id + '-' + v.e.art + '-.json'); v.pfad = ORDNER + '/' + id.slice(0, 7) + '/' + name; v.prim = true; }
+      else { v.pfad = FASSUNGEN + '/' + id + '/' + b + '.json'; v.prim = false; }
     }
   }
-  // 3. Grabsteine: jede Fassung der id geht — aus dem neuen Stand, und damit aus dem Branch.
-  for (const [b, v] of [...vorhanden]) if (grab.has(v.id)) { vorhanden.delete(b); if (aus.entfernt.indexOf(v.id) < 0) aus.entfernt.push(v.id); }
-  // 4. Was liegt NUR noch hier? Je FASSUNG: sicher ist sie, wenn ein Branch (oder der Arbeitsbaum) sie
-  //    traegt — oder wenn der Eintrag inzwischen auf main liegt oder auf dem Branch seines Autors in einer
-  //    neueren Fassung (der Autor darf berichtigen). Eine kaputte oder fremde Kopie anderswo rettet nichts.
+  // 5. Wo liegt jede Fassung JETZT (ohne die Sicherung)?
   const blobQuellen = new Map();
   for (const liste of brett.fassungen.values()) for (const v of liste) blobQuellen.set(v.blob, echt(v.quellen));
-  const abgeloest = (id) => {
-    const liste = brett.fassungen.get(id) || [];
-    return liste.some(v => echt(v.quellen).some(q => q === 'Arbeitsbaum' || istMainRef(q))) || liste.some(v => { const a = autorZweig(v.e); return a && echt(v.quellen).some(q => q !== 'Arbeitsbaum' && ohneRemote(q) === a); });
-  };
-  for (const [b, v] of vorhanden) if (!(blobQuellen.get(b) || []).length && !abgeloest(v.id)) aus.nurHier.push({ id: v.id, blob: b });
-  // 5. Unlesbare Dateien: genannt (mit Quelle), und ins Gedaechtnis — ihr Verschwinden wird gemeldet.
-  for (const u of brett.unlesbarOrte) if (!istSicherungsRef(u.quelle)) aus.unlesbar.push(u);
-  // 6. Der neue Stand: ein leerer Index, README und die Fassungen.
+  for (const d of brett.doppeltFassungen || []) if (!istSicherungsRef(d.quelle)) blobQuellen.set(d.blob, (blobQuellen.get(d.blob) || []).concat([d.quelle]));
+  const vomSchreiber = zurueckgezogenVomSchreiber(wurzel, [...vorhanden.values()].map(v => ({ id: v.id, von: v.e.von })));
+  // 6. Was liegt NUR noch hier? Je FASSUNG v: verloren ist sie nicht, wenn sie auf einem Branch liegt — oder wenn der
+  //    SCHREIBER (dasselbe `von`) seinen Eintrag zu Hause hat: auf main, im Arbeitsbaum oder auf seinem Branch
+  //    (origin/<b>). Eine Kopie anderswo rettet nichts — auch nicht eine, die ihr `von` auf den eigenen Branch
+  //    umschrieb (Gegenpruefung 3). Lag v selbst zu Hause und ist alles, was dort jetzt liegt, AELTER als v, hat
+  //    der Schreiber zurueckgenommen (oder ein Force-Push hat zurueckgesetzt): ein Hinweis, kein Alarm, aber nie
+  //    „Nichts verloren".
+  const erstVon = (b) => (ged.get(b) || {}).erst || null;
+  const zuHause = (q, von) => q === 'Arbeitsbaum' || istMainRef(q) || istAutorRef(q, autorZweig({ von }));
+  for (const [b, v] of vorhanden) {
+    if ((blobQuellen.get(b) || []).length) continue;
+    const vs = vomSchreiber.get(v.id);
+    if (vs) { if (!aus.vomSchreiber.some(x => x.id === v.id)) aus.vomSchreiber.push({ id: v.id, quelle: vs }); continue; }
+    const heim = [...vorhanden].filter(([b2, v2]) => b2 !== b && v2.id === v.id && v2.e.von === v.e.von && (blobQuellen.get(b2) || []).some(q => zuHause(q, v.e.von))).map(([b2]) => b2);
+    if (!heim.length) { aus.nurHier.push({ id: v.id, blob: b }); continue; }
+    const warZuHause = ((ged.get(b) || {}).orte || []).some(q => zuHause(q, v.e.von)), e0 = erstVon(b);
+    if (warZuHause && e0 && heim.every(h => erstVon(h) && erstVon(h) < e0)) aus.zurueckgenommen.push({ id: v.id, blob: b });
+  }
+  // 7. Abbau: abgeloeste Fassungen eines Eintrags, der auf main liegt, nach SICHERUNG_ABBAU_TAGE ohne Branch.
+  const mainIds = new Set();
+  for (const [id, liste] of brett.fassungen) if (liste.some(v => [...v.quellen].some(q => istMainRef(q) || q === 'Arbeitsbaum'))) mainIds.add(id);
+  const nurHierB = new Set(aus.nurHier.map(x => x.blob));
+  for (const [b, v] of [...vorhanden]) {
+    if (v.prim || !mainIds.has(v.id) || nurHierB.has(b) || (blobQuellen.get(b) || []).length) continue;
+    const z = (ged.get(b) || {}).zuletzt;
+    if (z && jetzt - Date.parse(z) > SICHERUNG_ABBAU_TAGE * 864e5) { vorhanden.delete(b); aus.abgebaut.push({ id: v.id, blob: b }); }
+  }
+  // 8. Unlesbare Dateien: genannt (Quelle, id aus dem Namen, Blob — nie der Dateiname: er traegt den Titel), ins Gedaechtnis.
+  const gueltigeOrte = new Set();
+  for (const liste of brett.fassungen.values()) for (const v of liste) for (const [q, p] of v.pfade) gueltigeOrte.add(ortKennung(q, p));
+  for (const u of brett.unlesbarOrte) if (!istSicherungsRef(u.quelle)) {
+    const id = idAusName(path.posix.basename(u.pfad));
+    if (id && grab.has(id)) continue;
+    aus.unlesbar.push({ quelle: u.quelle, id, blob: u.blob, ort: ortKennung(u.quelle, u.pfad) });
+  }
+  // 9. Der neue Stand: ein leerer Index, README, die Fassungen und die Quarantaene.
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'brett-sicherung-')), env = { GIT_INDEX_FILE: path.join(tmp, 'index') };
   try {
     const readme = (gitRoh(wurzel, ['hash-object', '-w', '--stdin'], null, Buffer.from(SICHERUNG_README, 'utf8')) || '').trim();
-    const zeilen = ['100644 blob ' + readme + '\tREADME.md'].concat([...vorhanden].sort((x, y) => x[1].pfad < y[1].pfad ? -1 : 1).map(([b, v]) => '100644 blob ' + b + '\t' + v.pfad));
+    const zeilen = ['100644 blob ' + readme + '\tREADME.md'].concat([...vorhanden].map(([b, v]) => [b, v.pfad]).concat([...quarantaene.keys()].map(b => [b, QUARANTAENE + '/' + b + '.json']))
+      .sort((x, y) => x[1] < y[1] ? -1 : 1).map(([b, p]) => '100644 blob ' + b + '\t' + p));
     if (!readme || gitRoh(wurzel, ['read-tree', '--empty'], env) == null || gitRoh(wurzel, ['update-index', '--index-info'], env, zeilen.join('\n') + '\n') == null) return Object.assign(aus, { grund: 'der neue Stand liess sich nicht bauen (git update-index)' });
     aus.baum = (gitRoh(wurzel, ['write-tree'], env) || '').trim() || null;
     if (!aus.baum) return Object.assign(aus, { grund: 'der neue Stand liess sich nicht bauen (git write-tree)' });
   } finally { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (_) {} }
-  // 7. Das Gedaechtnis: fehlt vor dem Lauf, was zuletzt gesichert war, wurde die Sicherung zurueckgesetzt.
-  let alt = null;
-  if (opts.stand) { try { alt = JSON.parse(fs.readFileSync(opts.stand, 'utf8')); } catch (_) {} }
+  // 10. Das Gedaechtnis: fehlt vor dem Lauf, was zuletzt gesichert war, wurde die Sicherung zurueckgesetzt.
+  const ids = (l) => [...new Set(l.map(x => x.id).filter(Boolean))];
   if (alt && Array.isArray(alt.fassungen)) {
-    aus.fehlenInSicherung = alt.fassungen.filter(f => f && !vorher.has(f.blob) && !grab.has(f.id));
-    aus.unwiederbringlich = aus.fehlenInSicherung.filter(f => !vorhanden.has(f.blob));
+    aus.fehlenInSicherung = alt.fassungen.concat(Array.isArray(alt.quarantaene) ? alt.quarantaene : []).filter(x => x && x.blob && !vorherRoh.has(x.blob) && !grab.has(x.id) && !grabBlob.has(x.blob));
+    aus.unwiederbringlich = aus.fehlenInSicherung.filter(x => !vorhanden.has(x.blob) && !quarantaene.has(x.blob));
     const vorherNur = new Set(Array.isArray(alt.nurHier) ? alt.nurHier : []);
     aus.neuVerloren = aus.nurHier.filter(x => !vorherNur.has(x.blob));
-    const jetztUnlesbar = new Set(aus.unlesbar.map(u => u.blob));
-    aus.unlesbarWeg = (Array.isArray(alt.unlesbar) ? alt.unlesbar : []).filter(u => u && !jetztUnlesbar.has(u.blob) && !blobQuellen.has(u.blob));
-    const ids = (l) => [...new Set(l.map(x => x.id))];
+    // Eine unlesbare Datei verschwindet: am selben Ort liegt jetzt ein gueltiger Eintrag → repariert (still); ihr Branch
+    // besteht noch → vom Schreiber entfernt (ein Hinweis); ihr Branch ist weg und ihr Eintrag nirgends → ALARM.
+    const jetztU = new Set(aus.unlesbar.map(u => u.blob + u.ort)), refsJetzt = new Set((git(wurzel, ['for-each-ref', '--format=%(refname)', 'refs/remotes']) || '').split('\n').map(x => x.replace(/^refs\/remotes\//, '')).filter(Boolean));
+    for (const u of Array.isArray(alt.unlesbar) ? alt.unlesbar : []) {
+      if (!u || jetztU.has(u.blob + u.ort) || blobQuellen.has(u.blob) || (u.id && grab.has(u.id)) || gueltigeOrte.has(u.ort)) continue;
+      if (refsJetzt.has(u.quelle) || (u.id && brett.fassungen.has(u.id))) aus.unlesbarEntfernt.push(u); else aus.unlesbarWeg.push(u);
+    }
+    // Eine Fassung, die wegen eines Geheimnis-Musters NIE gesichert wurde, verschwindet — und der Schreiber hat nichts zu Hause.
+    const jetztS = new Set(aus.uebersprungen.map(x => x.blob));
+    for (const x of Array.isArray(alt.uebersprungen) ? alt.uebersprungen : []) {
+      if (!x || jetztS.has(x.blob) || blobQuellen.has(x.blob) || grab.has(x.id) || grabBlob.has(x.blob)) continue;
+      const heim = [...brett.fassungen.get(x.id) || []].some(v => v.e.von === x.von && echt(v.quellen).some(q => zuHause(q, x.von)));
+      if (!heim) aus.uebersprungenWeg.push(x);
+    }
     if (aus.fehlenInSicherung.length) aus.alarm.push('Die Sicherung wurde zurueckgesetzt oder geloescht: ' + aus.fehlenInSicherung.length + ' gesicherte Fassung(en) fehlten vor diesem Lauf' + (aus.unwiederbringlich.length ? ', davon ' + aus.unwiederbringlich.length + ' auf keinem Branch mehr (verloren): ' + ids(aus.unwiederbringlich).join(', ') : ' (alle wieder gesichert)'));
     if (aus.neuVerloren.length) aus.alarm.push('Ein Branch wurde geloescht oder zurueckgesetzt: ' + aus.neuVerloren.length + ' Fassung(en) liegen nur noch in der Sicherung: ' + ids(aus.neuVerloren).join(', '));
-    if (aus.unlesbarWeg.length) aus.alarm.push('Unlesbare Datei(en) verschwunden (nicht gesichert — sie waren keine gueltigen Eintraege): ' + aus.unlesbarWeg.map(u => u.pfad + ' {' + u.quelle + '}').join(', '));
+    if (aus.unlesbarWeg.length) aus.alarm.push('Unlesbare Datei(en) mit ihrem Branch verschwunden (nicht gesichert — sie waren keine gueltigen Eintraege): ' + aus.unlesbarWeg.map(u => (u.id || 'ohne id') + ' {' + u.quelle + '} Blob ' + String(u.blob).slice(0, 8)).join(', '));
+    if (aus.uebersprungenWeg.length) aus.alarm.push('Nie gesicherte Fassung(en) verschwunden (sie trugen etwas wie ein Geheimnis — pruefen, ob es eine Falschmeldung war): ' + aus.uebersprungenWeg.map(x => x.id + ' {' + x.quelle + '}').join(', '));
   } else if (opts.stand) {
     aus.erstlauf = true;
     if (!opts.alt) aus.warnung = 'Weder zz-sicherung noch ein Gedaechtnis — der erste Lauf, ODER beides ging verloren: dann ist nicht erkennbar, was fehlt.';
@@ -1587,8 +1757,14 @@ export function sicherungSchreiben(wurzel, opts) {
   if (opts.stand || opts.standNeu) {
     const ziel = opts.standNeu || (opts.stand + '.neu');
     fs.mkdirSync(path.dirname(path.resolve(ziel)), { recursive: true });
-    fs.writeFileSync(ziel, JSON.stringify({ stand: new Date().toISOString(), fassungen: [...vorhanden].map(([blob, v]) => ({ id: v.id, blob })).sort((x, y) => x.id.localeCompare(y.id) || x.blob.localeCompare(y.blob)),
-      nurHier: aus.nurHier.map(x => x.blob).sort(), unlesbar: aus.unlesbar.map(u => ({ quelle: u.quelle, pfad: u.pfad, blob: u.blob })) }, null, 1) + '\n');
+    const fass = [...vorhanden].map(([blob, v]) => {
+      const q = blobQuellen.get(blob) || [], g0 = ged.get(blob) || {};
+      return { id: v.id, blob, von: v.e.von, erst: g0.erst || jetztIso, zuletzt: q.length ? jetztIso : (g0.zuletzt || jetztIso), orte: q.slice().sort() };
+    }).sort((x, y) => x.id.localeCompare(y.id) || x.blob.localeCompare(y.blob));
+    fs.writeFileSync(ziel, JSON.stringify({ stand: jetztIso, fassungen: fass, nurHier: aus.nurHier.map(x => x.blob).sort(),
+      unlesbar: aus.unlesbar.map(u => ({ quelle: u.quelle, id: u.id, blob: u.blob, ort: u.ort })),
+      uebersprungen: aus.uebersprungen.map(x => ({ id: x.id, quelle: x.quelle, blob: x.blob, von: x.von })),
+      quarantaene: [...quarantaene].map(([blob, q]) => ({ id: q.id, blob })) }, null, 1) + '\n');
   }
   return aus;
 }
@@ -1616,6 +1792,10 @@ export function einspielen(wurzel, roh, opts) {
     // Ein Unteragent schreibt im Namen der Sitzung, die die Runde fuhr — sonst war, was die Runde
     // schrieb, fuer niemanden „eigen", und Antworten darauf erreichten keinen (Gegenpruefung 2).
     if (/^runde\//.test(String(e.von || '')) && opts.sitzung) { e.rolle = e.von; e.von = opts.sitzung; }
+    // Eine Lage oder ein Halt im Namen eines ANDEREN ist fuer alle anderen unwirksam — und gemergt (auf main traegt
+    // jede) wirkte sie in fremdem Namen: ein „fertig" beendete dessen Uebernahmen (Gegenpruefung 3).
+    //   opts.absichtVon — die Namen, die diese Sitzung fuer Lage und Halt tragen darf (das Werkzeug rechnet sie)
+    if (opts.absichtVon && (e.art === 'lage' || e.art === 'halt') && opts.absichtVon.indexOf(e.von) < 0) fehler.push({ wo, grund: ARTEN[e.art].wort + ' von „' + e.von + '": hier schreibt ' + opts.absichtVon.join(' oder ') + ' — eine Absicht im Namen eines anderen wirkt fuer niemanden, und gemergt wirkte sie in fremdem Namen' });
     if (e.id) fehler.push({ wo, grund: 'eine id vergibt das Werkzeug — ein Eintrag wird nicht umgeschrieben' });
     else {
       for (let n = 0; n < 50 && !e.id; n++) { const id = (datumGueltig(e.datum) ? e.datum : datum) + '-' + crypto.randomBytes(4).toString('hex'); if (!belegt.has(id)) e.id = id; }
@@ -1695,11 +1875,14 @@ export function ernten(wurzel) {
   const liesRoh = (rel) => { try { return fs.readFileSync(path.join(wurzel, rel), 'utf8'); } catch (_) { return null; } }, liesRel = leser(liesRoh);
   const imTree = new Set(brett.eintraege.filter(imBaum).map(e => e.id)), proId = new Map(brett.eintraege.map(e => [e.id, e]));
   const zitiert = zitierteIds(fernandoText(liesRoh('STATUS.md'), liesRoh('docs/FUER-FERNANDO.md')));
+  const vomSchreiber = brett.gitDa ? zurueckgezogenVomSchreiber(wurzel, brett.eintraege) : new Map();
   const geholt = [], uebergangen = brett.unlesbar.filter(u => u.quelle !== 'Arbeitsbaum').map(u => ({ id: u.datei, quelle: u.quelle, grund: u.grund }));
   let kand = [];
   for (const e of brett.eintraege) {
     if (imBaum(e)) continue;
     let grund = eintragPruefen(e, e._datei)[0] || bezugsRegeln(e, proId)[0] || null;
+    // Vom Schreiber auf seinem Branch zurueckgezogen (Grabstein dort): nicht zurueckholen (Gegenpruefung 3).
+    if (!grund && vomSchreiber.has(e.id)) grund = 'vom Schreiber zurueckgezogen (Grabstein auf ' + vomSchreiber.get(e.id) + ')';
     if (!grund && (e.art === 'halt' || e.art === 'lage')) grund = ARTEN[e.art].wort + ' ist eine Absicht von ' + e.von + ' auf Zeit, kein Wissen — er wirkt von seinem Branch aus und kommt nicht mit';
     if (!grund && e.dringlichkeit === 'kritisch' && !zitiert.has(e.id)) grund = 'kritisch, aber in diesem Baum nicht an Fernando weitergegeben — erst eine Zeile mit brett:' + e.id + ' in STATUS.md §2, dann ernten (sonst wird austausch_check A7 rot)';
     if (!grund && e.art === 'abschluss' && e.ergebnis === 'erledigt') grund = '„erledigt" beschreibt den Baum von ' + e._quelle + ' — es kommt mit dessen Merge, nicht durch Ernten';
