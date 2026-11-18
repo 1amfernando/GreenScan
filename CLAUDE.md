@@ -1269,6 +1269,20 @@ bis `lage --phase fertig`). Dringlichkeit, Lage, Halt/Veto, Wächter und die Sic
 > Kopie.** Und drei Reparaturen in drei getrennten Arbeitskopien rissen beim Zusammenführen eine
 > Lücke, die keine allein hatte (ein Rest der alten Ref-Regel in einer neuen Funktion): **wer
 > zusammenführt, fährt die Gegenproben ALLER Teile noch einmal auf dem zusammengeführten Stand.**
+>
+> **Was fehlt, ist keine Antwort — und wer etwas nachholt, fragt zuerst, ob es fehlen KANN** (18.11.2026,
+> Runde 4 — 45 Funde, alle nachgestellt). In einem Klon mit `--filter=blob:none` sah `holen` keinen fremden
+> Eintrag, und `nehme` schrieb still eine zweite Übernahme; ein fehlender Baum machte aus `(ls || '')` „keine
+> Dateien"; eine Lage ohne messbare Ankunft wurde gar nicht geprüft; ein Wächter ohne Gedächtnis vernichtete
+> die einzige Kopie. Jedes Mal wurde „nicht gelesen" als „nichts da" gerechnet. Jetzt ist es „nicht
+> rechenbar" mit Quelle, und eine unbestimmbare Ankunft heisst unwirksam. **Und die Reparatur drehte die
+> Klasse um:** das neue gezielte Nachladen machte aus einem VOLLEN Repo einen Teilabruf — gefunden hat es
+> der Skeptiker der Gruppe, nicht der Fall, weil kein Fall ein volles Repo danach noch einmal ansah. Dazu
+> dieselbe Klasse wie Runde 3, eine Stufe leiser: **ein Upstream ist kein eigener Name**, nur nach einem im
+> Reflog belegten `git branch -m`. **Wer eine Gegenprobe nur mit den Fällen fährt, die sie treffen soll,
+> sieht nicht, welchen ANDEREN Fall die Reparatur bricht** — erst die volle Suite fand zwei: C12 baute seine
+> nachrangige Übernahme über genau den Weg, den die Reparatur schloss; und die Frage nach einem gelöschten
+> Branch, die jetzt seine Commits nennt, trug dabei wieder den Push-Befehl, den Runde 4 aus ihr entfernt hatte.
 
 **Und noch einmal VOR dem Bump** (`git fetch origin main`, `git log HEAD..origin/main`; `naechste`
 holt seit 18.11.2026 selbst alle Branches — ein fremder Bump-Halt liegt auf einem fremden Branch,

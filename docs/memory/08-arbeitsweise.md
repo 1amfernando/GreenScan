@@ -28,6 +28,8 @@ die Sitzung und als `rolle` den Blickwinkel. Mithelfen heisst `nehme <id> --auch
 `mithelfen`, belegt keinen der drei Plaetze); Lage und Halt nur von einem eigenen Branch, nie in
 fremdem Namen (Pruefstand A10). Eine Identitaet ist genau EIN Ref (`origin/main`, `origin/<branch>`)
 oder ein Feld — nie ein Muster oder ein Titel (CLAUDE.md §5, Runde 3).
+Ein Upstream ist nur nach einem im Reflog belegten `git branch -m` ein eigener Name; was im
+Teilabruf fehlt (Datei, Baum, Ankunft), heisst „nicht rechenbar" mit Quelle, nie „leer" (Runde 4).
 
 Arbeite in einer **Kopie** (`tar --exclude=.git -cf - . | (cd KOPIE && tar -xf -)`),
 nie im Repo selbst, solange die Suite nicht gruen ist. Beide Dateien eines

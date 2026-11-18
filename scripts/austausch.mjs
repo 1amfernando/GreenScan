@@ -255,16 +255,61 @@ function dichBetreffend(b, abl, sw, aend) {
     // Normalfall (Gegenpruefung 3: der Rat „neu pushen" belebte einen gemergten Branch wieder) — gesagt wird es nur,
     // wenn HEAD NICHT in origin/main steht; nach einem Squash-Merge (was er geaendert hat, steht inhaltsgleich auf
     // main) nur als Frage.
+    //
+    // Gegenpruefung 4 (R4-schwarm-4): „inhaltsgleich" hiess „jede Datei des Branches ist auf main genau so" — nach
+    // einem Rebase- oder Squash-Merge aenderte die naechste Sitzung STATUS.md auf main, und aus der Frage wurde
+    // „!! … fehlt … Neu pushen", der Rat, der einen gemergten Branch wiederbelebt. Jetzt nach dem Inhalt der
+    // COMMITS: (1) jeder eigene Commit steht mit gleicher patch-id auf main (`git cherry`: Rebase-Merge), (2) der
+    // Endstand wie bisher, (3) die ganze Aenderung seit der Abzweigung ist EIN Commit auf main (dieselben Hunks,
+    // Zeilennummern egal: Squash-Merge) — (1) und (3) halten auch, wenn main die Dateien danach weiter aendert.
+    // Sicher NICHT gemergt ist er nur, wenn eine Datei, die er aenderte, auf main seit der Abzweigung KEIN Commit
+    // beruehrt hat — dann der Alarm mit Push-Befehl. Dazwischen (main hat dieselben Dateien selbst geaendert,
+    // keine der drei Proben greift) ist es eine Frage: ohne „!!" und ohne Push-Befehl. Gelesen wird ohne
+    // Nachladen (GIT_NO_LAZY_FETCH): im Teilabruf scheitert eine Probe lieber, als dass `lesen` Netz braucht.
     const up = zweig.upstreamName;
     if (up && up !== 'main' && up !== 'master' && A.git(WURZEL, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/' + up]) == null) {
       const M = 'refs/remotes/origin/main', mainDa = A.git(WURZEL, ['rev-parse', '--verify', '--quiet', M]) != null;
       const gemergt = mainDa && A.git(WURZEL, ['merge-base', '--is-ancestor', 'HEAD', M]) != null;
-      const mb = mainDa && !gemergt ? (A.git(WURZEL, ['merge-base', 'HEAD', M]) || '').trim() : '';
-      const namen = (args) => new Set((A.git(WURZEL, args) || '').split('\n').filter(Boolean));
-      const anders = mb ? namen(['diff', '--name-only', '--no-renames', M, 'HEAD']) : null;
-      const squash = !!mb && ![...namen(['diff', '--name-only', '--no-renames', mb, 'HEAD'])].some(n => anders.has(n));
-      if (squash) z.push('Dein Branch ' + up + ' ist auf origin nicht mehr da — was er geaendert hat, steht inhaltsgleich auf main (squash-gemergt?). Dann ist nichts verloren; sonst neu pushen: git push -u origin HEAD:' + up);
-      else if (!gemergt) z.push('!! Dein Branch ' + up + ' fehlt auf origin (geloescht?) — mit ihm deine gepushten Commits. Neu pushen: git push -u origin HEAD:' + up);
+      const aufMain = () => {
+        if (!mainDa) return { grund: 'origin/main ist hier nicht bekannt — node scripts/austausch.mjs holen' };
+        const mb = (A.git(WURZEL, ['merge-base', 'HEAD', M]) || '').trim();
+        if (!/^[0-9a-f]{40,64}$/.test(mb)) return { grund: 'keine gemeinsame Geschichte mit origin/main' };
+        const namen = (args) => { const t = A.git(WURZEL, args); return t == null ? null : t.split('\0').filter(Boolean); };
+        const meine = namen(['diff', '--name-only', '-z', '--no-renames', mb, 'HEAD']);
+        if (!meine) return { grund: 'die eigenen Aenderungen liessen sich nicht lesen' };
+        const ch = A.git(WURZEL, ['cherry', M, 'HEAD']), chz = ch == null ? null : ch.split('\n').filter(Boolean);
+        if (chz && chz.length && chz.every(l => l[0] === '-')) return { wie: 'jeder seiner Commits steht inhaltsgleich auf main (per Rebase oder squash-gemergt?)' };
+        const anders = namen(['diff', '--name-only', '-z', '--no-renames', M, 'HEAD']);
+        if (anders && !meine.some(n => anders.indexOf(n) >= 0)) return { wie: 'was er geaendert hat, steht inhaltsgleich auf main (squash-gemergt?)' };
+        if (meine.length && meine.length <= 200) {
+          const opt = ['--no-color', '--no-ext-diff', '--no-textconv', '--no-renames'];
+          const norm = (t) => t.split('\n').filter(l => !/^index [0-9a-f]+\.\.[0-9a-f]+/.test(l)).map(l => /^@@ /.test(l) ? '@@' : l).join('\n').trim();
+          const mein = A.git(WURZEL, ['--literal-pathspecs', 'diff'].concat(opt, [mb, 'HEAD', '--'], meine));
+          const log = mein && mein.trim() ? A.git(WURZEL, ['--literal-pathspecs', 'log', '-p', '--format=%x00'].concat(opt, [mb + '..' + M, '--'], meine)) : null;
+          if (log != null) { const m0 = norm(mein); if (log.split('\0').some(c => norm(c) === m0)) return { wie: 'seine ganze Aenderung steht als ein Commit auf main (squash-gemergt?)' }; }
+        }
+        const beruehrt = namen(['log', '--no-renames', '--name-only', '-z', '--format=', mb + '..' + M]);
+        if (beruehrt) { const fehlt = meine.filter(n => beruehrt.indexOf(n) < 0); if (fehlt.length) return { nein: fehlt }; }
+        // Welche eigenen Commits haben KEIN Gegenstueck auf main (`git cherry`: „+")? Die Frage nennt sie — vorher hiess es bei
+        // einem nie oder nur teilweise gemergten Branch „Gemergt? Dann ist nichts verloren" (Gegenpruefung 4, Skeptiker).
+        const ohne = (A.git(WURZEL, ['cherry', '-v', M, 'HEAD']) || '').split('\n').filter(l => l[0] === '+').map(l => l.replace(/^\+ [0-9a-f]+ ?/, ''));
+        return { grund: 'main hat ' + (beruehrt ? meine.filter(n => beruehrt.indexOf(n) >= 0).slice(0, 3).map(n => knapp(n, 40)).join(', ') : 'dieselben Dateien') + ' seither selbst geaendert', ohne };
+      };
+      let st = null;
+      if (!gemergt) {
+        const altNl = process.env.GIT_NO_LAZY_FETCH;
+        process.env.GIT_NO_LAZY_FETCH = '1';
+        try { st = aufMain(); } finally { if (altNl === undefined) delete process.env.GIT_NO_LAZY_FETCH; else process.env.GIT_NO_LAZY_FETCH = altNl; }
+      }
+      // Eine Zeile mit Befehl wird nie gekuerzt (die Dateinamen stehen davor).
+      const mitBefehl = (zl) => { befehle.add(zl); z.push(zl); };
+      if (st && st.wie) mitBefehl('Dein Branch ' + up + ' ist auf origin nicht mehr da — ' + st.wie + '. Dann ist nichts verloren; sonst neu pushen: git push -u origin HEAD:' + up);
+      else if (st && st.nein) mitBefehl('!! Dein Branch ' + up + ' fehlt auf origin (geloescht?) — mit ihm deine gepushten Commits (auf main seit der Abzweigung nie beruehrt: ' + st.nein.slice(0, 3).map(n => knapp(n, 60)).join(', ') + (st.nein.length > 3 ? ' … +' + (st.nein.length - 3) : '') + '). Neu pushen: git push -u origin HEAD:' + up);
+      // Die Frage hat keinen Befehl, wird aber auch nicht gekuerzt: abgeschnitten verloere sie ihre Antwort.
+      // Ohne Push-Befehl (wie die Frage darunter): ein squash-gemergter Branch, dessen Hunks main inzwischen anders hat,
+      // landet auch hier — ein Befehl zum Neu-Pushen belebte ihn wieder (R4-schwarm-4).
+      else if (st && st.ohne && st.ohne.length) mitBefehl('Dein Branch ' + up + ' ist auf origin nicht mehr da — ob seine Aenderungen auf main stehen, laesst sich nicht sicher sagen (' + st.grund + '): ' + st.ohne.length + ' Commit(s) ohne Gegenstueck auf main: ' + st.ohne.slice(0, 3).map(x => '„' + knapp(x, 60) + '"').join(', ') + (st.ohne.length > 3 ? ' … +' + (st.ohne.length - 3) : '') + '. Liegen sie dort anders (squash-gemergt mit Aenderungen)? Sonst erst mit origin/main vergleichen, dann neu pushen.');
+      else if (st) mitBefehl('Dein Branch ' + up + ' ist auf origin nicht mehr da — ob seine Aenderungen auf main stehen, laesst sich nicht sicher sagen (' + st.grund + '). Gemergt? Dann ist nichts verloren; sonst erst mit origin/main vergleichen.');
     }
   }
   // Nicht gelesene Eintragsdateien (Teilabruf: Blob oder Baum nicht im lokalen Objektspeicher) — ein Halt, eine Lage oder
@@ -611,6 +656,10 @@ function schreiben(e, vonVorab) {
 function neu() {
   const art = o._[0];
   if (!art || !A.ARTEN[art]) ende(2, 'Gebrauch: node scripts/austausch.mjs neu <art> --titel "…" …   Arten: ' + Object.keys(A.ARTEN).join(' · ') + '\nFelder: node scripts/austausch.mjs hilfe <art>');
+  // Eine Lage oder ein Halt geht durch DENSELBEN Weg wie `lage`/`nehme` und `halt`: `neu lage --bezug baut_auf:<id>`
+  // ging an der Uebernahme-Pruefung vorbei (kein „schon uebernommen", kein Deckel, Gegenpruefung 4, Skeptiker).
+  if (art === 'lage') return lageBefehl([]);
+  if (art === 'halt') return haltBefehl();
   const b = brett(), e = ausSchaltern(art), bz = bezuege(b);
   if (bz.length) e.bezug = bz;
   schreiben(e);
@@ -640,6 +689,21 @@ function einspielen() {
   // Lage und Halt: dieselbe Pruefung wie beim Schreiben — vorher schrieb ein Stapel sie still mit fremdem `von`,
   // und gemergt beendete ein „fertig" im Namen eines anderen dessen Uebernahmen (Gegenpruefung 3).
   const absicht = Array.isArray(roh) && roh.some(e => e && typeof e === 'object' && (e.art === 'lage' || e.art === 'halt'));
+  // Eine Lage mit baut_auf im Stapel ist eine Uebernahme wie `nehme`: dieselbe Pruefung, fuer alle Ziele des Stapels
+  // zusammen — ein „fertig" desselben Stapels zaehlt dabei ab seiner Sekunde mit (vorher ging einspielen an der
+  // Pruefung vorbei, und nach `git branch -m` gab es wieder 3 + 3, Gegenpruefung 4, Skeptiker).
+  if (absicht && Array.isArray(roh)) {
+    const nimmt = (e) => A.alsListe(e && e.bezug).filter(x => x && x.art === 'baut_auf' && typeof x.id === 'string').map(x => x.id);
+    const lagen = roh.filter(e => e && typeof e === 'object' && e.art === 'lage' && e.phase !== 'fertig' && e.mithelfen !== true && nimmt(e).length);
+    if (lagen.length) {
+      if (!holenStill()) aus('(Holen hat nicht geklappt — gerechnet auf dem Stand, den git kennt.)');
+      const b0 = brett(), von0 = vonFuerAbsicht('lage'), t0 = A.heute();
+      const ziele = [...new Set(lagen.flatMap(nimmt))].filter(id => b0.eintraege.some(e => e.id === id));
+      const dazu = roh.filter(e => e && typeof e === 'object' && e.art === 'lage' && e.phase === 'fertig').map((e, i) => Object.assign({ art: 'lage', phase: 'fertig', titel: 'fertig (Stapel)', bis: bisAus('1h') }, e, { id: t0.datum + '-fffffff' + i, datum: t0.datum, zeit: t0.zeit, von: von0 }));
+      const f = ziele.length ? uebernahmePruefen(b0, ziele, von0, false, dazu) : null;
+      if (f) { aus('\nNICHTS geschrieben (alles oder nichts) — eine Lage des Stapels uebernimmt:\n' + f); process.exit(1); }
+    }
+  }
   const r = A.einspielen(WURZEL, roh, { von: braucht ? ich() : undefined, sitzung: ichVon(), absichtVon: absicht ? [vonFuerAbsicht('lage')] : null, datum: o.datum, alleRefs: !o.nur_lokal });
   if (!r.ok) { aus('\nNICHTS geschrieben (alles oder nichts) — ' + r.fehler.length + ' Grund/Gruende:'); r.fehler.slice(0, 40).forEach(f => aus('  !! ' + f.wo + ': ' + f.grund)); if (r.fehler.length > 40) aus('  … +' + (r.fehler.length - 40) + ' weitere'); process.exit(1); }
   aus('\nGeschrieben: ' + r.geschrieben.length + ' Eintraege nach ' + A.ORDNER + '/');
@@ -663,7 +727,7 @@ function holen() {
   // --prune: ein geloeschter Branch verschwindet auch hier — sonst zeigte `lesen` seine Eintraege
   // weiter als lebend, und der Verlust faele nie auf (die Sicherung `zz-sicherung` haelt sie fest).
   const r = A.git(WURZEL, ['fetch', '--quiet', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*'], { frist: holFrist(HOL_FRIST_MS) });
-  aus(r == null ? '\nHolen hat NICHT geklappt (kein Netz, kein origin, oder keine Antwort binnen ' + Math.round(holFrist(HOL_FRIST_MS) / 1000) + ' s?) — gezeigt wird der Stand, den git schon kennt.' : '\nAlle Branches geholt.' + nachladeSatz(eintraegeNachladenNachHolen(HOL_FRIST_MS)));
+  aus(r == null ? '\nHolen hat NICHT geklappt (kein Netz, kein origin, keine Antwort binnen ' + Math.round(holFrist(HOL_FRIST_MS) / 1000) + ' s — oder wollte git etwas fragen: Passwort, Passphrase, Host-Schluessel? Fragen beantwortet git hier nicht) — gezeigt wird der Stand, den git schon kennt.' : '\nAlle Branches geholt.' + nachladeSatz(eintraegeNachladenNachHolen(HOL_FRIST_MS)));
   lesen();
 }
 // Nach dem Holen die Eintraege ausdruecklich NACHLADEN (Gegenpruefung 4, R4-lesen-0): in einem Klon mit
@@ -693,31 +757,102 @@ function holenStill() {
 // Darf diese Sitzung diese Ziele nehmen (bzw. dabei mithelfen)? EINE Rechnung mit dem Brett: die neue Lage wird
 // probeweise dazugelegt und `schwarm` rechnet — vorher zaehlte `nehme` den Deckel anders als das Brett
 // (Mithelf-Lagen nicht), sagte „Geschrieben", und die Uebernahme galt still nicht (Gegenpruefung 3).
-function uebernahmePruefen(b, zielIds, ich0, auch) {
-  const sw = schwarmVon(b), namen = meineNamen(), meins = (v) => namen.indexOf(v) >= 0;
+//
+// Gegenpruefung 4, vier Stellen:
+//  · Was NICHT GELESEN ist, entscheidet nichts. Im Teilabruf (--filter=blob:none) fehlte eine fremde Uebernahme
+//    im lokalen Objektspeicher, und `nehme` schrieb still eine zweite (R4-lesen-0). Liegt eine Datei ungelesen,
+//    die eine Lage sein kann (ihr Name sagt „lage" oder sie hat keinen lesbaren Namen), ist „frei" eine Vermutung.
+//  · Der Deckel gilt je SITZUNG, nicht je Name. Nach `git branch -m` nahm eine Sitzung 3 Ziele unter dem neuen
+//    und 3 mit --von unter dem alten Namen — sechs, die fuer alle wirkten (R4-fassungen-12). Gezaehlt wird, was
+//    die anderen dieser Sitzung zuschreiben: jedes Ziel, das einer ihrer Namen haelt — auch NACHRANGIG, denn
+//    eine nachrangige Uebernahme belegt im Brett einen Platz (R4-schwarm-6: die Meldung nannte sie nicht und
+//    sagte „schon 2 … mehr als 3"). Die nachrangige steht in der Meldung, mit dem Befehl, der sie freigibt.
+//  · Ein ANDERER Grund der Probe ist kein Deckel: ein ungueltiges --bis oder ein Ziel, das man nicht nehmen
+//    kann, hiess „Du haeltst schon 0 Uebernahme(n) — hoechstens 3" (R4-schwarm-7, R4-lesen-6). Er steht mit
+//    seinem eigenen Satz da.
+//  · „ginge nicht an dich" war unerreichbar (zurueckgebaut blieb die Suite gruen). Erreichbar ist genau EIN
+//    Fall: ein eigenes „fertig" mit einem Zeitstempel NACH jetzt (eine vorgehende Uhr, bis 15 min erlaubt)
+//    gibt die neue Lage im selben Augenblick wieder frei. Den sagt die Pruefung jetzt beim Namen; „schon
+//    uebernommen" rechnet sie VORHER aus dem Brett ohne Probe (dort gilt, wer JETZT haelt).
+function uebernahmePruefen(b, zielIds, ich0, auch, dazu) {
+  zielIds = [...new Set(zielIds)];
+  // `dazu`: Lagen, die mit der neuen zugleich geschrieben werden (ein „fertig" im Stapel von `einspielen`) — sie zaehlen mit.
+  if (dazu && dazu.length) { b = Object.assign({}, b, { eintraege: b.eintraege.concat(dazu), wo: b.gitDa ? new Map(b.wo) : b.wo }); if (b.gitDa) for (const x of dazu) b.wo.set(x.id, new Set(['Arbeitsbaum'])); }
+  const ungelesen = (b.fehlend || []).filter(x => { const m = path.posix.basename(String(x.pfad || '')).match(A.NAME_FORM); return !m || m[2] === 'lage'; });
+  if (ungelesen.length) {
+    const q = [...new Set(ungelesen.map(x => String(x.quelle || '?')))];
+    return 'Nicht entscheidbar: ' + ungelesen.length + ' Datei(en), die eine Lage sein koennen, sind hier nicht gelesen (Teilabruf: nicht im lokalen Objektspeicher, auf ' + q.slice(0, 3).join(', ') + (q.length > 3 ? ' … +' + (q.length - 3) : '') + ') — eine Uebernahme darin waere hier unsichtbar.\nErst holen und nachladen: node scripts/austausch.mjs holen — dann noch einmal.';
+  }
+  // Alle Namen DIESER Sitzung (nach einem belegten `git branch -m` auch der alte) — auch wenn --von / AUSTAUSCH_VON
+  // einen davon waehlt: meineNamen() liefert dann nur diesen einen, der Deckel braucht alle.
+  const vorgabe = { von: o.von, env: process.env.AUSTAUSCH_VON };
+  let ohneVorgabe;
+  try { delete o.von; delete process.env.AUSTAUSCH_VON; ohneVorgabe = meineNamen(); }
+  finally { if (vorgabe.von !== undefined) o.von = vorgabe.von; if (vorgabe.env !== undefined) process.env.AUSTAUSCH_VON = vorgabe.env; }
+  const namen = [...new Set(meineNamen().concat(ohneVorgabe, [ich0]).filter(Boolean))], meins = (v) => namen.indexOf(v) >= 0;
+  const als = (v) => v && v !== ich0 ? ' als ' + v : '';
+  const wo = b.gitDa ? new Map(b.wo) : null;
+  const sw = A.schwarm(b.eintraege, Date.now(), { wo, ich: namen });
   for (const id of zielIds) {
     const u = sw.uebernahme.get(id);
     if (auch && !u) return id + ' ist frei — niemand hat es genommen. Uebernehmen statt mithelfen: nehme ' + id.slice(-4) + ' (ohne --auch).';
-    if (auch && meins(u.lage.e.von)) return id + ' hast du selbst genommen — mithelfen braucht es nicht.';
+    if (auch && meins(u.lage.e.von)) return id + ' hast du selbst genommen' + als(u.lage.e.von) + ' — mithelfen braucht es nicht.';
     if (!auch && u && !meins(u.lage.e.von)) return id + ' ist schon uebernommen: ' + u.lage.e.von + ' (seit ' + u.lage.e.datum + ' ' + u.lage.e.zeit + ' UTC, bis ' + uhr(u.lage.bis) + ').\nDie aelteste Uebernahme gilt. Mithelfen statt uebernehmen: --auch (deine Lage steht dann daneben).';
   }
   if (auch) return null;
   const t = A.heute(), probe = { id: t.datum + '-ffffffff', art: 'lage', datum: t.datum, zeit: t.zeit, von: ich0, titel: 'Probe', phase: 'laeuft', bis: bisAus(o.bis || '6h'), bezug: zielIds.map(z => ({ art: 'baut_auf', id: z })) };
-  const wo = b.gitDa ? new Map(b.wo) : null;
   if (wo) wo.set(probe.id, new Set(['Arbeitsbaum']));
   const sw2 = A.schwarm(b.eintraege.concat([probe]), Date.now(), { wo, ich: namen });
-  const zv = sw2.unwirksam.find(x => x.e === probe);
-  if (zv) {
-    const schon = [...sw.uebernahme].filter(([, u]) => meins(u.lage.e.von)).map(([z]) => z);
-    return 'Du haeltst schon ' + schon.length + ' Uebernahme(n)' + (schon.length ? ' (' + schon.join(', ') + ')' : '') + ' — hoechstens ' + A.LAGE_NIMMT_MAX + ' zugleich; ' + zv.grund + '. Erst eine freigeben: lage --phase fertig --bezug baut_auf:<id>.';
+  const zv = sw2.unwirksam.find(x => x.e === probe), deckelGrund = !!(zv && Array.isArray(zv.ziele));
+  if (zv && !deckelGrund) {
+    return /^ungueltig: /.test(zv.grund) ? 'Die Lage waere ungueltig: ' + zv.grund.replace(/^ungueltig: /, '') + '.\nFelder und ein Beispiel: node scripts/austausch.mjs hilfe lage'
+      : 'Die Lage wirkte fuer die anderen nicht: ' + zv.grund + '.';
   }
-  for (const id of zielIds) { const u = sw2.uebernahme.get(id); if (!u || !meins(u.lage.e.von)) return id + ' ginge nicht an dich: ' + (u ? u.lage.e.von + ' war zuerst' : 'die Uebernahme rechnet nicht') + '.'; }
+  // Was haelt diese Sitzung JETZT (so, wie die anderen es rechnen)? Jedes Ziel, das einer ihrer Namen haelt — und
+  // jedes, auf dem sie nachrangig steht (ohne `mithelfen`): auch das belegt im Brett einen Platz.
+  const gehalten = new Map();
+  for (const [z, u] of sw.uebernahme) {
+    if (meins(u.lage.e.von)) { gehalten.set(z, { von: u.lage.e.von }); continue; }
+    const l = u.auch.find(x => meins(x.e.von) && x.e.mithelfen !== true);
+    if (l) gehalten.set(z, { von: l.e.von, vor: u.lage.e.von });
+  }
+  const neuZ = zielIds.filter(z => !gehalten.has(z)), platz = Math.max(0, A.LAGE_NIMMT_MAX - gehalten.size), ohnePlatz = neuZ.slice(platz);
+  // Ein eigenes „fertig" in DIESER Sekunde oder spaeter gibt fuer den Deckel erst nach seinem Zeitstempel frei —
+  // das Brett rechnet den Deckel zur Zeit der neuen Lage (sonst stuende hier „schon 0 … kein Platz").
+  const zk = (e) => String(e.datum) + 'T' + String(e.zeit), nimmtZ = (e) => A.alsListe(e.bezug).filter(x => x && x.art === 'baut_auf').map(x => x.id);
+  // (streng: NACH dieser Sekunde — nur ein solches gibt auch die neue Lage selbst frei.)
+  const eigenesFertigAb = (id, streng) => b.eintraege.find(e => e.art === 'lage' && e.phase === 'fertig' && e.von === ich0 && (streng ? zk(e) > zk(probe) : zk(e) >= zk(probe))
+    && (!nimmtZ(e).length || id == null || nimmtZ(e).indexOf(id) >= 0) && (({ ok, abgelaufen }) => ok || abgelaufen)(A.wirksam(e, Date.now())));
+  if (ohnePlatz.length || deckelGrund) {
+    if (!ohnePlatz.length) {   // nur das Brett zaehlt mehr — der Grund ist ein „fertig", das noch nicht vorbei ist
+      const f = eigenesFertigAb(null);
+      return 'Fuer ' + zv.ziele.join(', ') + ' ist zur Zeit der neuen Lage kein Platz' + (f ? ': dein „fertig" ' + f.id + ' (' + f.datum + ' ' + f.zeit + ' UTC) gibt fuer den Deckel erst NACH seinem Zeitstempel frei — danach noch einmal.' : ' (' + zv.grund + ').');
+    }
+    const eig = [...gehalten].filter(([, v]) => !v.vor), nach = [...gehalten].filter(([, v]) => v.vor);
+    let s = 'Du haeltst schon ' + gehalten.size + ' Uebernahme(n)' + (eig.length ? ': ' + eig.map(([z, v]) => z + als(v.von)).join(', ') : '');
+    if (nach.length) s += (eig.length ? ' — dazu ' : ' — ') + 'NACHRANGIG (bringt dir nichts, belegt trotzdem einen Platz): ' + nach.map(([z, v]) => z + ' (' + v.vor + ' war zuerst' + als(v.von) + ')').join(', ');
+    s += ' — hoechstens ' + A.LAGE_NIMMT_MAX + ' zugleich je Sitzung' + (namen.length > 1 ? ' (ueber alle ihre Namen: ' + namen.join(', ') + ')' : '') + '; fuer ' + ohnePlatz.join(', ') + ' ist kein Platz.';
+    const frei = nach.length ? nach[0] : null;
+    return s + '\nErst eine freigeben: ' + (frei ? 'zuerst die nachrangige — lage --phase fertig --bezug baut_auf:' + frei[0] + (frei[1].von !== ich0 ? ' --von ' + frei[1].von : '')
+      : 'lage --phase fertig --bezug baut_auf:<id>' + (eig.some(([, v]) => v.von !== ich0) ? ' (mit --von <Name>, unter dem die Uebernahme steht)' : '')) + '.';
+  }
+  // Die Probe muss die Ziele auch HALTEN: das tut sie, solange kein eigenes „fertig" sie im selben Augenblick freigibt.
+  for (const id of zielIds) {
+    const u = sw2.uebernahme.get(id);
+    if (u && (u.lage.e === probe || meins(u.lage.e.von))) continue;
+    const f = eigenesFertigAb(id, true);
+    return id + ' ginge nicht an dich: ' + (f ? 'dein „fertig" ' + f.id + ' traegt einen Zeitstempel NACH jetzt (' + f.datum + ' ' + f.zeit + ' UTC — eine vorgehende Uhr?) und gaebe die neue Lage im selben Augenblick wieder frei. Nach diesem Zeitpunkt noch einmal.'
+      : (u ? u.lage.e.von + ' haelt es' : 'das Brett rechnet die Uebernahme nicht') + ' — node scripts/austausch.mjs zeige ' + id.slice(-4) + '.');
+  }
   return null;
 }
 function lageBefehl(ziele, vorab) {
   vorab = vorab || {};
   if (o.datum) ende(2, 'Datum und Zeit einer Lage setzt das Werkzeug.');
   const phase = o.phase || 'laeuft';
+  // Eine Uebernahme (baut_auf, nicht „fertig") holt vorher wie `nehme`: wer gleichzeitig nimmt, soll es sehen — und im
+  // Teilabruf schrieb `lage --bezug` sonst still eine zweite Uebernahme (Gegenpruefung 4, Skeptiker).
+  if (!vorab.geprueft && phase !== 'fertig' && ((ziele || []).length || mehrere(o.bezug).some(x => /^\s*baut_auf:/.test(String(x))))) { if (!holenStill()) aus('(Holen hat nicht geklappt — gerechnet auf dem Stand, den git kennt.)'); }
   const b = brett(), zielE = (ziele || []).map(k => finde(b, k));
   const e = ausSchaltern('lage');
   e.phase = phase; if (!e.bis) e.bis = bisAus('6h');

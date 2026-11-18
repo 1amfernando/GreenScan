@@ -208,8 +208,20 @@ nicht gelesen sind** (Teilabruf: Datei oder Baum nicht im lokalen Objektspeicher
   Holen hat eine Frist (still vor `naechste`/`nehme` 20 s, `holen` 120 s; `AUSTAUSCH_HOLEN_FRIST_MS` für den Prüfstand)
   — danach endet die ganze Prozessgruppe (vorher beendete die Frist nur git selbst; ein Remote-Helfer und seine
   Kinder blieben als Waisen liegen, gemessen drei je Aufruf gegen einen hängenden Remote — Gegenprüfung 4), und es
-  heisst „Holen hat nicht geklappt", wie bei jedem Fehler. „Dein Branch fehlt auf origin" kommt nur, wenn HEAD nicht
-  in `origin/main` steht (nach einem Squash-Merge als Frage), und der Force-Push-Satz nur für den Branch, auf den `git
+  heisst „Holen hat nicht geklappt", wie bei jedem Fehler. Dasselbe bei Strg-C, `timeout` oder einem geschlossenen
+  Terminal: die Hülle gibt SIGINT, SIGTERM und SIGHUP an die Gruppe weiter (vorher lief git samt Remote-Helfer nach
+  Strg-C ohne jede Frist weiter — Gegenprüfung 4, Skeptiker). „Dein Branch fehlt auf origin" kommt nur, wenn HEAD
+  nicht in `origin/main` steht. Mit `!!` und Push-Befehl nur, wenn er **sicher nicht gemergt** ist: eine Datei, die er
+  geändert hat, hat auf `main` seit der Abzweigung kein Commit berührt (die Zeile nennt sie). Ob er gemergt ist,
+  entscheidet der Inhalt der **Commits**, nicht der Endstand der Dateien (Gegenprüfung 4: nach einem Rebase- oder
+  Squash-Merge änderte die nächste Sitzung STATUS.md, und aus der Frage wurde der Rat, den gemergten Branch neu zu
+  pushen). Als gemergt gilt er, wenn jeder eigene Commit mit gleicher patch-id auf `main` steht (`git cherry`,
+  Rebase-Merge), wenn die ganze Änderung seit der Abzweigung als **ein** Commit auf `main` steht (dieselben Hunks,
+  Zeilennummern egal: Squash-Merge), oder wenn jede geänderte Datei auf `main` genau so ist — dann eine ruhige Zeile
+  „squash-gemergt?". Dazwischen (main hat dieselben Dateien selbst geändert, keine Probe greift) bleibt es eine
+  **Frage ohne `!!` und ohne Push-Befehl** — und sie **nennt die Commits ohne Gegenstück** auf `main` (vorher hiess
+  sie bei einem nie gemergten Branch „Gemergt? Dann ist nichts verloren"). Gelesen wird ohne Nachladen
+  (`GIT_NO_LAZY_FETCH`). Der Force-Push-Satz kommt nur für den Branch, auf den `git
   push` wirklich geht: einen Upstream unter anderem Namen nur bei `push.default upstream`/`tracking` — sonst steht dazu
   EINE ruhige Zeile (`git push -u origin HEAD`). Prüfstand: `austausch_check` C19, jede Regel mit Gegenprobe.
 - **Dringlichkeit:** `dringlichkeit` = `kritisch` (Nutzer werden *jetzt* live geschädigt oder
@@ -227,7 +239,20 @@ nicht gelesen sind** (Teilabruf: Datei oder Baum nicht im lokalen Objektspeicher
   Deckel lag, bleibt für dieses Ziel unwirksam; ein späteres `fertig` oder Ablaufen gibt nur für
   *spätere* Lagen Platz frei. `nehme` (und `lage --bezug baut_auf:<id>`) rechnet mit derselben
   Rechnung — die neue Lage wird probeweise dazugelegt — und weist ab, was nicht gälte; `zeige` sagt
-  „teilweise", wenn nur ein Ziel einer Lage über dem Deckel lag. Eine Übernahme gilt **je Schreiber und Ziel**,
+  „teilweise", wenn nur ein Ziel einer Lage über dem Deckel lag. **Dieselbe Prüfung** gilt für `neu lage` und für
+  `einspielen` (eine Lage mit `baut_auf` im Stapel; ein `fertig` desselben Stapels zählt ab seiner Sekunde mit) —
+  vorher gingen beide daran vorbei (Gegenprüfung 4, Skeptiker). `nehme`, `lage --bezug` und `neu lage` **holen
+  vorher** (wie `nehme` seit Runde 3): sonst schrieb `lage --bezug` im Teilabruf still eine zweite Übernahme. Das
+  Werkzeug zählt den Deckel **je Sitzung**, nicht je Name: nach einem belegten `git branch -m` gehören der neue und
+  der alte Name derselben Sitzung, und was einer von beiden hält, belegt einen der drei Plätze (vorher drei unter dem
+  neuen Namen und drei mit `--von <alter Name>`, alle sechs wirksam). Gezählt wird, was die anderen dieser Sitzung
+  zuschreiben, also auch eine **nachrangige** Übernahme (ein anderer war zuerst): sie bringt nichts und belegt
+  trotzdem einen Platz; die Abweisung nennt sie mit dem Befehl, der sie freigibt. Ein anderer Grund (ein ungültiges
+  `--bis`, ein Ziel, das man nicht nehmen kann) steht mit seinem eigenen Satz da, nicht als Deckel. Ein eigenes
+  `fertig` mit Zeitstempel **nach jetzt** (eine vorgehende Uhr) gäbe die neue Lage im selben Augenblick wieder frei —
+  das Werkzeug nennt es und schreibt nichts. Und **was nicht gelesen ist, entscheidet nichts**: liegt im Teilabruf
+  eine Datei ungelesen, die eine Lage sein kann, weisen `nehme` und `lage --bezug` mit „Nicht entscheidbar" ab
+  (Exit 1). Prüfstand: C23, C26. Eine Übernahme gilt **je Schreiber und Ziel**,
   bis eine *spätere* Lage desselben Schreibers mit `fertig` sie freigibt (mit späterem
   Zeitstempel, nicht in derselben Sekunde) — ohne Bezug alle, mit `--bezug baut_auf:<id>` genau
   diese; ein Fortschritt (`lage` ohne Bezug) oder eine zweite Übernahme nimmt der ersten nichts. Für
@@ -430,7 +455,8 @@ nicht gelesen sind** (Teilabruf: Datei oder Baum nicht im lokalen Objektspeicher
   Dateinamen** (er ist öffentlich, ein Dateiname trägt den Titel, und ein Grabstein erreicht ihn
   nicht). Die Action holt mit dem Token nur für den einen Push (`persist-credentials: false`, und
   der Token ist aus der Umgebung, bevor das Werkzeug läuft). `holen` holt mit `--prune` und zeigt
-  GERETTET (nur noch in der Sicherung — `ernten` holt zurück, was hier stimmt) und GEFÄHRDET (auf nur
+  GERETTET (nur noch in der Sicherung — `ernten` holt zurück, was hier stimmt; nicht, was der Schreiber auf seinem
+  Branch mit einem Grabstein zurückgezogen hat, C23) und GEFÄHRDET (auf nur
   einem Branch, noch nicht gesichert). Gemessen am 17.11.2026: 72 von 165 Einträgen lagen auf genau
   einem Branch. *Grenze:* tragen zwei Fassungen verschiedene `von`, **bevor** der Wächter eine gesichert
   hat (höchstens eine Stunde), ist der Eintrag strittig — für alle, bis jemand die Fälschung per Grabstein
@@ -483,12 +509,15 @@ Der Prüfstand sieht nur den Arbeitsbaum. Deshalb:
   die Bäume. Ein fehlender Wurzelbaum wird vorab mit `rev-list --missing=print` erkannt; das lädt auch
   auf einem git ohne `GIT_NO_LAZY_FETCH` nie nach. Eine Eintragsdatei, deren Blob fehlt, heisst
   **unlesbar mit Quelle** („nicht im lokalen Objektspeicher"), die übrigen bleiben. DICH BETREFFEND
-  nennt sie mit dem Befehl, der sie holt.
+  nennt sie mit dem Befehl, der sie holt. Das gilt auch für „in Arbeit" (welcher frische Branch die Stelle eines
+  Eintrags geändert hat): vorher lud das blosse `lesen` dafür `index.html` je frischem Branch vom Server.
   **`holen`, `nehme` und `naechste` holen ohnehin — danach laden sie gezielt nach**, so wie git selbst
   nachlädt (`fetch --filter=blob:none --stdin` mit den Kennungen, Verhandlung „noop"). Geladen werden
   erst die fehlenden Bäume jeder Tiefe, dann die Einträge und die Grabstein-Liste jedes Refs; `naechste`
   dazu `sw.js`, `STATUS.md`, `index.html` und `data/releases.v1.js` der frischen Branches. Das geschieht
-  nur in einem Teilabruf und mit der Frist des Holens; was sich nicht laden lässt, wird gesagt. Vorher
+  nur in einem Teilabruf (einem Remote mit `promisor`) und mit der Frist des Holens; was sich nicht laden lässt,
+  wird gesagt. Ein **volles** Repo bleibt voll: vorher machte `naechste` es zum Teilabruf (es schrieb
+  `remote.origin.promisor` und den Filter in die Konfiguration — Gegenprüfung 4, Skeptiker). Vorher
   (Gegenprüfung 4) sah `holen` im Klon mit `blob:none` nur „Das Brett ist leer", `nehme` schrieb still
   eine zweite Übernahme, und `naechste` schickte im Kreis zu `holen`.
   Fehlt etwas, das `naechste` braucht, sagt es „nicht rechenbar" und nennt Branch und Datei, oder
@@ -545,3 +574,9 @@ Das Nachladen holt jede Datei unter `eintraege/` eines Refs, auch eine grosse; b
 durch die Frist. `naechste` lädt im Teilabruf `index.html` je frischem Branch nach (rund 6 MB).
 Die Frist trifft die Prozessgruppe. Ein Helfer, der sich eine eigene Sitzung nimmt (`setsid`), entkommt
 ihr, und unter Windows wird nur git selbst beendet.
+Der Deckel je Sitzung ist eine Regel des **Werkzeugs**; das Brett rechnet je Schreiber (`von`). Wer von Hand
+(eine Datei ohne Werkzeug) unter zwei Namen schreibt, kommt für die anderen weiter auf 3 + 3, und das sieht
+kein Prüfstand. „Nicht entscheidbar" ist streng: eine ungelesene Datei mit `lage` im Namen auf *irgendeinem*
+Branch hält `nehme` an, bis `holen` sie nachgeladen hat — auch eine untergeschobene; ohne Netz bleibt die
+Übernahme dann offen. „Sicher nicht gemergt" erkennt nur eine nie berührte Datei: ein Branch, der nur
+STATUS.md geändert hat und ungemergt gelöscht wurde, bekommt die Frage (mit seinen Commits), keinen Alarm.

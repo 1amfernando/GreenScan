@@ -409,6 +409,10 @@ const FRIST_HUELLE = [
   "let tot = false, hart = null;",
   "const t = setTimeout(() => { tot = true; gruppe('SIGTERM'); hart = setTimeout(() => { gruppe('SIGKILL'); process.exit(124); }, 2000); }, frist);",
   "c.on('close', (code) => { clearTimeout(t); if (hart) clearTimeout(hart); process.exitCode = tot ? 124 : (code == null ? 1 : code); });",
+  // Strg-C (SIGINT an die Vordergrundgruppe), ein `timeout` (SIGTERM) oder ein geschlossenes Terminal (SIGHUP) treffen die
+  // Huelle, nicht die eigene Gruppe von git: ohne Weitergabe lief git samt Remote-Helfer weiter, ganz ohne Frist
+  // (Gegenpruefung 4, Skeptiker). Jetzt gehen sie an die Gruppe, nach 2 s SIGKILL.
+  "for (const s of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(s, () => { tot = true; clearTimeout(t); gruppe('SIGTERM'); setTimeout(() => { gruppe('SIGKILL'); process.exit(130); }, 2000).unref(); });",
 ].join('\n');
 function gitMitFrist(voll, frist, env, eingabe) {
   const mitEingabe = eingabe != null;
@@ -552,6 +556,10 @@ export function objekteNachladen(wurzel, oids, opts) {
   opts = opts || {};
   const liste = [...new Set((oids || []).filter(x => /^[0-9a-f]{40,64}$/.test(String(x))))];
   if (!liste.length) return true;
+  // Nur fuer einen Promisor-Remote: `fetch --filter=…` auf einem VOLLEN Repo schreibt remote.<r>.promisor,
+  // partialclonefilter und repositoryformatversion=1 — `naechste` machte so ein volles Repo still zum Teilabruf
+  // (Gegenpruefung 4, Skeptiker). Dort fehlt nichts, was ein Abruf holen koennte.
+  if (promisorRemotes(wurzel).indexOf(opts.remote || REMOTE) < 0) return false;
   // GIT_NO_LAZY_FETCH=1 auch hier: der Abruf selbst darf nichts AUSSER den verlangten Kennungen nachladen (gemessen:
   // der ausdrueckliche Abruf geht mit der Variablen, Exit 0, der Blob liegt danach lokal).
   return git(wurzel, ['-c', 'fetch.negotiationAlgorithm=noop', 'fetch', opts.remote || REMOTE, '--no-tags', '--no-write-fetch-head', '--recurse-submodules=no', '--filter=blob:none', '--stdin'],
@@ -1793,8 +1801,9 @@ const LEER = new Set([' ', '\t', '\n', '\r', '\f', '\v', '\u00a0', '\ufeff', '\u
 const ZEILENENDE = new Set(['\n', '\r', '\u2028', '\u2029']);
 // Das naechste Zeilenende ab `ab` (hoechstens b): ein //-Kommentar, ein <!-- / -->-Kommentar und ein Regex enden an JEDEM
 // Zeilenende von JS, nicht nur an \n (Gegenpruefung 4: `// Notiz` + U+2028 + `}` — fuer acorn schloss die } die Funktion).
-const ZEILENENDE_SUCHE = /[\n\r\u2028\u2029]/g;
-function zeilenEnde(text, ab, b) { ZEILENENDE_SUCHE.lastIndex = ab; const m = ZEILENENDE_SUCHE.exec(text); return m && m.index < b ? m.index : b; }
+// Begrenzt auf [ab, b): vorher suchte eine Regex bis zum naechsten Zeilenende der GANZEN Datei — je /*…*/ auf einer langen
+// Zeile einmal, also quadratisch (Gegenpruefung 4, Skeptiker: 46× langsamer).
+function zeilenEnde(text, ab, b) { for (let j = ab; j < b; j++) if (ZEILENENDE.has(text[j])) return j; return b; }
 const ZU = { '{': '}', '(': ')', '[': ']' };
 // Ein Name: ASCII, $, _ und (grosszuegig) alles ab U+00C0 — AUSSER dem Leerraum und den Zeilenenden darin (U+1680,
 // U+2000–U+200A, U+2028/2029, U+202F, U+205F, U+3000, U+FEFF): sonst hiess `return` + U+3000 + `/x/` ein Wort „return…".
@@ -2181,7 +2190,9 @@ export function haltsDiesesStands(wurzel, umgebung, jetzt) {
   //     und kann keinen Halt tragen. Bei blob:none, unbekanntem Filter oder n ≤ 64 KB koennte sie es.
   const zweige = (git(wurzel, ['for-each-ref', '--format=%(refname)', 'refs/remotes']) || '').split('\n').filter(x => x && !/\/HEAD$/.test(x) && !/^refs\/remotes\/pull\//.test(x));
   if (b.gitDa && !zweige.length) return { grund: 'nur ' + b.refs + ' Remote-Ref(s) sichtbar und kein Branch — Halts auf anderen Branches sind von hier nicht zu sehen (in der CI fehlt der Schritt „Branches fuer das Brett" oder er scheiterte; lokal: git fetch origin)', nichtPruefbar: true, refs: b.refs };
-  const grenze = new Map(), grenzeVon = (quelle) => { const r = String(quelle).split('/')[0]; if (!grenze.has(r)) grenze.set(r, teilabrufGrenze(wurzel, r)); return grenze.get(r); };
+  // Die Teilabruf-Grenze aus der UEBERGEBENEN Umgebung (vor process.env) — vorher entschied process.env allein (Skeptiker).
+  const umg = Object.assign({}, process.env, umgebung);
+  const grenze = new Map(), grenzeVon = (quelle) => { const r = String(quelle).split('/')[0]; if (!grenze.has(r)) grenze.set(r, teilabrufGrenze(wurzel, r, umg)); return grenze.get(r); };
   // Ein fehlender BAUM ist nie „zu gross": dort fehlen alle Eintraege des Branches (Gegenpruefung 4, --filter=tree:0).
   const offenFehlend = b.fehlend.filter(x => x.baum || !(grenzeVon(x.quelle) > EINTRAG_MAX_BYTES));
   if (offenFehlend.length) return { grund: offenFehlend.length + ' Eintragsdatei(en) nicht im lokalen Objektspeicher (Teilabruf) und nicht nachweislich zu gross fuer einen Eintrag — darin koennte ein Halt liegen: ' + offenFehlend.slice(0, 3).map(x => x.pfad + ' {' + x.quelle + '}').join(', ') + (offenFehlend.length > 3 ? ' … +' + (offenFehlend.length - 3) : ''), nichtPruefbar: true, refs: b.refs, fehlend: b.fehlend.length };
@@ -2198,7 +2209,7 @@ export function haltsDiesesStands(wurzel, umgebung, jetzt) {
 // Commit-Nachricht eines Branches, auf dem er nicht ANGELEGT wurde.
 export const IDS_JE_COMMIT_MAX = 3;
 export function inArbeitAusGit(wurzel, eintraege, jetzt, tage, wo) {
-  const MAIN = 'refs/remotes/origin/main', aus = new Map();
+  const MAIN = 'refs/remotes/origin/main', aus = new Map(), NL = { ohneNachladen: true };
   if (git(wurzel, ['rev-parse', '--verify', '--quiet', MAIN]) == null) return aus;
   const { rueck, zustand, proId } = ableiten(eintraege);
   const offen = eintraege.filter(e => zustand.get(e.id).z === 'offen' && ['befund', 'idee', 'frage', 'klasse'].indexOf(e.art) >= 0);
@@ -2209,21 +2220,23 @@ export function inArbeitAusGit(wurzel, eintraege, jetzt, tage, wo) {
   const dazu = (id, ref, wie) => { if (!aus.has(id)) aus.set(id, []); if (!aus.get(id).some(x => x.ref === ref)) aus.get(id).push({ ref, wie }); };
   // Je BLOB einmal lesen: viele Branches teilen dieselbe Abzweigstelle.
   const cache = new Map(), zeige = (rev, datei) => {
-    const blob = (git(wurzel, ['rev-parse', '--verify', '--quiet', rev + ':' + datei]) || '').trim();
+    // Ohne Nachladen: im Klon mit --filter=blob:none holte das blosse `lesen` sonst je frischem Branch index.html einzeln
+    // vom Server (Gegenpruefung 4, Skeptiker). Fehlt der Blob, ist die Stelle hier nicht messbar — null.
+    const blob = (git(wurzel, ['rev-parse', '--verify', '--quiet', rev + ':' + datei], NL) || '').trim();
     if (!blob) return null;
-    if (!cache.has(blob)) cache.set(blob, messtext(datei, git(wurzel, ['cat-file', 'blob', blob])));
+    if (!cache.has(blob)) { const inh = git(wurzel, ['cat-file', 'blob', blob], NL); cache.set(blob, inh == null ? null : messtext(datei, inh)); }
     return cache.get(blob);
   };
   for (const z of frischeZweige(wurzel, jetzt, tage) || []) {
-    const voll = 'refs/remotes/' + z.ref, mb = (git(wurzel, ['merge-base', MAIN, voll]) || '').trim();
+    const voll = 'refs/remotes/' + z.ref, mb = (git(wurzel, ['merge-base', MAIN, voll], NL) || '').trim();
     if (!mb) continue;
     // Squash-Merge: ein gemergter, stehengebliebener Branch unterscheidet sich nicht mehr von main.
-    const gegenMain = new Set((git(wurzel, ['diff', '--name-only', MAIN, voll]) || '').split('\n').filter(Boolean));
+    const gegenMain = new Set((git(wurzel, ['diff', '--name-only', MAIN, voll], NL) || '').split('\n').filter(Boolean));
     if (!gegenMain.size) continue;
-    const geaendert = new Set((git(wurzel, ['diff', '--name-only', mb, voll]) || '').split('\n').filter(n => n && gegenMain.has(n)));
+    const geaendert = new Set((git(wurzel, ['diff', '--name-only', mb, voll], NL) || '').split('\n').filter(n => n && gegenMain.has(n)));
     // Je (Branch, Datei) EINMAL die Commits mit Zeit, aelteste zuerst — dann je Eintrag eine Suche darin.
     const commits = new Map(), commitsVon = (datei) => {
-      if (!commits.has(datei)) commits.set(datei, (git(wurzel, ['log', '--reverse', '--format=%H %ct', mb + '..' + voll, '--', datei]) || '').split('\n').filter(Boolean).map(x => { const [h, t] = x.split(' '); return { h, t: Number(t) * 1000 }; }));
+      if (!commits.has(datei)) commits.set(datei, (git(wurzel, ['log', '--reverse', '--format=%H %ct', mb + '..' + voll, '--', datei], NL) || '').split('\n').filter(Boolean).map(x => { const [h, t] = x.split(' '); return { h, t: Number(t) * 1000 }; }));
       return commits.get(datei);
     };
     for (const e of verankert) for (const a of ankerWirksam(e, rueck)) {
@@ -2241,7 +2254,7 @@ export function inArbeitAusGit(wurzel, eintraege, jetzt, tage, wo) {
     }
     // Eine Commit-Nachricht, die viele ids nennt, ist eine Liste, keine Arbeit: sonst markierte EIN Commit
     // „Arbeit an <alle ids>" alles als „in Arbeit", und KRITISCH sagte nie mehr „niemand dran".
-    for (const nachricht of (git(wurzel, ['log', '--format=%x00%B', mb + '..' + voll]) || '').split('\0')) {
+    for (const nachricht of (git(wurzel, ['log', '--format=%x00%B', mb + '..' + voll], NL) || '').split('\0')) {
       const ids = [...new Set([...nachricht.matchAll(/\b(\d{4}-\d{2}-\d{2}-[0-9a-f]{4}(?:[0-9a-f]{4})?)\b/g)].map(m => m[1]))];
       if (!ids.length || ids.length > IDS_JE_COMMIT_MAX) continue;
       for (const id of ids) {
@@ -2249,7 +2262,7 @@ export function inArbeitAusGit(wurzel, eintraege, jetzt, tage, wo) {
         // Ausgenommen ist nur der Branch, auf dem der Eintrag ANGELEGT wurde (an der Abzweigstelle
         // lag er noch nicht) — wer ihn von main erbt, hat ihn nicht geschrieben.
         const w = wo && wo.get(id), e = proId.get(id);
-        if (w && w.has(z.ref) && e && e._pfad && git(wurzel, ['cat-file', '-e', mb + ':' + e._pfad]) == null) continue;
+        if (w && w.has(z.ref) && e && e._pfad && git(wurzel, ['cat-file', '-e', mb + ':' + e._pfad], NL) == null) continue;
         dazu(id, z.ref, 'im Commit genannt');
       }
     }

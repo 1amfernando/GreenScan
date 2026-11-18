@@ -1158,7 +1158,11 @@ const FAELLE = [
         if (/Deine Uebernahme von [^\n]*gilt nicht/.test(r.aus)) f.push('nach bewusstem --auch steht trotzdem „Deine Uebernahme gilt nicht"');
         { const st = path.join(eltern, 'nachrangig.json'); fs.writeFileSync(st, JSON.stringify([{ art: 'lage', titel: 'Nehme (gleichzeitig)', phase: 'laeuft', bis: new Date(Date.now() + 36e5).toISOString().replace(/\.\d{3}Z$/, 'Z'), bezug: [{ art: 'baut_auf', id: befund }] }]));
           Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1050 - (Date.now() % 1000));
-          werkzeug(d, ['einspielen', st]); }
+          // Seit Gegenpruefung 4 geht `einspielen` durch dieselbe Pruefung wie `nehme` — es weist ab.
+          const rr = werkzeug(d, ['einspielen', st]);
+          if (rr.code !== 1 || !/schon uebernommen/.test(rr.aus)) f.push('`einspielen` einer Lage auf ein schon genommenes Ziel wird nicht abgewiesen: Exit ' + rr.code + ' · ' + kurz(rr.aus, 160));
+          // Am Werkzeug vorbei (eine Datei von Hand): die Lage ist nachrangig — und DICH BETREFFEND sagt es.
+          const th = A.heute(); ablegen(d, mk('lage', { id: th.datum + '-b7c0ffee', datum: th.datum, zeit: th.zeit, von: 'sitzung/claude/arbeit', titel: 'Nehme (am Werkzeug vorbei)', phase: 'laeuft', bis: new Date(Date.now() + 36e5).toISOString().replace(/\.\d{3}Z$/, 'Z'), bezug: [{ art: 'baut_auf', id: befund }] })); }
         r = werkzeug(d, []);
         if (!/Deine Uebernahme von [^\n]*gilt nicht: sitzung\/claude\/halter war zuerst/.test(r.aus)) {
           const u = A.schwarm(A.brettLesen(d, { alleRefs: true }).eintraege, Date.now()).uebernahme.get(befund);
@@ -3083,6 +3087,260 @@ const FAELLE = [
         for (const p of prozesseMit(marke) || []) { try { process.kill(p, 'SIGKILL'); } catch (_) {} }
         weg(eltern);
       }
+    },
+  },
+  {
+    name: 'C23 · Werkzeug Runde 4 · als PROZESS: der Deckel gilt je SITZUNG (nach `git branch -m` nicht 3 + 3 mit --von <alter Name>), eine nachrangige Uebernahme steht in der Deckel-Meldung mit dem Befehl, der sie freigibt, ein ungueltiges --bis oder Ziel ist kein Deckel; im Teilabruf ist eine ungelesene Lage „nicht entscheidbar"; ein eigenes „fertig" mit Zeitstempel NACH jetzt wird beim Namen genannt; --auch auf ein eigenes Ziel geht nicht; ein vom Schreiber zurueckgezogener Eintrag ist nicht „GERETTET"; „fehlt auf origin" nach Rebase- und Squash-Merge auch dann nicht, wenn main die Dateien weiter aendert — im Zweifel eine Frage ohne Push-Befehl',
+    lauf: () => {
+      const eltern = tmp('werkzeug4'), bare = path.join(eltern, 'origin.git'), d = path.join(eltern, 'klon'), teil = path.join(eltern, 'teil');
+      const id = (r) => { const m = r.aus.match(/\n {2}(\d{4}-\d{2}-\d{2}-[0-9a-f]{4,8}) /); return m ? m[1] : null; };
+      try {
+        const f = [];
+        const jetzt = (dh) => new Date(Date.now() + (dh || 0) * 36e5);
+        const stamp = (dt) => ({ datum: dt.toISOString().slice(0, 10), zeit: dt.toISOString().slice(11, 19) });
+        const bisIn = (h) => jetzt(h).toISOString().replace(/\.\d{3}Z$/, 'Z');
+        const gz = (dir, args, t) => cp.execFileSync('git', ['-C', dir, '-c', 'user.email=pruefstand@example.com', '-c', 'user.name=pruefstand', '-c', 'commit.gpgsign=false'].concat(args), { encoding: 'utf8', env: Object.assign({}, process.env, t ? { GIT_AUTHOR_DATE: t.toISOString(), GIT_COMMITTER_DATE: t.toISOString() } : {}) });
+        const sauber = (zw, von) => { g(d, ['checkout', '-q', '-f', '-B', zw, von || 'origin/main']); g(d, ['clean', '-fdq']); };
+        const zweig = (name, eintraege) => { sauber(name); for (const [e, n] of eintraege) ablegen(d, e, n); g(d, ['add', '-A']); g(d, ['commit', '-q', '--allow-empty', '-m', name]); g(d, ['push', '-q', '-f', 'origin', name]); g(d, ['checkout', '-q', '--detach', 'origin/main']); };
+        const lage = (o) => mk('lage', Object.assign({ phase: 'laeuft' }, o));
+        const zeile = (r, re) => (r.aus.match(re) || [''])[0];
+        const geschrieben = (r) => /\nGeschrieben: /.test(r.aus);
+        cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]); g(bare, ['config', 'uploadpack.allowFilter', 'true']);
+        fs.mkdirSync(d); g(d, ['init', '-q', '-b', 'main', '.']); g(d, ['remote', 'add', 'origin', 'file://' + bare]);
+        fs.writeFileSync(path.join(d, 'index.html'), QUELLE); fs.writeFileSync(path.join(d, 'sw.js'), "const VERSION = 'gs-v1.00';\n");
+        fs.writeFileSync(path.join(d, 'STATUS.md'), '# STATUS\n\neins\nzwei\ndrei\n');
+        const t0 = stamp(jetzt(-30));
+        const freie = Array.from({ length: 16 }, (_, i) => mk('befund', Object.assign({ id: t0.datum + '-e23000' + String(i).padStart(2, '0'), von: 'sitzung/start', titel: 'Freier Befund ' + i }, t0)));
+        const th = stamp(jetzt(-1)), haltE = mk('halt', Object.assign({ id: th.datum + '-e2300099', von: 'sitzung/start', geltung: ['gsEins'], bis: bisIn(20), text: 'gsEins bleibt' }, th));
+        for (const e of freie.concat([haltE])) ablegen(d, e);
+        g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'start']); g(d, ['push', '-q', 'origin', 'main']);
+        let r;
+
+        // ── R4-fassungen-12: ein Deckel je SITZUNG. Nach `git branch -m` nahm das Werkzeug 3 unter dem neuen Namen und
+        //    3 weitere mit --von <alter Name> — alle wirkten fuer alle.
+        sauber('claude/w23-alt'); g(d, ['push', '-q', '-u', 'origin', 'claude/w23-alt']); g(d, ['branch', '-q', '-m', 'claude/w23-neu']);
+        for (const e of freie.slice(0, 3)) { r = werkzeug(d, ['nehme', e.id]); if (r.code !== 0) f.push('Aufbau R4-fassungen-12: nehme ' + e.id + ' Exit ' + r.code + ' · ' + kurz(r.aus, 160)); }
+        r = werkzeug(d, ['nehme', freie[3].id]); if (r.code !== 1 || !/hoechstens 3 zugleich/.test(r.aus)) f.push('R4-fassungen-12 · die vierte Uebernahme unter dem eigenen Namen: Exit ' + r.code + ' · ' + kurz(r.aus, 160));
+        r = werkzeug(d, ['nehme', freie[3].id, '--von', 'sitzung/claude/w23-alt']);
+        if (r.code !== 1 || geschrieben(r) || !/hoechstens 3 zugleich je Sitzung/.test(r.aus) || !/sitzung\/claude\/w23-alt/.test(zeile(r, /Du haeltst[^\n]*/)))
+          f.push('R4-fassungen-12 · nach `git branch -m` geht eine vierte Uebernahme mit --von <alter Name> durch (Exit ' + r.code + ') — der Deckel muss ueber ALLE Namen der Sitzung zaehlen · ' + kurz(r.aus.replace(/\s+/g, ' '), 220));
+        // … und nicht strenger als noetig: ein Ziel freigegeben, dann geht die vierte auch unter dem alten Namen. (Eine Sekunde
+        //    warten: ein „fertig" gibt erst frei, was VOR seiner Sekunde genommen wurde — die Nehmer liefen eben erst.)
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1050 - (Date.now() % 1000));
+        r = werkzeug(d, ['lage', '--phase', 'fertig', '--bezug', 'baut_auf:' + freie[0].id]);
+        r = werkzeug(d, ['nehme', freie[3].id, '--von', 'sitzung/claude/w23-alt']);
+        if (r.code !== 0 || !geschrieben(r)) f.push('R4-fassungen-12 · nach einem „fertig" auf ein Ziel ist unter dem alten Namen trotzdem kein Platz (Exit ' + r.code + ') · ' + kurz(r.aus.replace(/\s+/g, ' '), 200));
+
+        // ── R4-schwarm-6: eine NACHRANGIGE Uebernahme belegt einen Platz — die Meldung nennt sie, mit dem Befehl, der sie freigibt.
+        const tq = stamp(jetzt(-2)), tp = stamp(jetzt(-1));
+        zweig('claude/w23-q', [[lage(Object.assign({ id: tq.datum + '-e2300101', von: 'sitzung/claude/w23-q', bis: bisIn(5), bezug: [bz('baut_auf', freie[4])] }, tq))]]);
+        sauber('claude/w23-p');
+        ablegen(d, lage(Object.assign({ id: tp.datum + '-e2300102', von: 'sitzung/claude/w23-p', bis: bisIn(5), bezug: [bz('baut_auf', freie[4])] }, tp)));
+        for (const e of freie.slice(5, 7)) { r = werkzeug(d, ['nehme', e.id]); if (r.code !== 0) f.push('Aufbau R4-schwarm-6: nehme ' + e.id + ' Exit ' + r.code + ' · ' + kurz(r.aus, 160)); }
+        r = werkzeug(d, ['nehme', freie[7].id]);
+        { const z6 = r.aus.replace(/\s+/g, ' ');
+          if (r.code !== 1 || geschrieben(r) || !new RegExp('Du haeltst schon 3 Uebernahme\\(n\\)[^]*NACHRANGIG[^]*' + freie[4].id + ' \\(sitzung/claude/w23-q war zuerst\\)').test(z6) || z6.indexOf('baut_auf:' + freie[4].id) < 0)
+            f.push('R4-schwarm-6 · die Deckel-Meldung nennt die nachrangige Uebernahme nicht (oder nicht den Befehl, der sie freigibt): Exit ' + r.code + ' · ' + kurz(z6, 260)); }
+
+        // ── R4-schwarm-7 / R4-lesen-6: ein anderer Grund der Probe ist kein Deckel — er steht mit seinem eigenen Satz da.
+        sauber('claude/w23-b');
+        for (const [args, re, was] of [
+          [['nehme', freie[8].id, '--bis', '99h'], /Die Lage waere ungueltig: bis liegt 99 h/, 'nehme --bis 99h'],
+          [['nehme', freie[8].id, '--bis', '2020-01-01T00:00:00Z'], /Die Lage waere ungueltig: bis liegt nicht nach dem eigenen Zeitstempel/, 'nehme --bis <Vergangenheit>'],
+          [['lage', '--bezug', 'baut_auf:' + freie[8].id, '--bis', '30h'], /Die Lage waere ungueltig: bis liegt 30 h/, 'lage --bezug … --bis 30h'],
+          [['nehme', haltE.id], /Die Lage waere ungueltig: eine Lage nimmt einen Befund, eine Idee, eine Frage oder eine Fehlerklasse/, 'nehme <ein Halt>'],
+        ]) {
+          r = werkzeug(d, args);
+          if (r.code !== 1 || geschrieben(r) || !re.test(r.aus) || /Du haeltst schon|hoechstens 3 zugleich|Erst eine freigeben/.test(r.aus)) f.push('R4-schwarm-7 · `' + was + '`: Exit ' + r.code + ' · ' + kurz(r.aus.replace(/\s+/g, ' '), 200) + ' — erwartet Exit 1 mit dem eigenen Grund, ohne Deckel-Satz');
+        }
+
+        // ── R4-lesen-3 U5: --auch auf ein EIGENES Ziel geht nicht (die Regel hatte keinen Fall).
+        r = werkzeug(d, ['nehme', freie[8].id]); if (r.code !== 0) f.push('Aufbau U5: nehme ' + freie[8].id + ' Exit ' + r.code);
+        r = werkzeug(d, ['nehme', freie[8].id, '--auch']);
+        if (r.code !== 1 || geschrieben(r) || !/hast du selbst genommen/.test(r.aus)) f.push('R4-lesen-3 U5 · `nehme --auch` auf ein eigenes Ziel: Exit ' + r.code + ' · ' + kurz(r.aus.replace(/\s+/g, ' '), 160) + ' — erwartet 1 („hast du selbst genommen")');
+
+        // ── R4-lesen-3 U3: „ginge nicht an dich" ist erreichbar — ein eigenes „fertig" mit Zeitstempel NACH jetzt (Uhr
+        //    vorgegangen, 10 min: noch wirksam) gaebe die neue Lage im selben Augenblick frei; die Meldung nennt es.
+        sauber('claude/w23-u');
+        const tf = stamp(new Date(Date.now() + 10 * 60e3)), fz = lage(Object.assign({ id: tf.datum + '-e2300105', von: 'sitzung/claude/w23-u', phase: 'fertig', bis: bisIn(3) }, tf));
+        ablegen(d, fz);
+        r = werkzeug(d, ['nehme', freie[10].id]);
+        if (r.code !== 1 || geschrieben(r) || !new RegExp(freie[10].id + ' ginge nicht an dich: dein „fertig" ' + fz.id + ' traegt einen Zeitstempel NACH jetzt').test(r.aus)) f.push('R4-lesen-3 U3 · ein eigenes „fertig" mit Zeitstempel nach jetzt: Exit ' + r.code + ' · ' + kurz(r.aus.replace(/\s+/g, ' '), 220) + ' — erwartet 1 und das „fertig" beim Namen');
+
+        // … und ein eigenes „fertig" mit Zeitstempel NACH jetzt (es hat drei Uebernahmen beendet, aber erst in 5 min): fuer den
+        //    Deckel der neuen Lage zaehlen die drei noch — die Meldung nennt das „fertig", statt „schon 0 … kein Platz" zu sagen.
+        sauber('claude/w23-v');
+        const tv = stamp(jetzt(-1)), tv5 = stamp(new Date(Date.now() + 5 * 60e3));
+        for (const i of [12, 13, 14]) ablegen(d, lage(Object.assign({ id: tv.datum + '-e23002' + i, von: 'sitzung/claude/w23-v', bis: bisIn(4), bezug: [bz('baut_auf', freie[i])] }, tv)));
+        const fv = lage(Object.assign({ id: tv5.datum + '-e2300299', von: 'sitzung/claude/w23-v', phase: 'fertig', bis: bisIn(3) }, tv5)); ablegen(d, fv);
+        r = werkzeug(d, ['nehme', freie[15].id]);
+        if (r.code !== 1 || geschrieben(r) || !new RegExp('Fuer ' + freie[15].id + ' ist zur Zeit der neuen Lage kein Platz: dein „fertig" ' + fv.id + ' [^\\n]*gibt fuer den Deckel erst NACH seinem Zeitstempel frei').test(r.aus)) f.push('R4-schwarm-6 · ein „fertig" mit Zeitstempel nach jetzt: Exit ' + r.code + ' · ' + kurz(r.aus.replace(/\s+/g, ' '), 220) + ' — erwartet Exit 1 und das „fertig" beim Namen (nicht „schon 0 … kein Platz")');
+
+        // ── R4-lesen-0: im Teilabruf ist eine fremde Uebernahme ungelesen — `nehme` lehnt ab („nicht entscheidbar"), statt
+        //    still eine zweite zu schreiben. origin ist danach weg: es gibt nichts nachzuladen.
+        const tr = stamp(jetzt(-1));
+        zweig('claude/w23-r', [[lage(Object.assign({ id: tr.datum + '-e2300106', von: 'sitzung/claude/w23-r', bis: bisIn(5), bezug: [bz('baut_auf', freie[9])] }, tr))]]);
+        cp.execFileSync('git', ['clone', '-q', '--filter=blob:none', 'file://' + bare, teil], { stdio: 'ignore' });
+        g(teil, ['checkout', '-q', '-b', 'claude/w23-leser', 'origin/main']);
+        { const bt = A.brettLesen(teil, { alleRefs: true });
+          if (!bt.fehlend.some(x => x.pfad.indexOf('e2300106') >= 0)) f.push('Aufbau R4-lesen-0: im Klon mit --filter=blob:none fehlt die fremde Lage nicht (' + bt.fehlend.length + ' fehlend)'); }
+        fs.renameSync(bare, bare + '.weg');
+        try {
+          r = werkzeug(teil, ['nehme', freie[9].id], { AUSTAUSCH_HOLEN_FRIST_MS: '5000' });
+          if (r.code !== 1 || geschrieben(r) || !/Nicht entscheidbar: \d+ Datei\(en\), die eine Lage sein koennen, sind hier nicht gelesen/.test(r.aus)) f.push('R4-lesen-0 · `nehme` im Teilabruf mit einer ungelesenen fremden Lage: Exit ' + r.code + ' · ' + kurz(r.aus.replace(/\s+/g, ' '), 220) + ' — erwartet 1, „nicht entscheidbar"');
+        } finally { fs.renameSync(bare + '.weg', bare); }
+        sauber('claude/w23-voll');
+        r = werkzeug(d, ['nehme', freie[9].id]);   // Gegenrichtung: im vollen Klon ist es entscheidbar — und schon genommen
+        if (r.code !== 1 || !/schon uebernommen: sitzung\/claude\/w23-r/.test(r.aus)) f.push('R4-lesen-0 · im vollen Klon: Exit ' + r.code + ' · ' + kurz(r.aus.replace(/\s+/g, ' '), 160));
+
+        // ── R4-lesen-3 Z1: was der Schreiber auf SEINEM Branch zurueckgezogen hat (Grabstein), steht nicht als „GERETTET" da,
+        //    auch wenn es nur noch in der Sicherung liegt; was er ohne Grabstein entfernt hat, schon (Gegenrichtung).
+        const tz = stamp(jetzt(-3));
+        const zu = mk('befund', Object.assign({ id: tz.datum + '-e2300107', von: 'sitzung/claude/w23-z', titel: 'Zurueckgezogen vom Schreiber' }, tz));
+        const weg1 = mk('befund', Object.assign({ id: tz.datum + '-e2300108', von: 'sitzung/claude/w23-z', titel: 'Ohne Grabstein entfernt' }, tz));
+        zweig('claude/w23-z', [[zu], [weg1]]);
+        zweig('zz-sicherung', [[zu], [weg1]]);
+        sauber('claude/w23-z', 'origin/claude/w23-z');
+        for (const e of [zu, weg1]) fs.unlinkSync(path.join(d, A.ORDNER, e.id.slice(0, 7), e.id + '-befund-x.json'));
+        fs.writeFileSync(path.join(d, A.GRABSTEINE), JSON.stringify([{ id: zu.id, datum: tz.datum, grund: 'vom Schreiber zurueckgezogen' }], null, 2) + '\n');
+        g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'zurueckgezogen']); g(d, ['push', '-q', 'origin', 'claude/w23-z']);
+        sauber('claude/w23-leser');
+        r = werkzeug(d, []);
+        if (!/!! GERETTET: 1 Eintrag/.test(r.aus)) f.push('R4-lesen-3 Z1 · ' + (/GERETTET: 2 /.test(r.aus) ? 'ein vom Schreiber auf seinem Branch zurueckgezogener Eintrag (nur noch in der Sicherung) steht als GERETTET da' : 'GERETTET erwartet genau 1 (der ohne Grabstein): ' + kurz(zeile(r, /[^\n]*GERETTET[^\n]*/) || '(keine Zeile)', 160)));
+
+        // ── R4-schwarm-4: der eigene Branch ist auf origin weg. (a) Rebase-Merge (neue SHAs), danach aendert main STATUS.md
+        //    weiter — keine Alarmzeile. (b) Squash-Merge (ein Commit), danach dasselbe. (c) Nicht gemergt, aber main hat
+        //    dieselbe Datei geaendert: eine Frage ohne „!!" und ohne Push-Befehl. (d) Nicht gemergt mit einer Datei, die
+        //    main nie beruehrt hat: der Alarm mit Push-Befehl.
+        const dichZeile = (zw) => zeile(werkzeug(d, []), new RegExp('[^\\n]*Dein Branch ' + zw.replace(/\//g, '\\/') + '[^\\n]*'));
+        const anhaengen = (zw, text, t) => { fs.appendFileSync(path.join(d, 'STATUS.md'), text + '\n'); g(d, ['add', '-A']); gz(d, ['commit', '-q', '-m', zw + ': ' + text], t); };
+        const mainAnhaengen = (text) => { sauber('main', 'origin/main'); anhaengen('main', text); g(d, ['push', '-q', 'origin', 'main']); };
+        const zurueck = (zw) => { g(d, ['checkout', '-q', '-f', zw]); g(d, ['fetch', '-q', '--prune', 'origin']); };
+        // (a)
+        sauber('claude/w23-p4'); anhaengen('claude/w23-p4', 'p-zeile', jetzt(-0.5)); fs.writeFileSync(path.join(d, 'p-notiz.md'), 'notiz\n'); g(d, ['add', '-A']); gz(d, ['commit', '-q', '-m', 'notiz'], jetzt(-0.4)); g(d, ['push', '-q', '-u', 'origin', 'claude/w23-p4']);
+        sauber('main', 'origin/main'); gz(d, ['cherry-pick', 'origin/claude/w23-p4~1', 'origin/claude/w23-p4'], jetzt(-0.3)); g(d, ['push', '-q', 'origin', 'main']); g(d, ['push', '-q', 'origin', '--delete', 'claude/w23-p4']);
+        zurueck('claude/w23-p4');
+        { let anc = true; try { g(d, ['merge-base', '--is-ancestor', 'HEAD', 'origin/main']); } catch (_) { anc = false; } if (anc) f.push('Aufbau R4-schwarm-4 (a): der Rebase-Merge hat dieselben Commits erzeugt (HEAD steht in origin/main)'); }
+        let zl = dichZeile('claude/w23-p4'); if (!/ist auf origin nicht mehr da — jeder seiner Commits steht inhaltsgleich auf main/.test(zl)) f.push('R4-schwarm-4 (a) · nach einem Rebase-Merge: ' + kurz(zl || '(keine Zeile)', 200));
+        mainAnhaengen('q-zeile'); zurueck('claude/w23-p4');
+        zl = dichZeile('claude/w23-p4'); if (/^\s*!!/.test(zl) || /fehlt auf origin/.test(zl) || !/nicht mehr da/.test(zl)) f.push('R4-schwarm-4 (a) · Rebase-Merge, danach aendert main STATUS.md: ' + kurz(zl || '(keine Zeile)', 200) + ' — erwartet kein „!! … fehlt … Neu pushen"');
+        // (b)
+        sauber('claude/w23-s4'); anhaengen('claude/w23-s4', 's-zeile', jetzt(-0.5)); fs.writeFileSync(path.join(d, 's-notiz.md'), 'notiz\n'); g(d, ['add', '-A']); gz(d, ['commit', '-q', '-m', 'notiz'], jetzt(-0.4)); g(d, ['push', '-q', '-u', 'origin', 'claude/w23-s4']);
+        sauber('main', 'origin/main'); g(d, ['merge', '-q', '--squash', 'origin/claude/w23-s4']); gz(d, ['commit', '-q', '-m', 'Squash w23-s4'], jetzt(-0.3)); g(d, ['push', '-q', 'origin', 'main']); g(d, ['push', '-q', 'origin', '--delete', 'claude/w23-s4']);
+        mainAnhaengen('r-zeile'); zurueck('claude/w23-s4');
+        zl = dichZeile('claude/w23-s4'); if (/^\s*!!/.test(zl) || /fehlt auf origin/.test(zl) || !/nicht mehr da — seine ganze Aenderung steht als ein Commit auf main \(squash-gemergt\?\)/.test(zl)) f.push('R4-schwarm-4 (b) · Squash-Merge, danach aendert main STATUS.md: ' + kurz(zl || '(keine Zeile)', 200));
+        // (c)
+        sauber('claude/w23-u4'); anhaengen('claude/w23-u4', 'u-zeile', jetzt(-0.5)); g(d, ['push', '-q', '-u', 'origin', 'claude/w23-u4']); g(d, ['push', '-q', 'origin', '--delete', 'claude/w23-u4']);
+        mainAnhaengen('v-zeile'); zurueck('claude/w23-u4');
+        zl = dichZeile('claude/w23-u4'); if (/^\s*!!/.test(zl) || /git push/.test(zl) || !/laesst sich nicht sicher sagen \(main hat STATUS\.md seither selbst geaendert\)/.test(zl)) f.push('R4-schwarm-4 (c) · nicht gemergt, main aendert dieselbe Datei: ' + kurz(zl || '(keine Zeile)', 200) + ' — erwartet eine Frage ohne „!!" und ohne Push-Befehl');
+        // (d)
+        sauber('claude/w23-n4'); fs.writeFileSync(path.join(d, 'n-notiz.md'), 'nur hier\n'); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'n']); g(d, ['push', '-q', '-u', 'origin', 'claude/w23-n4']); g(d, ['push', '-q', 'origin', '--delete', 'claude/w23-n4']);
+        zurueck('claude/w23-n4');
+        zl = dichZeile('claude/w23-n4'); if (!/!! Dein Branch claude\/w23-n4 fehlt auf origin[^\n]*nie beruehrt: n-notiz\.md\)\. Neu pushen: git push -u origin HEAD:claude\/w23-n4$/.test(zl)) f.push('R4-schwarm-4 (d) · nicht gemergt, eine Datei, die main nie beruehrt hat: ' + kurz(zl || '(keine Zeile)', 200));
+        g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']);
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: 'branch -m: 3 + 0 statt 3 + 3, nach „fertig" geht die vierte · nachrangige genannt, mit baut_auf:<id> · --bis 99h/Vergangenheit/30h und ein Halt als Ziel: eigener Satz · --auch auf eigenes Ziel abgewiesen · „fertig" +10 min beim Namen · Teilabruf ohne origin: nicht entscheidbar, voll: schon uebernommen · Grabstein des Schreibers: GERETTET 1 statt 2 · fehlt auf origin: Rebase und Squash mit spaeterer STATUS-Zeile still, Zweifel als Frage, nie beruehrte Datei als Alarm' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(eltern); }
+    },
+  },
+  {
+    name: 'C26 · Nachtraege der Skeptiker (Gegenpruefung 4) · als PROZESS: Nachladen macht ein volles Repo nie zum Teilabruf; Strg-C beendet git samt Remote-Helfer; `neu lage`, `einspielen` und `lage --bezug` (auch im Teilabruf) gehen durch die Uebernahme-Pruefung — ein Stapel [fertig, nehme] gilt; `lesen` laedt im Teilabruf nichts nach (auch nicht fuer „in Arbeit"); brettLesen laedt keine Baeume und nennt sie; A8 nimmt die Teilabruf-Grenze aus der uebergebenen Umgebung; der Klammer-Scanner bleibt linear bei vielen Kommentaren auf einer Zeile; ein geloeschter, nie gemergter Branch nennt seine Commits ohne Gegenstueck',
+    lauf: () => {
+      const eltern = tmp('nachtrag4'), bare = path.join(eltern, 'origin.git'), d = path.join(eltern, 'klon');
+      const id = (r) => { const m = r.aus.match(/\n {2}(\d{4}-\d{2}-\d{2}-[0-9a-f]{4,8}) /); return m ? m[1] : null; };
+      const packs = (x) => { const p = path.join(x, '.git', 'objects', 'pack'); return fs.existsSync(p) ? fs.readdirSync(p).filter(n => /\.pack$/.test(n)).length : 0; };
+      const prozesseMit = (wort) => { if (!fs.existsSync('/proc')) return null; const r = []; for (const p of fs.readdirSync('/proc')) { if (!/^\d+$/.test(p)) continue; let c = ''; try { c = fs.readFileSync('/proc/' + p + '/cmdline', 'utf8').replace(/\0/g, ' '); } catch (_) { continue; } if (c.indexOf(wort) >= 0) r.push(Number(p)); } return r; };
+      let marke = null;
+      const kurz = (s, n) => { s = String(s || '').replace(/\s*\n\s*/g, ' ⏎ '); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+      try {
+        const f = [];
+        const jetzt = (dh) => new Date(Date.now() + (dh || 0) * 36e5);
+        const stamp = (dt) => ({ datum: dt.toISOString().slice(0, 10), zeit: dt.toISOString().slice(11, 19) });
+        const bisIn = (h) => jetzt(h).toISOString().replace(/\.\d{3}Z$/, 'Z');
+        const zweig = (name, von, eintraege) => { g(d, ['checkout', '-q', '-B', name, von || 'origin/main']); for (const [e, n] of eintraege) ablegen(d, e, n); g(d, ['add', '-A']); g(d, ['commit', '-q', '--allow-empty', '-m', name]); g(d, ['push', '-q', '-f', 'origin', name]); g(d, ['checkout', '-q', '--detach', 'origin/main']); };
+        cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]); g(bare, ['config', 'uploadpack.allowFilter', 'true']);
+        fs.mkdirSync(d); g(d, ['init', '-q', '-b', 'main', '.']); g(d, ['remote', 'add', 'origin', 'file://' + bare]);
+        fs.writeFileSync(path.join(d, 'index.html'), QUELLE); fs.writeFileSync(path.join(d, 'sw.js'), "const VERSION = 'gs-v1.00';\n"); fs.writeFileSync(path.join(d, 'STATUS.md'), '# Status\n');
+        const t0 = stamp(jetzt(-30)), ziele = [1, 2, 3, 4, 5, 6].map(i => mk('befund', Object.assign({ id: t0.datum + '-a100000' + i, von: 'sitzung/start', titel: 'Ziel ' + i, anker: [{ datei: 'index.html', text: 'function gsZwei(){ return gsEins() + gsEins(); }' }] }, t0)));
+        for (const e of ziele) ablegen(d, e);
+        g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'start']); g(d, ['push', '-q', 'origin', 'main']);
+        const tq = stamp(jetzt(-1));
+        zweig('claude/q', 'origin/main', [[mk('lage', Object.assign({ id: tq.datum + '-a2000001', von: 'sitzung/claude/q', phase: 'laeuft', bis: bisIn(6), bezug: [{ art: 'baut_auf', id: ziele[0].id }] }, tq))]]);
+        g(d, ['fetch', '-q', 'origin']);
+        // 1. Nachladen macht ein VOLLES Repo nie zum Teilabruf (vorher schrieb `naechste` remote.origin.promisor & Co).
+        { const vorher = g(d, ['config', '--list', '--local']);
+          if (A.objekteNachladen(d, ['0123456789abcdef0123456789abcdef01234567'], { frist: 5000 }) !== false) f.push('objekteNachladen in einem VOLLEN Repo meldet Erfolg');
+          werkzeug(d, ['naechste', '--json']);
+          const nachher = g(d, ['config', '--list', '--local']);
+          if (/promisor|partialclonefilter|repositoryformatversion=1/.test(nachher) && !/promisor/.test(vorher)) f.push('ein volles Repo ist nach `naechste` ein Teilabruf: ' + kurz(nachher.split('\n').filter(z => /promisor|partialclone|formatversion/.test(z)).join(' | '), 200)); }
+        // 2. `neu lage --bezug baut_auf:<genommen>` und `einspielen` gehen durch die Uebernahme-Pruefung.
+        g(d, ['checkout', '-q', '-B', 'claude/p', 'origin/main']);
+        { let r = werkzeug(d, ['neu', 'lage', '--phase', 'laeuft', '--bezug', 'baut_auf:' + ziele[0].id, '--titel', 'durch die Hintertuer', '--bis', '5h']);
+          if (r.code !== 1 || !/schon uebernommen/.test(r.aus)) f.push('`neu lage --bezug baut_auf:<genommen>`: Exit ' + r.code + ' — erwartet 1 „schon uebernommen" · ' + kurz(r.aus, 200));
+          const st = path.join(eltern, 'stapel.json');
+          fs.writeFileSync(st, JSON.stringify([{ art: 'lage', phase: 'laeuft', bis: bisIn(3), titel: 'Stapel nimmt', bezug: [{ art: 'baut_auf', id: ziele[0].id }] }]));
+          r = werkzeug(d, ['einspielen', st]); if (r.code !== 1 || !/schon uebernommen/.test(r.aus)) f.push('`einspielen` einer Lage auf ein genommenes Ziel: Exit ' + r.code + ' · ' + kurz(r.aus, 200));
+          // Drei gehalten (vor einer Stunde genommen), dann ein Stapel [fertig, nehme]: gilt — ein „fertig" im Stapel zaehlt
+          // ab seiner Sekunde. Gegenrichtung: derselbe Stapel OHNE „fertig" wird abgewiesen (der Deckel greift).
+          const th = stamp(jetzt(-1)); ablegen(d, mk('lage', Object.assign({ id: th.datum + '-a3000001', von: 'sitzung/claude/p', phase: 'laeuft', bis: bisIn(5), titel: 'drei gehalten', bezug: [1, 2, 3].map(k => ({ art: 'baut_auf', id: ziele[k].id })) }, th)));
+          fs.writeFileSync(st, JSON.stringify([{ art: 'lage', phase: 'laeuft', bis: bisIn(3), titel: 'ein viertes', bezug: [{ art: 'baut_auf', id: ziele[4].id }] }]));
+          r = werkzeug(d, ['einspielen', st]); if (r.code !== 1 || !/hoechstens 3 zugleich/.test(r.aus)) f.push('Gegenrichtung: ein viertes ohne „fertig" bei drei gehaltenen: Exit ' + r.code + ' — erwartet 1 „hoechstens 3 zugleich" · ' + kurz(r.aus, 200));
+          fs.writeFileSync(st, JSON.stringify([{ art: 'lage', phase: 'fertig', bis: bisIn(1), titel: 'fertig' }, { art: 'lage', phase: 'laeuft', bis: bisIn(3), titel: 'nimmt das vierte', bezug: [{ art: 'baut_auf', id: ziele[4].id }] }]));
+          r = werkzeug(d, ['einspielen', st]); if (r.code !== 0) f.push('ein Stapel [fertig, nehme] bei drei gehaltenen wird abgewiesen: Exit ' + r.code + ' · ' + kurz(r.aus, 240));
+          fs.writeFileSync(st, JSON.stringify([{ art: 'lage', phase: 'laeuft', bis: bisIn(3), titel: 'nimmt das sechste', bezug: [{ art: 'baut_auf', id: ziele[5].id }] }]));
+          r = werkzeug(d, ['einspielen', st]); if (r.code !== 0) f.push('nach [fertig, nehme] ist der Deckel nicht frei: Exit ' + r.code + ' · ' + kurz(r.aus, 240));
+          g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']); g(d, ['clean', '-fdq', A.ORDNER]); }
+        // 3. Teilabruf (blob:none): `lage --bezug` holt nach und weist ab; `lesen --nur-lokal` laedt nichts nach (auch nicht
+        //    fuer „in Arbeit": ein frischer Branch aendert die verankerte Stelle).
+        g(d, ['checkout', '-q', '-B', 'claude/arbeit', 'origin/main']); fs.writeFileSync(path.join(d, 'index.html'), QUELLE.replace('return gsEins() + gsEins();', 'return 2;')); g(d, ['commit', '-q', '-am', 'arbeit an gsZwei']); g(d, ['push', '-q', '-f', 'origin', 'claude/arbeit']); g(d, ['checkout', '-q', '--detach', 'origin/main']);
+        const tc = path.join(eltern, 'teil'); cp.execFileSync('git', ['clone', '-q', '--filter=blob:none', 'file://' + bare, tc], { stdio: 'ignore' });
+        g(tc, ['checkout', '-q', '-b', 'claude/teil', 'origin/main']);
+        { const p0 = packs(tc), r0 = werkzeug(tc, ['lesen']), p1 = packs(tc);
+          if (p1 !== p0) f.push('`lesen` im blob:none-Klon laedt nach: Packs ' + p0 + ' → ' + p1);
+          if (!/nicht im lokalen Objektspeicher|nicht gelesen|Teilabruf/.test(r0.aus)) f.push('`lesen` im blob:none-Klon sagt nicht, dass Eintraege ungelesen sind · ' + kurz(r0.aus, 200));
+          const r = werkzeug(tc, ['lage', '--phase', 'laeuft', '--bezug', 'baut_auf:' + ziele[0].id, '--titel', 'im Teilabruf', '--bis', '4h']);
+          if (r.code !== 1 || !/schon uebernommen/.test(r.aus)) f.push('`lage --bezug baut_auf:<genommen>` im blob:none-Klon (online — holt und laedt nach): Exit ' + r.code + ' — erwartet 1 „schon uebernommen" · ' + kurz(r.aus, 200)); }
+        // 4. brettLesen in einem Klon OHNE Baeume (tree:0): laedt keine Baeume nach und nennt die Branches als nicht gelesen.
+        { const t0c = path.join(eltern, 'ohnebaum'); cp.execFileSync('git', ['clone', '-q', '--filter=tree:0', 'file://' + bare, t0c], { stdio: 'ignore' });
+          g(t0c, ['checkout', '-q', '-b', 'claude/leer', 'origin/main']);
+          const altNl = process.env.GIT_NO_LAZY_FETCH; delete process.env.GIT_NO_LAZY_FETCH;
+          try { const p0 = packs(t0c), b = A.brettLesen(t0c, { alleRefs: true }), p1 = packs(t0c);
+            if (p1 !== p0 || !b.fehlend.some(x => x.baum && x.quelle === 'origin/claude/q')) f.push('brettLesen im tree:0-Klon: Packs ' + p0 + ' → ' + p1 + ', fehlende Baeume genannt: ' + JSON.stringify(b.fehlend.filter(x => x.baum).map(x => x.quelle)));
+          } finally { if (altNl !== undefined) process.env.GIT_NO_LAZY_FETCH = altNl; } }
+        // 5. A8 nimmt die Teilabruf-Grenze aus der UEBERGEBENEN Umgebung (vor process.env).
+        // (Die Grenze muss UEBER 64 KB liegen: nur dann ist jede fehlende Datei nachweislich kein Eintrag.)
+        { zweig('claude/gross', 'origin/main', [['{"id": "2026-01-05-aaaaaaab", "art": "befund", "titel": "' + 'x'.repeat(120 * 1024) + '"}', '2026-01-05-aaaaaaab-befund-gross.json']]);
+          const lim = path.join(eltern, 'limit'); cp.execFileSync('git', ['clone', '-q', '--filter=blob:limit=100k', 'file://' + bare, lim], { stdio: 'ignore' });
+          g(lim, ['checkout', '-q', '-b', 'claude/lim', 'origin/main']); fs.writeFileSync(path.join(lim, 'index.html'), QUELLE.replace('return gsEins() + gsEins();', 'return 4;'));
+          const altGa = process.env.GITHUB_ACTIONS; delete process.env.GITHUB_ACTIONS;
+          try { const h = A.haltsDiesesStands(lim, { GITHUB_ACTIONS: 'true' }), h0 = A.haltsDiesesStands(lim, {});
+            if (h.nichtPruefbar || !h0.nichtPruefbar) f.push('haltsDiesesStands: mit GITHUB_ACTIONS in der UEBERGEBENEN Umgebung ' + (h.nichtPruefbar ? 'nicht pruefbar' : 'rechenbar') + ', ohne ' + (h0.nichtPruefbar ? 'nicht pruefbar' : 'rechenbar') + ' — erwartet rechenbar / nicht pruefbar');
+          } finally { if (altGa !== undefined) process.env.GITHUB_ACTIONS = altGa; } }
+        // 6. Der Klammer-Scanner bleibt linear: 40 000 Kommentare auf EINER Zeile (vorher je Kommentar eine Suche bis zum Zeilenende).
+        { const zeile = 'var a = 1; ' + '/* k */ a = a + 1; '.repeat(40000), text = '<script>\nfunction gsA() {\n' + zeile + '\n}\n</script>\n';
+          const t1 = process.hrtime.bigint(), fb = A.funktionsBereiche(text), ms = Number(process.hrtime.bigint() - t1) / 1e6;
+          if (ms > 3000 || fb.unsicher || !fb.bereiche.some(x => x.name === 'gsA')) f.push('Scanner bei 40 000 Kommentaren auf einer Zeile: ' + Math.round(ms) + ' ms' + (fb.unsicher ? ', unsicher' : '')); }
+        // 7. Strg-C beendet git samt Remote-Helfer (die Huelle gibt SIGINT an die Gruppe weiter).
+        { const o3 = path.join(eltern, 'haengt'); fs.mkdirSync(o3); g(o3, ['init', '-q', '-b', 'claude/x', '.']); marke = '7' + String(process.pid) + '.' + String(Date.now() % 100000);
+          g(o3, ['remote', 'add', 'origin', 'ext::sh -c sleep% ' + marke]); g(o3, ['config', 'protocol.ext.allow', 'always']); g(o3, ['commit', '-q', '--allow-empty', '-m', 'x']);
+          const kind = cp.spawn(process.execPath, [WERKZEUG, 'naechste'], { cwd: o3, detached: true, stdio: 'ignore', env: Object.assign({}, process.env, { AUSTAUSCH_WURZEL: o3, AUSTAUSCH_HOLEN_FRIST_MS: '60000' }) });
+          const bis = Date.now() + 8000; while (Date.now() < bis && !(prozesseMit(marke) || []).length) cp.spawnSync('sleep', ['0.2']);
+          const vorher = (prozesseMit(marke) || []).length;
+          try { process.kill(-kind.pid, 'SIGINT'); } catch (_) {}
+          const ende = Date.now() + 6000; while (Date.now() < ende && (prozesseMit(marke) || []).length) cp.spawnSync('sleep', ['0.2']);
+          const rest = prozesseMit(marke);
+          if (rest === null) f.push('nicht messbar: kein /proc'); else if (!vorher) f.push('Aufbau: der haengende Remote-Helfer lief nie'); else if (rest.length) f.push('nach Strg-C laufen noch ' + rest.length + ' Prozess(e) des Remote-Helfers'); }
+        // 8. Ein geloeschter, nie gemergter Branch, dessen Datei main seither selbst geaendert hat: die Frage nennt seine Commits.
+        { g(d, ['checkout', '-q', '-B', 'claude/v3', 'origin/main']); fs.appendFileSync(path.join(d, 'STATUS.md'), 'Zeile von v3\n'); g(d, ['commit', '-q', '-am', 'v3 aendert STATUS']); g(d, ['push', '-q', '-u', 'origin', 'claude/v3']);
+          const d2 = path.join(eltern, 'zweiter'); cp.execFileSync('git', ['clone', '-q', 'file://' + bare, d2], { stdio: 'ignore' });
+          fs.appendFileSync(path.join(d2, 'STATUS.md'), 'Zeile einer anderen Sitzung\n'); g(d2, ['commit', '-q', '-am', 'andere']); g(d2, ['push', '-q', 'origin', 'main']); g(d2, ['push', '-q', 'origin', '--delete', 'claude/v3']);
+          g(d, ['fetch', '-q', '--prune', 'origin']);
+          const r = werkzeug(d, []);   // ohne --nur-lokal: die Frage liest die Remote-Refs (lokal, ohne Netz)
+          if (!/1 Commit\(s\) ohne Gegenstueck auf main: „v3 aendert STATUS"/.test(r.aus)) f.push('ein geloeschter, nie gemergter Branch: die Frage nennt seinen Commit nicht · ' + kurz((r.aus.match(/Dein Branch claude\/v3[^\n]*/) || [r.aus])[0], 240));
+          g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']); }
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: 'volles Repo bleibt voll · neu lage / einspielen / lage --bezug (auch im Teilabruf) geprueft, [fertig, nehme] gilt · lesen laedt nichts nach · brettLesen ohne Baeume: nichts geladen, genannt · A8-Grenze aus der Umgebung · Scanner linear · Strg-C beendet den Remote-Helfer · geloeschter Branch nennt seinen Commit' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { if (marke) for (const p of prozesseMit(marke) || []) { try { process.kill(p, 'SIGKILL'); } catch (_) {} } weg(eltern); }
     },
   },
 ];

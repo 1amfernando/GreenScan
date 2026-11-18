@@ -12,6 +12,107 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-18 (jh) - kein Bump: der Schwarm — Dringlichkeit, Übernahme, Lage, Halt und Veto, Wächter und Sicherung, vier gegnerische Prüfungen
+
+**Auftrag (Fernando, 17.11.2026, gekürzt):** eine gemeinsame Wissensbasis über die Sitzungen
+hinaus; klare Protokolle — Dringlichkeit („Dringend", „Kritisch"), Aufgabenzuweisung („Agent sucht
+diese Datei. Bitte hochladen, falls gefunden."), Fortschrittskontrolle („Runde 5 ist wahrscheinlich
+die letzte"); ein Wächter, der merkt, ob Speicherorte gelöscht oder zurückgesetzt wurden, und
+Sicherungskopien an versteckten Adressen mit Z-Präfix; systemweite Kommandos „Halt" und „Veto".
+*„Genau so muss alles funktionieren."*
+
+**Wie das auf dem Brett aussieht** (`docs/austausch/README.md` „Der Schwarm"): die Wissensbasis
+ist das Brett selbst (seit 11.11.2026). Neu: `dringlichkeit` (`kritisch` · `dringend`) an Befund,
+Frage, Halt — ein offener kritischer Eintrag muss mit `brett:<id>` in §2 stehen (A7, das Werkzeug
+nennt die Zeile beim Schreiben); `nehme <id>` (Übernahme, die älteste gilt, höchstens drei je
+Schreiber zugleich), `frage --an sitzung/<branch>` und `antworte --geliefert <pfad>` (Pfad +
+Commit; der Fragende sieht den fertigen `git show`); `lage --phase laeuft|letzte_runde|fertig
+--runde 4/5 --bis 3h`; `halt --geltung … --bis …` und `veto <id>`, aufgehoben nur mit Grund (der
+Aussteller liest ihn); **DICH BETREFFEND** ganz oben in `holen`, gerechnet am Schreiber. Dazu,
+ohne dass jemand etwas meldet: „in Arbeit auf <branch>" aus git (Anker geändert, id im Commit).
+**Wächter 1** (A6): keine Eintragsdatei der Abzweigstelle verschwindet oder wird umgeschrieben,
+ausser per Grabstein (`docs/austausch/zurueckgezogen.json`). **Wächter 2**: die Action
+`brett-waechter.yml` baut stündlich aus jeder Fassung jedes Eintrags jedes Branches einen Stand auf
+**`zz-sicherung`** (aus dem Nichts, ohne Geschichte) und wird ROT, wenn eine Fassung nur noch dort
+liegt oder die Sicherung selbst zurückgesetzt wurde. Ids haben jetzt acht Hexstellen.
+
+**Vier gegnerische Prüfungen vor dem Ausliefern** — die ersten zwei (je fünf Linsen mit Skeptiker, jede Linse in
+einem eigenen Klon mit gebautem origin): **Runde 1 — 64 Funde, 41 vom Skeptiker nachgestellt,
+keiner widerlegt, 23 ohne Urteil** (die Prüfstand-Linse hatte keinen Skeptiker); **Runde 2 auf dem
+reparierten Stand — 71 Funde, alle 71 nachgestellt, keiner widerlegt.** Beide Male war die Fassung,
+die ich für fertig hielt, es nicht. Die schwerste Klasse in Runde 1 fanden vier Linsen unabhängig:
+**„mein" wurde am Fundort gerechnet**, nicht am Schreiber (ein Halt per Merge auf `main` wirkte bei
+keiner späteren Sitzung, `ernten` machte jeden fremden Halt wirkungslos). Die schwerste in Runde 2:
+**die Reparaturen der ersten Runde rissen neue Lücken** — die Umstellung auf den Schreiber machte
+alles, was die Austausch-Runde schreibt (45 von 91 Einträgen), zu niemandes Eintrag; „ein Branch mit
+Zukunftszeit ist nicht frisch" liess `naechste` dessen Nummer still ein zweites Mal vergeben;
+„eingerückte Deklarationen zählen" gab eine Änderung mitten in `gsKalenderEreignisse` dem
+Einzeiler `im` (ein Halt auf die Funktion war für fast den ganzen Rumpf blind); „strittige Fassungen
+nicht rechnen" machte die Sicherung selbst zur Partei — eine Kopie mit EINEM geänderten Byte auf
+einem dritten Branch löschte jeden Halt für alle Leser. Weiter in Runde 2: ein ungültiger Abschluss
+(`ergebnis: egal`) schloss einen kritischen Befund; eine rückdatierte Lage stahl eine Übernahme; der
+Wächter übernahm den Baum von `zz-sicherung` ungeprüft (eine `.gitignore` dort, und „gesichert" war
+eine Behauptung), sicherte strittige Fassungen nie, legte sein Gedächtnis VOR dem Push ab
+(Fehlalarm nach jedem abgelehnten Push) und hielt das Löschen aller Branches für einen
+Abruf-Fehler; A8 sah nur Halts, die schon auf `main` liegen; `holen` lief bei 2'000 Einträgen an
+einem Stichwort in den Speicher-Abbruch. **Alles behoben** — die Regeln stehen in der README, der
+Grund im Kopf jeder Regel.
+
+**Runde 3 (auf 387adea) — 56 Funde, alle 56 vom Skeptiker nachgestellt, keiner widerlegt.** Die Klasse
+dahinter: **eine Identität wurde an einem Muster erkannt.** `/(^|\/)main$/` machte einen pushbaren Branch
+`claude/main` zu main (ein Halt in fremdem Namen wirkte, ein „ersetzt" versteckte einen kritischen Befund);
+derselbe Branch-Name auf einem zweiten Remote galt als Branch des Schreibers; der Titel „Mithelfen: …"
+entschied über eine Absicht; und das `von` JEDER Fassung zählte — eine Kopie, die ihr `von` auf den
+eigenen Branch umschrieb, galt als Original und schaltete den Alarm des Wächters ab. Dazu: dieselben
+Bytes unter anderem Namen machten das Original unlesbar; Rebase und Amend machten ehrliche Lagen
+„rückdatiert"; der Deckel wurde am Endstand gerechnet (eine bei ihrem Schreiben unwirksame vierte
+Übernahme eroberte nach einem „fertig" ihr Ziel zurück). Repariert in drei getrennten Arbeitskopien
+(Kern, Wächter, Agenten-Gruppen) — und beim Zusammenführen riss ein Rest der alten Ref-Regel in einer
+neuen Funktion eine Lücke, die keine Kopie allein hatte.
+
+**Runde 4 (auf e56ece7) — 45 Funde in fünf Linsen, alle 45 nachgestellt, keiner widerlegt.** Zwei
+Klassen trugen sie. **(a) Ein eigener Name ohne Beleg:** jeder Upstream galt als eigener Name — nach
+`git checkout -b x origin/<fremd>` galten dessen Bump-Halt und Übernahmen als „deine", und das Werkzeug
+riet, in seinem Namen zu schreiben; im PR eines Forks war `GITHUB_HEAD_REF` die Identität. Jetzt zählt
+ein Upstream nur nach einem im Reflog belegten `git branch -m`, im PR nur ein Kopf, der auf
+`origin/<ref>` liegt. **(b) Was fehlt, galt als leer:** die Ankunft einer Lage wurde über ALLE Quellen
+gemessen (eine byte-gleiche Kopie mit früherer Autor-Zeit machte einen fremden Halt „vordatiert"),
+ein gequoteter Pfad hatte gar keine Ankunft und damit keine Prüfung; in einem Klon mit
+`--filter=blob:none` sah `holen` keinen fremden Eintrag und `nehme` schrieb still eine zweite
+Übernahme; ein fehlender Baum (`tree:0`) liess die Einträge eines Branches still verschwinden; ein
+Wächter ohne Gedächtnis vernichtete die einzige Kopie in der Quarantäne. Jetzt: Ankunft nur auf dem
+Branch des Schreibers, je Anspruch, aus dem Verzeichnis des Wächters (`docs/austausch/sicherung.json`)
+oder der vollen Geschichte; unbestimmbar heisst unwirksam; Lesen lädt nie nach, Holen lädt gezielt nach,
+und was fehlt, heisst „nicht rechenbar" mit Quelle. Repariert wieder in Gruppen (Kern selbst; Scanner,
+Lesen, Werkzeug als Agenten mit eigenem Skeptiker) — **und die drei Skeptiker fanden in den Reparaturen
+zehn neue Stellen**, darunter eine, die genau die Klasse (b) umdrehte: das neue gezielte Nachladen
+machte aus einem VOLLEN Repo einen Teilabruf (`naechste` schrieb `remote.origin.promisor` in die
+Konfiguration). Weiter: Strg-C liess git samt Remote-Helfer ohne Frist weiterlaufen; `neu lage` und
+`einspielen` gingen an der Übernahme-Prüfung vorbei; „in Arbeit" lud beim blossen `lesen` Dateien vom
+Server; ein Branch, der nie gemergt und dann gelöscht wurde, bekam „Gemergt? Dann ist nichts verloren".
+Alle zehn behoben, mit eigenem Fall (C26).
+
+**Und eine meiner eigenen Reparaturen war falsch, bevor sie lief:** die Identität aus dem Upstream
+zu lesen (gegen „lokaler Name ≠ Upstream") hätte jede Sitzung, die mit `git checkout -b x
+origin/main` beginnt, „main" genannt. Identität bleibt der lokale Name; ein abweichender Upstream
+wird genannt.
+
+**Prüfstand:** `austausch_check` 23 → 39 Fälle — neu A8 (welche wirksamen Halts **auf main und auf
+jedem anderen Branch** dieser Stand berührt; die CI holt dafür alle Branches, nur lesend), A9, A10
+(Absichten im Baum: keine wirkende Lage, kein wirkender Halt in fremdem Namen), C11–C26. C13 und C25
+fahren den ECHTEN Schritt der Action wie auf GitHub (frischer flacher Klon, saubere Shell, Cache als
+Gedächtnis, ein `node`-Spion für den Token); C12, C14, C16, C19, C20, C24 und C26 fahren das Werkzeug
+als Prozess über gebaute Branches und ein gebautes origin, auch im Teilabruf (`blob:none`, `tree:0`,
+`blob:limit`) und gegen einen hängenden Remote. Der Funktions-Scanner für Halts stimmt bei **2'799 von
+2'799** Funktionen von `index.html` mit einem echten JS-Parser (acorn) überein. **Gegenproben:** jede
+Reparatur zurückgebaut, der Fall muss rot werden — für Runde 4 allein **64 Gegenproben auf dem
+zusammengeführten Stand, 63 einzeln rot**; die eine, die grün blieb, baut eine Regel des Wächters
+zurück, die eine zweite mitschützt (zusammen zurückgebaut: C25 rot). Gefahren werden die
+Gegenproben in Kopien des Repos, nie im Arbeitsbaum (Prüfsumme vor und nach jeder).
+
+**Offen:** brett:2026-11-18-70cdcf56
+**Nicht geprüft:** ein https-Remote (gemessen sind `file://` und `ext::`) und ein git ohne `GIT_NO_LAZY_FETCH` (es lädt einen fehlenden tieferen Baum still nach — README „Grenzen“); die Action selbst auf GitHub — sie läuft erst, wenn `brett-waechter.yml` auf `main` liegt; geprüft ist ihr Schritt gegen ein gebautes origin, nicht `actions/cache` (Cache-Schlüssel je Lauf, `restore-keys`) und nicht die Rechte eines echten `GITHUB_TOKEN`; ob GitHub einen nicht mehr erreichbaren Sicherungs-Commit über seine Kennung weiter ausliefert; der neue Schritt in `pruefstaende.yml` (alle Branches holen) läuft erst im nächsten PR; die volle Suite (geändert sind nur das Werkzeug des Bretts, sein Prüfstand, zwei Actions und Doku — gefahren: `austausch_check`, `robust_check`)
+
 ### 2026-11-16 (jg) - kein Bump: das Brett sagt, welche Version und welches Kürzel noch frei sind
 
 **Anlass, gemessen am 16.11.2026** (`node scripts/austausch.mjs holen`): fünf Tage nach dem
