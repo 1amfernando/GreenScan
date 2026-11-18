@@ -182,10 +182,28 @@ Lieferungen auf deine offenen Einträge**, auch auf deinen Halt und deine Lage (
 `git show` und, nach einem Squash-Merge, `git show origin/main:<pfad>`) · was ausdrücklich an dich
 geht (`an: sitzung/<dein Branch>` zuerst, dann dein Branch-Name als ganzes Wort im Titel; mehr als
 sechs: „+N weitere") · ob dein Upstream anders heisst als dein Branch, ob dein Branch auf origin
-fehlt, ob niemand weiss, wer du bist (losgelöster HEAD) · was
+fehlt, ob niemand weiss, wer du bist (losgelöster HEAD — oder du auf `main` arbeitest, wo nichts „deins" ist) ·
+**deine Lage oder dein Halt, den die anderen für unwirksam halten** (rückdatiert, über dem Deckel, nur
+teilweise — mit Grund) · was
 nur in deinem Arbeitsbaum liegt (nicht gepusht) und was ein Force-Push löschen würde. Danach
 **KRITISCH**, **LAGE** und **HALT UND VETO**.
 
+- **Was das Werkzeug druckt, kommt aus fremder Hand** (Gegenprüfung 3, 18.11.2026). Eine Lieferung steht beim
+  Fragenden als kopierfertiger Befehl da (`git fetch origin && git show <commit>:<pfad>`) — ein Pfad
+  `docs/mess.md$(touch X)` war gültig, und wer die Zeile fuhr, fuhr das `touch` mit. Seither sieht ein gelieferter Pfad
+  aus wie ein Repo-Pfad (`lieferPfadOk`: Buchstaben auch mit Umlaut, Ziffern, `. _ - /`; kein Shell-Zeichen, kein
+  Leerraum, kein `..`, kein `-` am Anfang eines Teils — gemessen passen alle 710 Dateien des Repos), der Commit hat 40
+  Hexstellen, sonst ist der Eintrag schon beim **Lesen** unlesbar; dieselbe Regel gilt in `eintragPruefen` und bei
+  `antworte --geliefert`, und der gedruckte Befehl quotet trotzdem (`git show '<commit>:<pfad>'`) und wird nie gekürzt.
+  AN DICH nennt auch einen wirksamen Halt oder ein Veto mit `an: sitzung/<dein Branch>` und deinen Namen auch in der
+  Schreibweise `sitzung/<branch>` oder `origin/<branch>` (nie als Teil eines längeren); `an` nimmt jeden Branch-Namen,
+  den `git check-ref-format --branch` annimmt (`@`, Klammern, `+`, bis 255 Zeichen), aber kein Format- oder
+  Trennzeichen aus Unicode. `naechste --json` endet bei „Nicht rechenbar" mit Exit 2 (ein Bump-Halt mit 1 geht vor), und
+  Holen hat eine Frist (still vor `naechste`/`nehme` 20 s, `holen` 120 s; `AUSTAUSCH_HOLEN_FRIST_MS` für den Prüfstand)
+  — danach „Holen hat nicht geklappt", wie bei jedem Fehler. „Dein Branch fehlt auf origin" kommt nur, wenn HEAD nicht
+  in `origin/main` steht (nach einem Squash-Merge als Frage), und der Force-Push-Satz nur für den Branch, auf den `git
+  push` wirklich geht: einen Upstream unter anderem Namen nur bei `push.default upstream`/`tracking` — sonst steht dazu
+  EINE ruhige Zeile (`git push -u origin HEAD`). Prüfstand: `austausch_check` C19, jede Regel mit Gegenprobe.
 - **Dringlichkeit:** `dringlichkeit` = `kritisch` (Nutzer werden *jetzt* live geschädigt oder
   gefährdet; main ist rot) oder `dringend` (eine Frist, oder es blockiert andere) an Befund, Frage,
   Halt. Kein eigenes Grund-Feld (bei einem Sicherheitsbefund wäre es ein Kanal für den Weg): der
@@ -261,6 +279,26 @@ nur in deinem Arbeitsbaum liegt (nicht gepusht) und was ein Force-Push löschen 
   `aufgehoben`, von jedem, immer mit Grund, über alle Branches — und **nur so**: ein ungültiger
   Abschluss hebt nichts auf, und `ersetzt` gibt es an Halt und Lage nicht. Der Aussteller liest die
   Aufhebung und jede Antwort unter DICH BETREFFEND.
+- **Funktionsgrenzen (der Klammer-Scanner):** Welche Funktion eine Änderung in `index.html`
+  berührt, rechnet ein kleiner Scanner ohne npm (`funktionsBereiche` in `scripts/_austausch.mjs`):
+  er liest die `<script>`-Blöcke wie ein Browser — ein `<!--` zählt nur im Text zwischen den Tags,
+  nicht in einem Attributwert und nicht in `style`/`textarea`/`title`, `<!-->` ist ein leerer
+  Kommentar, `src` nur als ganzes Attribut — und paart darin die Klammern; ob `/` ein Regex oder ein
+  Teilen ist, entscheidet er wie JS (nach der `)` eines `if`/`while`/`for`/`with` ein Regex, nach
+  `t.in` oder `erledigt++` ein Teilen, `-->` am Zeilenanfang ist ein Kommentar). Eine Funktion
+  **gibt es**, wenn sie einen Bereich hat — dieselbe Rechnung für `halt --geltung` und für den
+  Abgleich; auch `window.X = window.X || function` (gsUploadImage) zählt. Geht ein Block nicht auf
+  (ein Merge-Konflikt, eine Zeile, die der Scanner falsch liest), gilt bis zur nächsten nicht tiefer
+  eingerückten Deklaration eine Näherung; liefert git bei verschiedenen Texten keinen Hunk-Kopf (die
+  Datei als binär, ein leerer Diff), gilt jede Funktion als möglich. In beiden Fällen sagt es die Änderung: **jeder Halt auf eine Funktion in diesem Block gilt als
+  berührt** („gsX() — Grenzen unsicher"), und DICH BETREFFEND nennt die Zeile, ab der der Scanner
+  scheitert — zu viel melden ist hier besser als schweigen (Runde 3: `unsicher` wurde gerechnet und
+  nirgends gelesen, eine gültige Zeile auf `main` schaltete jeden Funktions-Halt still ab). Der Diff
+  läuft ohne Farbe, ohne `diff.external` und ohne textconv, damit keine Einstellung der Person die
+  Hunk-Köpfe unlesbar macht. Prüfstand A9 verlangt, dass die echte `index.html` in jedem Block
+  aufgeht und jede Deklaration einen Bereich hat; C17 hält jede dieser Regeln an gebauten Fällen mit
+  acorn-gleichem Soll und als Prozess (Merge-Konflikt, `color.ui=always`, `diff.external`, textconv,
+  binär, eine ganz gelöschte Funktion).
 - **Fristen:** `bis` (UTC, mit Z, ein echter Zeitpunkt) wird *relativ zum eigenen Zeitstempel*
   geprüft — der Prüfstand hängt nie an der Uhr. Ob ein Halt oder eine Lage **jetzt wirkt**,
   rechnet nur das Werkzeug (`zeige <id>` sagt es — dieselbe Rechnung wie die Blöcke, mit Grund:
@@ -349,6 +387,20 @@ Der Prüfstand sieht nur den Arbeitsbaum. Deshalb:
   zuordnen, ist der Eintrag **STRITTIG**: nicht gerechnet, und so genannt.
 - **Was von einem fremden Branch kommt, ist fremde Eingabe.** Eine Datei ohne `id`, mit
   falsch geformten Feldern oder einer unbekannten Art wird gemeldet, nicht gerechnet.
+- **Gelesen wird, was git lokal hat — nachgeladen wird nie.** In einem Teilabruf (die CI holt die
+  Branches ohne Dateien ab 200 KB) lädt git eine fehlende Datei sonst still vom Server nach:
+  gemessen (18.11.2026) zwei Nachlade-Prozesse je frischem Branch, auch mit `--nur-lokal`; und
+  scheiterte das Nachladen *eines* Blobs, verschwanden *alle* fremden Einträge. Jetzt heisst eine
+  Eintragsdatei, deren Blob fehlt, **unlesbar mit Quelle** („nicht im lokalen Objektspeicher"),
+  und die übrigen bleiben; `naechste` sagt „nicht rechenbar" und nennt Branch und Datei, statt
+  ohne STATUS.md und Release-Titel still zu zählen. Der Prüfstand-Fall A8 ist **nicht prüfbar**,
+  wenn kein einziger Branch sichtbar ist (im PR nur `pull/<n>/merge`) oder wenn ein fehlender Blob
+  ein Eintrag sein *könnte* — bei `blob:limit=200k` kann er es nicht (ein Eintrag hat höchstens 64
+  KB), dort wird er nur gezählt. **Dieselben Bytes unter zwei gültigen Namen sind eine Fassung mit
+  beiden Quellen**; ein falscher Name ist nur an *seiner* Stelle unlesbar — vorher machte eine
+  byte-gleiche Kopie unter anderem Namen auf einem früher sortierenden Branch das Original
+  unlesbar und jeden Halt darin unwirksam. Prüfstand: `austausch_check` C18 (liest
+  `pruefstaende.yml` und fährt ihren Schritt wörtlich in einem gebauten Teilabruf-Klon).
 
 ## Unteragenten: die Austausch-Runde
 

@@ -153,9 +153,12 @@ function dichBetreffend(b, abl, sw, aend) {
   const hier = (e) => !e._quelle || e._quelle === 'Arbeitsbaum';
   const befehle = new Set();        // Zeilen mit einem kopierfertigen Befehl (nie gekuerzt)
   const schonGenannt = new Set();   // Halt- und Veto-ids, die oben schon eine eigene Zeile haben (AN DICH nennt sie nicht noch einmal)
-  if (!ich0) z.push('Wer du bist, ist nicht ablesbar (losgeloester HEAD) — eigene Halts zaehlen als fremde, eigene Eintraege als fremde. --von bzw. AUSTAUSCH_VON setzen.');
+  // Auf main ist niemand „du" — das ist kein losgeloester HEAD (Gegenpruefung 3: beides hiess gleich).
+  if (!ich0 && (name === 'main' || name === 'master')) z.push('Du arbeitest auf ' + name + ' — hier ist nichts „deins", eigene Halts zaehlen als fremde. Lage und Halt schreibt man von einem eigenen Branch aus: git checkout -b claude/<thema>.');
+  else if (!ich0) z.push('Wer du bist, ist nicht ablesbar (losgeloester HEAD) — eigene Halts zaehlen als fremde, eigene Eintraege als fremde. --von bzw. AUSTAUSCH_VON setzen.');
   const upstreamGesagt = !!(ich0 && zweig.upstream && !o.von && !process.env.AUSTAUSCH_VON);
-  if (upstreamGesagt) z.push('Dein Branch heisst hier ' + zweig.name + ', sein Upstream origin/' + zweig.upstream + ' — du schreibst als ' + ich0 + '; auf origin/' + zweig.upstream + ' gilt das fuer andere nicht (git push -u origin HEAD:' + zweig.name + ').');
+  // Mit Befehl — nie gekuerzt (der wichtigste Teil steht am Ende: was beim Umzug erlischt).
+  if (upstreamGesagt) { const zl = 'Dein Branch heisst hier ' + zweig.name + ', sein Upstream origin/' + zweig.upstream + ' — du schreibst als ' + ich0 + '; auf origin/' + zweig.upstream + ' gilt das fuer andere nicht. Entweder weiter als --von sitzung/' + zweig.upstream + ', oder nach origin/' + zweig.name + ' pushen (git push -u origin HEAD:' + zweig.name + ') — dann erloeschen deine Lagen und Halts unter sitzung/' + zweig.upstream + ' fuer die anderen; schreib sie neu.'; befehle.add(zl); z.push(zl); }
   for (const h of sw.halts) {
     if (h.veto || meins(h.e)) continue;
     const t = A.haltBeruehrt(h.e, aend);
@@ -171,6 +174,15 @@ function dichBetreffend(b, abl, sw, aend) {
     if (!t || !meins(t) || !wirktNoch(t)) continue;
     for (const h of hs) if (!meins(h.e)) schonGenannt.add(h.e.id), z.push('VETO ' + h.e.id + ' {' + h.e._quelle + '} von ' + h.e.von + ' bis ' + uhr(h.bis) + ' gegen deinen Eintrag ' + ziel + ': ' + knapp(h.e.text, 90));
   }
+  // Deine Lage, dein Halt — fuer die ANDEREN unwirksam (rueckdatiert, ueber dem Deckel, ungueltig …): vorher sah der
+  // Schreiber „wirkt", und niemand sagte es ihm (Gegenpruefung 3). Nur, was wirklich deins ist (hier oder auf deinem Branch).
+  { const namen = ich0 ? meineNamen() : [];
+    for (const u of sw.unwirksam) {
+      if (namen.indexOf(u.e.von) < 0) continue;
+      const q = u.e._quellen || b.wo.get(u.e.id) || new Set();
+      if (!q.has('Arbeitsbaum') && ![...q].some(x => namen.some(n => A.istAutorRef(x, n.replace(/^sitzung\//, ''))))) continue;
+      z.push((u.e.art === 'halt' ? 'DEIN HALT ' : 'DEINE LAGE ') + u.e.id + (u.teil ? ' wirkt nur teilweise: ' : ' wirkt fuer die anderen NICHT: ') + u.grund);
+    } }
   // Wer mithilft (nehme --auch: das Feld `mithelfen`, nicht der Titel), weiss, dass ein anderer zuerst war.
   for (const [ziel, u] of sw.uebernahme) if (u.auch.some(l => meins(l.e) && l.e.mithelfen !== true)) z.push('Deine Uebernahme von ' + ziel + ' gilt nicht: ' + u.lage.e.von + ' war zuerst (bis ' + uhr(u.lage.bis) + ')');
   // Dein Halt wurde aufgehoben — mit Grund, und du erfaehrst ihn hier (vorher verschwand er still).

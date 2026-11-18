@@ -2420,12 +2420,14 @@ const FAELLE = [
         g(d, ['add', '-A']); gz(d, ['commit', '-q', '-m', 'spaet'], jetzt(7)); g(d, ['push', '-q', '-u', 'origin', 'claude/spaet']);
         r = werkzeug(d, ['zeige', String(spaet)]);
         if (!spaet || !/Wirkt jetzt: nein — vordatiert|Wirkt jetzt: nein — rueckdatiert/.test(r.aus)) f.push('der Schreiber sieht seine (fuer andere UNWIRKSAME) Lage als wirksam: ' + kurz((r.aus.match(/Wirkt jetzt:[^\n]*/) || [''])[0], 120));
+        r = werkzeug(d, []); if (!new RegExp('DEINE LAGE ' + spaet + ' wirkt fuer die anderen NICHT: (rueck|vor)datiert').test(r.aus)) f.push('DICH BETREFFEND sagt dem Schreiber nicht, dass seine Lage fuer die anderen nicht wirkt');
         g(d, ['checkout', '-q', '--detach', 'origin/main']);
         // 6. Nach `git branch -m`: der eigene Bump-Halt bleibt EIGEN (`naechste` nicht angehalten), --von <alter Name> geht.
         g(d, ['checkout', '-q', '-B', 'claude/s6-alt', 'origin/main']);
         r = werkzeug(d, ['halt', '--geltung', 'bump', '--bis', '3h', '--text', 'ich bumpe selbst']); const hb = id(r);
         g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'halt']); g(d, ['push', '-q', '-u', 'origin', 'claude/s6-alt']); g(d, ['branch', '-q', '-m', 'claude/s6-neu']);
         r = werkzeug(d, ['naechste', '--nur-lokal']); if (!hb || r.code !== 0) f.push('nach `git branch -m` haelt der EIGENE Bump-Halt das eigene `naechste` an (Exit ' + r.code + ')');
+        r = werkzeug(d, ['--nur-lokal']); if (!/Upstream origin\/claude\/s6-alt[^\n]*erloeschen deine Lagen und Halts unter sitzung\/claude\/s6-alt/.test(r.aus)) f.push('DICH BETREFFEND sagt nach `git branch -m` nicht, dass Lagen und Halts unter dem alten Namen erloeschen, wenn man nach dem neuen pusht');
         r = werkzeug(d, ['halt', '--geltung', 'gsEins', '--bis', '2h', '--text', 'noch einer']); if (!/erloeschen deine Lagen und Halts unter dem alten Namen/.test(r.aus)) f.push('der Hinweis nach `git branch -m` sagt nicht, dass Lagen und Halts unter dem alten Namen erloeschen');
         g(d, ['checkout', '-q', '-f', '.']); g(d, ['clean', '-fdq']);
         r = werkzeug(d, ['nehme', freie[1].id, '--von', 'sitzung/claude/s6-alt']); if (r.code !== 0) f.push('`nehme --von sitzung/<Upstream>` nach `git branch -m` wird abgewiesen (Exit ' + r.code + ') — genau das nennt das Werkzeug als Abhilfe');
@@ -2433,6 +2435,7 @@ const FAELLE = [
         g(d, ['checkout', '-q', '-f', '.']); g(d, ['clean', '-fdq']);
         // 7. Lage und Halt nur von einem eigenen Branch — auf main eine klare Meldung (vorher zwei, die im Kreis verwiesen).
         g(d, ['checkout', '-q', '-B', 'main', 'origin/main']);
+        r = werkzeug(d, ['--nur-lokal']); if (!/Du arbeitest auf main/.test(r.aus) || /losgeloester HEAD/.test(r.aus)) f.push('auf main heisst DICH BETREFFEND „losgeloester HEAD" (oder sagt nichts)');
         for (const args of [['halt', '--geltung', 'bump', '--bis', '2h', '--text', 'x'], ['halt', '--geltung', 'bump', '--bis', '2h', '--text', 'x', '--von', 'sitzung/koordinator'], ['lage', '--phase', 'laeuft']]) {
           r = werkzeug(d, args); if (r.code !== 2 || !/nur von einem EIGENEN Branch/.test(r.aus)) f.push('auf main `' + args.slice(0, 2).join(' ') + (args.indexOf('--von') >= 0 ? ' --von' : '') + '`: Exit ' + r.code + ' — erwartet 2 mit „nur von einem EIGENEN Branch" · ' + kurz(r.aus, 160));
         }
@@ -2468,6 +2471,7 @@ const FAELLE = [
         const p2 = lage(Object.assign({ id: tz2.datum + '-c0000022', von: 'sitzung/claude/teil', bis: bisIn(4), bezug: [freie[1], freie[3], ziel].map(x => ({ art: 'baut_auf', id: x.id })) }, tz2));
         zweig('claude/teil', 'origin/main', [[p1], [p2]]);
         g(d, ['checkout', '-q', '-B', 'claude/teil', 'origin/claude/teil']);
+        r = werkzeug(d, []); if (!/DEINE LAGE [0-9-]+c0000022 wirkt nur teilweise/.test(r.aus)) f.push('DICH BETREFFEND sagt dem Schreiber nicht, dass seine Lage nur teilweise wirkt');
         r = werkzeug(d, ['zeige', 'c0000022']); if (!/Wirkt jetzt: teilweise[^\n]*NICHT/.test(r.aus)) f.push('`zeige` einer Lage, die zwei von drei Zielen wirksam nimmt: ' + kurz((r.aus.match(/Wirkt jetzt:[^\n]*/) || [''])[0], 160) + ' — erwartet „teilweise … NICHT"');
         // 11. A10 im PR: eine wirkende Lage in fremdem Namen im Baum ist ROT; dieselbe Lage byte-gleich vom Branch ihres
         //     Schreibers und eine eigene sind es nicht (der Pruefstand selbst, in einem Klon gefahren).
