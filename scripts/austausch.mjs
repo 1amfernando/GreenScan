@@ -141,17 +141,26 @@ function kopf(b, abl) {
 const zeichen = { offen: ' ', beantwortet: '✓', geschlossen: '×', ersetzt: '×', notiz: '·' };
 
 // ── Der Schwarm in der Ausgabe: zuerst, was DICH betrifft — nur wenn etwas zutrifft.
-// Ein Name als ganzes Wort: „claude/b-22" steckt in „claude/b-2223", trifft aber nicht.
-const nameIn = (text, name) => new RegExp('(^|[^\\w/.-])' + name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&') + '(?![\\w/.-])').test(text);
+// Ein Name als ganzes Wort: „claude/b-22" steckt in „claude/b-2223", trifft aber nicht. Auch in seiner eigenen
+// Schreibweise „sitzung/<branch>" und als „origin/<branch>" (Gegenpruefung 3: das / davor schloss beide aus).
+const nameIn = (text, name) => new RegExp('(?:^|[^\\w/.-])(?:(?:sitzung|origin)/)?' + name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&') + '(?![\\w/.-])').test(text);
+// Ein Wert in einem GEDRUCKTEN Befehl: nur [A-Za-z0-9._/:@%+=,-] steht roh da (wie shlex.quote), alles andere in
+// '…' (ein ' als '\''). Der Pfad ist beim Lesen schon geprueft (A.lieferPfadOk) — das hier ist die zweite Wand.
+const shWort = (s) => { s = String(s); return /^[A-Za-z0-9._\/:@%+=,-]+$/.test(s) ? s : "'" + s.replace(/'/g, "'\\''") + "'"; };
+const zeigeBefehl = (g) => 'git show ' + shWort(g.commit + ':' + g.pfad) + '   (nach einem Squash-Merge: git show ' + shWort('origin/main:' + g.pfad) + ')';
 function dichBetreffend(b, abl, sw, aend) {
   const z = [], name = zweig.name, ich0 = ichVon(), meins = meinsVon(b, ich0);
   const hier = (e) => !e._quelle || e._quelle === 'Arbeitsbaum';
+  const befehle = new Set();        // Zeilen mit einem kopierfertigen Befehl (nie gekuerzt)
+  const schonGenannt = new Set();   // Halt- und Veto-ids, die oben schon eine eigene Zeile haben (AN DICH nennt sie nicht noch einmal)
   if (!ich0) z.push('Wer du bist, ist nicht ablesbar (losgeloester HEAD) — eigene Halts zaehlen als fremde, eigene Eintraege als fremde. --von bzw. AUSTAUSCH_VON setzen.');
-  else if (zweig.upstream && !o.von && !process.env.AUSTAUSCH_VON) z.push('Dein Branch heisst hier ' + zweig.name + ', sein Upstream origin/' + zweig.upstream + ' — du schreibst als ' + ich0 + '; auf origin/' + zweig.upstream + ' gilt das fuer andere nicht (git push -u origin HEAD:' + zweig.name + ').');
+  const upstreamGesagt = !!(ich0 && zweig.upstream && !o.von && !process.env.AUSTAUSCH_VON);
+  if (upstreamGesagt) z.push('Dein Branch heisst hier ' + zweig.name + ', sein Upstream origin/' + zweig.upstream + ' — du schreibst als ' + ich0 + '; auf origin/' + zweig.upstream + ' gilt das fuer andere nicht (git push -u origin HEAD:' + zweig.name + ').');
   for (const h of sw.halts) {
     if (h.veto || meins(h.e)) continue;
     const t = A.haltBeruehrt(h.e, aend);
     if (!t.length) continue;
+    schonGenannt.add(h.e.id);
     const gesehen = h.antworten.some(meins);
     z.push('HALT ' + h.e.id + ' {' + h.e._quelle + '} von ' + h.e.von + ' bis ' + uhr(h.bis) + ': ' + knapp(h.e.titel, 70) + ' — beruehrt ' + t.slice(0, 4).join(', ') + (gesehen ? '   [du hast geantwortet]' : '   → lies ihn (zeige ' + h.e.id.slice(-4) + '), dann warten, aufheben mit Grund oder antworten'));
   }
@@ -160,7 +169,7 @@ function dichBetreffend(b, abl, sw, aend) {
   for (const [ziel, hs] of sw.vetos) {
     const t = abl.proId.get(ziel);
     if (!t || !meins(t) || !wirktNoch(t)) continue;
-    for (const h of hs) if (!meins(h.e)) z.push('VETO ' + h.e.id + ' {' + h.e._quelle + '} von ' + h.e.von + ' bis ' + uhr(h.bis) + ' gegen deinen Eintrag ' + ziel + ': ' + knapp(h.e.text, 90));
+    for (const h of hs) if (!meins(h.e)) schonGenannt.add(h.e.id), z.push('VETO ' + h.e.id + ' {' + h.e._quelle + '} von ' + h.e.von + ' bis ' + uhr(h.bis) + ' gegen deinen Eintrag ' + ziel + ': ' + knapp(h.e.text, 90));
   }
   // Wer mithilft (nehme --auch: das Feld `mithelfen`, nicht der Titel), weiss, dass ein anderer zuerst war.
   for (const [ziel, u] of sw.uebernahme) if (u.auch.some(l => meins(l.e) && l.e.mithelfen !== true)) z.push('Deine Uebernahme von ' + ziel + ' gilt nicht: ' + u.lage.e.von + ' war zuerst (bis ' + uhr(u.lage.bis) + ')');
@@ -180,32 +189,55 @@ function dichBetreffend(b, abl, sw, aend) {
   const wort = { frage: ' Frage ', halt: 'n Halt ', lage: ' Lage ' };
   for (const { auf, x } of antw.slice(0, o.alles ? 1e9 : 6)) {
     z.push('ANTWORT ' + x.id + ' {' + x._quelle + '} von ' + x.von + ' auf deine' + (wort[auf.art] || 'n Eintrag ') + auf.id + ': ' + knapp(x.text || x.titel, 90));
-    for (const g of A.alsListe(x.geliefert)) z.push('  GELIEFERT ' + g.pfad + ' @ ' + String(g.commit).slice(0, 12) + '   → git fetch origin && git show ' + g.commit + ':' + g.pfad + '   (nach einem Squash-Merge: git show origin/main:' + g.pfad + ')');
+    for (const g of A.alsListe(x.geliefert)) { const zl = '  GELIEFERT ' + g.pfad + ' @ ' + String(g.commit).slice(0, 12) + '   → git fetch origin && ' + zeigeBefehl(g); befehle.add(zl); z.push(zl); }
   }
   if (antw.length > 6 && !o.alles) z.push('… +' + (antw.length - 6) + ' weitere Antworten auf deine Eintraege — `--alles`');
   // AN DICH: ausdruecklich (`an: sitzung/<branch>`, zuerst) oder dein Branch-Name als ganzes Wort im Titel/in den Stichworten.
+  //   Ein Halt ist nie „offen" (er ist eine Absicht auf Zeit): ein WIRKSAMER Halt oder ein Veto mit `an: sitzung/<du>`
+  //   gehoert dazu (Gegenpruefung 3: er stand nur allgemein unter HALT UND VETO) — ausser er hat oben schon seine Zeile.
   const offenFremd = b.eintraege.filter(e => !meins(e) && abl.zustand.get(e.id).z === 'offen');
-  const an = offenFremd.filter(e => ich0 && e.an === ich0).sort((x, y) => A.ordnung(y).localeCompare(A.ordnung(x)))
+  const haltAnDich = ich0 ? sw.halts.filter(h => h.e.an === ich0 && !meins(h.e) && !schonGenannt.has(h.e.id)).map(h => h.e) : [];
+  const an = offenFremd.filter(e => ich0 && e.an === ich0).concat(haltAnDich).sort((x, y) => A.ordnung(y).localeCompare(A.ordnung(x)))
     .concat(offenFremd.filter(e => !(ich0 && e.an === ich0) && name && name.length >= 6 && nameIn(A.textVon({ t: e.titel, s: e.stichworte }), name)).sort((x, y) => A.ordnung(y).localeCompare(A.ordnung(x))));
-  an.slice(0, o.alles ? 1e9 : 6).forEach(e => z.push('AN DICH ' + e.id + ' {' + e._quelle + '} von ' + e.von + ': ' + knapp(e.titel, 100)));
+  an.slice(0, o.alles ? 1e9 : 6).forEach(e => { const h = e.art === 'halt' && sw.halts.find(x => x.e === e); z.push('AN DICH ' + e.id + ' {' + e._quelle + '} von ' + e.von + ': ' + (h ? (h.veto ? 'VETO gegen ' + h.veto : 'HALT') + ' bis ' + uhr(h.bis) + ' — ' : '') + knapp(e.titel, 100)); });
   if (an.length > 6 && !o.alles) z.push('… +' + (an.length - 6) + ' weitere an dich — `--alles`');
   // Nur hier: kein ECHTER Branch traegt ihn (die Sicherung ist keiner — sie verdeckte sonst den Hinweis).
   const nurHier = b.eintraege.filter(e => hier(e) && ![...(b.wo.get(e.id) || new Set())].some(q => q !== 'Arbeitsbaum' && !A.istSicherungsRef(q)));
   if (b.gitDa && nurHier.length) z.push(nurHier.length + ' Eintrag/Eintraege liegen NUR in diesem Arbeitsbaum — nicht gepusht, mit dem Container weg: ' + nurHier.slice(0, 4).map(e => e.id).join(', '));
   if (name && b.gitDa) {
-    // Ein Force-Push trifft den Branch, auf den gepusht wird: den gleichnamigen und einen abweichenden Upstream.
-    for (const n of [...new Set([name, zweig.upstream].filter(Boolean))]) {
+    // Ein Force-Push trifft den Branch, auf den `git push` geht: den gleichnamigen — einen Upstream unter anderem
+    // Namen nur, wenn push.default upstream/tracking dorthin schickt und dieser Stand von ihm abstammt. Sonst geht
+    // dorthin kein Push (push.default simple verweigert ihn, current/matching nehmen den eigenen Namen), und jede
+    // neue fremde Datei dort hiess „Force-Push wuerde sie loeschen" (Gegenpruefung 3: Laerm bei jedem Lesen).
+    const pushDef = (A.git(WURZEL, ['config', '--get', 'push.default']) || '').trim();
+    const zumUpstream = !!zweig.upstream && (pushDef === 'upstream' || pushDef === 'tracking') && !!(A.git(WURZEL, ['merge-base', 'HEAD', 'refs/remotes/origin/' + zweig.upstream]) || '').trim();
+    for (const n of zumUpstream ? [name, zweig.upstream] : [name]) {
       const fehlt = [...b.wo].filter(([id, q]) => q.has('origin/' + n) && !q.has('Arbeitsbaum') && !q.has('origin/main')).map(([id]) => id);
       if (fehlt.length) z.push('!! origin/' + n + ' traegt ' + fehlt.length + ' Eintrag/Eintraege, die hier fehlen — ein Force-Push wuerde sie loeschen: ' + fehlt.slice(0, 4).join(', '));
     }
-    // Ein Upstream ist eingerichtet, aber origin kennt ihn nicht (mehr): geloescht?
+    // EINE ruhige Zeile, wenn der Upstream ein fremder Branch ist und oben noch nichts dazu steht (--von gesetzt).
+    if (zweig.upstream && !zumUpstream && !upstreamGesagt) z.push('Dein Upstream origin/' + zweig.upstream + ' ist ein anderer Branch als dieser — `git push` geht nicht dorthin; deine Arbeit: git push -u origin HEAD');
+    // Ein Upstream ist eingerichtet, aber origin kennt ihn nicht (mehr): geloescht? Nach einem Merge ist das der
+    // Normalfall (Gegenpruefung 3: der Rat „neu pushen" belebte einen gemergten Branch wieder) — gesagt wird es nur,
+    // wenn HEAD NICHT in origin/main steht; nach einem Squash-Merge (was er geaendert hat, steht inhaltsgleich auf
+    // main) nur als Frage.
     const up = zweig.upstreamName;
-    if (up && up !== 'main' && up !== 'master' && A.git(WURZEL, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/' + up]) == null) z.push('!! Dein Branch ' + up + ' fehlt auf origin (geloescht?) — mit ihm deine gepushten Commits. Neu pushen: git push -u origin HEAD:' + up);
+    if (up && up !== 'main' && up !== 'master' && A.git(WURZEL, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/' + up]) == null) {
+      const M = 'refs/remotes/origin/main', mainDa = A.git(WURZEL, ['rev-parse', '--verify', '--quiet', M]) != null;
+      const gemergt = mainDa && A.git(WURZEL, ['merge-base', '--is-ancestor', 'HEAD', M]) != null;
+      const mb = mainDa && !gemergt ? (A.git(WURZEL, ['merge-base', 'HEAD', M]) || '').trim() : '';
+      const namen = (args) => new Set((A.git(WURZEL, args) || '').split('\n').filter(Boolean));
+      const anders = mb ? namen(['diff', '--name-only', '--no-renames', M, 'HEAD']) : null;
+      const squash = !!mb && ![...namen(['diff', '--name-only', '--no-renames', mb, 'HEAD'])].some(n => anders.has(n));
+      if (squash) z.push('Dein Branch ' + up + ' ist auf origin nicht mehr da — was er geaendert hat, steht inhaltsgleich auf main (squash-gemergt?). Dann ist nichts verloren; sonst neu pushen: git push -u origin HEAD:' + up);
+      else if (!gemergt) z.push('!! Dein Branch ' + up + ' fehlt auf origin (geloescht?) — mit ihm deine gepushten Commits. Neu pushen: git push -u origin HEAD:' + up);
+    }
   }
   if (aend.grund) z.push('Ob ein Halt deine Aenderung beruehrt, ist nicht rechenbar: ' + aend.grund);
   if (!z.length) return;
   aus('\nDICH BETREFFEND');
-  z.forEach(x => aus('  ' + knapp(x, 260)));
+  // Ein gedruckter Befehl wird nie gekuerzt — abgeschnitten fehlte ihm bei einem 55-Zeichen-Pfad der Weg ueber origin/main.
+  z.forEach(x => aus('  ' + (befehle.has(x) ? x : knapp(x, 260))));
 }
 function schwarmBloecke(b, abl, sw, inArbeit) {
   const offen = (e) => abl.zustand.get(e.id).z === 'offen';
@@ -354,7 +386,10 @@ function naechste() {
   const vetosGegen = (h) => (sw.vetos.get(h.e.id) || []);
   if (o.json) {
     aus(JSON.stringify(Object.assign({}, m, { holen: geholt, bumpHalt: bumpHalt.map(h => ({ id: h.e.id, von: h.e.von, quelle: h.e._quelle, bis: new Date(h.bis).toISOString(), text: h.e.text, vetos: vetosGegen(h).map(v => ({ id: v.e.id, von: v.e.von, text: v.e.text })) })) }), null, 1));
+    // Dieselben Exit-Codes wie im Text: 1 bei einem Bump-Halt (geht vor), 2 bei „Nicht rechenbar" — sonst liefe
+    // `naechste --json || stop` mit einer leeren Version weiter (Gegenpruefung 3: es endete mit 0).
     if (bumpHalt.length) process.exitCode = 1;
+    else if (m.grund) process.exitCode = 2;
     return;
   }
   if (geholt === false) aus('\n(Holen hat nicht geklappt — gerechnet auf dem Stand, den git kennt.)');
@@ -380,7 +415,7 @@ function ganz(e, abl, sw) {
     if (Array.isArray(v)) { aus('  ' + namen[k] + ':'); v.forEach(x => aus('    - ' + x)); } else aus('  ' + namen[k] + ': ' + String(v).split('\n').join('\n    '));
   }
   A.alsListe(e.waechter).forEach(w => aus('  Waechter: ' + w.datei + ' · „' + w.fall + '"'));
-  A.alsListe(e.geliefert).forEach(g => aus('  Geliefert: ' + g.pfad + ' @ ' + g.commit + '   → git show ' + g.commit + ':' + g.pfad + '   (nach einem Squash-Merge: git show origin/main:' + g.pfad + ')'));
+  A.alsListe(e.geliefert).forEach(g => aus('  Geliefert: ' + g.pfad + ' @ ' + g.commit + '   → ' + zeigeBefehl(g)));
   if (e.art === 'halt' || e.art === 'lage') aus('  Wirkt jetzt: ' + wirktJetzt(e, sw));
   if (e.sicherheit) aus('  Sicherheit: ja — Einzelheiten stehen bewusst nicht hier (public Repo)');
   const hier = !e._quelle || e._quelle === 'Arbeitsbaum';
@@ -471,6 +506,8 @@ function ausSchaltern(art) {
     const kopf = (A.git(WURZEL, ['rev-parse', 'HEAD']) || '').trim();
     if (!/^[0-9a-f]{40}$/.test(kopf)) ende(2, '--geliefert braucht einen Commit (HEAD fehlt).');
     e.geliefert = mehrere(o.geliefert).join(',').split(',').map(x => x.trim()).filter(Boolean).map(pfad => {
+      // Dieselbe Regel wie beim Lesen: der Pfad wird bei anderen als Befehl gedruckt.
+      if (!A.lieferPfadOk(pfad)) ende(2, '--geliefert: „' + knapp(pfad, 80) + '" sieht nicht aus wie ein Repo-Pfad (Buchstaben, Ziffern, . _ - /: kein Shell-Zeichen, kein Leerraum, kein .., kein - am Anfang eines Teils) — er wird bei anderen als `git show` gedruckt.');
       if (A.git(WURZEL, ['cat-file', '-e', kopf + ':' + pfad]) == null) ende(2, '--geliefert: ' + pfad + ' liegt nicht im letzten Commit (' + kopf.slice(0, 8) + ') — erst committen, dann liefern.');
       return { pfad, commit: kopf };
     });
@@ -563,13 +600,18 @@ function holen() {
   // dem eigenen Branch die gemeinsame Geschichte nehmen (git merge braeche danach ab).
   // --prune: ein geloeschter Branch verschwindet auch hier — sonst zeigte `lesen` seine Eintraege
   // weiter als lebend, und der Verlust faele nie auf (die Sicherung `zz-sicherung` haelt sie fest).
-  const r = A.git(WURZEL, ['fetch', '--quiet', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*']);
-  aus(r == null ? '\nHolen hat NICHT geklappt (kein Netz, kein origin?) — gezeigt wird der Stand, den git schon kennt.' : '\nAlle Branches geholt.');
+  const r = A.git(WURZEL, ['fetch', '--quiet', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*'], { frist: holFrist(HOL_FRIST_MS) });
+  aus(r == null ? '\nHolen hat NICHT geklappt (kein Netz, kein origin, oder keine Antwort binnen ' + Math.round(holFrist(HOL_FRIST_MS) / 1000) + ' s?) — gezeigt wird der Stand, den git schon kennt.' : '\nAlle Branches geholt.');
   lesen();
 }
+// Frist fuer das Holen (Gegenpruefung 3: `naechste` und `nehme` warteten, solange der Remote hing — 20 s bei
+// `ext::sh -c sleep 20`). Still (vor `naechste` und `nehme`) 20 s, `holen` 120 s; danach „Holen hat nicht geklappt"
+// wie bei jedem Fehler. AUSTAUSCH_HOLEN_FRIST_MS setzt beide — fuer den Pruefstand (C19), der nicht warten soll.
+const HOL_FRIST_MS = 120000, HOL_FRIST_STILL_MS = 20000;
+const holFrist = (vorgabe) => { const n = Number(process.env.AUSTAUSCH_HOLEN_FRIST_MS); return n > 0 ? n : vorgabe; };
 
 // ── Der Schwarm: Lage, Uebernahme, Halt, Veto, Aufheben, Sichern.
-function holenStill() { return A.git(WURZEL, ['fetch', '--quiet', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*']) != null; }
+function holenStill() { return A.git(WURZEL, ['fetch', '--quiet', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*'], { frist: holFrist(HOL_FRIST_STILL_MS) }) != null; }
 // Darf diese Sitzung diese Ziele nehmen (bzw. dabei mithelfen)? EINE Rechnung mit dem Brett: die neue Lage wird
 // probeweise dazugelegt und `schwarm` rechnet — vorher zaehlte `nehme` den Deckel anders als das Brett
 // (Mithelf-Lagen nicht), sagte „Geschrieben", und die Uebernahme galt still nicht (Gegenpruefung 3).

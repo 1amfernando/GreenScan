@@ -50,8 +50,15 @@ export const BEZUEGE = Object.assign(Object.create(null), {
 });
 export const ERGEBNISSE = ['erledigt', 'verworfen', 'aufgestiegen', 'aufgehoben'];
 export const AN = ['alle', 'fernando', 'koordinator'];
-export const AN_SITZUNG = /^sitzung\/[A-Za-z0-9._\/+-]{1,120}$/;
-export function anGueltig(a) { return AN.indexOf(a) >= 0 || AN_SITZUNG.test(String(a || '')); }
+// `sitzung/<branch>`: der Branch-Name so, wie `git check-ref-format --branch` ihn annimmt (gemessen 18.11.2026:
+// „claude/fix+v2.1@team", „claude/fix(2)" und 300 Zeichen gehen dort — die alte Form [A-Za-z0-9._/+-]{1,120}
+// wies sie ab, solche Sitzungen waren nicht adressierbar). Nicht: Steuer- und Leerzeichen, ~ ^ : ? * [ \, „..",
+// „@{", „//", / am Anfang oder Ende, . am Ende, eine Komponente, die mit . beginnt oder auf .lock endet, - am
+// Anfang, „HEAD" oder „@" allein. Strenger als git, mit Absicht: kein Format- oder Trennzeichen aus Unicode
+// (U+202E dreht die Anzeige um, U+00A0 sieht aus wie ein Leerzeichen — git nimmt beide) und hoechstens 255
+// Zeichen ({1,255}). `an` wird nur angezeigt und verglichen, nie als Befehl gedruckt.
+export const AN_SITZUNG = /^sitzung\/(?![-/.])(?!(?:HEAD|@)$)(?!.*\/\.)(?!.*\.\.)(?!.*@\{)(?!.*\/\/)(?!.*\/$)(?!.*\.$)(?!.*\.lock(?:\/|$))[^\p{C}\p{Z}\s~^:?*[\\]{1,255}$/u;
+export function anGueltig(a) { return AN.indexOf(a) >= 0 || (typeof a === 'string' && AN_SITZUNG.test(a)); }
 export const DRINGLICHKEIT = ['kritisch', 'dringend'];
 export const PHASEN = ['laeuft', 'letzte_runde', 'fertig'];
 // Hoechstdauer je Art (ab dem eigenen Zeitstempel): eine Lage ist ein Arbeitsschub, ein Halt
@@ -159,6 +166,17 @@ export function datumGueltig(d) {
   return x.getUTCFullYear() === j && x.getUTCMonth() === m - 1 && x.getUTCDate() === t;
 }
 function imRepo(p) { return typeof p === 'string' && p.trim() && !path.isAbsolute(p) && !/(^|\/)\.\.(\/|$)/.test(p); }
+// Ein GELIEFERTER Pfad kommt aus fremder Hand und wird als Befehl gedruckt (`git show <commit>:<pfad>`): er darf
+// nur aussehen wie ein Repo-Pfad. Vorher reichte imRepo — `docs/mess.md$(touch X)` war gueltig, und wer den
+// gedruckten Befehl fuhr, fuhr das `touch` mit (Gegenpruefung 3). Gemessen 18.11.2026: alle 710 Dateien des Repos
+// bestehen aus [A-Za-z0-9._/-]; Umlaute sind zugelassen (ein Halt nimmt sie auch). Nie: $ ` ; | & < > ( ) ' " \,
+// Leerraum, Steuerzeichen, ein Segment, das leer ist, „." oder „.." heisst oder mit - beginnt.
+export const LIEFER_PFAD_MAX = 255;
+export function lieferPfadOk(p) {
+  if (typeof p !== 'string' || !p || p.length > LIEFER_PFAD_MAX || !/^[\p{L}\p{M}\p{N}._\/-]+$/u.test(p)) return false;
+  return p.split('/').every(t => t && t !== '.' && t !== '..' && t[0] !== '-');
+}
+export const COMMIT_FORM = /^[0-9a-f]{40}$/;
 // Die Reihenfolge zweier Eintraege: Datum, dann die Uhrzeit, die das Werkzeug
 // setzt, dann die id. (Die id allein ist am selben Tag Zufall.)
 export function ordnung(e) { return String(e.datum || '') + 'T' + String(e.zeit || '00:00:00') + ' ' + String(e.id || ''); }
@@ -319,7 +337,7 @@ export function eintragPruefen(e, dateiname) {
   }
   if (e.geliefert != null) {
     if (!Array.isArray(e.geliefert) || !e.geliefert.length) f.push('geliefert muss eine nicht-leere Liste von {pfad, commit} sein');
-    else e.geliefert.forEach((x, i) => { if (!x || !imRepo(x.pfad) || !/^[0-9a-f]{40}$/.test(String(x.commit || ''))) f.push('geliefert[' + i + ']: {pfad, commit} — ein Pfad im Repo und die volle Commit-Kennung (40 Zeichen): jeder kann `git show <commit>:<pfad>` fahren'); });
+    else e.geliefert.forEach((x, i) => { if (!x || !lieferPfadOk(x.pfad) || !COMMIT_FORM.test(String(x.commit || ''))) f.push('geliefert[' + i + ']: {pfad, commit} — ein Pfad im Repo (Buchstaben, Ziffern, . _ - /: kein Shell-Zeichen, kein Leerraum, kein ..) und die volle Commit-Kennung (40 Zeichen): jeder kann `git show <commit>:<pfad>` fahren'); });
   }
   if (e.art === 'klasse' && Array.isArray(e.waechter || []) && !alsListe(e.waechter).length && !(e.ohne_waechter && e.ohne_waechter.trim())) {
     f.push('Fehlerklasse ohne Waechter braucht „ohne_waechter" mit Grund (kein Pruefstand-Fall bewacht sie — das ist eine Aussage, keine Luecke im Formular)');
@@ -342,10 +360,15 @@ export function eintragPruefen(e, dateiname) {
 }
 
 // ── Lesen. Arbeitsbaum zuerst, dann (auf Wunsch) jeder Remote-Ref.
-export function git(wurzel, args) {
+export function git(wurzel, args, opts) {
   // core.quotePath=false: sonst kommt ein Pfad mit Umlaut als „"docs/pl\303\244ne/x.md"" an, und kein Halt
   // auf docs/pläne/ traefe ihn je (Gegenpruefung 2).
-  try { return cp.execFileSync('git', ['-C', wurzel, '-c', 'core.quotePath=false'].concat(args), { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 }); }
+  // opts.frist (ms): ein Abruf haengt, solange der Remote haengt (Gegenpruefung 3: `naechste` wartete 20 s auf
+  // `ext::sh -c sleep 20`) — nach der Frist wird git beendet (SIGTERM: git raeumt seine .lock-Dateien selbst),
+  // die Antwort ist null wie bei jedem Fehler. Dazu GIT_TERMINAL_PROMPT=0: eine Passwortfrage waere dasselbe Haengen.
+  const o = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 };
+  if (opts && opts.frist > 0) Object.assign(o, { timeout: opts.frist, env: Object.assign({}, process.env, { GIT_TERMINAL_PROMPT: '0' }) });
+  try { return cp.execFileSync('git', ['-C', wurzel, '-c', 'core.quotePath=false'].concat(args), o); }
   catch (_) { return null; }
 }
 // Viele Blobs in EINEM Prozess, als Puffer (byte-gleich, auch ausserhalb von UTF-8).
@@ -396,6 +419,8 @@ function formFehler(e) {
   }
   if (e.zaehle != null && e.zaehle.some(x => !Number.isInteger(x.n))) return 'zaehle ohne ganze Zahl n';
   if (e.geliefert != null && (!Array.isArray(e.geliefert) || e.geliefert.some(x => !x || typeof x !== 'object' || typeof x.pfad !== 'string' || typeof x.commit !== 'string'))) return 'geliefert ist keine Liste von {pfad, commit}';
+  // Schon beim LESEN: ein Pfad, der nicht wie ein Repo-Pfad aussieht, wird nie gerechnet und nie als Befehl gedruckt.
+  if (e.geliefert != null && e.geliefert.some(x => !lieferPfadOk(x.pfad) || !COMMIT_FORM.test(x.commit))) return 'geliefert nennt einen Pfad, der nicht wie ein Repo-Pfad aussieht, oder keine volle Commit-Kennung (er wuerde als Befehl gedruckt)';
   return null;
 }
 // Die Kennung, die git einem Blob gibt (sha1 ueber „blob <n>\0" und den Inhalt) — fuer Dateien des

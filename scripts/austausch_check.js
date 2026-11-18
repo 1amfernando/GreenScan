@@ -1846,6 +1846,207 @@ const FAELLE = [
     },
   },
   {
+    // Gegenpruefung 3 (Linse „werkzeug" R3-29 … R3-43, Linse „pruefstand" R3-54): was das Werkzeug DRUCKT und WEM es
+    // etwas sagt. Jede Zeile hat ihre Gegenprobe (eine Regel zurueckgebaut → genau dieser Fall rot).
+    name: 'C19 · Was das Werkzeug druckt und wem es etwas sagt · als PROZESS: ein gelieferter Pfad sieht aus wie ein Repo-Pfad (sonst unlesbar und nie roh gedruckt; der gedruckte Befehl laeuft in bash und liefert die Datei, auch mit Umlaut und ungekuerzt); AN DICH nennt einen Halt an dich und deinen Namen auch als sitzung/… und origin/…, nie als Teil eines anderen; `an` folgt git check-ref-format; `naechste --json` endet bei „Nicht rechenbar" mit Exit 2; Holen hat eine Frist; „fehlt auf origin" nur, wenn HEAD nicht in main steht; der Force-Push-Satz nur fuer den Branch, auf den gepusht wird, und ohne Eintraege von main; eigene und abgelaufene Aufhebungen, Antworten auf Abgelaufenes, sieben Antworten, KRITISCH nur gueltig, `nehme` holt vorher',
+    lauf: () => {
+      const eltern = tmp('werkzeug3'), bare = path.join(eltern, 'origin.git'), d = path.join(eltern, 'klon');
+      const id = (r) => { const m = r.aus.match(/\n {2}(\d{4}-\d{2}-\d{2}-[0-9a-f]{4,8}) /); return m ? m[1] : null; };
+      const ids = (r) => [...r.aus.matchAll(/\n {2}(\d{4}-\d{2}-\d{2}-[0-9a-f]{8}) {2}\(/g)].map(m => m[1]);   // `einspielen`: in Stapel-Reihenfolge
+      const block = (aus, kopf) => { const i = aus.indexOf('\n' + kopf); if (i < 0) return ''; const rest = aus.slice(i + 1), j = rest.slice(1).search(/\n[A-Z][A-Z ]+[A-Z]( \(|\n|$)/); return j < 0 ? rest : rest.slice(0, j + 1); };
+      const jetzt = (dh) => new Date(Date.now() + (dh || 0) * 36e5);
+      const stamp = (dt) => ({ datum: dt.toISOString().slice(0, 10), zeit: dt.toISOString().slice(11, 19) });
+      const bisIn = (h) => jetzt(h).toISOString().replace(/\.\d{3}Z$/, 'Z');
+      const push = (zweig, msg) => { g(d, ['add', '-A']); g(d, ['commit', '-q', '--allow-empty', '-m', msg]); g(d, ['push', '-q', '-u', 'origin', zweig]); };
+      const stapel = (liste) => { const p = path.join(eltern, 'stapel.json'); fs.writeFileSync(p, JSON.stringify(liste)); return werkzeug(d, ['einspielen', p]); };
+      const ICH = 'claude/c19-x-2', ich0 = 'sitzung/' + ICH, ANDERE = 'claude/c19-andere';
+      const o2 = repo('werkzeug3-ohne');
+      try {
+        const f = [];
+        cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]);
+        fs.mkdirSync(d); g(d, ['init', '-q', '-b', 'main', '.']); g(d, ['remote', 'add', 'origin', 'file://' + bare]);
+        fs.writeFileSync(path.join(d, 'index.html'), QUELLE); fs.writeFileSync(path.join(d, 'sw.js'), "const VERSION = 'gs-v1.00';\n");
+        let r = werkzeug(d, ['neu', 'befund', '--von', 'sitzung/start', '--titel', 'Ein Befund zum Nehmen', '--beleg', 'gemessen: 1']); const b0 = id(r);
+        push('main', 'start');
+        // ── ICH: zwei Fragen, zwei Halts (einen hebe ich selbst auf), eine laufende Lage; von Hand zwei abgelaufene Halts
+        //    und eine abgelaufene Lage (vor 3 h geschrieben, vor 1 h abgelaufen).
+        g(d, ['checkout', '-q', '-b', ICH, 'main']);
+        r = stapel([
+          { art: 'frage', an: 'alle', titel: 'Frage mit sieben Antworten' },
+          { art: 'frage', an: 'alle', titel: 'Agent sucht die Messreihe — bitte liefern' },
+          { schluessel: 'h1', art: 'halt', geltung: ['gsEins'], bis: bisIn(6), titel: 'Halt, den ich selbst aufhebe', text: 'ich baue gsEins um' },
+          { art: 'halt', geltung: ['gsEins'], bis: bisIn(6), titel: 'Halt, den ein anderer aufhebt', text: 'ich baue gsEins weiter um' },
+          { art: 'lage', phase: 'laeuft', bis: bisIn(3), titel: 'Laufende Lage' },
+          { art: 'abschluss', ergebnis: 'aufgehoben', text: 'selbst erledigt', titel: 'Aufgehoben: mein eigener Halt', bezug: [{ art: 'schliesst', id: '@h1' }] },
+        ]);
+        const [f7, fl, h1, h3, l1] = ids(r);
+        const alt = stamp(jetzt(-3));
+        const h2 = mk('halt', Object.assign({ id: alt.datum + '-f19a0002', von: ich0, titel: 'Abgelaufener Halt, aufgehoben', text: 'war einmal', bis: bisIn(-1) }, alt));
+        const h4 = mk('halt', Object.assign({ id: alt.datum + '-f19a0004', von: ich0, titel: 'Abgelaufener Halt mit Antwort', text: 'war auch einmal', bis: bisIn(-1) }, alt));
+        const l2 = mk('lage', Object.assign({ id: alt.datum + '-f19a0005', von: ich0, titel: 'Abgelaufene Lage', bis: bisIn(-1) }, alt));
+        [h2, h4, l2].forEach(e => ablegen(d, e));
+        if (!b0 || !f7 || !fl || !h1 || !h3 || !l1) return { ok: false, warum: 'Aufbau: eigene Eintraege nicht geschrieben — ' + kurz(r.aus, 300) };
+        push(ICH, 'ich');
+        // ── W4: sieben Antworten auf meine Frage → 6 Zeilen und „+1 weitere".
+        g(d, ['checkout', '-q', '-b', ANDERE, 'main']); g(d, ['fetch', '-q', 'origin']);
+        r = stapel(Array.from({ length: 7 }, (_, i) => ({ art: 'antwort', titel: 'Antwort ' + (i + 1), text: 'Gemessen: ' + (i + 1), bezug: [{ art: 'beantwortet', id: f7 }] })));
+        if (ids(r).length !== 7) return { ok: false, warum: 'Aufbau: sieben Antworten nicht geschrieben — ' + kurz(r.aus, 300) };
+        push(ANDERE, 'sieben Antworten');
+        g(d, ['checkout', '-q', ICH]);
+        let dich = block(werkzeug(d, ['holen']).aus, 'DICH BETREFFEND');
+        const n7 = (dich.match(new RegExp('ANTWORT [^\\n]*auf deine Frage ' + f7, 'g')) || []).length;
+        if (n7 !== 6 || !/… \+1 weitere Antworten auf deine Eintraege/.test(dich)) f.push('W4 · sieben Antworten auf meine Frage: ' + n7 + ' Zeilen' + (/\+1 weitere Antworten/.test(dich) ? '' : ', ohne „+1 weitere"') + ' — erwartet 6 und „+1 weitere"');
+        // ── ANDERE: Antworten auf meine abgelaufenen und die laufende Lage, zwei Aufhebungen, ein Halt AN MICH, sechs
+        //    Fragen mit meinem Namen (drei Schreibweisen, drei Mal als Teil von claude/c19-x-22), ein gueltiger und ein
+        //    ungueltiger kritischer Befund, Fragen an Sitzungen mit Namen, die git annimmt — und zwei Lieferungen: eine
+        //    mit Umlaut (lang genug, dass 260 Zeichen sie abschnitten), eine von Hand mit $(…) im Pfad.
+        g(d, ['checkout', '-q', ANDERE]);
+        const lang = 'docs/pläne/lange-messreihe-vom-kalender-und-der-wochenzeile-heute.md', boese = 'docs/mess.md$(touch ZZ_PWNED)';
+        fs.mkdirSync(path.join(d, 'docs', 'pläne'), { recursive: true }); fs.writeFileSync(path.join(d, lang), 'gemessen: 3\n'); fs.writeFileSync(path.join(d, boese), 'x\n');
+        g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'Dateien']);
+        const kopfA = g(d, ['rev-parse', 'HEAD']).trim();
+        r = werkzeug(d, ['antworte', fl, '--text', 'liegt da', '--geliefert', boese]);
+        if (r.code !== 2 || !/sieht nicht aus wie ein Repo-Pfad/.test(r.aus)) f.push('R3-29 · `antworte --geliefert` nimmt einen Pfad mit $(…) an (Exit ' + r.code + ')');
+        r = stapel([
+          { art: 'antwort', titel: 'Antwort auf den abgelaufenen Halt', text: 'zu spaet', bezug: [{ art: 'baut_auf', id: h4.id }] },
+          { art: 'antwort', titel: 'Antwort auf die abgelaufene Lage', text: 'zu spaet', bezug: [{ art: 'baut_auf', id: l2.id }] },
+          { art: 'antwort', titel: 'Antwort auf die laufende Lage', text: 'rechtzeitig', bezug: [{ art: 'baut_auf', id: l1 }] },
+          { art: 'abschluss', ergebnis: 'aufgehoben', titel: 'Aufgehoben: der abgelaufene', text: 'war ohnehin vorbei', bezug: [{ art: 'schliesst', id: h2.id }] },
+          { art: 'abschluss', ergebnis: 'aufgehoben', titel: 'Aufgehoben: der laufende', text: 'main ist wieder gruen', bezug: [{ art: 'schliesst', id: h3 }] },
+          { art: 'halt', geltung: ['sw.js'], an: ich0, bis: bisIn(5), titel: 'Halt an dich', text: 'bitte sw.js nicht anfassen' },
+          { art: 'frage', an: 'alle', titel: 'Bitte sitzung/' + ICH + ': misst du die Kachel?' },
+          { art: 'frage', an: 'alle', titel: 'Den Fall aus origin/' + ICH + ' nach main holen?' },
+          { art: 'frage', an: 'alle', titel: 'Bitte ' + ICH + ': misst du noch einmal?' },
+          { art: 'frage', an: 'alle', titel: 'Hat ' + ICH + '2 schon gemessen?' },
+          { art: 'frage', an: 'alle', titel: 'Fragt sitzung/' + ICH + '2 noch?' },
+          { art: 'frage', an: 'alle', titel: 'Liegt es auf origin/' + ICH + '2?' },
+          { art: 'befund', dringlichkeit: 'kritisch', titel: 'Live: der Kalender zaehlt doppelt', beleg: ['gemessen: 2 statt 1'] },
+        ]);
+        const p2 = ids(r);
+        if (p2.length !== 13) return { ok: false, warum: f.concat('Aufbau: der zweite Stapel wurde nicht geschrieben (' + p2.length + ' von 13) — ' + kurz(r.aus, 400)).join(' · ') };
+        r = stapel([{ art: 'frage', an: 'sitzung/claude/fix(2)', titel: 'Eine Frage an fix(2)' }, { art: 'frage', an: 'sitzung/claude/' + 'l'.repeat(130), titel: 'Eine Frage an einen langen Branch-Namen' }]);
+        if (r.code !== 0 || ids(r).length !== 2) f.push('R3-38 · `an: sitzung/claude/fix(2)` und ein Branch-Name mit 137 Zeichen (git nimmt beide an) werden abgewiesen: ' + kurz(r.aus.replace(/\s+/g, ' '), 200));
+        const [haltAn, s1, s2, s3, x1, x2, x3, krit] = p2.slice(5, 13);
+        const kaputtK = mk('befund', Object.assign({ id: stamp(jetzt()).datum + '-f19a0007', von: 'sitzung/' + ANDERE, titel: 'Kritisch, aber ohne Beleg', dringlichkeit: 'kritisch' }, stamp(jetzt())));
+        delete kaputtK.beleg; ablegen(d, kaputtK);
+        const boeseA = mk('antwort', Object.assign({ id: stamp(jetzt()).datum + '-f19a0008', von: 'sitzung/' + ANDERE, titel: 'Geliefert (boese)', text: 'liegt da', bezug: [{ art: 'beantwortet', id: fl, ref: 'origin/' + ICH }], geliefert: [{ pfad: boese, commit: kopfA }] }, stamp(jetzt())));
+        ablegen(d, boeseA);
+        r = werkzeug(d, ['neu', 'frage', '--an', 'sitzung/claude/fix+v2.1@team', '--titel', 'Kann fix+v2.1 die Kachel messen?']); const anFix = id(r);
+        if (r.code !== 0 || !anFix) f.push('R3-38 · `--an sitzung/claude/fix+v2.1@team` (git nimmt den Namen an) wird abgewiesen (Exit ' + r.code + ')');
+        r = werkzeug(d, ['neu', 'frage', '--an', 'sitzung/claude/a..b', '--titel', 'Eine Frage an einen unmoeglichen Namen']);
+        if (r.code !== 1 || !/NICHT geschrieben[\s\S]*an: alle/.test(r.aus)) f.push('R3-38 · `--an sitzung/claude/a..b` (git weist den Namen ab) wird angenommen (Exit ' + r.code + ')');
+        r = werkzeug(d, ['antworte', fl, '--text', 'liegt auf ' + ANDERE, '--geliefert', lang]); const lief = id(r);
+        if (r.code !== 0 || !lief) f.push('R3-29 · eine Lieferung mit Umlaut im Pfad wird abgewiesen (Exit ' + r.code + ') · ' + kurz(r.aus, 200));
+        push(ANDERE, 'andere');
+        // R3-29 im Modul: jede Form eines Shell-Wegs ist ungueltig, ein Repo-Pfad (auch mit Umlaut) gueltig — und keine
+        // Datei des echten Repos ist zu eng gefasst.
+        const lieferung = (pfad, commit) => mk('antwort', { bezug: [{ art: 'beantwortet', id: fl }], geliefert: [{ pfad, commit: commit || kopfA }] });
+        for (const p of [boese, 'docs/a`id`.md', 'docs/a;b.md', 'docs/a|b.md', 'docs/a&b.md', 'docs/a b.md', "docs/a'b.md", 'docs/a"b.md', 'docs/a\\b.md', 'docs/a>b.md', 'docs/a\nb.md', '-x', 'docs/-x', '../x', '/etc/x', 'docs//x'])
+          if (!A.eintragPruefen(lieferung(p)).some(x => /^geliefert\[0\]/.test(x))) f.push('R3-29 · eintragPruefen nimmt den gelieferten Pfad ' + JSON.stringify(p) + ' an');
+        if (!A.eintragPruefen(lieferung('docs/x.md', '$(touch ZZ_PWNED)' + '0'.repeat(23))).some(x => /^geliefert\[0\]/.test(x))) f.push('R3-29 · eintragPruefen nimmt einen Commit an, der keine 40 Hexstellen sind');
+        for (const p of [lang, '.github/workflows/brett-waechter.yml']) { const w = A.eintragPruefen(lieferung(p)); if (w.length) f.push('R3-29 · ein gueltiger Pfad (' + p + ') wird abgewiesen: ' + w[0]); }
+        const zuEng = g(WURZEL, ['-c', 'core.quotePath=false', 'ls-files']).split('\n').filter(Boolean).filter(p => !A.lieferPfadOk(p));
+        if (zuEng.length) f.push('R3-29 · ' + zuEng.length + ' Datei(en) des echten Repos waeren nicht lieferbar (die Liste ist zu eng): ' + zuEng.slice(0, 3).join(', '));
+        // ── ICH liest: alles, was mich betrifft — und nichts, was mich nicht (mehr) betrifft.
+        g(d, ['checkout', '-q', ICH]);
+        r = werkzeug(d, ['holen', '--alles']); const ichSicht = r.aus;
+        dich = block(r.aus, 'DICH BETREFFEND');
+        if (r.aus.indexOf('$(touch') >= 0) f.push('R3-29 · der Pfad mit $(…) steht in der Ausgabe');
+        if (!/unlesbare Datei[^\n]*f19a0008-antwort-x\.json \[origin\/claude\/c19-andere\] falsch geformt: geliefert/.test(r.aus)) f.push('R3-29 · die Lieferung mit $(…) im Pfad wird beim Lesen nicht als unlesbar genannt');
+        const gl = dich.split('\n').filter(z => /GELIEFERT /.test(z));
+        const umlaut = gl.find(z => z.indexOf(lang) >= 0) || '';
+        if (!/GELIEFERT docs\/pläne\/[^ ]+ @ [0-9a-f]{12} +→ git fetch origin && git show '[0-9a-f]{40}:docs\/pläne\/[^']+\.md' +\(nach einem Squash-Merge: git show 'origin\/main:docs\/pläne\/[^']+\.md'\)$/.test(umlaut)) f.push('R3-29 · die Lieferung mit Umlaut steht nicht ungekuerzt und gequotet da: ' + kurz(umlaut || '(keine Zeile)', 200));
+        for (const z of gl) {   // jeder gedruckte Befehl, so gefahren, wie eine Sitzung ihn kopiert
+          const bef = (z.match(/→ (.*?) {3}\(nach einem Squash-Merge/) || [])[1];
+          let aus = null; try { aus = bef ? cp.execFileSync('bash', ['-c', bef], { cwd: d, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }) : null; } catch (_) {}
+          if (z === umlaut && aus !== 'gemessen: 3\n') f.push('R3-29 · der gedruckte Befehl liefert die Datei nicht: ' + kurz(bef, 160) + ' → ' + JSON.stringify(aus));
+        }
+        if (fs.existsSync(path.join(d, 'ZZ_PWNED'))) f.push('R3-29 · ein gedruckter Befehl hat $(touch ZZ_PWNED) ausgefuehrt');
+        r = werkzeug(d, ['zeige', lief]);
+        if (!/Geliefert: docs\/pläne\/[^ ]+ @ [0-9a-f]{40} +→ git show '[0-9a-f]{40}:docs\/pläne\/[^']+' +\(nach einem Squash-Merge: git show 'origin\/main:docs\/pläne\/[^']+'\)/.test(r.aus)) f.push('R3-29 · `zeige` quotet den gelieferten Pfad nicht: ' + kurz((r.aus.match(/Geliefert:[^\n]*/) || ['(nichts)'])[0], 200));
+        if (new RegExp('auf deinen Halt ' + h4.id).test(dich) || new RegExp('auf deine Lage ' + l2.id).test(dich)) f.push('W5 · eine Antwort auf meinen ABGELAUFENEN Halt oder meine abgelaufene Lage steht unter DICH BETREFFEND');
+        if (!new RegExp('ANTWORT [^\\n]*auf deine Lage ' + l1).test(dich)) f.push('W5 · die Antwort auf meine LAUFENDE Lage fehlt (der Fall misst sonst nichts)');
+        if (new RegExp('AUFGEHOBEN dein Halt ' + h1).test(dich)) f.push('W2 · meine EIGENE Aufhebung steht als AUFGEHOBEN unter DICH BETREFFEND');
+        if (new RegExp('AUFGEHOBEN dein Halt ' + h2.id).test(dich)) f.push('W3 · ein aufgehobener, inzwischen ABGELAUFENER Halt steht weiter unter DICH BETREFFEND');
+        if (!new RegExp('AUFGEHOBEN dein Halt ' + h3 + ' durch [^\\n]*main ist wieder gruen').test(dich)) f.push('W2/W3 · die Aufhebung meines LAUFENDEN Halts durch einen anderen fehlt (der Fall misst sonst nichts)');
+        if (!new RegExp('AN DICH ' + haltAn + ' \\{origin/claude/c19-andere\\} von sitzung/claude/c19-andere: HALT bis ').test(dich)) f.push('R3-36 · ein wirksamer Halt mit an: ' + ich0 + ' steht nicht unter AN DICH');
+        for (const [x, wie] of [[s1, 'sitzung/<branch>'], [s2, 'origin/<branch>'], [s3, '<branch>']]) if (!new RegExp('AN DICH ' + x + ' ').test(dich)) f.push('R3-37 · AN DICH erkennt den eigenen Namen als ' + wie + ' nicht');
+        for (const [x, wie] of [[x1, ICH + '2'], [x2, 'sitzung/' + ICH + '2'], [x3, 'origin/' + ICH + '2']]) if (new RegExp('AN DICH ' + x + ' ').test(dich)) f.push('R3-37 · AN DICH trifft „' + wie + '" (der eigene Name als Teil eines anderen)');
+        const kr = block(ichSicht, 'KRITISCH');
+        if (kr.indexOf(krit) < 0 || kr.indexOf(kaputtK.id) >= 0) f.push('W13 · KRITISCH zeigt ' + (kr.indexOf(krit) < 0 ? 'den gueltigen kritischen Befund nicht' : 'einen UNGUELTIGEN kritischen Befund (ohne Beleg)') + ': ' + kurz(kr, 200));
+        // ── R3-38: eine Sitzung auf claude/fix+v2.1@team liest die Frage an sich; `an` folgt git check-ref-format.
+        g(d, ['checkout', '-q', '--no-track', '-b', 'claude/fix+v2.1@team', 'origin/main']);
+        if (!new RegExp('AN DICH ' + anFix + ' ').test(block(werkzeug(d, []).aus, 'DICH BETREFFEND'))) f.push('R3-38 · die Sitzung auf claude/fix+v2.1@team liest die Frage an sich nicht unter AN DICH');
+        for (const n of ['claude/fix+v2.1@team', 'claude/fix(2)', 'c'.repeat(200), 'claude/a$b', 'pläne/x', 'claude/HEAD', 'claude/x.lock.y', 'claude/a..b', 'claude/x y', 'claude/x~1', 'claude/x^1', 'claude/x:y', 'claude/x?', 'claude/x*', 'claude/x[1', 'claude/x\\y', 'claude/x@{1}', '-x', 'claude/x.lock', 'claude/.x', 'claude/x.', 'claude/x/', '/x', 'a//b', 'HEAD', 'a\u0001b']) {
+          let gitOk = true; try { cp.execFileSync('git', ['check-ref-format', '--branch', n], { cwd: d, stdio: 'ignore' }); } catch (_) { gitOk = false; }
+          if (A.anGueltig('sitzung/' + n) !== gitOk) f.push('R3-38 · an: sitzung/' + JSON.stringify(n.length > 30 ? n.slice(0, 20) + '…' : n) + ' ist ' + (gitOk ? 'abgewiesen' : 'angenommen') + ', git sagt ' + (gitOk ? 'ja' : 'nein'));
+        }
+        for (const n of ['claude/x\u202eb', 'claude/x\u00a0b', 'c'.repeat(256)]) if (A.anGueltig('sitzung/' + n)) f.push('R3-38 · an: ein Name mit Format-/Trennzeichen aus Unicode oder ueber 255 Zeichen wird angenommen (bewusst strenger als git)');
+        // ── R3-42: der eigene Branch ist auf origin weg — nach einem Merge still, nach einem Squash-Merge eine Frage, sonst ein Alarm.
+        g(d, ['fetch', '-q', 'origin']);
+        g(d, ['checkout', '-q', '--no-track', '-b', 'claude/c19-gemergt', 'origin/main']); fs.writeFileSync(path.join(d, 'gemergt.md'), 'g\n'); push('claude/c19-gemergt', 'gemergt');
+        g(d, ['push', '-q', 'origin', 'HEAD:main']); g(d, ['push', '-q', 'origin', '--delete', 'claude/c19-gemergt']);
+        r = werkzeug(d, ['holen']);
+        if (/Dein Branch claude\/c19-gemergt (fehlt auf origin|ist auf origin nicht mehr da)/.test(r.aus)) f.push('R3-42 · nach einem normalen Merge (HEAD steht in origin/main) wird der geloeschte Branch gemeldet: ' + kurz((r.aus.match(/[^\n]*Dein Branch claude\/c19-gemergt[^\n]*/) || [''])[0], 160));
+        g(d, ['checkout', '-q', '--no-track', '-b', 'claude/c19-squash', 'origin/main']); fs.writeFileSync(path.join(d, 'squash.md'), 's\n'); push('claude/c19-squash', 'squash-arbeit');
+        g(d, ['checkout', '-q', '--detach', 'origin/main']); fs.writeFileSync(path.join(d, 'squash.md'), 's\n'); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'Squash']); g(d, ['push', '-q', 'origin', 'HEAD:main']);
+        g(d, ['push', '-q', 'origin', '--delete', 'claude/c19-squash']); g(d, ['checkout', '-q', 'claude/c19-squash']);
+        r = werkzeug(d, ['holen']);
+        if (/!! Dein Branch claude\/c19-squash/.test(r.aus) || !/Dein Branch claude\/c19-squash ist auf origin nicht mehr da[^\n]*squash-gemergt\?/.test(r.aus)) f.push('R3-42 · nach einem Squash-Merge: ' + kurz((r.aus.match(/[^\n]*Dein Branch claude\/c19-squash[^\n]*/) || ['(keine Zeile)'])[0], 160) + ' — erwartet die Frage „squash-gemergt?", kein Alarm');
+        g(d, ['checkout', '-q', '--no-track', '-b', 'claude/c19-weg', 'origin/main']); fs.writeFileSync(path.join(d, 'weg.md'), 'w\n'); push('claude/c19-weg', 'weg');
+        g(d, ['push', '-q', 'origin', '--delete', 'claude/c19-weg']);
+        r = werkzeug(d, ['holen']);
+        if (!/!! Dein Branch claude\/c19-weg fehlt auf origin/.test(r.aus)) f.push('R3-42 · ein geloeschter, NICHT gemergter Branch wird nicht mehr gemeldet');
+        // ── W6: der Force-Push-Satz zaehlt nur, was ausser auf dem Branch nirgends liegt — nicht, was auf main liegt.
+        g(d, ['checkout', '-q', '--no-track', '-b', 'claude/c19-fp', 'origin/main']);
+        const basisFp = g(d, ['rev-parse', 'HEAD']).trim();
+        r = werkzeug(d, ['neu', 'idee', '--titel', 'Idee, die auch auf main liegt', '--nutzen', 'eins', '--pruefbar', 'ein Fall']); const e1 = id(r);
+        push('claude/c19-fp', 'e1'); g(d, ['push', '-q', 'origin', 'HEAD:main']);
+        r = werkzeug(d, ['neu', 'idee', '--titel', 'Idee nur auf dem Branch', '--nutzen', 'zwei', '--pruefbar', 'ein Fall']); const e2 = id(r);
+        push('claude/c19-fp', 'e2');
+        g(d, ['reset', '-q', '--hard', basisFp]);
+        const fp = (werkzeug(d, []).aus.match(/!! origin\/claude\/c19-fp traegt[^\n]*/) || [''])[0];
+        if (!e1 || !e2 || !/traegt 1 Eintrag/.test(fp) || fp.indexOf(e2) < 0 || fp.indexOf(e1) >= 0) f.push('W6 · Force-Push-Satz: ' + (fp || '(keine Zeile)') + ' — erwartet 1 Eintrag (' + e2 + '), nicht den, der auf main liegt');
+        // ── W7 / R3-43: ein Upstream unter anderem Namen (ein fremder Branch). push.default simple: dorthin geht kein Push —
+        //    kein Force-Push-Satz, EINE ruhige Zeile (auch mit --von). push.default upstream: dorthin geht er — der Satz steht da.
+        g(d, ['checkout', '-q', '--no-track', '-b', 'claude/c19-feat', 'origin/main']);
+        werkzeug(d, ['neu', 'idee', '--titel', 'Idee eins auf feat', '--nutzen', 'eins', '--pruefbar', 'ein Fall']); push('claude/c19-feat', 'i1');
+        g(d, ['checkout', '-q', '-b', 'claude/c19-hilfe', 'origin/claude/c19-feat']);
+        g(d, ['checkout', '-q', 'claude/c19-feat']);
+        r = werkzeug(d, ['neu', 'idee', '--titel', 'Idee zwei auf feat, spaeter', '--nutzen', 'zwei', '--pruefbar', 'ein Fall']); const i2 = id(r); push('claude/c19-feat', 'i2');
+        g(d, ['checkout', '-q', 'claude/c19-hilfe']);
+        const upZeilen = (t) => t.split('\n').filter(z => z.indexOf('origin/claude/c19-feat') >= 0);
+        dich = block(werkzeug(d, []).aus, 'DICH BETREFFEND');
+        if (/!! origin\/claude\/c19-feat traegt/.test(dich) || upZeilen(dich).length !== 1) f.push('R3-43 · fremder Upstream, push.default simple: ' + upZeilen(dich).length + ' Zeile(n) dazu' + (/!! origin\/claude\/c19-feat traegt/.test(dich) ? ', darunter der Force-Push-Satz' : '') + ' — erwartet EINE ruhige');
+        dich = block(werkzeug(d, [], { AUSTAUSCH_VON: 'sitzung/claude/c19-hilfe' }).aus, 'DICH BETREFFEND');
+        if (upZeilen(dich).length !== 1 || !/Dein Upstream origin\/claude\/c19-feat ist ein anderer Branch[^\n]*git push -u origin HEAD/.test(dich)) f.push('R3-43 · fremder Upstream mit --von: ' + upZeilen(dich).length + ' Zeile(n) — erwartet die eine ruhige Zeile „git push -u origin HEAD"');
+        g(d, ['config', 'push.default', 'upstream']);
+        dich = block(werkzeug(d, []).aus, 'DICH BETREFFEND');
+        g(d, ['config', '--unset', 'push.default']);
+        if (!i2 || !new RegExp('!! origin/claude/c19-feat traegt 1 Eintrag[^\\n]*' + i2).test(dich)) f.push('W7 · push.default upstream (der Push ginge nach origin/claude/c19-feat): der Force-Push-Satz fehlt');
+        // ── W16: `nehme` holt vorher — eine Uebernahme, die erst nach dem letzten fetch gepusht wurde, wird gesehen.
+        g(d, ['checkout', '-q', '--no-track', '-b', 'claude/c19-nehmer', 'origin/main']);
+        r = werkzeug(d, ['nehme', b0]); if (r.code !== 0) return { ok: false, warum: f.concat('Aufbau: `nehme` auf claude/c19-nehmer: Exit ' + r.code + ' · ' + kurz(r.aus, 200)).join(' · ') };
+        push('claude/c19-nehmer', 'nehme');
+        g(d, ['checkout', '-q', '--no-track', '-b', 'claude/c19-zweit', 'origin/main']); g(d, ['update-ref', '-d', 'refs/remotes/origin/claude/c19-nehmer']);
+        if (A.brettLesen(d, { alleRefs: true }).eintraege.some(e => e.art === 'lage' && e.von === 'sitzung/claude/c19-nehmer')) f.push('Aufbau W16: die Uebernahme ist vor `nehme` schon bekannt — der Fall misst das Holen nicht');
+        r = werkzeug(d, ['nehme', b0]);
+        if (r.code !== 1 || !/schon uebernommen: sitzung\/claude\/c19-nehmer/.test(r.aus)) f.push('W16 · `nehme` ohne vorheriges Holen: Exit ' + r.code + ' — erwartet 1 („schon uebernommen" von claude/c19-nehmer)');
+        // ── R3-39 und R3-40 in einem Repo OHNE origin, dann mit einem Remote, der haengt (`ext::sh -c sleep 8`).
+        r = werkzeug(o2, ['naechste', '--json']); let j = null; try { j = JSON.parse(r.aus); } catch (_) {}
+        if (r.code !== 2 || !j || !j.grund) f.push('R3-39 · `naechste --json` ohne origin: Exit ' + r.code + (j && j.grund ? '' : ', ohne „grund"') + ' — erwartet 2 wie im Text');
+        g(o2, ['remote', 'add', 'origin', 'ext::sh -c sleep% 8']); g(o2, ['config', 'protocol.ext.allow', 'always']);
+        for (const [args, satz] of [[['naechste'], /Holen hat nicht geklappt/], [['holen'], /Holen hat NICHT geklappt/]]) {
+          const t0 = Date.now(); r = werkzeug(o2, args, { AUSTAUSCH_HOLEN_FRIST_MS: '1000' }); const ms = Date.now() - t0;
+          if (ms < 900) f.push('Aufbau R3-40: `' + args[0] + '` endete nach ' + ms + ' ms — der Remote haengt nicht, der Fall misst die Frist nicht');
+          else if (ms > 5000 || !satz.test(r.aus)) f.push('R3-40 · `' + args[0] + '` gegen einen haengenden Remote (Frist 1 s): ' + ms + ' ms' + (satz.test(r.aus) ? '' : ', ohne „Holen hat nicht geklappt"') + ' — erwartet hoechstens 5 s');
+        }
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: 'Lieferpfad: $(…) ` ; | & Leerraum Anfuehrung \\ - .. und kurzer Commit ungueltig, beim Lesen unlesbar, nie in der Ausgabe; Umlaut gueltig, gequotet, ungekuerzt, in bash gefahren = die Datei; alle Repo-Dateien lieferbar · AN DICH: Halt an dich, drei Schreibweisen, x-22 nicht · an = git check-ref-format (26 Namen) · naechste --json Exit 2 · Frist 1 s statt 8 s · fehlt auf origin: Merge still, Squash Frage, sonst Alarm · Force-Push ohne main, fremder Upstream nur mit push.default upstream · W2 W3 W4 W5 W13 W16' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(eltern); weg(o2); }
+    },
+  },
+  {
     name: 'C20 · Der Kern ueber Branches (Gegenpruefung 3) · als PROZESS: main ist GENAU origin/main (eine Kopie auf claude/main loescht keinen Halt, faelscht keinen, versteckt keinen Befund); ersetzen darf nur der Branch des Schreibers; die Ankunft rechnet nach Rebase richtig (Autor-Zeit), und ein Merge-Commit, ein `git mv` oder das Umschreiben eines alten Pfads machen eine rueckdatierte Lage NICHT wirksam; ein flacher Klon prueft nicht; die eigene Sicht nennt dieselbe Rueckdatierung wie die der anderen; nach `git branch -m` bleibt der eigene Halt eigen; Lage und Halt nur von einem eigenen Branch; einspielen schreibt keine Absicht in fremdem Namen; `nehme --auch` belegt keinen Platz, `lage --bezug baut_auf:` prueft wie `nehme`; `zeige` sagt „teilweise"',
     lauf: () => {
       const eltern = tmp('kern'), bare = path.join(eltern, 'origin.git'), d = path.join(eltern, 'klon');
