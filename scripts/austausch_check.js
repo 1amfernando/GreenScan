@@ -1314,7 +1314,10 @@ const FAELLE = [
         r = werkzeug(d, ['veto', fremdHalt.slice(-4), '--text', 'Der Umbau ist schon auf main']); const veto = id(r);
         push('claude/dritt', 'dritt');
         // ── ICH, ohne vorher zu holen: `naechste` holt selbst und haelt am fremden Bump-Halt (mit seinem Veto).
+        //    Der Klon kennt claude/andere und claude/dritt noch NICHT (wie eine Sitzung, die nur main geholt hat).
         g(d, ['checkout', '-q', 'claude/ich-arbeit']);
+        for (const z of ['claude/andere', 'claude/dritt']) g(d, ['update-ref', '-d', 'refs/remotes/origin/' + z]);
+        if (A.brettLesen(d, { alleRefs: true }).eintraege.some(e => e.id === fremdHalt)) f.push('Aufbau: der fremde Halt ist vor `naechste` schon bekannt — der Fall misst das Holen nicht');
         r = werkzeug(d, ['naechste']);
         if (r.code !== 1 || !new RegExp('HALT fuer Bumps: ' + fremdHalt).test(r.aus) || !new RegExp('VETO dagegen: ' + veto).test(r.aus)) f.push('`naechste` ohne vorheriges `holen`: Exit ' + r.code + ' — erwartet 1, mit dem Halt von claude/andere und dem Veto dagegen · ' + kurz(r.aus, 300));
         if (new RegExp(fH.id).test(r.aus)) f.push('`naechste` haelt an einem GEFAELSCHTEN Halt (von claude/dritt, liegt auf claude/andere)');
@@ -1370,7 +1373,8 @@ const FAELLE = [
         if (!new RegExp(fremdKrit + '[^\\n]*kritisch, aber').test(r.aus) || !new RegExp(fL.id + '[^\\n]*Absicht').test(r.aus)) f.push('`ernten` laesst den unzitierten kritischen Eintrag oder die Lage nicht mit Grund liegen · ' + kurz(r.aus, 300));
         fs.writeFileSync(path.join(d, 'STATUS.md'), '# STATUS\n\n## 2 · Offen\n\n- brett:' + fremdKrit + ' — Anmeldung\n');
         r = werkzeug(d, ['ernten']);
-        if (!new RegExp('\\n {2}' + fremdKrit + ' ').test(r.aus)) f.push('`ernten` holt den kritischen Eintrag nicht, obwohl STATUS §2 ihn zitiert · ' + kurz(r.aus, 300));
+        const geerntet = fs.existsSync(path.join(d, A.ORDNER, fremdKrit.slice(0, 7))) && fs.readdirSync(path.join(d, A.ORDNER, fremdKrit.slice(0, 7))).some(n => n.indexOf(fremdKrit + '-') === 0);
+        if (!geerntet || new RegExp(fremdKrit + '[^\\n]*kritisch, aber').test(r.aus)) f.push('`ernten` holt den kritischen Eintrag nicht, obwohl STATUS §2 ihn zitiert · ' + kurz(r.aus, 300));
         g(d, ['checkout', '-q', '-f', 'claude/ich-arbeit']); g(d, ['clean', '-q', '-fd']);
         // „in Arbeit": ein squash-gemergter, stehengebliebener Branch zaehlt nicht; ein Commit, der vier ids nennt, auch nicht.
         g(d, ['checkout', '-q', '-b', 'claude/squash', 'main']); fs.writeFileSync(path.join(d, 'notiz.md'), 'x\n');
