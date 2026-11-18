@@ -66,7 +66,8 @@ const knapp = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); retur
 const liesRel = (rel) => { try { return fs.readFileSync(path.join(WURZEL, rel), 'utf8'); } catch (_) { return null; } };
 const quelltext = () => { const a = liesRel('index.html'); return a == null ? null : a + '\n' + (liesRel('sw.js') || ''); };
 const laufendeVersion = () => { const m = (liesRel('index.html') || '').match(/\bGS_VERSION\s*=\s*'(v\d+\.\d+)'/); return m ? m[1] : null; };
-const brett = () => A.brettLesen(WURZEL, { alleRefs: !o.nur_lokal });
+// `ich`: fuer EIGENE Eintraege gilt die Fassung im Arbeitsbaum, fuer fremde die von main bzw. vom Branch ihres Schreibers.
+const brett = () => A.brettLesen(WURZEL, { alleRefs: !o.nur_lokal, ich: meineNamen() });
 
 // Wer schreibt? Der lokale Branch (A.eigenerZweig) — ein abweichender Upstream wird genannt.
 const zweig = A.eigenerZweig(WURZEL);
@@ -85,16 +86,14 @@ function ichVon() {
   const b = zweig.name;
   return b && b !== 'main' && b !== 'master' ? 'sitzung/' + b : null;
 }
-// Alle Namen, die „ich" sind: der lokale Branch — und nach `git branch -m` auch der Name, unter dem der Branch
-// auf origin liegt (der Upstream). Vorher spaltete sich die Identitaet: der eigene Halt sperrte den eigenen
-// Bump, Antworten darauf verschwanden (Gegenpruefung 3). Mit --von / AUSTAUSCH_VON genau dieser eine.
+// Alle Namen, die „ich" sind: der lokale Branch — und nach einem BELEGTEN `git branch -m` auch der alte Name, unter
+// dem der Branch auf origin liegt (A.eigeneNamen). Vorher spaltete sich die Identitaet nach einem Umbenennen
+// (Gegenpruefung 3) — und danach zaehlte JEDER Upstream, auch der fremde aus `checkout -b x origin/<fremd>`
+// (Gegenpruefung 4). Mit --von / AUSTAUSCH_VON genau dieser eine.
 function meineNamen() {
   if (o.von) return [String(o.von)];
   if (process.env.AUSTAUSCH_VON) return [process.env.AUSTAUSCH_VON];
-  const n = [];
-  if (zweig.name && zweig.name !== 'main' && zweig.name !== 'master') n.push('sitzung/' + zweig.name);
-  if (zweig.upstream) n.push('sitzung/' + zweig.upstream);
-  return n;
+  return A.eigeneNamen(zweig);
 }
 // Eine Lage oder ein Halt wirkt nur, wenn `von` zum Branch passt, auf dem sie liegen — eine andere Kennung
 // waere fuer alle anderen sofort UNWIRKSAM (Gegenpruefung 2: `--von koordinator` schrieb still eine).
@@ -103,11 +102,28 @@ function vonFuerAbsicht(art) {
   // „ohne --von schreiben"), Gegenpruefung 3.
   if (zweig.name === 'main' || zweig.name === 'master') ende(2, ARTEN_WORT(art) + ' nur von einem EIGENEN Branch: auf ' + zweig.name + ' gilt „von" fuer niemanden (und auf main wird nie direkt gepusht) — git checkout -b claude/<thema>, dann schreiben und pushen.');
   const v = ich();
-  if (zweig.upstream && v === 'sitzung/' + zweig.upstream) return v;   // ausdruecklich als der Name, unter dem gepusht wird
-  if (zweig.name && v !== 'sitzung/' + zweig.name) ende(2, ARTEN_WORT(art) + ' von „' + v + '" auf dem Branch ' + zweig.name + ': fuer alle anderen waere ' + (art === 'lage' ? 'sie' : 'er') + ' UNWIRKSAM („von" passt nicht zum Branch). Ohne --von / AUSTAUSCH_VON schreiben.');
-  if (!zweig.name) aus('(Losgeloester HEAD: ' + ARTEN_WORT(art) + ' traegt „' + v + '" — er wirkt erst, wenn er auf ' + v.replace(/^sitzung\//, 'origin/') + ' liegt.)');
-  if (zweig.upstream) aus('(Achtung: dieser Branch heisst ' + zweig.name + ', sein Upstream origin/' + zweig.upstream + ' — landet der Eintrag dort, gilt ' + ARTEN_WORT(art) + ' von „' + v + '" fuer alle anderen NICHT. Entweder mit --von sitzung/' + zweig.upstream + ' schreiben (dann bleibt alles beim alten Namen), oder nach origin/' + zweig.name + ' pushen (git push -u origin HEAD:' + zweig.name + ') — dann erloeschen deine Lagen und Halts unter dem alten Namen fuer alle anderen; schreib sie neu.)');
+  // Der alte Name nach einem belegten `git branch -m` — nie ein fremder Upstream (Gegenpruefung 4).
+  if (zweig.upstream && zweig.umbenannt && v === 'sitzung/' + zweig.upstream) return v;
+  if (zweig.name && v !== 'sitzung/' + zweig.name) ende(2, ARTEN_WORT(art) + ' von „' + v + '" auf dem Branch ' + zweig.name + ': fuer alle anderen waere ' + (art === 'lage' ? 'sie' : 'er') + ' UNWIRKSAM („von" passt nicht zum Branch)' + (zweig.upstream && !zweig.umbenannt && v === 'sitzung/' + zweig.upstream ? ' — origin/' + zweig.upstream + ' ist nicht dieser Branch unter altem Namen (kein `git branch -m` belegt), sondern ein fremder' : '') + '. Ohne --von / AUSTAUSCH_VON schreiben.');
+  if (!zweig.name) {
+    // Losgeloester HEAD: wer als „sitzung/<b>" schreibt, muss auf <b> pushen koennen, ohne etwas zu ueberschreiben —
+    // HEAD stammt von origin/<b> ab, oder <b> gibt es noch nicht. Vorher schrieb das Werkzeug Lage und „fertig" mit
+    // JEDEM --von, und der Satz „wirkt erst, wenn er auf origin/<b> liegt" las sich wie eine Einladung (Gegenpruefung 4).
+    const b = v.replace(/^sitzung\//, ''), ref = 'refs/remotes/origin/' + b;
+    if (A.git(WURZEL, ['rev-parse', '--verify', '--quiet', ref]) != null && A.git(WURZEL, ['merge-base', '--is-ancestor', ref, 'HEAD']) == null)
+      ende(2, ARTEN_WORT(art) + ' von „' + v + '" aus einem losgeloesten HEAD: dieser Stand stammt nicht von origin/' + b + ' ab — das ist nicht dein Branch. Auf deinem eigenen Branch schreiben (git switch <dein-branch>).');
+    aus('(Losgeloester HEAD: ' + ARTEN_WORT(art) + ' traegt „' + v + '" und wirkt fuer andere erst auf origin/' + b + ' — nur wenn das DEIN Branch ist: git push origin HEAD:' + b + ')');
+  }
+  if (zweig.upstream && zweig.umbenannt) aus('(Achtung: dieser Branch heisst ' + zweig.name + ', sein Upstream origin/' + zweig.upstream + ' — landet der Eintrag dort, gilt ' + ARTEN_WORT(art) + ' von „' + v + '" fuer alle anderen NICHT. Entweder mit --von sitzung/' + zweig.upstream + ' schreiben (dann bleibt alles beim alten Namen), oder nach origin/' + zweig.name + ' pushen (git push -u origin HEAD:' + zweig.name + ') — dann erloeschen deine Lagen und Halts unter dem alten Namen fuer alle anderen; schreib sie neu.)');
+  else if (zweig.upstream) aus('(Dein Upstream origin/' + zweig.upstream + ' ist ein fremder Branch — dorthin gehoert ' + ARTEN_WORT(art) + ' nicht. Pushen: git push -u origin HEAD:' + zweig.name + ')');
   return v;
+}
+// Jeder andere Eintrag: liegt er spaeter auf einem Branch, dessen Name nicht in `von` steht, entscheidet sein `von`
+// nichts — und kommt eine zweite Fassung mit anderem `von` dazu, ist er strittig (Gegenpruefung 4: nach `git branch -m`
+// schrieb das Werkzeug ohne Warnung einen kritischen Befund, der gegen eine Faelschung verlor).
+function vonHinweis(v) {
+  if (!zweig.name || v !== 'sitzung/' + zweig.name || !zweig.upstream) return;
+  aus('(Dieser Branch heisst ' + zweig.name + ', sein Upstream origin/' + zweig.upstream + ': pushe nach origin/' + zweig.name + ' (git push -u origin HEAD:' + zweig.name + ') — auf origin/' + zweig.upstream + ' passt „' + v + '" nicht zu seinem Branch, und gegen eine zweite Fassung mit anderem „von" waere der Eintrag strittig.)');
 }
 const ARTEN_WORT = (art) => (A.ARTEN[art] || { wort: art }).wort;
 const schwarmVon = (b) => A.schwarm(b.eintraege, Date.now(), { wo: b.gitDa ? b.wo : null, ich: meineNamen() });
@@ -136,7 +152,8 @@ function kopf(b, abl) {
   if (rot) aus('  !! Auf DIESEM Stand ist das Brett schon rot (' + rot + ' Maengel) — geerbt, nicht von dir: node scripts/austausch_check.js zeigt sie');
   if (b.unlesbar.length) aus('  !! ' + b.unlesbar.length + ' unlesbare Datei(en): ' + b.unlesbar.slice(0, 4).map(u => u.datei + ' [' + u.quelle + '] ' + u.grund).join(' · '));
   if (b.abweichend.length) aus('  !! ' + b.abweichend.length + ' Eintrag/Eintraege sehen auf einem Branch anders aus (umgeschrieben?): ' + b.abweichend.slice(0, 4).map(x => x.id + ' — es gilt ' + x.gilt + ', abweichend ' + x.weichtAb).join(' · '));
-  if (b.strittig.length) aus('  !! STRITTIG — ' + b.strittig.length + ' Eintrag/Eintraege in verschiedenen Fassungen, keine laesst sich zuordnen (weder hier, noch main, noch der Branch des Schreibers, noch die Sicherung) — NICHT gerechnet: ' + b.strittig.slice(0, 4).map(x => x.id + ' {' + x.quellen.join(', ') + '}').join(' · '));
+  if (b.strittig.length) aus('  !! STRITTIG — ' + b.strittig.length + ' Eintrag/Eintraege in verschiedenen Fassungen, keine laesst sich zuordnen (weder main, noch der Branch des Schreibers, noch die Sicherung) — NICHT gerechnet: ' + b.strittig.slice(0, 4).map(x => x.id + ' {' + x.quellen.join(', ') + '}' + (x.grund ? ' — ' + x.grund : '')).join(' · '));
+  if ((b.neuAngelegt || []).length) aus('  !! ' + b.neuAngelegt.length + ' Eintrag/Eintraege: die Fassung auf einem NEU ANGELEGTEN Branch gilt nicht als Berichtigung des Schreibers — es gilt die gesicherte: ' + b.neuAngelegt.slice(0, 4).map(x => x.id + ' (' + x.hinweis + ')').join(' · '));
 }
 const zeichen = { offen: ' ', beantwortet: '✓', geschlossen: '×', ersetzt: '×', notiz: '·' };
 
@@ -156,7 +173,9 @@ function dichBetreffend(b, abl, sw, aend) {
   // Auf main ist niemand „du" — das ist kein losgeloester HEAD (Gegenpruefung 3: beides hiess gleich).
   if (!ich0 && (name === 'main' || name === 'master')) z.push('Du arbeitest auf ' + name + ' — hier ist nichts „deins", eigene Halts zaehlen als fremde. Lage und Halt schreibt man von einem eigenen Branch aus: git checkout -b claude/<thema>.');
   else if (!ich0) z.push('Wer du bist, ist nicht ablesbar (losgeloester HEAD) — eigene Halts zaehlen als fremde, eigene Eintraege als fremde. --von bzw. AUSTAUSCH_VON setzen.');
-  const upstreamGesagt = !!(ich0 && zweig.upstream && !o.von && !process.env.AUSTAUSCH_VON);
+  // Nur nach einem BELEGTEN Umbenennen ist der Upstream der eigene alte Name — sonst ist er ein fremder Branch, und der
+  // Rat „weiter als --von sitzung/<upstream>" hiesse: schreib im Namen eines anderen (Gegenpruefung 4).
+  const upstreamGesagt = !!(ich0 && zweig.upstream && zweig.umbenannt && !o.von && !process.env.AUSTAUSCH_VON);
   // Mit Befehl — nie gekuerzt (der wichtigste Teil steht am Ende: was beim Umzug erlischt).
   if (upstreamGesagt) { const zl = 'Dein Branch heisst hier ' + zweig.name + ', sein Upstream origin/' + zweig.upstream + ' — du schreibst als ' + ich0 + '; auf origin/' + zweig.upstream + ' gilt das fuer andere nicht. Entweder weiter als --von sitzung/' + zweig.upstream + ', oder nach origin/' + zweig.name + ' pushen (git push -u origin HEAD:' + zweig.name + ') — dann erloeschen deine Lagen und Halts unter sitzung/' + zweig.upstream + ' fuer die anderen; schreib sie neu.'; befehle.add(zl); z.push(zl); }
   for (const h of sw.halts) {
@@ -183,6 +202,9 @@ function dichBetreffend(b, abl, sw, aend) {
       if (!q.has('Arbeitsbaum') && ![...q].some(x => namen.some(n => A.istAutorRef(x, n.replace(/^sitzung\//, ''))))) continue;
       z.push((u.e.art === 'halt' ? 'DEIN HALT ' : 'DEINE LAGE ') + u.e.id + (u.teil ? ' wirkt nur teilweise: ' : ' wirkt fuer die anderen NICHT: ') + u.grund);
     } }
+  // Dein Eintrag, gepusht — und fuer die anderen gilt eine ANDERE Fassung (oder er ist fuer sie strittig). Vorher sah der
+  // Schreiber „Wirkt jetzt: ja", waehrend alle anderen die alte gesicherte Fassung lasen (Gegenpruefung 4).
+  for (const [id, ga] of (b.giltAndere || new Map())) z.push('DEIN EINTRAG ' + id + ': du siehst deine Fassung, fuer die anderen gilt ' + (ga.quelle ? 'eine andere {' + ga.quelle + '}' : 'keine — strittig: ' + ga.grund) + ' — `von` und Branch muessen zusammenpassen; nach einem Umzug oder mit anderem `von` schreib ihn neu (neue id) und zieh den alten zurueck');
   // Wer mithilft (nehme --auch: das Feld `mithelfen`, nicht der Titel), weiss, dass ein anderer zuerst war.
   for (const [ziel, u] of sw.uebernahme) if (u.auch.some(l => meins(l.e) && l.e.mithelfen !== true)) z.push('Deine Uebernahme von ' + ziel + ' gilt nicht: ' + u.lage.e.von + ' war zuerst (bis ' + uhr(u.lage.bis) + ')');
   // Dein Halt wurde aufgehoben — mit Grund, und du erfaehrst ihn hier (vorher verschwand er still).
@@ -287,6 +309,11 @@ function sicherungsZeile(b) {
   const zurueck = A.zurueckgezogenVomSchreiber(WURZEL, b.eintraege);
   for (const [id, q] of b.wo) {
     if (zurueck.has(id)) continue;   // vom Schreiber auf seinem Branch zurueckgezogen — kein Verlust
+    const g = b.gilt && b.gilt.get(id);
+    if (g && zurueck.blobs && zurueck.blobs.has(g.blob)) continue;   // … auch je Fassung (Grabstein mit blob)
+    // Eine abgelaufene Lage oder ein abgelaufener Halt wirkt nicht mehr: nur noch in der Sicherung ist sie kein Verlust
+    // (vorher stand jede bereinigte Sitzung dauerhaft als „GERETTET" da, Gegenpruefung 4).
+    if (g && (g.e.art === 'lage' || g.e.art === 'halt') && !(Date.parse(String(g.e.bis || '')) > Date.now())) continue;
     const echt = [...q].filter(x => !A.istSicherungsRef(x));
     const gesichert = [...q].some(A.istSicherungsRef);
     if (!echt.length && gesichert) nurSicherung++;
@@ -537,6 +564,7 @@ function bezuege(b) {
 function schreiben(e, vonVorab) {
   if (!e.stand) { const v = laufendeVersion(); if (v) e.stand = v; }
   const absicht = e.art === 'lage' || e.art === 'halt', von = absicht ? (vonVorab || vonFuerAbsicht(e.art)) : ich();
+  if (!absicht) vonHinweis(von);
   const r = A.einspielen(WURZEL, [e], { von, absichtVon: absicht ? [von] : null, datum: e.datum, alleRefs: !o.nur_lokal });
   if (!r.ok) { aus('\nNICHT geschrieben — ' + r.fehler.length + ' Grund/Gruende:'); r.fehler.forEach(f => aus('  !! ' + f.grund)); ende(1, '\nFelder und ein Beispiel: node scripts/austausch.mjs hilfe ' + e.art); }
   const g = r.geschrieben[0];
@@ -728,9 +756,13 @@ function sichern() {
   if (r.umgelegt.length) aus('- Umgelegt (einmal gesichert, also bleibt es): ' + r.umgelegt.map(x => (x.id || 'ohne id') + ' Blob ' + String(x.blob).slice(0, 8) + ' — ' + x.grund).join(', '));
   if (r.uebersprungen.length) aus('- **Nicht gesichert**: ' + r.uebersprungen.map(x => x.id + ' {' + x.quelle + '} ' + x.grund).join(' · '));
   if (r.entfernt.length) aus('- Entfernt (Grabstein): ' + r.entfernt.join(', '));
-  if (r.vomSchreiber.length) aus('- Vom Schreiber zurueckgezogen (Grabstein auf seinem Branch; aus der Sicherung erst mit dem Grabstein auf main): ' + r.vomSchreiber.map(x => x.id + ' {' + x.quelle + '}').join(', '));
+  if (r.vomSchreiber.length) aus('- Vom Schreiber zurueckgezogen (Grabstein auf seinem Branch; aus der Sicherung, sobald der Grabstein auf main liegt oder sein Branch weg ist): ' + r.vomSchreiber.map(x => x.id + ' {' + x.quelle + '}').join(', '));
+  if (r.zurueckgezogenWeg.length) aus('- Zurueckgezogen und sein Branch ist weg — aus der Sicherung genommen, nicht gerettet: ' + r.zurueckgezogenWeg.map(x => x.id + ' {' + x.quelle + '}').join(', '));
+  if (r.abgelaufenWeg.length) aus('- Abgelaufene Lage/Halt nur noch hier (wirkt nicht mehr — kein Verlust; abgebaut nach ' + A.SICHERUNG_ABBAU_TAGE + ' Tagen): ' + ids(r.abgelaufenWeg).join(', '));
+  if (r.neuAngelegt.length) aus('- **Neu angelegt** (verschwand und kam wieder — seine Fassungen gelten nicht als Berichtigung des frueheren Schreibers): ' + r.neuAngelegt.join(', '));
+  if (r.bewahrt.length) aus('- Bewahrt ohne Gedaechtnis (der Name belegt den Inhalt; nie unter eintraege/ befoerdert): ' + r.bewahrt.map(x => (x.id || 'ohne id') + ' Blob ' + String(x.blob).slice(0, 8)).join(', '));
   if (r.abgebaut.length) aus('- Abgebaut (abgeloeste Fassung, Eintrag auf main, ' + A.SICHERUNG_ABBAU_TAGE + ' Tage auf keinem Branch): ' + ids(r.abgebaut).join(', '));
-  if (r.zurueckgenommen.length) aus('- **Zurueckgenommen?** Auf dem Branch des Schreibers liegt jetzt eine AELTERE Fassung als die zuletzt gesicherte (Ruecknahme — oder ein Force-Push hat zurueckgesetzt); die neuere liegt nur noch hier, unter fassungen/: ' + ids(r.zurueckgenommen).join(', '));
+  if (r.zurueckgenommen.length) aus('- **Zurueckgenommen?** Auf dem Branch des Schreibers liegt jetzt eine AELTERE Fassung als die zuletzt gesicherte (Ruecknahme — oder ein Force-Push hat zurueckgesetzt); die neuere liegt nur noch hier, unter fassungen/ (in jedem Lauf genannt, nie abgebaut): ' + ids(r.zurueckgenommen).join(', '));
   const still = !r.nurHier.length && !r.zurueckgenommen.length && !r.uebersprungenWeg.length && !r.unlesbarWeg.length;
   aus(r.nurHier.length ? '- **NUR NOCH IN DER SICHERUNG: ' + ids(r.nurHier).length + '** — ein Branch wurde geloescht oder zurueckgesetzt: ' + ids(r.nurHier).join(', ') + '. `node scripts/austausch.mjs ernten` holt in einen Arbeitsbaum, was dort stimmt.'
     : (still ? '- Nichts verloren: jede gesicherte Fassung liegt noch auf einem Branch (oder der Eintrag ihres Schreibers in neuerer Fassung auf main bzw. seinem Branch).' : '- Keine Fassung liegt nur noch hier — aber siehe oben.'));

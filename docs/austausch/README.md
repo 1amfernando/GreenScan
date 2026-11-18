@@ -171,8 +171,10 @@ Absicht. Alles hier ist eine **Pflicht zur Kenntnisnahme, keine Sperre** — ein
 von einer anderen Sitzung (Regel 4), und entschieden wird beim Merge (Koordinator, Fernando).
 
 `holen` zeigt zuerst **DICH BETREFFEND** — nur, wenn etwas zutrifft. **„Dein" heisst: von dir
-geschrieben** (`von` = `sitzung/<dein Branch>` bzw. `--von`; nach `git branch -m` auch der Name,
-unter dem dein Branch auf origin liegt) *und dort, wo du schreibst* (auf deinem Branch, im
+geschrieben** (`von` = `sitzung/<dein Branch>` bzw. `--von`; nach einem **belegten** `git branch -m`
+auch der alte Name, unter dem dein Branch auf origin liegt — belegt heisst: das Reflog deines Branches
+trägt das Umbenennen, und der erste Branch der Kette wurde nicht aus `origin/<upstream>` angelegt; ein
+Upstream aus `git checkout -b x origin/<fremd>` ist und bleibt fremd, Gegenprüfung 4) *und dort, wo du schreibst* (auf deinem Branch, im
 Arbeitsbaum oder auf `main`) — nicht „liegt in deinem Arbeitsbaum", dort liegt
 auch alles, was von `main` kam; und ein Eintrag mit deinem Namen auf einem fremden Branch ist nicht
 deiner. Darunter stehen: ein fremder Halt, der deine Änderung berührt · ein Veto gegen *deinen*
@@ -184,7 +186,9 @@ geht (`an: sitzung/<dein Branch>` zuerst, dann dein Branch-Name als ganzes Wort 
 sechs: „+N weitere") · ob dein Upstream anders heisst als dein Branch, ob dein Branch auf origin
 fehlt, ob niemand weiss, wer du bist (losgelöster HEAD — oder du auf `main` arbeitest, wo nichts „deins" ist) ·
 **deine Lage oder dein Halt, den die anderen für unwirksam halten** (rückdatiert, über dem Deckel, nur
-teilweise — mit Grund) · was
+teilweise — mit Grund) · **dein gepushter Eintrag, für den die anderen eine andere Fassung lesen** (oder
+ihn strittig nennen: `von` und Branch müssen zusammenpassen — nach einem Umzug oder mit berichtigtem
+`von` schreibst du ihn neu, mit neuer id, und ziehst den alten zurück) · was
 nur in deinem Arbeitsbaum liegt (nicht gepusht) und was ein Force-Push löschen würde. Danach
 **KRITISCH**, **LAGE** und **HALT UND VETO**.
 
@@ -222,7 +226,11 @@ nur in deinem Arbeitsbaum liegt (nicht gepusht) und was ein Force-Push löschen 
   „teilweise", wenn nur ein Ziel einer Lage über dem Deckel lag. Eine Übernahme gilt **je Schreiber und Ziel**,
   bis eine *spätere* Lage desselben Schreibers mit `fertig` sie freigibt (mit späterem
   Zeitstempel, nicht in derselben Sekunde) — ohne Bezug alle, mit `--bezug baut_auf:<id>` genau
-  diese; ein Fortschritt (`lage` ohne Bezug) oder eine zweite Übernahme nimmt der ersten nichts.
+  diese; ein Fortschritt (`lage` ohne Bezug) oder eine zweite Übernahme nimmt der ersten nichts. Für
+  den **Deckel** gibt ein `fertig` in derselben Sekunde frei (ein Stapel `[fertig, nehme]` gilt — vorher
+  hiess er „mehr als 3"). Eine **Verlängerung** (`nehme <id>` erneut, solange die vorige noch läuft,
+  ohne `fertig` dazwischen) setzt die Übernahme fort: geordnet wird nach dem Beginn der Kette — vorher
+  fiel, wer kurz vor Ablauf verlängerte, hinter einen, der später kam.
   **Die älteste Übernahme gilt** (in derselben Sekunde entscheidet die id — für jeden Leser gleich);
   wer später nimmt, wird abgewiesen (`--auch`: daneben **mithelfen** — das Feld `mithelfen: true`,
   nicht der Titel; eine Mithelf-Lage nimmt nichts, belegt keinen Platz im Deckel und steht nur bei
@@ -231,19 +239,31 @@ nur in deinem Arbeitsbaum liegt (nicht gepusht) und was ein Force-Push löschen 
   die Lage liegt (`sitzung/<b>` auf genau `origin/<b>` — nie derselbe Name auf einem anderen Remote
   —, im Arbeitsbaum nur die eigene, auf genau `origin/main` jede — ein Branch `claude/main` ist ein
   gewöhnlicher; eine Übernahme endet also nicht mit dem Merge) — sonst UNWIRKSAM; und der
-  Zeitstempel liegt höchstens 6 h vor und 15 min nach der **jüngsten Änderung** des Pfads auf
-  seinem Branch (Erst-Eltern-Linie, ein Merge gegen seinen ersten Elternteil, ohne
-  Umbenennungserkennung — ein Merge-Commit, ein `git mv` oder das Umschreiben eines alten Pfads
-  bringt keine rückdatierte Lage durch —, gemessen an der **Autor-Zeit**: `rebase`, `cherry-pick`
-  und `commit --amend` behalten sie) — sonst **rückdatiert** bzw. **vordatiert**, UNWIRKSAM; das
-  gilt auch für deine eigene Lage im Arbeitsbaum, sobald sie gepusht ist (`zeige` sagt dir
-  dasselbe wie den anderen); im flachen Klon nicht geprüft. *Grenze:* auch die Autor-Zeit ist eine
-  Selbstauskunft — das macht das Fälschen mühsamer, nicht unmöglich. Eine Lage oder einen Halt,
+  Zeitstempel liegt höchstens 6 h vor der frühesten Ankunft ihres **Anspruchs** (id, `von` und die
+  genommenen Ziele — eine Berichtigung des Textes behält ihre Zeit, neue Ziele sind ein neuer Anspruch)
+  und höchstens 15 min nach der Ankunft **dieser Fassung** — sonst **rückdatiert** bzw.
+  **vordatiert**, UNWIRKSAM. Gemessen wird **nur auf dem Branch des Schreibers** (eine Kopie auf einem
+  dritten Branch verschiebt nichts) und zuerst im **Verzeichnis des Wächters** (`docs/austausch/sicherung.json`
+  in `zz-sicherung`): wann er eine Fassung zuerst sah (`erst`) und wann zuletzt noch nicht (`nichtVor`) —
+  Zeiten, die kein Schreiber setzt; eine Fassung, die er nicht kennt, war bei seinem letzten Lauf nicht da.
+  Ohne Verzeichnis aus git, in der vollen Geschichte des Branches (ein Merge gegen seinen ersten Elternteil,
+  `-z`, ohne Umbenennungserkennung): die **Autor-Zeit** des frühesten Commits mit einer Fassung desselben
+  Anspruchs (`rebase` und `cherry-pick` behalten sie) bzw. die **Committer-Zeit** des frühesten Commits
+  mit genau dieser Fassung (ein ehrliches `commit --amend` in einen alten Commit heisst so nicht
+  „vordatiert"). Das gilt auch für deine eigene Lage im Arbeitsbaum, sobald sie gepusht ist (`zeige` sagt
+  dir dasselbe wie den anderen); eine Lage, deren Ankunft in einem vollen Klon nicht bestimmbar ist, wirkt
+  nicht; im flachen Klon ohne Verzeichnis nicht geprüft. *Grenze:* ohne Verzeichnis ist die Autor-Zeit eine
+  Selbstauskunft — `commit --amend` in einen eigenen alten Commit verschiebt sie (Gegenprüfung 4); mit
+  Verzeichnis heisst so eine Lage rückdatiert, sobald der Wächter einmal gelaufen ist. Eine Lage oder einen Halt,
   die ein Werkzeug mit fremdem `von` schreiben würde (`lage`, `nehme`, `halt`, `veto`,
-  `einspielen`), weist es ab; auf `main` gibt es beides nur von einem eigenen Branch aus.
-  **Prüfstand A10:** eine wirkende Lage oder ein wirkender Halt in fremdem Namen im Baum, der noch
-  nicht auf `main` liegt und nicht byte-gleich auf dem Branch seines Schreibers, ist rot — gemergt
-  wirkte er für alle (ein `fertig` im Namen eines anderen beendete dessen Übernahmen). Eine Bitte „Agent sucht diese Datei, bitte hochladen" ist eine
+  `einspielen`), weist es ab — auch aus einem losgelösten HEAD, wenn dieser Stand nicht von
+  `origin/<b>` abstammt; auf `main` gibt es beides nur von einem eigenen Branch aus.
+  **Prüfstand A10:** jede gültige Lage und jeder gültige Halt in fremdem Namen im Baum — **auch
+  abgelaufen** (eine abgelaufene Lage zählt im Deckel ihres Schreibers weiter mit) —, der noch nicht auf
+  `main` liegt und nicht byte-gleich auf dem Branch seines Schreibers, ist rot — gemergt wirkte er für
+  alle (ein `fertig` im Namen eines anderen beendete dessen Übernahmen). Wer „ich" ist: lokal die eigenen
+  Namen (oben), im PR `GITHUB_HEAD_REF` — aber nur, wenn der Kopf des PR auf `origin/<GITHUB_HEAD_REF>`
+  liegt (`prKopf`): im PR eines Forks wählt der Absender diesen Namen frei, und dann ist niemand „ich". Eine Bitte „Agent sucht diese Datei, bitte hochladen" ist eine
   `frage --an alle` (oder `--an koordinator`, `--an sitzung/<branch>`); geliefert wird mit
   `antworte <id> --geliefert <pfad>` — `geliefert` nennt Pfad und volle Commit-Kennung, und der
   Fragende sieht unter DICH BETREFFEND `git fetch origin && git show <commit>:<pfad>`. **Ohne
@@ -254,7 +274,8 @@ nur in deinem Arbeitsbaum liegt (nicht gepusht) und was ein Force-Push löschen 
 - **Fortschritt:** `lage --phase laeuft|letzte_runde|fertig --bis 3h [--runde 4/5]` — die Absicht,
   die git nicht kennt („Runde 5 ist die letzte"). Phasen: `laeuft` · `letzte_runde` · `fertig`.
   Sie steht im Block LAGE und in der Zeile ihres Branches unter FRISCHE BRANCHES; je Schreiber
-  zeigt sich die jüngste (deine mit „(du)"), `fertig` beendet die Anzeige. `bis` höchstens 24 h, `runde` hat die Form
+  zeigt sich die jüngste, die noch läuft (deine mit „(du)") — eine abgelaufene kurze Übernahme verdeckt
+  die laufende Runde nicht —, und `fertig` (auch abgelaufen) beendet die Anzeige. `bis` höchstens 24 h, `runde` hat die Form
   „4" oder „4/5". `ernten` holt weder Lage noch Halt: beide sind Absichten auf Zeit, kein Wissen.
 - **Halt:** `halt --geltung "gsKalenderEreignisse,scripts/kalender_check.js,bump" --bis 24h --text
   "Grund"`. `geltung` sind Pfade (Verzeichnis mit `/`, eine Datei ohne Punkt wie `_headers` geht
@@ -314,9 +335,12 @@ nur in deinem Arbeitsbaum liegt (nicht gepusht) und was ein Force-Push löschen 
   mit einem Namen im Text geht, das Original bleibt). Die Vereinigung, `ernten` und die Sicherung
   lassen solche ids bzw. Fassungen aus (auch wenn die Liste erst auf `origin/main` liegt), und eine
   Datei mit Grabstein, die noch im Baum liegt, ist ein Fehler. Ein Grabstein auf dem **eigenen**
-  Branch des Schreibers (vor dem Merge) zieht seinen Eintrag zurück: der Wächter meldet sein
-  Verschwinden nicht als Verlust, `ernten` holt ihn nicht zurück — aus der Sicherung geht er erst
-  mit dem Grabstein auf `main`; ein Grabstein auf einem fremden Branch zieht nichts zurück.
+  Branch des Schreibers (vor dem Merge; je id oder mit `blob` je Fassung) zieht seinen Eintrag zurück:
+  der Wächter meldet sein Verschwinden nicht als Verlust, `ernten` holt ihn nicht zurück. Der Wächter
+  **merkt sich den Rückzug**: wird der Branch danach ungemergt gelöscht, nimmt er die Fassung aus der
+  Sicherung, statt sie zu retten (vorher: ALARM, und der Eintrag blieb für immer); bis dahin geht sie mit
+  dem Grabstein auf `main`. Ein Grabstein auf einem fremden Branch zieht nichts zurück. *Grenze:* sieht
+  kein Wächterlauf den Rückzug, bevor der Branch weg ist, ist er nicht belegt.
 - **Wächter 2 und die Sicherung:** `.github/workflows/brett-waechter.yml` läuft **ohne Sitzung**
   stündlich (`node scripts/austausch.mjs sichern`) und kopiert jede Eintragsdatei jedes Branches
   byte-gleich auf den Branch **`zz-sicherung`** (das Z-Präfix: er sortiert hinter allen und wird
@@ -333,33 +357,56 @@ nur in deinem Arbeitsbaum liegt (nicht gepusht) und was ein Force-Push löschen 
   `--force-with-lease` auf den vorigen): was ein Grabstein entfernt, steht danach in keinem Commit
   des Branches mehr. **Was einmal gesichert war, entfernt nur ein Grabstein** (oder ein
   Geheimnis-Muster): liegt es verschoben, wird es zurückgelegt; nehmen es die heutigen Leseregeln
-  nicht mehr an, kommt es nach `quarantaene/<blob>.json`. Eine abgelöste Fassung eines Eintrags, der
-  auf `main` liegt, wird nach **30 Tagen** auf keinem Branch abgebaut (`SICHERUNG_ABBAU_TAGE`).
+  nicht mehr an, kommt es nach `quarantaene/<blob>.json`. Was der Wächter **nicht** gesichert hat
+  (unbekannt im Gedächtnis und im Verzeichnis, auf keinem Branch) und dennoch auf `zz-sicherung` liegt,
+  wird verworfen und genannt — vorher galt eine von Hand dort abgelegte Datei für alle Leser und verdrängte
+  das gerettete Original. **Abgebaut** wird nach **30 Tagen** auf keinem Branch (`SICHERUNG_ABBAU_TAGE`):
+  eine Kopie, die nie beim Schreiber lag, sobald der Eintrag auf `main` liegt; eine Fassung, die beim
+  Schreiber lag, nur, wenn dort eine *neuere* liegt; eine abgelaufene Lage oder ein abgelaufener Halt.
+  Unter `eintraege/` befördert er nie nach der Sortierung, wenn die Fassungen verschiedene `von` tragen (ein
+  strittiger Eintrag bleibt strittig, auch wenn beide Branches weg sind). Ein Branch-Name, der verschwand
+  und **neu angelegt** wird, ist nicht mehr der Branch des früheren Schreibers: seine Fassung gilt nicht
+  als Berichtigung (gemeldet, und im Verzeichnis für jeden Leser vermerkt — es sei denn, seine Geschichte
+  trägt die gesicherte Fassung). Das **Verzeichnis** `docs/austausch/sicherung.json` in `zz-sicherung`
+  nennt je Fassung id, `von`, Anspruch, `erst` und `nichtVor`, die neu angelegten Branches, die Quarantäne
+  und was der letzte Lauf mit Absicht entfernt hat — keine Titel; sein `stand` ändert sich nur mit dem
+  Inhalt (ein Lauf ohne Änderung schreibt nichts).
   *Grenze:* GitHub kann einen nicht mehr erreichbaren Commit über seine Kennung noch eine Weile
   ausliefern — ein echtes Geheimnis wird gewechselt, nicht nur entfernt (CLAUDE.md §3.6). Das
   **Gedächtnis** des Wächters (ids, Blobs, Quellen, erste und letzte Sichtung — keine Titel, keine
   Dateinamen) liegt ausserhalb der Sicherung (Actions-Cache) und wird erst **nach** einem
   erfolgreichen Push abgelegt. **ALARM** (Exit 3, der Lauf wird rot, einmal je Verlust): fehlt vor
-  dem Lauf, was zuletzt gesichert war (`zz-sicherung` zurückgesetzt oder gelöscht); liegt eine
+  dem Lauf, was zuletzt gesichert war (`zz-sicherung` zurückgesetzt oder gelöscht — was der letzte Lauf
+  laut Verzeichnis mit Absicht entfernt hat, zählt nicht, auch nicht nach einem gescheiterten Ablegen des
+  Caches); liegt eine
   Fassung neu nur noch in der Sicherung und hat ihr **Schreiber** (dasselbe `von`) den Eintrag
   nicht mehr zu Hause (auf `main`, im Arbeitsbaum oder auf seinem Branch) — auch wenn eine kaputte,
   gefälschte oder auf den eigenen Namen umgeschriebene Kopie anderswo liegt, auch wenn *alle*
-  Branches weg sind; verschwindet eine unlesbare Datei mit ihrem Branch; verschwindet eine Fassung,
-  die wegen eines Geheimnis-Musters nie gesichert wurde (eine Falschmeldung des Musters kostete
-  sonst still den Eintrag). **Kein** Alarm, aber gesagt: liegt beim Schreiber jetzt eine *ältere*
-  Fassung als die zuletzt gesicherte („Zurückgenommen?" — Rücknahme oder Force-Push; nie „Nichts
-  verloren"); entfernt oder repariert der Schreiber eine unlesbare Datei, während ihr Branch
-  besteht. Ohne Gedächtnis (oder ohne Sicherung und Gedächtnis) sagt er, dass Verluste so nicht
-  erkennbar sind. Sein Bericht nennt ids, Quellen und Blob-Kennungen, **nie Titel und nie
+  Branches weg sind; verschwindet ein unlesbarer Blob mit seinem Branch und liegt nirgends mehr (je Blob
+  gerechnet: ein umbenannter oder abgezweigter Branch trägt ihn weiter; `main` — der Arbeitsbaum des
+  Wächters — besteht immer); verschwindet eine Fassung, die wegen eines Geheimnis-Musters nie gesichert
+  wurde und die ihr Schreiber nicht zurückgezogen hat (eine Falschmeldung des Musters kostete sonst still
+  den Eintrag). **Kein** Alarm, aber gesagt: liegt beim Schreiber jetzt eine *ältere* Fassung als eine,
+  die schon einmal bei ihm lag („Zurückgenommen?" — Rücknahme oder Force-Push; in **jedem** Lauf, solange
+  die neuere nur hier liegt, nie „Nichts verloren", nie abgebaut: das Gedächtnis hält fest, dass sie beim
+  Schreiber lag); entfernt oder repariert der Schreiber eine unlesbare Datei, während ihr Branch besteht;
+  eine abgelaufene Lage oder ein abgelaufener Halt liegt nur noch hier (wirkt nicht mehr — kein Verlust,
+  kein GERETTET). Ohne Cache liest er das Gedächtnis aus dem Verzeichnis im bisherigen Stand (dann ist ein
+  Zurücksetzen der Sicherung in diesem Lauf nicht erkennbar — er sagt es); fehlt auch das, bewahrt er,
+  was sich selbst belegt (`fassungen/` und `quarantaene/`: der Name ist die Kennung des Inhalts), befördert
+  es aber nie unter `eintraege/`. Ein Gedächtnis im alten Format (ohne `erst`) heisst „erste Sichtung
+  unbekannt", nicht „jetzt". Sein Bericht nennt ids, Quellen und Blob-Kennungen, **nie Titel und nie
   Dateinamen** (er ist öffentlich, ein Dateiname trägt den Titel, und ein Grabstein erreicht ihn
   nicht). Die Action holt mit dem Token nur für den einen Push (`persist-credentials: false`, und
   der Token ist aus der Umgebung, bevor das Werkzeug läuft). `holen` holt mit `--prune` und zeigt
   GERETTET (nur noch in der Sicherung — `ernten` holt zurück, was hier stimmt) und GEFÄHRDET (auf nur
   einem Branch, noch nicht gesichert). Gemessen am 17.11.2026: 72 von 165 Einträgen lagen auf genau
-  einem Branch. *Grenze:* liegen zwei Fassungen mit verschiedenem `von` auf je dem Branch ihres
-  Schreibers, **bevor** der Wächter eine gesichert hat (höchstens eine Stunde), ist der Eintrag
-  strittig; wird danach der Branch des Originals gelöscht, gilt die übrige — der Alarm nennt den
-  Verlust, die Fassung liegt unter `fassungen/`.
+  einem Branch. *Grenze:* tragen zwei Fassungen verschiedene `von`, **bevor** der Wächter eine gesichert
+  hat (höchstens eine Stunde), ist der Eintrag strittig — für alle, bis jemand die Fälschung per Grabstein
+  entfernt; ein Branch, der innerhalb *eines* Wächterlaufs gelöscht und neu angelegt wird, fällt nicht als
+  „neu angelegt" auf; und wer `zz-sicherung` von Hand überschreibt, kann auch das Verzeichnis fälschen —
+  der nächste Lauf baut den Stand aus seinem Cache neu, aber dazwischen lesen alle das Gefälschte (dagegen
+  hilft nur eine Schutzregel für den Branch: eine Entscheidung für Fernando).
 
 Ids haben seit dem 18.11.2026 acht Hexstellen (am 11.11. entstanden 131 Einträge an einem Tag;
 bei vier Stellen 12 % Kollisionsrisiko). Alte Einträge behalten ihre vier.
@@ -377,14 +424,22 @@ Der Prüfstand sieht nur den Arbeitsbaum. Deshalb:
   auf `main` ankommt. Was einen anderen Baum beschreibt — ein „erledigt", ein Nachtrag mit
   Anker oder Zählung, ein Befund, dessen Anker es hier nicht gibt —, bleibt auf seinem
   Branch und wird mit Grund genannt. Nach dem Ernten ist der Prüfstand so grün wie davor.
-- Sieht ein Eintrag auf zwei Quellen verschieden aus, gilt der Arbeitsbaum, sonst genau
-  `origin/main`, sonst die Fassung des **Schreibers** auf seinem Branch (`origin/<b>`; der
-  Schreiber darf seinen ungemergten Eintrag berichtigen), sonst die gesicherte Fassung
-  (`zz-sicherung`). Der Schreiber ist eine Eigenschaft des *Eintrags*, nicht jeder Fassung: das
-  `von` der gesicherten Fassung, sonst das, das alle Fassungen tragen — eine Kopie auf einem
-  *dritten* Branch nimmt dem Original nichts, auch nicht, wenn sie ihr `von` auf den eigenen Branch
-  umschreibt. `lesen` meldet die Abweichung („umgeschrieben?"). Lässt sich keine Fassung so
-  zuordnen, ist der Eintrag **STRITTIG**: nicht gerechnet, und so genannt.
+- Sieht ein Eintrag auf zwei Quellen verschieden aus, gilt für einen **eigenen** Eintrag der
+  Arbeitsbaum (du berichtigst ihn gerade), sonst genau `origin/main`, sonst die Fassung des
+  **Schreibers** auf seinem Branch (`origin/<b>`; der Schreiber darf seinen ungemergten Eintrag
+  berichtigen — nicht aber, wer einen gelöschten Branch-Namen neu anlegt), sonst die gesicherte
+  Fassung (`zz-sicherung`). Für einen **fremden** Eintrag zählt die Kopie im eigenen Arbeitsbaum
+  nicht vor diesen (vorher hielt, wer den Branch eines anderen gemergt hatte, dessen berichtigten Halt
+  für unwirksam). Der Schreiber ist eine Eigenschaft des *Eintrags*, nicht jeder Fassung: das `von`
+  der gesicherten Fassung, sonst das, das **alle** Fassungen tragen — auch die, die ein Grabstein je
+  Fassung entfernt hat; eine Kopie auf einem *dritten* Branch nimmt dem Original nichts, auch nicht,
+  wenn sie ihr `von` auf den eigenen Branch umschreibt. `lesen` meldet die Abweichung
+  („umgeschrieben?"). Tragen die Fassungen verschiedene `von` und ist keine gesichert, fehlt eine
+  Fassung derselben id im lokalen Objektspeicher (Teilabruf), oder lässt sich sonst keine zuordnen,
+  ist der Eintrag **STRITTIG** — nicht gerechnet, mit Grund genannt.
+- **Der Ort eines Eintrags** ist `eintraege/<JJJJ-MM>/<name>.json`, und der Monat ist der seiner id —
+  im Arbeitsbaum wie auf jedem Remote-Ref. Eine Datei anderswo unter `eintraege/` ist unlesbar mit Grund
+  (vorher sah der Prüfstand sie nicht, jeder Leser auf `main` schon).
 - **Was von einem fremden Branch kommt, ist fremde Eingabe.** Eine Datei ohne `id`, mit
   falsch geformten Feldern oder einer unbekannten Art wird gemeldet, nicht gerechnet.
 - **Gelesen wird, was git lokal hat — nachgeladen wird nie.** In einem Teilabruf (die CI holt die
@@ -421,6 +476,11 @@ nur **angehängt**: alte Einträge werden nie umgeschrieben und müssen gültig 
 ## Grenzen
 
 Gelesen wird, was git lokal kennt; ohne Netz zeigt `holen` den alten Stand und sagt es.
+Wer ein Eintrag „ist", rechnet das Brett aus Branch-Namen, `von` und Zeiten — nichts davon ist
+signiert. Was eine Sitzung absichtlich fälschen kann, ohne eine fremde Branch zu beschreiben, wird
+gemessen und benannt (Gegenprüfungen 1–4); was nur mit Schreibrecht auf fremde Branches oder auf
+`zz-sicherung` geht, nicht. Nach einem Umzug (`git branch -m`) oder mit berichtigtem `von` ist ein
+alter Eintrag nicht mehr berichtigbar: neu schreiben (neue id), den alten zurückziehen.
 Ob ein Eintrag *klug* ist, rechnet niemand — gerechnet wird, ob er prüfbar, verbunden
 und ehrlich ist. Und das Brett erreicht nur, wer das Repo liest: eine Routine ohne
 Repo-Zugang schreibt weiter an ihm vorbei.

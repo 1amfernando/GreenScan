@@ -72,7 +72,9 @@ function mk(art, o) {
 const bz = (art, e) => ({ art, id: e.id });
 const brettAus = (eintraege) => ({ eintraege, unlesbar: [], doppelt: [], abweichend: [] });
 function ablegen(wurzel, e, name) {
-  const d = path.join(wurzel, A.ORDNER, e.id ? e.id.slice(0, 7) : '2026-01'); fs.mkdirSync(d, { recursive: true });
+  // Der Monatsordner ist der Monat der id — auch fuer eine rohe Zeichenkette (dann aus dem Namen; ohne id: 2026-01).
+  const id = typeof e === 'string' ? A.idAusName(name || '') : e.id;
+  const d = path.join(wurzel, A.ORDNER, id ? id.slice(0, 7) : '2026-01'); fs.mkdirSync(d, { recursive: true });
   const p = path.join(d, name || (e.id + '-' + e.art + '-x.json')); fs.writeFileSync(p, typeof e === 'string' ? e : JSON.stringify(e, null, 2) + '\n'); return p;
 }
 
@@ -222,7 +224,7 @@ const FAELLE = [
       // Nicht pruefbar (Exit 2), wenn „keiner beruehrt" eine Taeuschung waere: kein Branch sichtbar, oder Eintragsdateien
       // fehlen im Teilabruf, die einen Halt tragen koennten (C18). Die uebrigen Gruende sagen: hier gibt es nichts zu rechnen.
       if (r.grund) return r.nichtPruefbar ? { offen: true, warum: r.grund } : { ok: true, info: 'nicht rechenbar: ' + r.grund };
-      return { ok: true, info: (r.fehlend ? r.fehlend + ' Eintragsdatei(en) nicht geholt (Teilabruf: je mindestens ' + Math.round(r.fehlendAb / 1024) + ' KB, also kein gueltiger Eintrag) · ' : '') + r.halts.length + ' wirksame Halt(s) auf ' + r.refs + ' Remote-Refs und im Baum · ' + r.aend.dateien.length + ' Datei(en), ' + r.aend.funktionen.length + ' Funktion(en) geaendert' + (r.aend.bump ? ', mit Bump' : '') + ' · ' + (r.treffer.length ? '!! BERUEHRT: ' + r.treffer.map(x => x.h.e.id + ' {' + x.h.e._quelle + '} von ' + x.h.e.von + ' bis ' + x.h.e.bis + ' (' + x.t.slice(0, 3).join(', ') + ') — „' + kurz(x.h.e.text, 80) + '"').join(' | ') : 'keiner beruehrt diesen Stand') };
+      return { ok: true, info: (r.fehlend ? r.fehlend + ' Eintragsdatei(en) nicht geholt (Teilabruf: je mindestens ' + Math.round(r.fehlendAb / 1024) + ' KB laut Filter des Teilabrufs — groesser, als ein Eintrag sein darf) · ' : '') + r.halts.length + ' wirksame Halt(s) auf ' + r.refs + ' Remote-Refs und im Baum · ' + r.aend.dateien.length + ' Datei(en), ' + r.aend.funktionen.length + ' Funktion(en) geaendert' + (r.aend.bump ? ', mit Bump' : '') + ' · ' + (r.treffer.length ? '!! BERUEHRT: ' + r.treffer.map(x => x.h.e.id + ' {' + x.h.e._quelle + '} von ' + x.h.e.von + ' bis ' + x.h.e.bis + ' (' + x.t.slice(0, 3).join(', ') + ') — „' + kurz(x.h.e.text, 80) + '"').join(' | ') : 'keiner beruehrt diesen Stand') };
     },
   },
   {
@@ -244,21 +246,25 @@ const FAELLE = [
       const b = A.brettLesen(WURZEL, { alleRefs: true });
       if (!b.gitDa) return { offen: true, warum: 'git ist nicht verfuegbar' };
       if (A.git(WURZEL, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/main']) == null) return { offen: true, warum: 'origin/main ist nicht bekannt — ohne main laesst sich nicht sagen, was mit dem Merge neu wirkt' };
-      const ez = A.eigenerZweig(WURZEL), kopf = process.env.GITHUB_HEAD_REF || ez.name;
-      const namen = [kopf ? 'sitzung/' + kopf : null, ez.upstream ? 'sitzung/' + ez.upstream : null].filter(Boolean);
-      const jetzt = Date.now(), f = [];
+      // Wer ist „ich"? Im PR GITHUB_HEAD_REF — aber nur, wenn der Kopf des PR auf origin/<HEAD_REF> liegt (A.prKopf):
+      // im PR eines Forks waehlt der Absender den Namen frei (Gegenpruefung 4). Ausserhalb des PR der lokale Branch,
+      // und sein Upstream nur nach einem belegten `git branch -m` (A.eigeneNamen) — nie ein fremder.
+      const ez = A.eigenerZweig(WURZEL), imPR = !!process.env.GITHUB_HEAD_REF, kopf = imPR ? A.prKopf(WURZEL, process.env) : null;
+      const namen = imPR ? (kopf ? ['sitzung/' + kopf] : []) : A.eigeneNamen(ez);
+      const f = [];
       let n = 0;
       for (const [id, liste] of b.fassungen) for (const v of liste) {
         if (!v.quellen.has('Arbeitsbaum') || (v.e.art !== 'lage' && v.e.art !== 'halt') || [...v.quellen].some(A.istMainRef)) continue;
-        const w = A.wirksam(v.e, jetzt);
-        if (!w.ok && !(v.e.art === 'lage' && v.e.phase === 'fertig' && w.abgelaufen)) continue;   // abgelaufen wirkt nicht mehr — ausser ein „fertig"
+        // JEDE gueltige Lage und jeder gueltige Halt, auch abgelaufen: eine abgelaufene Lage zaehlt im Deckel ihres
+        // Schreibers weiter mit — gemergt kippte eine fremde abgelaufene Lage dessen laufende Uebernahme (Gegenpruefung 4).
+        if (A.eintragPruefen(v.e, v.e._datei).length) continue;
         n++;
         if (namen.indexOf(v.e.von) >= 0 || [...v.quellen].some(q => A.istAutorRef(q, A.autorZweig(v.e)))) continue;
         f.push(id + ' (' + v.e.art + ' von ' + v.e.von + ')');
       }
-      if (f.length && !namen.length) return { offen: true, warum: 'wer schreibt, ist nicht ablesbar (losgeloester HEAD, kein GITHUB_HEAD_REF) — ' + f.length + ' Absicht(en) ungeklaert: ' + f.slice(0, 4).join(', ') };
-      if (f.length) return { ok: false, warum: f.length + ' Absicht(en) in fremdem Namen im Baum — gemergt wirkten sie fuer alle: ' + f.slice(0, 6).join(', ') + '. Entfernen (git rm) oder vom Schreiber selbst schreiben lassen.' };
-      return { ok: true, info: n + ' wirkende Lage(n)/Halt(s) im Baum, die nicht schon auf main liegen — alle von ' + (namen.join(' / ') || 'niemandem') + ' oder vom Branch ihres Schreibers' };
+      if (f.length && !namen.length && !imPR) return { offen: true, warum: 'wer schreibt, ist nicht ablesbar (losgeloester HEAD, kein GITHUB_HEAD_REF) — ' + f.length + ' Absicht(en) ungeklaert: ' + f.slice(0, 4).join(', ') };
+      if (f.length) return { ok: false, warum: f.length + ' Absicht(en) in fremdem Namen im Baum — gemergt wirkten sie fuer alle: ' + f.slice(0, 6).join(', ') + (imPR && !kopf ? ' (GITHUB_HEAD_REF=' + process.env.GITHUB_HEAD_REF + ' ist kein Branch dieses Repos, der den Kopf des PR traegt — ein Fork?)' : '') + '. Entfernen (git rm) oder vom Schreiber selbst schreiben lassen.' };
+      return { ok: true, info: n + ' Lage(n)/Halt(s) im Baum, die nicht schon auf main liegen (auch abgelaufene) — alle von ' + (namen.join(' / ') || 'niemandem') + ' oder vom Branch ihres Schreibers' };
     },
   },
   {
@@ -2351,10 +2357,13 @@ const FAELLE = [
         for (const e of [ziel].concat(freie)) ablegen(d, e);
         g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'start']); g(d, ['push', '-q', 'origin', 'main']);
         zweig('claude/opfer', 'origin/main', [[krit]]);
-        // 0. Der Arbeitsbaum gilt vor origin/main (dort liegt, was diese Sitzung gerade schreibt).
+        // 0. Der Arbeitsbaum gilt vor origin/main — fuer einen EIGENEN Eintrag (dort berichtigt ihn diese Sitzung gerade).
+        //    Fuer einen FREMDEN gilt main: eine alte Kopie im eigenen Baum verdeckte sonst dessen Berichtigung (Gegenpruefung 4).
         { const pz = path.join(d, A.ORDNER, ziel.id.slice(0, 7), ziel.id + '-befund-x.json'); g(d, ['checkout', '-q', '--detach', 'origin/main']); fs.writeFileSync(pz, JSON.stringify(Object.assign({}, ziel, { titel: 'Im Arbeitsbaum berichtigt' }), null, 2) + '\n');
-          const b0 = A.brettLesen(d, { alleRefs: true }), z0 = b0.eintraege.find(e => e.id === ziel.id);
-          if (!z0 || z0.titel !== 'Im Arbeitsbaum berichtigt' || !b0.abweichend.some(x => x.id === ziel.id && /origin\/main/.test(x.weichtAb))) f.push('der Arbeitsbaum gilt nicht vor origin/main: ' + (z0 ? '„' + z0.titel + '" {' + z0._quelle + '}' : 'nichts'));
+          const b0 = A.brettLesen(d, { alleRefs: true, ich: ['sitzung/start'] }), z0 = b0.eintraege.find(e => e.id === ziel.id);
+          if (!z0 || z0.titel !== 'Im Arbeitsbaum berichtigt' || !b0.abweichend.some(x => x.id === ziel.id && /origin\/main/.test(x.weichtAb))) f.push('der Arbeitsbaum gilt nicht vor origin/main (eigener Eintrag): ' + (z0 ? '„' + z0.titel + '" {' + z0._quelle + '}' : 'nichts'));
+          const b1 = A.brettLesen(d, { alleRefs: true, ich: ['sitzung/claude/jemand'] }), z1 = b1.eintraege.find(e => e.id === ziel.id);
+          if (!z1 || z1.titel === 'Im Arbeitsbaum berichtigt') f.push('fuer einen FREMDEN Eintrag gilt die Kopie im Arbeitsbaum vor origin/main: ' + (z1 ? '„' + z1.titel + '"' : 'nichts'));
           g(d, ['checkout', '-q', '--', '.']); }
         // … und die Sicherung ist NIE der Branch eines Schreibers: ein Halt mit von = sitzung/zz-sicherung, den der Waechter
         // kopiert hat (hier: von Hand auf zz-sicherung gelegt), wirkt nicht.
@@ -2479,6 +2488,10 @@ const FAELLE = [
         const fremd = lage(Object.assign({ id: stamp(jetzt(-1)).datum + '-c0000033', von: 'sitzung/claude/nirgends', phase: 'fertig', bis: bisIn(3) }, stamp(jetzt(-1))));
         g(d, ['clean', '-fdq']); zweig('claude/dritter', 'origin/main', [[fremd]]);
         g(d, ['checkout', '-q', '-f', '-B', 'claude/pr', 'origin/main']); g(d, ['clean', '-fdq']);
+        // Ein PR aus DIESEM Repo: sein Kopf (ein eigener Commit) liegt auf origin/claude/pr (A.prKopf prueft das — ein
+        // Fork-PR hat dort nichts; ein Kopf ohne eigenen Commit laege auf JEDEM Branch, der von main abzweigt).
+        fs.writeFileSync(path.join(d, 'pr-marke.txt'), 'pr\n'); g(d, ['add', 'pr-marke.txt']); g(d, ['commit', '-q', '-m', 'pr']);
+        g(d, ['push', '-q', '-u', 'origin', 'claude/pr']);
         fs.mkdirSync(path.join(d, 'scripts'), { recursive: true });
         for (const n of ['austausch.mjs', '_austausch.mjs', 'austausch_check.js']) fs.copyFileSync(path.join(__dirname, n), path.join(d, 'scripts', n));
         const a10 = () => cp.spawnSync(process.execPath, [path.join(d, 'scripts', 'austausch_check.js')], { encoding: 'utf8', env: Object.assign({}, process.env, { AUSTAUSCH_FALL: 'A10', GITHUB_HEAD_REF: 'claude/pr' }) });
@@ -2492,9 +2505,310 @@ const FAELLE = [
         { fs.unlinkSync(path.join(d, A.ORDNER, stamp(jetzt(-1)).datum.slice(0, 7), stamp(jetzt(-1)).datum + '-c0000032-lage-x.json'));
           ablegen(d, fremd);   // byte-gleich auf claude/dritter — NICHT dem Branch ihres Schreibers
           x10 = a10(); if (x10.status !== 1 || !/c0000033/.test(x10.stdout)) f.push('A10: eine Lage im fremden Namen, byte-gleich auf einem DRITTEN Branch, ist nicht rot (Exit ' + x10.status + ')'); }
+        // 11b. Eine ABGELAUFENE Lage im fremden Namen ist rot: sie zaehlt gemergt im Deckel ihres Schreibers (Gegenpruefung 4).
+        { const tAb = stamp(jetzt(-3));
+          ablegen(d, lage(Object.assign({ id: tAb.datum + '-c0000035', von: 'sitzung/claude/ehrlich', phase: 'laeuft', bis: bisIn(-1), bezug: [freie[1], freie[3], freie[5]].map(x => ({ art: 'baut_auf', id: x.id })) }, tAb)));
+          x10 = a10(); if (x10.status !== 1 || !/c0000035/.test(x10.stdout)) f.push('A10: eine ABGELAUFENE Lage im Namen von claude/ehrlich im Baum ist nicht rot (Exit ' + x10.status + ')'); }
+        // 11c. Fork: GITHUB_HEAD_REF nennt einen fremden Branch, der den Kopf dieses PR nicht traegt — eine Lage in dessen
+        //      Namen ist ROT, und A8 nennt dessen Halts (vorher waehlte der Absender eines Fork-PR seine Identitaet frei).
+        { ablegen(d, lage(Object.assign({ id: stamp(jetzt(-1)).datum + '-c0000034', von: 'sitzung/claude/ehrlich', phase: 'fertig', bis: bisIn(3) }, stamp(jetzt(-1)))));
+          const xf = cp.spawnSync(process.execPath, [path.join(d, 'scripts', 'austausch_check.js')], { encoding: 'utf8', env: Object.assign({}, process.env, { AUSTAUSCH_FALL: 'A10', GITHUB_HEAD_REF: 'claude/ehrlich' }) });
+          if (xf.status !== 1 || !/c0000034/.test(xf.stdout) || !/Fork/.test(xf.stdout)) f.push('A10 mit GITHUB_HEAD_REF=claude/ehrlich (der Kopf liegt nicht auf origin/claude/ehrlich): eine Lage in dessen Namen ist nicht rot (Exit ' + xf.status + ') · ' + kurz(xf.stdout, 200));
+          if (A.prKopf(d, { GITHUB_HEAD_REF: 'claude/ehrlich' }) !== null) f.push('A.prKopf nimmt einen fremden Branch als „ich", dessen Spitze den Kopf nicht traegt');
+          if (A.prKopf(d, { GITHUB_HEAD_REF: 'claude/pr' }) !== 'claude/pr') f.push('A.prKopf erkennt den eigenen, gepushten PR-Branch nicht'); }
         g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']); g(d, ['clean', '-fdq']);
         if (f.length) return { ok: false, warum: f.join(' · ') };
         return { ok: true, info: 'claude/main ist nicht main (Halt-Kopie, fremder Halt, Ersatz) · Ersatz nur vom Branch des Schreibers · Rebase (Autor-Zeit) und flacher Klon wirken · Merge-Commit, git mv, umgeschriebener Pfad: rueckdatiert · eigene Sicht = fremde · branch -m: eigener Halt bleibt eigen, --von <alt> geht, --von fremd nicht · auf main eine Meldung · einspielen ohne fremdes von · --auch belegt keinen Platz, frei → abgewiesen, lage --bezug geprueft · zeige teilweise' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(eltern); }
+    },
+  },
+  {
+    name: 'C24 · Kern und Identitaet (Gegenpruefung 4) · als PROZESS: ein fremder Upstream ist nicht „ich" (sein Bump-Halt sperrt, sein Halt steht unter DICH BETREFFEND, in seinem Namen schreibt man nicht), ein losgeloester HEAD schreibt nicht im Namen eines fremden Branches; die Ankunft misst nur der Branch des Schreibers (eine Kopie mit frueherer Zeit nimmt nichts), eine ehrliche Berichtigung, ein Merge mit main vorn und ein Amend bleiben wirksam, das Verzeichnis des Waechters macht ein Amend in einen alten Commit „rueckdatiert"; verschiedene `von` ohne Sicherung sind strittig (auch nach einem Grabstein auf das Original und bei fehlendem Blob); fuer fremde Eintraege gilt nicht die alte Kopie im eigenen Baum; nur Monatsordner; der Name kommt nicht von einer Kopie; ein neu angelegter Branch berichtigt nichts; der Schreiber erfaehrt, was die anderen sehen; eine Verlaengerung behaelt den Platz, „fertig" in derselben Sekunde gibt frei, eine abgelaufene juengste Lage verdeckt nichts; A8 sieht unverbuchte Aenderungen',
+    lauf: () => {
+      const eltern = tmp('kern4'), bare = path.join(eltern, 'origin.git'), d = path.join(eltern, 'klon');
+      try {
+        const f = [];
+        const jetzt = (dh) => new Date(Date.now() + (dh || 0) * 36e5);
+        const stamp = (dt) => ({ datum: dt.toISOString().slice(0, 10), zeit: dt.toISOString().slice(11, 19) });
+        const bisIn = (h) => jetzt(h).toISOString().replace(/\.\d{3}Z$/, 'Z');
+        const gz = (dir, args, t, nurAutor) => cp.execFileSync('git', ['-C', dir, '-c', 'user.email=pruefstand@example.com', '-c', 'user.name=pruefstand', '-c', 'commit.gpgsign=false'].concat(args), { encoding: 'utf8', env: Object.assign({}, process.env, t ? (nurAutor ? { GIT_AUTHOR_DATE: t.toISOString() } : { GIT_AUTHOR_DATE: t.toISOString(), GIT_COMMITTER_DATE: t.toISOString() }) : {}) });
+        const zweig = (name, von, eintraege, t) => { g(d, ['checkout', '-q', '-B', name, von || 'origin/main']); for (const [e, n] of eintraege) ablegen(d, e, n); g(d, ['add', '-A']); gz(d, ['commit', '-q', '--allow-empty', '-m', name], t); g(d, ['push', '-q', '-f', 'origin', name]); g(d, ['checkout', '-q', '--detach', 'origin/main']); };
+        const holen = () => g(d, ['fetch', '-q', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*']);
+        const lesen = (ich) => { holen(); const b = A.brettLesen(d, { alleRefs: true, ich: ich || ['sitzung/claude/leser'] }); return { b, sw: A.schwarm(b.eintraege, Date.now(), { wo: b.wo, ich: ich || ['sitzung/claude/leser'] }) }; };
+        const halt = (o) => mk('halt', Object.assign({ text: 'bitte warten', geltung: ['bump'] }, o));
+        const lage = (o) => mk('lage', Object.assign({ phase: 'laeuft' }, o));
+        const blobVon = (e) => cp.execFileSync('git', ['hash-object', '--stdin'], { input: JSON.stringify(e, null, 2) + '\n', encoding: 'utf8' }).trim();
+        cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]);
+        cp.execFileSync('git', ['-C', bare, 'config', 'uploadpack.allowFilter', 'true']);
+        fs.mkdirSync(d); g(d, ['init', '-q', '-b', 'main', '.']); g(d, ['remote', 'add', 'origin', 'file://' + bare]);
+        fs.writeFileSync(path.join(d, 'index.html'), QUELLE); fs.writeFileSync(path.join(d, 'sw.js'), "const VERSION = 'gs-v1.00';\n");
+        fs.mkdirSync(path.join(d, 'scripts'));
+        for (const n of ['austausch.mjs', '_austausch.mjs', 'austausch_check.js']) fs.copyFileSync(path.join(__dirname, n), path.join(d, 'scripts', n));
+        const t0 = stamp(jetzt(-30));
+        const ziele = [1, 2, 3, 4, 5, 6].map(i => mk('befund', Object.assign({ id: t0.datum + '-d000000' + i, von: 'sitzung/start', titel: 'Ziel ' + i }, t0)));
+        for (const e of ziele) ablegen(d, e);
+        g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'start']); g(d, ['push', '-q', 'origin', 'main']);
+        // 1. Ein FREMDER Upstream (`git checkout -b x origin/<fremd>`) ist nicht „ich" (Runde 3 nahm jeden Upstream).
+        const tH = stamp(jetzt(-1));
+        const hBump = halt(Object.assign({ id: tH.datum + '-e0000001', von: 'sitzung/claude/fremd', geltung: ['bump'], bis: bisIn(8) }, tH));
+        const hZwei = halt(Object.assign({ id: tH.datum + '-e0000002', von: 'sitzung/claude/fremd', geltung: ['gsZwei'], bis: bisIn(8) }, tH));
+        zweig('claude/fremd', 'origin/main', [[hBump], [hZwei]]);
+        g(d, ['checkout', '-q', '-b', 'claude/s', 'origin/claude/fremd']);
+        fs.writeFileSync(path.join(d, 'index.html'), QUELLE.replace('return gsEins() + gsEins();', 'return 2;')); g(d, ['commit', '-q', '-am', 'gsZwei']);
+        { const ez = A.eigenerZweig(d), nm = A.eigeneNamen(ez);
+          if (nm.join() !== 'sitzung/claude/s' || ez.umbenannt) f.push('nach `checkout -b claude/s origin/claude/fremd`: eigene Namen ' + JSON.stringify(nm) + ' — erwartet nur sitzung/claude/s');
+          let r = werkzeug(d, ['naechste', '--json']); if (r.code !== 1) f.push('der Bump-Halt des fremden Upstreams sperrt `naechste` nicht (Exit ' + r.code + ')');
+          r = werkzeug(d, []); if (!new RegExp('HALT ' + hZwei.id).test(r.aus) || /Entweder weiter als --von sitzung\/claude\/fremd/.test(r.aus)) f.push('DICH BETREFFEND: der fremde Halt fehlt oder der Rat, im fremden Namen zu schreiben, steht da');
+          r = werkzeug(d, ['halt', '--geltung', 'gsEins', '--von', 'sitzung/claude/fremd', '--text', 'im fremden Namen']); if (r.code !== 2) f.push('`halt --von sitzung/<fremder Upstream>` wird geschrieben (Exit ' + r.code + ')');
+          // A10 lokal: eine Lage im Namen des fremden Upstreams ist rot.
+          ablegen(d, lage(Object.assign({ id: tH.datum + '-e0000003', von: 'sitzung/claude/fremd', phase: 'fertig', bis: bisIn(3) }, tH)));
+          const x = cp.spawnSync(process.execPath, [path.join(d, 'scripts', 'austausch_check.js')], { encoding: 'utf8', env: Object.assign({}, process.env, { AUSTAUSCH_FALL: 'A10', GITHUB_HEAD_REF: '' }) });
+          if (x.status !== 1 || !/e0000003/.test(x.stdout)) f.push('A10 lokal: eine Lage im Namen des fremden Upstreams ist nicht rot (Exit ' + x.status + ')');
+          g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']); g(d, ['clean', '-fdq', A.ORDNER]); }
+        // … und nach einem BELEGTEN Umbenennen ist der alte Name meiner.
+        g(d, ['checkout', '-q', '-b', 'claude/alt', 'origin/main']); g(d, ['push', '-q', '-u', 'origin', 'claude/alt']); g(d, ['branch', '-m', 'claude/neu']);
+        if (A.eigeneNamen(A.eigenerZweig(d)).join() !== 'sitzung/claude/neu,sitzung/claude/alt') f.push('nach `git branch -m` fehlt der alte Name unter den eigenen: ' + JSON.stringify(A.eigeneNamen(A.eigenerZweig(d))));
+        g(d, ['checkout', '-q', '--detach', 'origin/main']);
+        // 2. Losgeloester HEAD: nicht im Namen eines Branches, von dem dieser Stand nicht abstammt.
+        { let r = werkzeug(d, ['lage', '--phase', 'fertig', '--von', 'sitzung/claude/fremd', '--titel', 'fertig im fremden Namen']); if (r.code !== 2) f.push('losgeloester HEAD schreibt eine Lage im Namen von claude/fremd (Exit ' + r.code + ')');
+          r = werkzeug(d, ['lage', '--phase', 'laeuft', '--von', 'sitzung/claude/ganz-neu', '--titel', 'neuer Branch']); if (r.code !== 0) f.push('losgeloester HEAD mit einem Namen, den es auf origin nicht gibt, wird abgewiesen (Exit ' + r.code + ')');
+          g(d, ['clean', '-fdq', A.ORDNER]); }
+        // 3. Die Ankunft misst nur der Branch des Schreibers: eine byte-gleiche Kopie mit FRUEHERER Autor-Zeit auf einem dritten Branch.
+        const tA = stamp(jetzt(0));
+        const hA = halt(Object.assign({ id: tA.datum + '-e0000010', von: 'sitzung/claude/a', geltung: ['gsEins'], bis: bisIn(8) }, tA));
+        zweig('claude/a', 'origin/main', [[hA]]); zweig('claude/evil', 'origin/main', [[hA]], jetzt(-3));
+        { const L = lesen(); if (!L.sw.halts.some(h => h.e.id === hA.id)) f.push('eine Kopie mit frueherer Autor-Zeit auf einem dritten Branch macht den Halt „vordatiert": ' + ((L.sw.unwirksam.find(u => u.e.id === hA.id) || {}).grund || 'fehlt')); }
+        // 4. Ehrliche Ablaeufe ohne Verzeichnis: Berichtigung nach 7 h, Merge mit main als erstem Elternteil, Amend in einen alten Commit.
+        const t8 = jetzt(-8), lw = lage(Object.assign({ id: stamp(t8).datum + '-e0000020', von: 'sitzung/claude/w', bis: bisIn(10), bezug: [{ art: 'baut_auf', id: ziele[0].id }] }, stamp(t8)));
+        zweig('claude/w', 'origin/main', [[lw]], t8);
+        g(d, ['checkout', '-q', '-B', 'claude/w', 'origin/claude/w']); ablegen(d, Object.assign({}, lw, { titel: 'Berichtigt nach 7 h' })); g(d, ['add', '-A']); gz(d, ['commit', '-q', '-m', 'berichtigt'], jetzt(-1)); g(d, ['push', '-q', '-f', 'origin', 'claude/w']);
+        g(d, ['checkout', '-q', '-B', 'claude/w2', 'origin/main']); g(d, ['merge', '-q', '--no-ff', '--no-edit', 'origin/claude/w']); g(d, ['push', '-q', '-f', 'origin', 'claude/w2:claude/w']);
+        const hJ = halt(Object.assign({ id: stamp(jetzt(0)).datum + '-e0000021', von: 'sitzung/claude/h', geltung: ['gsEins'], bis: bisIn(6) }, stamp(jetzt(0))));
+        zweig('claude/h', 'origin/main', [], jetzt(-10)); g(d, ['checkout', '-q', '-B', 'claude/h', 'origin/claude/h']); ablegen(d, hJ); g(d, ['add', '-A']); gz(d, ['commit', '-q', '--amend', '--no-edit'], jetzt(-10), true); g(d, ['push', '-q', '-f', 'origin', 'claude/h']); g(d, ['checkout', '-q', '--detach', 'origin/main']);
+        { const L = lesen();
+          const u = L.sw.uebernahme.get(ziele[0].id); if (!u || u.lage.e.id !== lw.id) f.push('eine ehrlich berichtigte, per Merge (main vorn) aktualisierte Lage gilt nicht: ' + ((L.sw.unwirksam.find(x => x.e.id === lw.id) || {}).grund || 'keine Uebernahme'));
+          if (!L.sw.halts.some(h => h.e.id === hJ.id)) f.push('ein ehrlicher Halt per Amend in einen alten Commit heisst „vordatiert": ' + ((L.sw.unwirksam.find(x => x.e.id === hJ.id) || {}).grund || 'fehlt')); }
+        // 5. Ohne Verzeichnis ist die Autor-Zeit eine Selbstauskunft (Grenze) — MIT Verzeichnis ist ein Amend in einen 20 h alten
+        //    Commit rueckdatiert: der Waechter hat die Lage bei seinem letzten Lauf nicht gesehen.
+        const t20 = jetzt(-20), le = lage(Object.assign({ id: stamp(t20).datum + '-e0000022', von: 'sitzung/claude/e', bis: bisIn(3), bezug: [{ art: 'baut_auf', id: ziele[0].id }] }, stamp(t20)));
+        zweig('claude/e', 'origin/main', [], t20); g(d, ['checkout', '-q', '-B', 'claude/e', 'origin/claude/e']); ablegen(d, le); g(d, ['add', '-A']); gz(d, ['commit', '-q', '--amend', '--no-edit'], t20, true); g(d, ['push', '-q', '-f', 'origin', 'claude/e']); g(d, ['checkout', '-q', '--detach', 'origin/main']);
+        const lwJetzt = JSON.parse(g(d, ['show', 'origin/claude/w:' + A.ORDNER + '/' + lw.id.slice(0, 7) + '/' + lw.id + '-lage-x.json']));
+        const verz = { stand: jetzt(-0.5).toISOString(), fassungen: [{ id: lw.id, blob: blobVon(lwJetzt), von: lw.von, anspruch: A.anspruchKennung(lw), erst: jetzt(-7.5).toISOString(), nichtVor: jetzt(-8.5).toISOString() }], quarantaene: [], neuAngelegt: {}, entfernt: [] };
+        g(d, ['checkout', '-q', '--orphan', 'zzbau']); g(d, ['rm', '-rqf', '.']); fs.mkdirSync(path.join(d, 'docs', 'austausch'), { recursive: true }); fs.writeFileSync(path.join(d, A.VERZEICHNIS), JSON.stringify(verz, null, 1) + '\n'); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'zz']); g(d, ['push', '-q', '-f', 'origin', 'zzbau:zz-sicherung']); g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']); g(d, ['branch', '-q', '-D', 'zzbau']);
+        { const L = lesen(); const u = L.sw.uebernahme.get(ziele[0].id), ue = L.sw.unwirksam.find(x => x.e.id === le.id);
+          if (!u || u.lage.e.id !== lw.id || !ue || !/rueckdatiert[^]*Waechter/.test(ue.grund)) f.push('mit Verzeichnis: die per Amend in einen 20 h alten Commit gelegte Lage ' + (ue ? 'ist „' + ue.grund + '"' : 'wirkt') + ', es gilt ' + (u ? u.lage.e.von : 'niemand') + ' — erwartet sitzung/claude/w und „rueckdatiert … Waechter"'); }
+        // … ohne Verzeichnis: bekannte Grenze (die Autor-Zeit) — gemessen, damit niemand mehr behauptet.
+        g(d, ['push', '-q', 'origin', '--delete', 'zz-sicherung']);
+        { const L = lesen(); const u = L.sw.uebernahme.get(ziele[0].id); if (!u) f.push('ohne Verzeichnis: keine Uebernahme mehr fuer ' + ziele[0].id); }
+        // 6. Verschiedene `von` ohne Sicherung: strittig (nach `git branch -m` verlor das Original sonst gegen eine Faelschung).
+        const tK = stamp(jetzt(-1)), kB = mk('befund', Object.assign({ id: tK.datum + '-e0000030', von: 'sitzung/claude/neu', dringlichkeit: 'kritisch', titel: 'Login geht nicht mehr' }, tK));
+        zweig('claude/alt', 'origin/main', [[kB]]); zweig('claude/evil', 'origin/main', [[Object.assign({}, kB, { von: 'sitzung/claude/evil', titel: 'Login geht wieder', dringlichkeit: undefined })]]);
+        { const L = lesen(); const e = L.b.eintraege.find(x => x.id === kB.id); if (e || !L.b.strittig.some(x => x.id === kB.id && /verschiedenem/.test(x.grund || ''))) f.push('verschiedene `von`, nichts gesichert: es gilt ' + (e ? '„' + e.titel + '" von ' + e.von : 'nichts, aber nicht als strittig mit Grund')); }
+        // 7. Ein Grabstein (blob) auf das Original laesst die Faelschung nicht allein gelten.
+        const kO = mk('befund', Object.assign({ id: tK.datum + '-e0000031', von: 'sitzung/claude/orig', titel: 'Original' }, tK));
+        zweig('claude/orig', 'origin/main', [[kO]]); zweig('claude/evil', 'origin/claude/evil', [[Object.assign({}, kO, { von: 'sitzung/claude/evil', titel: 'Faelschung' })]]);
+        g(d, ['checkout', '-q', '-B', 'main', 'origin/main']); fs.writeFileSync(path.join(d, A.GRABSTEINE), JSON.stringify([{ id: kO.id, blob: blobVon(kO), datum: tK.datum, grund: 'ein Name im Text' }], null, 2) + '\n'); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'grab']); g(d, ['push', '-q', 'origin', 'main']); g(d, ['checkout', '-q', '--detach', 'origin/main']);
+        { const L = lesen(); const e = L.b.eintraege.find(x => x.id === kO.id); if (e) f.push('nach einem Grabstein auf das Original gilt die Faelschung allein: „' + e.titel + '" von ' + e.von); }
+        // 8. Fuer einen FREMDEN Halt gilt nicht die alte Kopie im eigenen Baum: der Schreiber berichtigt ihn auf seinem Branch.
+        const hM = halt(Object.assign({ id: tA.datum + '-e0000040', von: 'sitzung/claude/fremd2', geltung: ['bump'], bis: bisIn(8) }, tA));
+        zweig('claude/fremd2', 'origin/main', [[hM]]);
+        g(d, ['checkout', '-q', '-B', 'claude/m', 'origin/main']); g(d, ['merge', '-q', '--no-edit', 'origin/claude/fremd2']);
+        zweig('claude/fremd2', 'origin/claude/fremd2', [[Object.assign({}, hM, { text: 'bitte warten — Migration laeuft' })]]);
+        g(d, ['checkout', '-q', 'claude/m']);
+        { const L = lesen(['sitzung/claude/m']); if (!L.sw.halts.some(h => h.e.id === hM.id)) f.push('nach dem Merge eines fremden Halts und dessen Berichtigung haelt diese Sitzung ihn fuer unwirksam: ' + ((L.sw.unwirksam.find(x => x.e.id === hM.id) || {}).grund || 'fehlt')); }
+        g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']);
+        // 9. Nur Monatsordner — fuer den Arbeitsbaum UND jeden Remote-Ref (eintraege/x/ sah der Pruefstand nicht, jeder Leser schon).
+        const lX = lage(Object.assign({ id: tA.datum + '-e0000050', von: 'sitzung/claude/ehrlich', phase: 'fertig', bis: bisIn(3) }, tA));
+        zweig('claude/ordner', 'origin/main', []); g(d, ['checkout', '-q', '-B', 'claude/ordner', 'origin/claude/ordner']);
+        fs.mkdirSync(path.join(d, A.ORDNER, 'x'), { recursive: true }); fs.writeFileSync(path.join(d, A.ORDNER, 'x', lX.id + '-lage-x.json'), JSON.stringify(lX, null, 2) + '\n');
+        fs.mkdirSync(path.join(d, A.ORDNER, 'a"b'), { recursive: true }); fs.writeFileSync(path.join(d, A.ORDNER, 'a"b', tA.datum + '-e0000051-lage-x.json'), JSON.stringify(Object.assign({}, lX, { id: tA.datum + '-e0000051' }), null, 2) + '\n');
+        { const lo = A.brettLesen(d, { alleRefs: false }); if (lo.unlesbar.filter(u => /Monatsordner/.test(u.grund)).length !== 2 || lo.eintraege.some(e => /e000005/.test(e.id))) f.push('Arbeitsbaum: Dateien ausserhalb der Monatsordner werden nicht als unlesbar genannt: ' + JSON.stringify(lo.unlesbar.map(u => u.grund))); }
+        g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'ordner']); g(d, ['push', '-q', '-f', 'origin', 'claude/ordner']); g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']);
+        { const L = lesen(); if (L.b.eintraege.some(e => /e000005/.test(e.id)) || L.b.unlesbar.filter(u => u.quelle === 'origin/claude/ordner' && /Monatsordner/.test(u.grund)).length !== 2) f.push('Remote-Ref: eine Datei ausserhalb der Monatsordner gilt als Eintrag'); }
+        // 10. Der Name kommt nicht von einer Kopie: das Original nur in der Sicherung, eine byte-gleiche Kopie unter anderem Namen.
+        const kN = mk('befund', Object.assign({ id: tA.datum + '-e0000060', von: 'sitzung/claude/weg', titel: 'Ein Befund' }, tA));
+        g(d, ['checkout', '-q', '--orphan', 'zzbau']); g(d, ['rm', '-rqf', '.']); ablegen(d, kN, kN.id + '-befund-ein-befund.json'); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'zz']); g(d, ['push', '-q', '-f', 'origin', 'zzbau:zz-sicherung']); g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']); g(d, ['branch', '-q', '-D', 'zzbau']);
+        zweig('claude/0-kopie', 'origin/main', [[kN, kN.id + '-befund-ein-vorname-nachname.json']]);
+        { const L = lesen(); const v = L.b.gilt.get(kN.id); if (!v || v.e._datei !== kN.id + '-befund-ein-befund.json') f.push('die gerettete Fassung traegt den Namen einer Kopie: ' + (v ? v.e._datei : 'nichts')); }
+        // 11. Ein NEU ANGELEGTER Branch (laut Verzeichnis) berichtigt nichts; ohne den Vermerk gilt seine Fassung (Gegenprobe).
+        const kR = mk('befund', Object.assign({ id: tA.datum + '-e0000070', von: 'sitzung/claude/r', dringlichkeit: 'kritisch', titel: 'Login geht nicht mehr' }, tA));
+        const zzMit = (na) => { g(d, ['checkout', '-q', '--orphan', 'zzbau']); g(d, ['rm', '-rqf', '.']); ablegen(d, kR); fs.mkdirSync(path.join(d, 'docs', 'austausch'), { recursive: true }); fs.writeFileSync(path.join(d, A.VERZEICHNIS), JSON.stringify({ stand: jetzt(-0.5).toISOString(), fassungen: [{ id: kR.id, blob: blobVon(kR), von: kR.von, anspruch: A.anspruchKennung(kR), erst: jetzt(-5).toISOString(), nichtVor: jetzt(-6).toISOString() }], quarantaene: [], neuAngelegt: na, entfernt: [] }, null, 1) + '\n'); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'zz']); g(d, ['push', '-q', '-f', 'origin', 'zzbau:zz-sicherung']); g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']); g(d, ['branch', '-q', '-D', 'zzbau']); };
+        zweig('claude/r', 'origin/main', [[Object.assign({}, kR, { titel: 'Login geht wieder', dringlichkeit: undefined })]]);
+        zzMit({ 'origin/claude/r': jetzt(-1).toISOString() });
+        { const L = lesen(); const e = L.b.eintraege.find(x => x.id === kR.id); if (!e || e.titel !== 'Login geht nicht mehr' || !(L.b.neuAngelegt || []).some(x => x.id === kR.id)) f.push('ein neu angelegter Branch „berichtigt" den gesicherten Eintrag: es gilt ' + (e ? '„' + e.titel + '" {' + e._quelle + '}' : 'nichts')); }
+        zzMit({});
+        { const L = lesen(); const e = L.b.eintraege.find(x => x.id === kR.id); if (!e || e.titel !== 'Login geht wieder') f.push('Gegenprobe: ohne Vermerk „neu angelegt" gilt die Berichtigung des Schreibers nicht: ' + (e ? '„' + e.titel + '"' : 'nichts')); }
+        // 12. Der Schreiber erfaehrt, was die anderen sehen: gepushte Fassung mit berichtigtem `von`, die Sicherung haelt die alte.
+        const kT = halt(Object.assign({ id: tA.datum + '-e0000080', von: 'sitzung/claude/t-tippfehler', geltung: ['gsEins'], bis: bisIn(8) }, tA));
+        g(d, ['checkout', '-q', '--orphan', 'zzbau']); g(d, ['rm', '-rqf', '.']); ablegen(d, kT); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'zz']); g(d, ['push', '-q', '-f', 'origin', 'zzbau:zz-sicherung']); g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']); g(d, ['branch', '-q', '-D', 'zzbau']);
+        zweig('claude/t', 'origin/main', [[Object.assign({}, kT, { von: 'sitzung/claude/t' })]]); g(d, ['checkout', '-q', '-B', 'claude/t', 'origin/claude/t']); holen();
+        { const b = A.brettLesen(d, { alleRefs: true, ich: ['sitzung/claude/t'] }); if (!b.giltAndere.has(kT.id)) f.push('der Schreiber erfaehrt nicht, dass fuer die anderen eine andere Fassung seines Halts gilt');
+          const r = werkzeug(d, []); if (!new RegExp('DEIN EINTRAG ' + kT.id + ': du siehst deine Fassung').test(r.aus)) f.push('DICH BETREFFEND sagt dem Schreiber nicht, dass die anderen eine andere Fassung sehen'); }
+        g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']);
+        // 13. Fehlt der Blob des Originals (Teilabruf), gilt nicht die umgeschriebene Kopie eines DRITTEN.
+        const kG = mk('befund', Object.assign({ id: tA.datum + '-e0000090', von: 'sitzung/claude/schreiber', titel: 'Giftstufe falsch' }, tA));
+        zweig('claude/schreiber', 'origin/main', [[kG]]); zweig('claude/dritter', 'origin/main', [[Object.assign({}, kG, { titel: 'Alles in Ordnung' })]]);
+        { const tc = path.join(eltern, 'teil'); cp.execFileSync('git', ['clone', '-q', '--filter=blob:none', '--no-checkout', 'file://' + bare, tc], { stdio: 'ignore' });
+          g(tc, ['checkout', '-q', 'origin/claude/dritter']); g(tc, ['checkout', '-q', '-b', 'claude/leser', 'origin/main']);
+          const b = A.brettLesen(tc, { alleRefs: true }), e = b.eintraege.find(x => x.id === kG.id);
+          if (e || !b.strittig.some(x => x.id === kG.id)) f.push('fehlt der Blob des Originals, gilt ' + (e ? '„' + e.titel + '" {' + e._quelle + '}' : 'nichts — aber nicht strittig')); }
+        // 14. Der Schwarm: Verlaengern, „fertig" in derselben Sekunde, abgelaufene juengste Lage (gebaute Lagen, Uhr gestellt).
+        { const T = Date.parse('2026-03-01T00:00:00Z'), at = (h) => { const x = new Date(T + h * 36e5).toISOString(); return { datum: x.slice(0, 10), zeit: x.slice(11, 19) }; }, bis = (h) => new Date(T + h * 36e5).toISOString().replace(/\.\d{3}Z$/, 'Z');
+          const X = mk('befund', Object.assign({ id: '2026-02-27-f0000001' }, at(-48))), Y = [2, 3, 4, 5].map(i => mk('befund', Object.assign({ id: '2026-02-27-f000000' + i }, at(-48))));
+          const L = (id, von, h, b, ziele, extra) => mk('lage', Object.assign({ id, von, phase: 'laeuft', bis: bis(b) }, (ziele || []).length ? { bezug: ziele.map(z => ({ art: 'baut_auf', id: z.id })) } : {}, at(h), extra || {}));
+          const p1 = L('2026-03-01-f1000001', 'sitzung/p', 0, 6, [X]), q1 = L('2026-03-01-f1000002', 'sitzung/q', 1, 7, [X]), p2 = L('2026-03-01-f1000003', 'sitzung/p', 5.83, 11.83, [X]);
+          const s1 = A.schwarm([X, p1, q1, p2], T + 6.02 * 36e5, {}), u1 = s1.uebernahme.get(X.id);
+          if (!u1 || u1.lage.e.von !== 'sitzung/p') f.push('wer kurz vor Ablauf verlaengert, verliert die Uebernahme an ' + (u1 ? u1.lage.e.von : 'niemanden'));
+          const h3 = L('2026-03-01-f2000001', 'sitzung/r', 10, 20, Y.slice(0, 3)), fe = L('2026-03-01-f2000002', 'sitzung/r', 11, 12, [], { phase: 'fertig' }), n4 = L('2026-03-01-f2000003', 'sitzung/r', 11, 15, [Y[3]]);
+          const s2 = A.schwarm(Y.concat([h3, fe, n4]), T + 11.5 * 36e5, {}), u2 = s2.uebernahme.get(Y[3].id);
+          if (!u2 || u2.lage.e.id !== n4.id) f.push('„fertig" und eine neue Uebernahme in derselben Sekunde: die neue gilt nicht — ' + ((s2.unwirksam.find(x => x.e === n4) || {}).grund || ''));
+          const ra = L('2026-03-01-f3000001', 'sitzung/s', 0, 20, [], { phase: 'letzte_runde', runde: '5/5' }), rb = L('2026-03-01-f3000002', 'sitzung/s', 0.01, 1.5, [X]);
+          const s3 = A.schwarm([X, ra, rb], T + 2 * 36e5, {});
+          if (!s3.lagen.some(l => l.e.id === ra.id)) f.push('eine abgelaufene juengste Lage verdeckt die laufende Runde');
+          // Eine Lage, deren Ankunft in einem vollen Klon nicht bestimmbar ist, wirkt nicht (brettLesen setzt _ankunftUnbekannt).
+          const lu = L('2026-03-01-f4000001', 'sitzung/u', 0, 10, [Y[0]]); Object.defineProperty(lu, '_ankunftUnbekannt', { value: true });
+          const s4 = A.schwarm(Y.concat([lu]), T + 36e5, {}); if (!s4.unwirksam.some(x => x.e === lu && /nicht bestimmbar/.test(x.grund)) || s4.uebernahme.has(Y[0].id)) f.push('eine Lage mit unbestimmbarer Ankunft nimmt ihr Ziel'); }
+        // 15. A8 lokal mit einer UNVERBUCHTEN Aenderung: der fremde Halt auf gsZwei beruehrt sie.
+        g(d, ['checkout', '-q', '-B', 'claude/y', 'origin/main']); fs.writeFileSync(path.join(d, 'index.html'), QUELLE.replace('return gsEins() + gsEins();', 'return 3;'));
+        { const h = A.haltsDiesesStands(d, {}); if (h.grund || !(h.treffer || []).some(x => x.h.e.id === hZwei.id)) f.push('A8 lokal bei einer unverbuchten Aenderung: ' + (h.grund || 'kein Treffer auf ' + hZwei.id)); }
+        g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']);
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: 'fremder Upstream ≠ ich (naechste 1, HALT, --von abgewiesen, A10 rot), branch -m belegt · losgeloester HEAD nur eigener Name · Kopie mit frueherer Zeit nimmt nichts · Berichtigung, Merge main-vorn, Amend wirken · mit Verzeichnis: Amend-Rueckdatierung erkannt · verschiedene von / Grabstein / fehlender Blob: strittig · fremder Halt nach Merge berichtigt wirkt · nur Monatsordner · Name aus der Sicherung · neu angelegt berichtigt nichts (Gegenprobe) · DEIN EINTRAG · Verlaengern, fertig in derselben Sekunde, abgelaufene juengste Lage · A8 unverbucht' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(eltern); }
+    },
+  },
+  {
+    name: 'C25 · Waechter (Gegenpruefung 4) · der ECHTE Schritt aus brett-waechter.yml: ein Rueckzug des Schreibers (je id oder je Fassung) gilt auch, nachdem sein Branch geloescht ist — kein Alarm, nicht mehr gesichert; eine neuere Berichtigung, die nur noch hier liegt, heisst in JEDEM Lauf „Zurueckgenommen?" und wird nie abgebaut; ohne Cache bleibt die Quarantaene (aus dem Verzeichnis, sonst weil der Name den Inhalt belegt); ein strittiger Eintrag wird nach dem Loeschen beider Branches nicht nach der Sortierung befoerdert; eine von Hand auf zz-sicherung gelegte Datei wird verworfen; ein unlesbarer Blob, der auf einem anderen Branch weiterlebt, ist kein Verlust; ein Rueckzug einer nie gesicherten Fassung ist kein Alarm; abgelaufene Lagen eines geloeschten Branches sind kein Verlust und kein „GERETTET"; ein veraltetes Gedaechtnis meldet einen Abbau nicht als Verlust; das Verzeichnis traegt erst/nichtVor und bleibt ohne Aenderung gleich',
+    lauf: () => {
+      const eltern = tmp('waechter4'), bare = path.join(eltern, 'origin.git'), d = path.join(eltern, 'klon'), cache = path.join(eltern, 'cache');
+      try {
+        const f = [];
+        const yml = lies('.github/workflows/brett-waechter.yml');
+        const schritt = ((yml.match(/name: Sicherung schreiben und melden\n(?: +env:\n(?: {10}[^\n]*\n)+)? +run: \|\n((?: {10}[^\n]*\n|\n)+)/) || [])[1] || '').replace(/^ {10}/gm, '');
+        if (!schritt) return { ok: false, warum: 'der Schritt „Sicherung schreiben und melden" ist nicht lesbar' };
+        cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]);
+        fs.mkdirSync(d); g(d, ['init', '-q', '-b', 'main', '.']); g(d, ['remote', 'add', 'origin', 'file://' + bare]);
+        fs.mkdirSync(path.join(d, 'scripts'));
+        for (const n of ['austausch.mjs', '_austausch.mjs']) fs.copyFileSync(path.join(__dirname, n), path.join(d, 'scripts', n));
+        fs.writeFileSync(path.join(d, 'index.html'), QUELLE);
+        const m1 = mk('befund', { id: '2026-01-01-1111', titel: 'Auf main' });
+        ablegen(d, m1); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'm1']); g(d, ['push', '-q', 'origin', 'main']);
+        fs.mkdirSync(cache); const leer = path.join(eltern, 'gitconfig'); fs.writeFileSync(leer, '');
+        let lauf = 0;
+        const action = () => {
+          const ws = path.join(eltern, 'lauf' + (++lauf), 'ws'); fs.mkdirSync(ws, { recursive: true });
+          const env = Object.assign({}, process.env, { GIT_CONFIG_GLOBAL: leer, GIT_CONFIG_NOSYSTEM: '1', GH_TOKEN: 'unbenutzt', RUNNER_TEMP: cache, GITHUB_STEP_SUMMARY: path.join(eltern, 'zusammenfassung.md'), AUSTAUSCH_WURZEL: '', AUSTAUSCH_VON: '' });
+          for (const a of [['init', '-q', '-b', 'main', '.'], ['remote', 'add', 'origin', 'file://' + bare], ['fetch', '-q', '--depth=1', 'origin', '+refs/heads/main:refs/remotes/origin/main'], ['checkout', '-q', '-B', 'main', 'refs/remotes/origin/main']]) cp.execFileSync('git', a, { cwd: ws, env, stdio: 'ignore' });
+          const x = cp.spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', schritt], { cwd: ws, encoding: 'utf8', env });
+          g(d, ['fetch', '-q', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*']);
+          return { code: x.status, aus: (x.stdout || '') + (x.stderr || '') };
+        };
+        const zz = (args) => { try { return g(d, args); } catch (_) { return ''; } };
+        const baumZz = () => zz(['ls-tree', '-r', 'origin/zz-sicherung']);
+        const standDatei = path.join(cache, 'brett-stand', 'stand.json'), gedaechtnis = () => JSON.parse(fs.readFileSync(standDatei, 'utf8'));
+        const blobVon = (e) => cp.execFileSync('git', ['hash-object', '--stdin'], { input: typeof e === 'string' ? e : JSON.stringify(e, null, 2) + '\n', encoding: 'utf8' }).trim();
+        const neuerZweig = (name, eintraege, von) => { g(d, ['checkout', '-q', '-B', name, von || 'origin/main']); for (const [e, n] of eintraege) ablegen(d, e, n); g(d, ['add', '-A']); g(d, ['commit', '-q', '--allow-empty', '-m', name]); g(d, ['push', '-q', '-f', 'origin', name]); g(d, ['checkout', '-q', '--detach', 'origin/main']); };
+        const aufZweig = (name, tun) => { g(d, ['checkout', '-q', '-B', name, 'origin/' + name]); tun(); g(d, ['add', '-A']); g(d, ['commit', '-q', '--allow-empty', '-m', 'aenderung']); g(d, ['push', '-q', '-f', 'origin', name]); g(d, ['checkout', '-q', '--detach', 'origin/main']); };
+        const loesche = (...namen) => { for (const n of namen) g(d, ['push', '-q', 'origin', '--delete', n]); g(d, ['checkout', '-q', '--detach']); for (const n of namen) { try { g(d, ['branch', '-q', '-D', n]); } catch (_) {} } };
+        const pfadVon = (e) => path.join(d, A.ORDNER, e.id.slice(0, 7), e.id + '-' + e.art + '-x.json');
+        let a = action();
+        if (a.code !== 0) return { ok: false, warum: 'Aufbau: erster Lauf Exit ' + a.code + ' · ' + kurz(a.aus, 300) };
+        // 0. Das Verzeichnis: in zz-sicherung, mit erst/nichtVor; ein Lauf ohne Aenderung schreibt keinen neuen Stand.
+        { const v = A.verzeichnisPruefen(zz(['show', 'origin/zz-sicherung:' + A.VERZEICHNIS]));
+          if (!v || !v.je.has(blobVon(m1))) f.push('das Verzeichnis fehlt in zz-sicherung oder nennt m1 nicht');
+          const k = zz(['rev-parse', 'origin/zz-sicherung']).trim(); a = action();
+          if (a.code !== 0 || zz(['rev-parse', 'origin/zz-sicherung']).trim() !== k || !/Nichts Neues zu sichern/.test(a.aus)) f.push('ein Lauf ohne Aenderung schreibt einen neuen Stand (das Verzeichnis aendert sich in jedem Lauf?)'); }
+        // 1. Rueckzug auf dem eigenen Branch (je id), danach Branch geloescht: kein Alarm, nicht mehr gesichert, nicht „GERETTET".
+        const x1 = mk('befund', { id: '2026-01-04-dddd', datum: '2026-01-04', von: 'sitzung/claude/x', titel: 'Mit einem Namen (soll weg)' });
+        neuerZweig('claude/x', [[x1]]); a = action();
+        aufZweig('claude/x', () => { fs.unlinkSync(pfadVon(x1)); fs.writeFileSync(path.join(d, A.GRABSTEINE), JSON.stringify([{ id: x1.id, datum: '2026-01-04', grund: 'ein Name im Text' }], null, 2) + '\n'); });
+        a = action(); if (a.code !== 0 || !/zurueckgezogen[^\n]*2026-01-04-dddd/.test(a.aus)) f.push('Rueckzug je id: Exit ' + a.code + ' · ' + kurz(a.aus, 200));
+        loesche('claude/x'); a = action();
+        if (a.code !== 0 || /ALARM/.test(a.aus) || baumZz().indexOf(blobVon(x1)) >= 0) f.push('Rueckzug, danach Branch geloescht: Exit ' + a.code + (/ALARM/.test(a.aus) ? ', ALARM' : '') + (baumZz().indexOf(blobVon(x1)) >= 0 ? ', noch gesichert' : '') + ' · ' + kurz(a.aus, 200));
+        { const r = werkzeug(d, ['holen']); if (/GERETTET/.test(r.aus)) f.push('ein zurueckgezogener Eintrag eines geloeschten Branches steht als „GERETTET" da'); }
+        // … je Fassung (Grabstein mit blob auf dem eigenen Branch): kein Alarm schon beim Rueckzug.
+        const y1 = mk('befund', { id: '2026-01-05-eeee', datum: '2026-01-05', von: 'sitzung/claude/y', titel: 'Diese Fassung soll weg' });
+        neuerZweig('claude/y', [[y1]]); a = action();
+        aufZweig('claude/y', () => { fs.unlinkSync(pfadVon(y1)); fs.writeFileSync(path.join(d, A.GRABSTEINE), JSON.stringify([{ id: y1.id, blob: blobVon(y1), datum: '2026-01-05', grund: 'diese Fassung' }], null, 2) + '\n'); });
+        a = action(); if (a.code !== 0 || /ALARM/.test(a.aus)) f.push('Rueckzug je Fassung (Grabstein mit blob auf dem eigenen Branch): Exit ' + a.code + ' · ' + kurz(a.aus, 200));
+        loesche('claude/y'); a = action(); if (a.code !== 0 || baumZz().indexOf(blobVon(y1)) >= 0) f.push('Rueckzug je Fassung, Branch geloescht: Exit ' + a.code + ', noch gesichert: ' + (baumZz().indexOf(blobVon(y1)) >= 0));
+        // 2. Eine neuere Berichtigung nur noch hier: „Zurueckgenommen?" in JEDEM Lauf, nie „Nichts verloren", nie abgebaut.
+        const f1 = mk('idee', { id: '2026-01-09-9999', datum: '2026-01-09', von: 'sitzung/claude/b', titel: 'Fassung 1' }), f2 = Object.assign({}, f1, { titel: 'Fassung 2' });
+        neuerZweig('claude/b', [[f1]]); a = action();
+        g(d, ['checkout', '-q', '-B', 'main', 'origin/main']); ablegen(d, f1); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'squash']); g(d, ['push', '-q', 'origin', 'main']); g(d, ['checkout', '-q', '--detach', 'origin/main']);
+        aufZweig('claude/b', () => ablegen(d, f2)); a = action();
+        loesche('claude/b'); a = action();
+        if (!/Zurueckgenommen\?[^\n]*2026-01-09-9999/.test(a.aus)) f.push('neuere Berichtigung nur noch hier: kein „Zurueckgenommen?" · ' + kurz(a.aus, 200));
+        a = action(); if (!/Zurueckgenommen\?[^\n]*2026-01-09-9999/.test(a.aus) || /Nichts verloren/.test(a.aus)) f.push('im Lauf DANACH: ' + (/Nichts verloren/.test(a.aus) ? '„Nichts verloren"' : 'kein „Zurueckgenommen?"'));
+        { const st = gedaechtnis(); st.fassungen.forEach(x => { if (x.blob === blobVon(f2)) x.zuletzt = new Date(Date.now() - (A.SICHERUNG_ABBAU_TAGE + 1) * 864e5).toISOString(); }); fs.writeFileSync(standDatei, JSON.stringify(st)); }
+        a = action(); if (baumZz().indexOf(blobVon(f2)) < 0) f.push('die neuere Berichtigung (einzige Kopie) wurde nach ' + A.SICHERUNG_ABBAU_TAGE + ' Tagen abgebaut');
+        // 3. Strittig, beide Branches geloescht: keine Fassung unter eintraege/ (sonst entschiede die Sortierung der Blobs).
+        const s0 = mk('befund', { id: '2026-01-08-8888', datum: '2026-01-08', von: 'sitzung/claude/s-a', titel: 'Original' });
+        neuerZweig('claude/s-a', [[s0]]); neuerZweig('claude/s-b', [[Object.assign({}, s0, { von: 'sitzung/claude/s-b', titel: 'Faelschung' })]]);
+        a = action(); loesche('claude/s-a', 'claude/s-b'); a = action();
+        if (zz(['ls-tree', '-r', '--name-only', 'origin/zz-sicherung', '--', A.ORDNER]).indexOf('2026-01-08-8888') >= 0) f.push('ein strittiger Eintrag wurde nach dem Loeschen beider Branches unter eintraege/ befoerdert');
+        // 4. Eine von Hand auf zz-sicherung gelegte gueltige Datei: verworfen, nicht befoerdert.
+        { const h = mk('befund', { id: '2026-01-06-f00d', datum: '2026-01-06', von: 'sitzung/claude/opfer', titel: 'Untergeschoben' }), hb = blobVon(h);
+          g(d, ['checkout', '-q', '-B', 'zzhand', 'origin/zz-sicherung']); const hp = path.join(d, A.FASSUNGEN, h.id); fs.mkdirSync(hp, { recursive: true }); fs.writeFileSync(path.join(hp, hb + '.json'), JSON.stringify(h, null, 2) + '\n');
+          g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'hand']); g(d, ['push', '-q', '-f', 'origin', 'zzhand:zz-sicherung']); g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']); g(d, ['branch', '-q', '-D', 'zzhand']);
+          a = action(); if (baumZz().indexOf(hb) >= 0 || !/fremd[^\n]*2026-01-06-f00d|2026-01-06-f00d[^\n]*fremd/.test(a.aus)) f.push('eine von Hand auf zz-sicherung gelegte Datei wird uebernommen: Exit ' + a.code + ', noch da: ' + (baumZz().indexOf(hb) >= 0) + ' · ' + kurz(a.aus, 200)); }
+        // 5. Ohne Cache: die Quarantaene bleibt (aus dem Verzeichnis; ohne Verzeichnis, weil der Name den Inhalt belegt).
+        { const roh = '{"id": "2026-01-02-bbbb", "art": "befund", "kaputt": ', qb = blobVon(roh);
+          g(d, ['checkout', '-q', '-B', 'zzhand', 'origin/zz-sicherung']); fs.mkdirSync(path.join(d, A.QUARANTAENE), { recursive: true }); fs.writeFileSync(path.join(d, A.QUARANTAENE, qb + '.json'), roh);
+          const vp = path.join(d, A.VERZEICHNIS), v = JSON.parse(fs.readFileSync(vp, 'utf8')); v.quarantaene = (v.quarantaene || []).concat([qb]).sort(); fs.writeFileSync(vp, JSON.stringify(v, null, 1) + '\n');
+          g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'quar']); g(d, ['push', '-q', '-f', 'origin', 'zzhand:zz-sicherung']); g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']); g(d, ['branch', '-q', '-D', 'zzhand']);
+          fs.rmSync(path.join(cache, 'brett-stand'), { recursive: true, force: true });
+          a = action(); if (baumZz().indexOf(qb) < 0 || !/gelesen aus dem Verzeichnis der Sicherung/.test(a.aus)) f.push('ohne Cache (Verzeichnis da): die Quarantaene ' + (baumZz().indexOf(qb) < 0 ? 'ist vernichtet' : 'blieb, aber nicht ueber das Verzeichnis') + ' · ' + kurz(a.aus, 200));
+          g(d, ['checkout', '-q', '-B', 'zzhand', 'origin/zz-sicherung']); g(d, ['rm', '-q', A.VERZEICHNIS]); g(d, ['commit', '-q', '-m', 'ohne verzeichnis']); g(d, ['push', '-q', '-f', 'origin', 'zzhand:zz-sicherung']); g(d, ['checkout', '-q', '-f', '--detach', 'origin/main']); g(d, ['branch', '-q', '-D', 'zzhand']);
+          fs.rmSync(path.join(cache, 'brett-stand'), { recursive: true, force: true });
+          a = action(); if (baumZz().indexOf(qb) < 0) f.push('ohne Cache und ohne Verzeichnis vernichtet der Waechter die Quarantaene (der Name belegt den Inhalt) · ' + kurz(a.aus, 200)); }
+        // 6. Ein unlesbarer Blob, der auf einem anderen Branch weiterlebt (umbenannt, abgezweigt), ist kein Verlust.
+        { neuerZweig('claude/u', [['{"id": "2026-01-14-1414", "art": "idee", ', '2026-01-14-1414-idee-x.json']]); a = action();
+          neuerZweig('claude/u2', [], 'origin/claude/u'); loesche('claude/u'); a = action();
+          if (a.code !== 0 || /Unlesbare Datei\(en\) mit ihrem Branch verschwunden/.test(a.aus)) f.push('ein unlesbarer Blob, der auf einem anderen Branch weiterlebt, heisst „verschwunden": Exit ' + a.code + ' · ' + kurz(a.aus, 200));
+          // … und eine unlesbare Datei auf main, die dort entfernt wird: main besteht (der Arbeitsbaum des Waechters IST main).
+          g(d, ['checkout', '-q', '-B', 'main', 'origin/main']); ablegen(d, '<<<<<<< HEAD\n{}\n=======\n{}\n>>>>>>> x\n', '2026-01-18-1818-idee-x.json'); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'konflikt']); g(d, ['push', '-q', 'origin', 'main']);
+          a = action(); g(d, ['rm', '-q', path.join(A.ORDNER, '2026-01', '2026-01-18-1818-idee-x.json')]); g(d, ['commit', '-q', '-m', 'weg']); g(d, ['push', '-q', 'origin', 'main']); g(d, ['checkout', '-q', '--detach', 'origin/main']);
+          a = action(); if (a.code !== 0 || /Unlesbare Datei\(en\) mit ihrem Branch verschwunden/.test(a.aus)) f.push('eine auf main entfernte unlesbare Datei ergibt ALARM (der Arbeitsbaum zaehlte nie als bestehend): Exit ' + a.code + ' · ' + kurz(a.aus, 200)); }
+        // 7. Rueckzug einer wegen eines Geheimnis-Musters NIE gesicherten Fassung: kein Alarm.
+        { const z = mk('befund', { id: '2026-01-11-1111', datum: '2026-01-11', von: 'sitzung/claude/z', titel: 'nur Nullen ' + ['00000000', '0000', '0000', '0000', '000000000000'].join('-') });
+          neuerZweig('claude/z', [[z]]); a = action();
+          if (!/Nicht gesichert[^\n]*2026-01-11-1111/.test(a.aus)) f.push('Aufbau: die Fassung mit Geheimnis-Muster wurde gesichert');
+          aufZweig('claude/z', () => { fs.unlinkSync(pfadVon(z)); fs.writeFileSync(path.join(d, A.GRABSTEINE), JSON.stringify([{ id: z.id, datum: '2026-01-11', grund: 'Falschmeldung des Musters' }], null, 2) + '\n'); });
+          a = action(); if (a.code !== 0 || /Nie gesicherte Fassung/.test(a.aus)) f.push('ein Rueckzug nach README einer nie gesicherten Fassung ergibt ALARM: Exit ' + a.code + ' · ' + kurz((a.aus.match(/ALARM[^\n]*/g) || [a.aus]).join(' | '), 400)); }
+        // 8. Abgelaufene Lagen eines geloeschten Branches: kein Alarm, kein „GERETTET".
+        { const tv = new Date(Date.now() - 30 * 36e5), st = { datum: tv.toISOString().slice(0, 10), zeit: tv.toISOString().slice(11, 19) }, bis = new Date(Date.now() - 26 * 36e5).toISOString().replace(/\.\d{3}Z$/, 'Z');
+          neuerZweig('claude/abl', [[mk('lage', Object.assign({ id: st.datum + '-1919', von: 'sitzung/claude/abl', phase: 'laeuft', bis }, st))], [mk('lage', Object.assign({ id: st.datum + '-2020', von: 'sitzung/claude/abl', phase: 'fertig', bis }, st))]]);
+          a = action(); loesche('claude/abl'); a = action();
+          if (a.code !== 0 || /ALARM/.test(a.aus)) f.push('abgelaufene Lagen eines geloeschten Branches ergeben ALARM: Exit ' + a.code + ' · ' + kurz(a.aus, 200));
+          const r = werkzeug(d, ['holen']); if (/GERETTET/.test(r.aus)) f.push('abgelaufene Lagen eines geloeschten Branches stehen als „GERETTET" da'); }
+        // 9. Ein veraltetes Gedaechtnis (Ablegen gescheitert) meldet einen Abbau nicht als Verlust.
+        { const alt = mk('idee', { id: '2026-01-17-1717', datum: '2026-01-17', von: 'sitzung/claude/v', titel: 'Alte Fassung' }), neu = Object.assign({}, alt, { titel: 'Neue Fassung' });
+          neuerZweig('claude/v', [[alt]]); a = action();
+          g(d, ['checkout', '-q', '-B', 'main', 'origin/main']); ablegen(d, neu); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'neu auf main']); g(d, ['push', '-q', 'origin', 'main']); g(d, ['checkout', '-q', '--detach', 'origin/main']);
+          aufZweig('claude/v', () => ablegen(d, neu)); a = action(); loesche('claude/v'); a = action();
+          const st = gedaechtnis(); st.fassungen.forEach(x => { if (x.blob === blobVon(alt)) x.zuletzt = new Date(Date.now() - (A.SICHERUNG_ABBAU_TAGE + 1) * 864e5).toISOString(); }); fs.writeFileSync(standDatei, JSON.stringify(st));
+          const vorher = fs.readFileSync(standDatei, 'utf8');
+          a = action(); if (!/Abgebaut[^\n]*2026-01-17-1717/.test(a.aus)) f.push('Aufbau: die abgeloeste Fassung wurde nicht abgebaut · ' + kurz(a.aus, 200));
+          fs.writeFileSync(standDatei, vorher);   // wie nach einem gescheiterten actions/cache/save
+          a = action(); if (a.code !== 0 || /verloren\): 2026-01-17-1717/.test(a.aus)) f.push('ein veraltetes Gedaechtnis meldet den Abbau als Verlust: Exit ' + a.code + ' · ' + kurz(a.aus, 200)); }
+        // 10. Ein Branch-Name, der verschwand und NEU ANGELEGT wird: der Waechter merkt es; die Fassung dort ist keine
+        //     Berichtigung, „Nichts verloren" steht nicht da, und das Verzeichnis nennt den Branch fuer alle Leser.
+        { const k = mk('befund', { id: '2026-01-21-2121', datum: '2026-01-21', von: 'sitzung/claude/k', dringlichkeit: 'kritisch', titel: 'Login geht nicht mehr' });
+          neuerZweig('claude/k', [[k]]); a = action(); loesche('claude/k'); a = action();
+          neuerZweig('claude/k', [[Object.assign({}, k, { titel: 'Login geht wieder', dringlichkeit: undefined })]]); a = action();
+          const v = A.verzeichnisPruefen(zz(['show', 'origin/zz-sicherung:' + A.VERZEICHNIS]));
+          const prim = zz(['show', 'origin/zz-sicherung:' + A.ORDNER + '/2026-01/2026-01-21-2121-befund-x.json']);
+          if (!/Neu angelegt[^\n]*claude\/k/.test(a.aus) || /Nichts verloren/.test(a.aus) || !v || !v.neuAngelegt.has('origin/claude/k') || prim.indexOf('Login geht nicht mehr') < 0) f.push('ein neu angelegter Branch-Name: ' + [!/Neu angelegt[^\n]*claude\/k/.test(a.aus) ? 'nicht gemeldet' : '', /Nichts verloren/.test(a.aus) ? '„Nichts verloren"' : '', !v || !v.neuAngelegt.has('origin/claude/k') ? 'nicht im Verzeichnis' : '', prim.indexOf('Login geht nicht mehr') < 0 ? 'unter eintraege/ liegt die neue Fassung' : ''].filter(Boolean).join(', '));
+          const bl = A.brettLesen(d, { alleRefs: true }), e = bl.eintraege.find(x => x.id === k.id);
+          if (!e || e.titel !== 'Login geht nicht mehr') f.push('fuer Leser gilt nach dem Neuanlegen ' + (e ? '„' + e.titel + '" {' + e._quelle + '}' : 'nichts') + ' — erwartet die gesicherte Fassung'); }
+        // 11. Ein Gedaechtnis im alten Format (ohne erst): kein Absturz, kein Alarm — die erste Sichtung heisst „unbekannt"
+        //     (nichtVor leer), nicht „jetzt".
+        { const st = gedaechtnis(); st.fassungen.forEach(x => { delete x.erst; delete x.nichtVor; delete x.heim; delete x.anspruch; }); delete st.refs; fs.writeFileSync(standDatei, JSON.stringify(st));
+          a = action(); const v = A.verzeichnisPruefen(zz(['show', 'origin/zz-sicherung:' + A.VERZEICHNIS]));
+          if (a.code !== 0 || !v || ![...v.je.values()].some(x => x.nichtVor == null) || !gedaechtnis().fassungen.some(x => x.erstUnbekannt === true)) f.push('Gedaechtnis im alten Format: Exit ' + a.code + ', nichtVor leer im Verzeichnis: ' + !!(v && [...v.je.values()].some(x => x.nichtVor == null)) + ' · ' + kurz(a.aus, 200)); }
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: 'Verzeichnis da, ein Lauf ohne Aenderung schreibt nichts · Rueckzug je id und je Fassung, Branch geloescht: kein Alarm, nicht gesichert, nicht GERETTET · neuere Berichtigung: jeder Lauf „Zurueckgenommen?", nie abgebaut · strittig nicht befoerdert · Handarbeit auf zz-sicherung verworfen · Quarantaene ohne Cache bewahrt (zweifach) · unlesbarer Blob lebt weiter: kein Alarm · Rueckzug nie gesicherter Fassung · abgelaufene Lagen · veraltetes Gedaechtnis · neu angelegter Branch gemeldet und im Verzeichnis · altes Gedaechtnisformat' };
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(eltern); }
     },
   },
