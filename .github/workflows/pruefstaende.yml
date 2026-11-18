@@ -22,7 +22,12 @@ jobs:
     # Eine bewegliche Marke ist eine Annahme über morgen. Wer das Abbild hebt, hebt Playwright mit
     # und sieht sich den Lauf an (dieselbe Lehre wie field_check: 32 von 32 Läufen rot, 08.09.2026).
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # 45 → 60 (18.11.2026): zwei Läufe vom 18.11. brauchten 41 bzw. 34 min, davon die Prüfstände rund 26 min und die
+    # Installation (Android-Werkzeuge, Playwright) 7 bzw. 13 min — am 16.11. waren es noch rund 30 s. Die Installation
+    # schwankt mit den Spiegeln; dazu fährt `austausch_check` jetzt 44 statt 17 Fälle (lokal 3 min 45 s). Mit 45 min
+    # wird die CI an einem langsamen Spiegel-Tag rot, ohne dass ein Prüfstand scheitert. Das Brett trägt den Befund
+    # (Anker auf diese Zeile); Downloads zu cachen wäre der zweite Hebel.
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:16
