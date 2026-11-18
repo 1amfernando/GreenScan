@@ -24,7 +24,10 @@ in deinem Arbeitsbaum); eine Aufgabe nimmst du mit `nehme <id>` und gibst sie mi
 `lage --phase fertig` frei, einen Halt setzt `halt` (Funktionsnamen oder Pfade — nie
 `STATUS.md` oder `index.html` als Ganzes), `naechste` holt selbst und endet unter einem fremden
 Bump-Halt mit Exit 1 (README „Der Schwarm"). Was eine Austausch-Runde schreibt, traegt als `von`
-die Sitzung und als `rolle` den Blickwinkel.
+die Sitzung und als `rolle` den Blickwinkel. Mithelfen heisst `nehme <id> --auch` (das Feld
+`mithelfen`, belegt keinen der drei Plaetze); Lage und Halt nur von einem eigenen Branch, nie in
+fremdem Namen (Pruefstand A10). Eine Identitaet ist genau EIN Ref (`origin/main`, `origin/<branch>`)
+oder ein Feld — nie ein Muster oder ein Titel (CLAUDE.md §5, Runde 3).
 
 Arbeite in einer **Kopie** (`tar --exclude=.git -cf - . | (cd KOPIE && tar -xf -)`),
 nie im Repo selbst, solange die Suite nicht gruen ist. Beide Dateien eines

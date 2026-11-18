@@ -1257,6 +1257,18 @@ bis `lage --phase fertig`). Dringlichkeit, Lage, Halt/Veto, Wächter und die Sic
 > gegnerisch prüfen. Zwei Bauformen daraus: **ein Wächter baut seinen Stand aus dem Nichts** (wer
 > den eigenen alten Stand ungeprüft übernimmt, sichert eine Behauptung), und **was je Kennung
 > gezählt wird, verliert Fassungen** (gezählt wird je Blob).
+>
+> **Eine Regel, die eine IDENTITÄT am Muster erkennt, gilt für jeden, der den Namen wählen kann**
+> (18.11.2026, Runde 3 — 56 Funde, alle nachgestellt). `/(^|\/)main$/` machte einen pushbaren
+> Branch `claude/main` zu main: ein Halt im fremden Namen wirkte, ein „ersetzt" versteckte einen
+> kritischen Befund. Dieselbe Klasse dreimal weiter: derselbe Branch-Name auf einem zweiten Remote
+> galt als „Branch des Schreibers", der Titel „Mithelfen: …" entschied über eine Absicht, und das
+> `von` JEDER Fassung zählte — eine Kopie, die ihr `von` auf den eigenen Branch umschrieb, galt als
+> Original und schaltete den Alarm des Wächters ab. **Eine Identität ist genau EIN Ref, ein Feld
+> oder ein einmal festgehaltener Wert — nie ein Muster, ein Freitext oder die Selbstauskunft der
+> Kopie.** Und drei Reparaturen in drei getrennten Arbeitskopien rissen beim Zusammenführen eine
+> Lücke, die keine allein hatte (ein Rest der alten Ref-Regel in einer neuen Funktion): **wer
+> zusammenführt, fährt die Gegenproben ALLER Teile noch einmal auf dem zusammengeführten Stand.**
 
 **Und noch einmal VOR dem Bump** (`git fetch origin main`, `git log HEAD..origin/main`; `naechste`
 holt seit 18.11.2026 selbst alle Branches — ein fremder Bump-Halt liegt auf einem fremden Branch,
