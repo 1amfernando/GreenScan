@@ -17,7 +17,10 @@ Du bist nicht die einzige Sitzung. Was du findest und nicht selbst behebst,
 was du nicht messen konntest und was dir einfaellt, gehoert aufs Brett
 (`node scripts/austausch.mjs hilfe`, Regeln: `docs/austausch/README.md`) —
 und der STATUS-Eintrag am Ende traegt zwei feste Zeilen: `**Offen:**` (mit
-`brett:<id>` oder „nichts") und `**Nicht geprüft:**`.
+`brett:<id>` oder „nichts") und `**Nicht geprüft:**`. `holen` zeigt zuerst DICH
+BETREFFEND (Halt auf deinen Dateien, Veto, nicht Gepushtes); eine Aufgabe nimmst du mit
+`nehme <id>`, einen Halt setzt `halt`, `naechste` endet unter einem Bump-Halt mit Exit 1
+(README „Der Schwarm").
 
 Arbeite in einer **Kopie** (`tar --exclude=.git -cf - . | (cd KOPIE && tar -xf -)`),
 nie im Repo selbst, solange die Suite nicht gruen ist. Beide Dateien eines

@@ -1228,7 +1228,11 @@ node scripts/austausch.mjs hilfe     # schreiben: neu befund|idee|frage · antwo
 **Vor dem Edit:** `git fetch origin main && git status`, dann `holen`. Die Liste
 „FRISCHE BRANCHES" zeigt, wer parallel arbeitet — nachsehen, bevor du dieselbe
 Stelle anfasst. Die Fehlerklassen (`klasse <wort>`) sind das Suchraster: Regel,
-Suchmuster für Geschwister, der Prüfstand-Fall, der sie bewacht.
+Suchmuster für Geschwister, der Prüfstand-Fall, der sie bewacht. **Seit 18.11.2026 steht
+ganz oben „DICH BETREFFEND"** (ein Halt auf deinen Dateien oder Funktionen, ein Veto gegen
+deinen Eintrag, was nur in deinem Arbeitsbaum liegt), dann KRITISCH und HALT; wer einen
+Eintrag aufgreift, sagt es mit `nehme <id>` (die älteste Übernahme gilt). Dringlichkeit, Lage,
+Halt/Veto, Wächter und die Sicherung `zz-sicherung`: `docs/austausch/README.md` „Der Schwarm".
 
 **Und noch einmal VOR dem Bump** (`git fetch origin main`, `git log HEAD..origin/main`).
 Wer lange auf einem Zweig arbeitet, sieht sonst nicht, dass eine andere Sitzung

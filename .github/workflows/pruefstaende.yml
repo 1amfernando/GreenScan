@@ -42,6 +42,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
         with:
           persist-credentials: false
+          # Brett-Waechter (austausch_check A6): HEAD ist der Merge-Commit des PR, HEAD^1 die Basis
+          # (main zum Zeitpunkt des Ereignisses) — fest, nicht die bewegliche Spitze. Kein eigener Fetch.
+          fetch-depth: 2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: 22

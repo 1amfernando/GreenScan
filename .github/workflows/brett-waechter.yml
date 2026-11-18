@@ -1,0 +1,58 @@
+name: Brett-Wächter
+
+# Fernando, 17.11.2026: „Wächter-Funktion: Ein Agent überwachte, ob Speicherorte gelöscht oder Räume
+# zurückgesetzt wurden. Sicherungskopien: Anlegen von Kopien an versteckten Adressen (z. B. mit
+# Z-Präfixen), damit die Information bei einem Löschvorgang bestehen blieb."
+#
+# Gemessen am 17.11.2026: 72 von 165 Brett-Einträgen lagen auf genau EINEM Branch und nirgends sonst.
+# Ein Force-Push, ein von Hand gelöschter Branch oder ein stale PR (weekly-cleanup: delete-branch)
+# hätte sie ohne jede Meldung vernichtet — eine Sitzung, die das bemerken könnte, gibt es dann nicht
+# mehr. Deshalb läuft der Wächter OHNE Sitzung: stündlich kopiert er jede Eintragsdatei jedes Branches
+# byte-gleich auf den Branch `zz-sicherung` (Z-Präfix: er sortiert hinter allen anderen, und das Brett
+# liest ihn nur dort, wo kein Original mehr liegt). Was nur noch dort liegt, meldet er.
+#
+# Er schreibt NUR auf zz-sicherung. Keine Migration, kein Ausliefern, kein Löschen fremder Branches.
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: brett-waechter
+  cancel-in-progress: false
+
+jobs:
+  sichern:
+    name: Brett sichern
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: 22
+      - name: Alle Branches holen (nur die Spitzen)
+        run: git fetch --quiet --no-tags --depth=1 origin '+refs/heads/*:refs/remotes/origin/*'
+      - name: Sicherung schreiben und melden
+        run: |
+          set -euo pipefail
+          if git rev-parse --verify --quiet refs/remotes/origin/zz-sicherung >/dev/null; then
+            git worktree add --quiet --detach ../sicherung refs/remotes/origin/zz-sicherung
+          else
+            git worktree add --quiet --detach ../sicherung HEAD
+            git -C ../sicherung checkout --quiet --orphan zz-sicherung
+            git -C ../sicherung rm -rfq .
+            printf '%s\n' '# zz-sicherung — die Sicherung des Bretts' '' 'Geschrieben vom Brett-Wächter (.github/workflows/brett-waechter.yml auf main).' 'Byte-gleiche Kopien jeder Eintragsdatei jedes Branches. Nie von Hand ändern.' 'Regeln: docs/austausch/README.md auf main.' > ../sicherung/README.md
+          fi
+          node scripts/austausch.mjs sichern --nach ../sicherung | tee -a "$GITHUB_STEP_SUMMARY"
+          cd ../sicherung
+          git add -A
+          if git diff --cached --quiet; then echo "Nichts Neues zu sichern."; exit 0; fi
+          git -c user.name='brett-waechter' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit --quiet -m "Brett-Sicherung $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push --quiet origin HEAD:refs/heads/zz-sicherung

@@ -177,7 +177,8 @@ log(`Gegenpruefen: ${ueberlebt.length} von ${funde.length} ueberleben · ${gefal
 // Der Stapel in der Form des Bretts. Bezuege auf Funde dieser Runde als „@schluessel",
 // auf vorhandene Eintraege als id. Ein Bezug auf etwas Gefallenes entfaellt.
 const lebend = new Set(ueberlebt.map(f => f.schluessel))
-const istId = (s) => /^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}$/.test(String(s))
+// Vier Hexstellen bis 17.11.2026, acht seither (scripts/_austausch.mjs ID_FORM) — beide sind Brett-ids.
+const istId = (s) => /^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}(?:[0-9a-f]{4})?$/.test(String(s))
 const bezug = (liste, art) => (liste || []).map(s => String(s).trim()).filter(s => istId(s) || lebend.has(s)).map(s => ({ art, id: istId(s) ? s : '@' + s }))
 const sauber = (o) => { const k = {}; for (const x of Object.keys(o)) { const v = o[x]; if (v == null || v === '' || (Array.isArray(v) && !v.length)) continue; k[x] = v } return k }
 const stapel = []

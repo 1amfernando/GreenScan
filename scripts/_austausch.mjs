@@ -32,7 +32,12 @@ export const ARTEN = Object.assign(Object.create(null), {
   frage:     { wort: 'Frage',        pflicht: ['an'], offenbar: true,     sinn: 'was die schreibende Sitzung nicht messen oder entscheiden konnte' },
   klasse:    { wort: 'Fehlerklasse', pflicht: ['regel', 'instanzen'], offenbar: true, sinn: 'ein Fehler-MUSTER: Regel, Instanzen, Suchmuster fuer Geschwister, der Pruefstand-Fall, der es bewacht' },
   antwort:   { wort: 'Antwort',      pflicht: [], offenbar: false, brauchtBezug: ['beantwortet', 'baut_auf', 'widerspricht'], sinn: 'Antwort, Ergaenzung, Widerspruch oder Nachtrag (neuer Anker, neue Zaehlung, „gesucht") zu einem Eintrag' },
-  abschluss: { wort: 'Abschluss',    pflicht: ['ergebnis'], offenbar: false, brauchtBezug: ['schliesst'], sinn: 'schliesst einen Eintrag: erledigt (wohin) · verworfen (Grund) · aufgestiegen (wohin)' },
+  abschluss: { wort: 'Abschluss',    pflicht: ['ergebnis'], offenbar: false, brauchtBezug: ['schliesst'], sinn: 'schliesst einen Eintrag: erledigt (wohin) · verworfen (Grund) · aufgestiegen (wohin) · aufgehoben (ein Halt, mit Grund)' },
+  // ── Seit 18.11.2026 (Fernando: Fortschrittskontrolle, Halt und Veto). Beide tragen eine FRIST
+  //    (`bis`), relativ zum eigenen Zeitstempel geprueft; ob sie JETZT wirken, rechnet nur das
+  //    Werkzeug (`wirksam`), nie der Pruefstand — sonst haenge ein Fall an der Uhr.
+  lage:      { wort: 'Lage',         pflicht: ['phase', 'bis'], offenbar: false, sinn: 'woran eine Sitzung gerade arbeitet und bis wann: Phase (laeuft · letzte_runde · fertig), optional Runde „4/5"; mit Bezug baut_auf:<id> nimmt sie diesen Eintrag (Uebernahme)' },
+  halt:      { wort: 'Halt',         pflicht: ['text', 'bis'], offenbar: false, sinn: 'ein Halt fuer den Schwarm: Grund, Geltung (Pfade, Funktionsnamen, bump) und Frist; mit Bezug widerspricht:<id> ein VETO gegen diesen Eintrag. Eine Pflicht zur Kenntnisnahme, keine Sperre' },
 });
 export const BEZUEGE = Object.assign(Object.create(null), {
   baut_auf:     'nimmt den anderen Eintrag als Grundlage — so entsteht aus zwei Koepfen eine Idee',
@@ -42,17 +47,34 @@ export const BEZUEGE = Object.assign(Object.create(null), {
   ersetzt:      'der andere Eintrag DERSELBEN Art ist ueberholt; dieser gilt an seiner Stelle',
   gehoert_zu:   'ist eine Instanz dieser Fehlerklasse',
 });
-export const ERGEBNISSE = ['erledigt', 'verworfen', 'aufgestiegen'];
-export const AN = ['alle', 'fernando'];
-const LISTENFELDER = ['beleg', 'stichworte', 'instanzen'];
+export const ERGEBNISSE = ['erledigt', 'verworfen', 'aufgestiegen', 'aufgehoben'];
+export const AN = ['alle', 'fernando', 'koordinator'];
+export const DRINGLICHKEIT = ['kritisch', 'dringend'];
+export const PHASEN = ['laeuft', 'letzte_runde', 'fertig'];
+// Hoechstdauer je Art (ab dem eigenen Zeitstempel): eine Lage ist ein Arbeitsschub, ein Halt
+// eine Atempause — beides endet von selbst, auch wenn die Sitzung nie wiederkommt.
+export const FRIST_MAX_H = { lage: 24, halt: 72 };
+const LISTENFELDER = ['beleg', 'stichworte', 'instanzen', 'geltung'];
 const TEXTFELDER = ['titel', 'text', 'von', 'stand', 'zeit', 'nutzen', 'pruefbar', 'an', 'haengt_daran', 'vorschlag', 'regel', 'suchmuster',
-  'gesucht', 'ohne_waechter', 'ergebnis', 'wohin', 'geschwister', 'bewacht', 'details_bei'];
-const BEKANNT = new Set(['id', 'art', 'datum', 'bezug', 'waechter', 'anker', 'zaehle', 'sicherheit', 'schluessel'].concat(LISTENFELDER, TEXTFELDER));
+  'gesucht', 'ohne_waechter', 'ergebnis', 'wohin', 'geschwister', 'bewacht', 'details_bei', 'dringlichkeit', 'bis', 'phase', 'runde'];
+const BEKANNT = new Set(['id', 'art', 'datum', 'bezug', 'waechter', 'anker', 'zaehle', 'sicherheit', 'schluessel', 'geliefert'].concat(LISTENFELDER, TEXTFELDER));
 export const FELDER = [...BEKANNT];
-const SICHERHEIT_NICHT = ['text', 'beleg', 'vorschlag', 'anker', 'zaehle', 'haengt_daran', 'nutzen', 'pruefbar', 'regel', 'instanzen', 'suchmuster', 'gesucht', 'geschwister', 'bewacht', 'waechter', 'ohne_waechter', 'wohin'];
+const SICHERHEIT_NICHT = ['text', 'beleg', 'vorschlag', 'anker', 'zaehle', 'haengt_daran', 'nutzen', 'pruefbar', 'regel', 'instanzen', 'suchmuster', 'gesucht', 'geschwister', 'bewacht', 'waechter', 'ohne_waechter', 'wohin', 'geliefert'];
 export const GEHEIM_FORMEN = () => GEHEIM.length;
 export const TITEL_MAX = 200, STUECK_MIN = 8, STUECK_MAX = 300;
-export const ID_FORM = /^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}$/;
+// Vier Hexstellen bis 17.11.2026, acht seither: am 11.11. entstanden 131 Eintraege an EINEM Tag —
+// bei 4 Stellen 12 % Wahrscheinlichkeit, dass zwei Sitzungen ohne Abgleich dieselbe id ziehen.
+export const ID_FORM = /^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}(?:[0-9a-f]{4})?$/;
+export const BIS_FORM = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+// Grabsteine: was bewusst vom Brett genommen wurde (Personenname, Geheimnis, falscher Inhalt) — nur
+// id, Datum, Grund, NIE der Inhalt. Ohne diese Liste holte die Vereinigung den Eintrag von jedem
+// aelteren Branch zurueck (`ernten`, nachgestellt 17.11.2026), und die Sicherung haette ihn verewigt.
+export const GRABSTEINE = 'docs/austausch/zurueckgezogen.json';
+// Die Sicherung des Waechters: ein Branch mit Z-Praefix. Er sortiert hinter allen anderen und wird
+// deshalb nur gelesen, wo kein Original mehr liegt (brettLesen liest main zuerst, dann alphabetisch).
+export const SICHERUNG_ZWEIG = 'zz-sicherung';
+export const istSicherungsRef = (ref) => /(^|\/)zz-/.test(String(ref || ''));
+export const BRETT_ZITAT = /\bbrett:(\d{4}-\d{2}-\d{2}-[0-9a-f]{4}(?:[0-9a-f]{4})?)\b/g;
 // Namen, die wie App-Code aussehen — dieselbe Form, die robust_check „Memory" prueft.
 export const APP_NAME = /^(_?gs[A-Z]|dq[A-Z]|sb[A-Z]|GS_[A-Z]|_gs[a-z])[\w]*$/;
 
@@ -103,6 +125,22 @@ function imRepo(p) { return typeof p === 'string' && p.trim() && !path.isAbsolut
 // Die Reihenfolge zweier Eintraege: Datum, dann die Uhrzeit, die das Werkzeug
 // setzt, dann die id. (Die id allein ist am selben Tag Zufall.)
 export function ordnung(e) { return String(e.datum || '') + 'T' + String(e.zeit || '00:00:00') + ' ' + String(e.id || ''); }
+
+// Der Zeitstempel eines Eintrags in ms (UTC) — oder null, wenn er keine Uhrzeit traegt.
+export function zeitpunkt(e) { if (!e || !datumGueltig(e.datum) || !/^\d{2}:\d{2}:\d{2}$/.test(String(e.zeit || ''))) return null; const t = Date.parse(e.datum + 'T' + e.zeit + 'Z'); return isNaN(t) ? null : t; }
+// Was ein Halt anhalten darf: einen Pfad (Datei oder Verzeichnis mit /), einen Funktionsnamen oder
+// `bump` (keine neue Version). Kein `*`: ein Halt fuer alles, gesetzt von einer fluechtigen Sitzung,
+// haelt den ganzen Schwarm an, und niemand ist da, der ihn aufhebt.
+export function geltungFehler(g) {
+  g = String(g == null ? '' : g).trim();
+  if (!g) return 'leer';
+  if (g === 'bump') return null;
+  if (/[*?]/.test(g)) return 'kein Platzhalter (* oder ?) — einen Pfad, einen Funktionsnamen oder bump nennen';
+  if (/^[A-Za-z_$][\w$]*$/.test(g)) return null;
+  if (imRepo(g) && /[/.]/.test(g)) return null;
+  return 'weder bump noch ein Pfad im Repo noch ein Funktionsname';
+}
+export function idAusName(name) { const m = String(name || '').match(/^(\d{4}-\d{2}-\d{2}-[0-9a-f]{4}(?:[0-9a-f]{4})?)-/); return m ? m[1] : null; }
 
 // ── EINE Pruefung je Eintrag. Gruende als Liste; leer = gut.
 export function eintragPruefen(e, dateiname) {
@@ -163,6 +201,43 @@ export function eintragPruefen(e, dateiname) {
     if (e.ergebnis === 'verworfen' && !(e.text && e.text.trim())) f.push('verworfen ohne Grund (text)');
     if ((e.ergebnis === 'erledigt' || e.ergebnis === 'aufgestiegen') && !(e.wohin && e.wohin.trim())) f.push(e.ergebnis + ' ohne „wohin" (Version, Commit oder Dokument-Stelle)');
   }
+  if (e.art === 'abschluss' && e.ergebnis === 'aufgehoben' && !(e.text && e.text.trim())) f.push('aufgehoben ohne Grund (text) — wer einen Halt aufhebt, sagt warum; der Aussteller liest es');
+  // ── Dringlichkeit, Frist, Lage, Halt, Lieferung (seit 18.11.2026).
+  if (e.dringlichkeit != null) {
+    if (DRINGLICHKEIT.indexOf(e.dringlichkeit) < 0) f.push('dringlichkeit: ' + DRINGLICHKEIT.join(' oder ') + ' (normal ist: keine Angabe)');
+    if (['befund', 'frage', 'halt'].indexOf(e.art) < 0) f.push('dringlichkeit gehoert an einen Befund, eine Frage oder einen Halt');
+    // Kein eigenes Grund-Feld: bei einem Sicherheitsbefund waere es ein Kanal fuer den Weg. Der Grund
+    // steht, wo er schon steht — im Beleg des Befunds, bei der Frage in haengt_daran.
+    if (e.art === 'frage' && e.sicherheit !== true && !(e.haengt_daran && String(e.haengt_daran).trim())) f.push('eine dringliche Frage sagt in „haengt_daran", was daran haengt');
+  }
+  if (e.bis != null || e.art === 'lage' || e.art === 'halt') {
+    if (e.art !== 'lage' && e.art !== 'halt') f.push('bis gehoert an eine Lage oder einen Halt');
+    else {
+      if (e.zeit == null) f.push(ARTEN[e.art].wort + ' braucht „zeit" — die Frist rechnet ab dem eigenen Zeitstempel');
+      if (!BIS_FORM.test(String(e.bis || ''))) f.push('bis hat nicht die Form JJJJ-MM-TTTHH:MM:SSZ (UTC, mit Z)');
+      else {
+        const t0 = zeitpunkt(e), t1 = Date.parse(e.bis);
+        // Relativ zum EIGENEN Zeitstempel, nie zu „jetzt": sonst haenge der Pruefstand an der Uhr.
+        if (t0 != null && !isNaN(t1)) {
+          const h = (t1 - t0) / 36e5;
+          if (h <= 0) f.push('bis liegt nicht nach dem eigenen Zeitstempel');
+          else if (h > FRIST_MAX_H[e.art]) f.push('bis liegt ' + Math.round(h) + ' h nach dem eigenen Zeitstempel — hoechstens ' + FRIST_MAX_H[e.art] + ' h: ' + ARTEN[e.art].wort + ' endet von selbst, auch wenn niemand zurueckkommt');
+        }
+      }
+    }
+  }
+  for (const [k, arten] of [['phase', ['lage']], ['runde', ['lage']], ['geltung', ['halt']], ['geliefert', ['antwort']]]) if (e[k] != null && arten.indexOf(e.art) < 0) f.push(k + ' gehoert an: ' + arten.map(a => ARTEN[a].wort).join(' / '));
+  if (e.phase != null && PHASEN.indexOf(e.phase) < 0) f.push('phase: ' + PHASEN.join(' · '));
+  if (e.runde != null && !/^\d{1,3}(\/\d{1,3})?$/.test(String(e.runde))) f.push('runde hat die Form „4" oder „4/5"');
+  if (e.art === 'halt') {
+    const veto = alsListe(e.bezug).some(b => b && b.art === 'widerspricht');
+    if (!veto && !alsListe(e.geltung).length) f.push('ein Halt ohne Bezug widerspricht:<id> (Veto) braucht „geltung": Pfade, Funktionsnamen oder bump');
+    for (const g of alsListe(e.geltung)) { const w = geltungFehler(g); if (w) f.push('geltung „' + g + '": ' + w); }
+  }
+  if (e.geliefert != null) {
+    if (!Array.isArray(e.geliefert) || !e.geliefert.length) f.push('geliefert muss eine nicht-leere Liste von {pfad, commit} sein');
+    else e.geliefert.forEach((x, i) => { if (!x || !imRepo(x.pfad) || !/^[0-9a-f]{40}$/.test(String(x.commit || ''))) f.push('geliefert[' + i + ']: {pfad, commit} — ein Pfad im Repo und die volle Commit-Kennung (40 Zeichen): jeder kann `git show <commit>:<pfad>` fahren'); });
+  }
   if (e.art === 'klasse' && Array.isArray(e.waechter || []) && !alsListe(e.waechter).length && !(e.ohne_waechter && e.ohne_waechter.trim())) {
     f.push('Fehlerklasse ohne Waechter braucht „ohne_waechter" mit Grund (kein Pruefstand-Fall bewacht sie — das ist eine Aussage, keine Luecke im Formular)');
   }
@@ -208,14 +283,20 @@ function formFehler(e) {
     if (e[k] != null && (!Array.isArray(e[k]) || e[k].some(x => !x || typeof x !== 'object' || typeof x.datei !== 'string' || typeof x[feld] !== 'string'))) return k + ' ist keine Liste von {datei, ' + feld + '}';
   }
   if (e.zaehle != null && e.zaehle.some(x => !Number.isInteger(x.n))) return 'zaehle ohne ganze Zahl n';
+  if (e.geliefert != null && (!Array.isArray(e.geliefert) || e.geliefert.some(x => !x || typeof x !== 'object' || typeof x.pfad !== 'string' || typeof x.commit !== 'string'))) return 'geliefert ist keine Liste von {pfad, commit}';
   return null;
 }
 export function brettLesen(wurzel, opts) {
   opts = opts || {};
-  const aus = { eintraege: [], unlesbar: [], doppelt: [], abweichend: [], quellen: ['Arbeitsbaum'], gitDa: null, refs: 0 };
+  const aus = { eintraege: [], unlesbar: [], doppelt: [], abweichend: [], quellen: ['Arbeitsbaum'], gitDa: null, refs: 0, wo: new Map(), zurueckgezogen: 0 };
   const proId = new Map();
+  // Wo liegt jede id? (Arbeitsbaum, jeder Ref) — VOR dem Ueberspringen gleicher Blobs festgehalten,
+  // sonst laesst sich „nur auf EINEM Branch" gar nicht rechnen.
+  const liegt = (id, quelle) => { if (!id) return; if (!aus.wo.has(id)) aus.wo.set(id, new Set()); aus.wo.get(id).add(quelle); };
+  const grab = grabsteine(wurzel, !!opts.alleRefs).ids;
   const nimm = (e) => {
     if (!e) return false;
+    if (grab.has(e.id)) { aus.zurueckgezogen++; return false; }
     const vor = proId.get(e.id);
     if (!vor) { proId.set(e.id, e); aus.eintraege.push(e); return true; }
     if (vor._quelle === e._quelle) aus.doppelt.push({ id: e.id, dateien: [vor._datei, e._datei], quelle: e._quelle });
@@ -232,7 +313,7 @@ export function brettLesen(wurzel, opts) {
     else if (/\.json$/.test(n)) {
       let roh = null;
       try { roh = fs.readFileSync(p, 'utf8'); } catch (x) { aus.unlesbar.push({ datei: n, quelle: 'Arbeitsbaum', grund: 'nicht lesbar: ' + String(x.message).split('\n')[0] }); }
-      if (roh != null) nimm(lies(roh, n, 'Arbeitsbaum', aus.unlesbar));
+      if (roh != null) { liegt(idAusName(n), 'Arbeitsbaum'); nimm(lies(roh, n, 'Arbeitsbaum', aus.unlesbar)); }
     }
   } };
   if (fs.existsSync(dir)) liesOrdner(dir);
@@ -257,6 +338,7 @@ export function brettLesen(wurzel, opts) {
         let neu = 0;
         for (const zeile of ls.split('\0')) {
           const m = zeile.match(/^\d+ blob ([0-9a-f]+)\t(.+\.json)$/);
+          if (m) liegt(idAusName(path.posix.basename(m[2])), ref);
           if (!m || blobGesehen.has(m[1])) continue;
           blobGesehen.add(m[1]);
           const name = path.posix.basename(m[2]);
@@ -281,7 +363,7 @@ export function frischeZweige(wurzel, jetzt, tage) {
   for (const z of roh.split('\n')) {
     const [voll, t, ...rest] = z.split('\t');
     const ref = String(voll || '').replace(/^refs\/remotes\//, '');
-    if (!ref || /\/HEAD$/.test(ref) || /\/main$/.test(ref) || ref.replace(/^[^/]+\//, '') === kopf) continue;
+    if (!ref || /\/HEAD$/.test(ref) || /\/main$/.test(ref) || istSicherungsRef(ref) || ref.replace(/^[^/]+\//, '') === kopf) continue;
     const alter = Math.floor((jetzt - Number(t) * 1000) / 864e5);
     if (alter <= tage) aus.push({ ref, tage: Math.max(0, alter), betreff: rest.join('\t') });
   }
@@ -471,6 +553,12 @@ export function bezugsRegeln(e, proId) {
     if (b.art === 'gehoert_zu' && ziel.art !== 'klasse') f.push('„gehoert_zu" zeigt auf ' + b.id + ', das keine Fehlerklasse ist (' + ziel.art + ')');
     if (b.art === 'schliesst' && e.art !== 'abschluss') f.push('„schliesst" darf nur ein Abschluss tragen (node scripts/austausch.mjs schliesse ' + b.id.slice(-4) + ' …) — sonst waere das strenge Schliessen mit einer Antwort zu umgehen');
     if (b.art === 'ersetzt' && e.art !== ziel.art) f.push('„ersetzt" verlangt dieselbe Art: ' + e.art + ' kann ' + ziel.art + ' ' + b.id + ' nicht ersetzen');
+    // Ein Halt wird AUFGEHOBEN (mit Grund) — und nur ein Halt.
+    if (b.art === 'schliesst' && e.art === 'abschluss' && (e.ergebnis === 'aufgehoben') !== (ziel.art === 'halt')) f.push(ziel.art === 'halt' ? 'einen Halt schliesst nur „aufgehoben" (mit Grund) — ' + b.id : '„aufgehoben" gibt es nur fuer einen Halt, nicht fuer ' + ziel.art + ' ' + b.id);
+    // Ein Veto (Halt mit widerspricht) richtet sich gegen eine HANDLUNG — nicht gegen eine Antwort oder einen Abschluss (dafuer: antworte --widerspricht).
+    if (e.art === 'halt' && b.art === 'widerspricht' && (ziel.art === 'antwort' || ziel.art === 'abschluss')) f.push('ein Veto richtet sich gegen eine Handlung (Befund, Idee, Lage, Halt …), nicht gegen ' + ziel.art + ' ' + b.id + ' — dort: antworte ' + b.id.slice(-4) + ' --widerspricht');
+    // Eine Uebernahme (Lage mit baut_auf) nimmt Arbeit: einen Befund, eine Idee, eine Frage, eine Fehlerklasse.
+    if (e.art === 'lage' && b.art === 'baut_auf' && ['befund', 'idee', 'frage', 'klasse'].indexOf(ziel.art) < 0) f.push('eine Lage nimmt einen Befund, eine Idee, eine Frage oder eine Fehlerklasse — nicht ' + ziel.art + ' ' + b.id);
     if ((b.art === 'schliesst' || b.art === 'ersetzt') && (ziel.art === 'abschluss' || ziel.art === 'antwort')) f.push('„' + b.art + '" zeigt auf ' + b.id + ' (' + ziel.art + ') — geschlossen wird der urspruengliche Eintrag, nicht die Antwort darauf');
     // Schliessen ist streng: wer einen BEFUND als erledigt schliesst, sagt, ob er
     // nach Geschwistern gesucht hat. „Eine Fehlerklasse ist erst geschlossen, wenn
@@ -711,9 +799,217 @@ export function statusZeilen(statusText) {
   const eintrag = s0.slice(k + 1, ende < 0 ? undefined : ende);
   const ueberschrift = eintrag.slice(0, eintrag.indexOf('\n')).replace(/^###\s*/, '');
   const offen = eintrag.match(/^\*\*Offen:\*\*[ \t]*(.*)$/m), np = eintrag.match(/^\*\*Nicht geprüft[^*\n]*:\*\*[ \t]*(.*)$/m);
-  const ids = offen ? [...offen[1].matchAll(/\bbrett:(\d{4}-\d{2}-\d{2}-[0-9a-f]{4})\b/g)].map(m => m[1]) : [];
+  const ids = offen ? [...offen[1].matchAll(BRETT_ZITAT)].map(m => m[1]) : [];
   const alleKoepfe = [...s0.matchAll(/^### (.*)$/gm)].map(m => m[1]);
   return { ueberschrift, offen: offen ? offen[1].trim() : null, ids, nichts: !!(offen && /^nichts\b/i.test(offen[1].trim())), nichtGeprueft: np ? np[1].trim() : null, alleKoepfe };
+}
+
+// ── Der Schwarm (seit 18.11.2026, Fernando: Dringlichkeit, Aufgabenzuweisung, Fortschritt,
+//    Waechter und Sicherung, Halt und Veto). Was git schon weiss, wird GERECHNET (gemessen:
+//    widerspricht 0×, ernten 0×, „frage an alle" 1× ohne Antwort — was eine Sitzung von sich aus
+//    melden muss, meldet sie nicht). Gemeldet wird nur die ABSICHT: Lage, Halt, Veto.
+
+// Grabsteine (docs/austausch/zurueckgezogen.json): [{id, datum, grund}] — nie der Inhalt.
+export function grabsteinePruefen(roh) {
+  const fehler = [], ids = new Set();
+  let l;
+  try { l = JSON.parse(roh); } catch (x) { return { ids, fehler: ['kein gueltiges JSON'] }; }
+  if (!Array.isArray(l)) return { ids, fehler: ['keine Liste'] };
+  l.forEach((x, i) => {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) { fehler.push('[' + i + '] kein Objekt'); return; }
+    for (const k of Object.keys(x)) if (['id', 'datum', 'grund'].indexOf(k) < 0) fehler.push('[' + i + '] Feld „' + k + '" — ein Grabstein traegt nur id, datum und grund, nie den Inhalt');
+    if (!ID_FORM.test(String(x.id || ''))) fehler.push('[' + i + '] id fehlt oder hat die falsche Form'); else ids.add(x.id);
+    if (!datumGueltig(x.datum)) fehler.push('[' + i + '] datum fehlt');
+    if (typeof x.grund !== 'string' || !x.grund.trim()) fehler.push('[' + i + '] grund fehlt');
+    for (const [re, was] of GEHEIM) if (re.test(textVon(x))) fehler.push('[' + i + '] enthaelt etwas, das wie ' + was + ' aussieht');
+  });
+  return { ids, fehler };
+}
+export function grabsteine(wurzel, mitMain) {
+  const ids = new Set(), fehler = [];
+  const quellen = [];
+  try { quellen.push(fs.readFileSync(path.join(wurzel, GRABSTEINE), 'utf8')); } catch (_) {}
+  if (mitMain) { const t = git(wurzel, ['show', 'refs/remotes/origin/main:' + GRABSTEINE]); if (t != null) quellen.push(t); }
+  for (const roh of quellen) { const g = grabsteinePruefen(roh); g.ids.forEach(i => ids.add(i)); fehler.push(...g.fehler); }
+  return { ids, fehler };
+}
+
+// WIRKT ein zeitgebundener Eintrag JETZT? Nur, was beim LESEN gueltig ist: ein fremder Branch ist
+// fremde Eingabe, und ein Eintrag mit Datum 2099 oder einem `bis` ohne Z haelt sonst den Schwarm an.
+export const VORLAUF_MS = 15 * 60e3;   // so weit darf eine Uhr vorgehen
+export function wirksam(e, jetzt) {
+  const f = eintragPruefen(e, e._datei);
+  if (f.length) return { ok: false, grund: 'ungueltig: ' + f[0] };
+  const t0 = zeitpunkt(e), t1 = Date.parse(String(e.bis || ''));
+  if (t0 == null || isNaN(t1)) return { ok: false, grund: 'ohne lesbare Zeit' };
+  if (t0 > jetzt + VORLAUF_MS) return { ok: false, grund: 'Zeitstempel in der Zukunft (' + e.datum + ' ' + e.zeit + ' UTC) — falsche Uhr oder gefaelscht' };
+  if (t1 <= jetzt) return { ok: false, abgelaufen: true, grund: 'abgelaufen (' + e.bis + ')' };
+  return { ok: true, bis: t1 };
+}
+// Halts, Vetos, Lagen, Uebernahmen — mit AUSDRUECKLICHER Uhr. Nichts davon aendert `zustand`
+// (offen/geschlossen): die Faelle des Pruefstands haengen so nie an der Uhr.
+export function schwarm(eintraege, jetzt) {
+  const abl = ableiten(eintraege);
+  const halts = [], lagen = [], unwirksam = [];
+  for (const e of eintraege) {
+    if (e.art !== 'halt' && e.art !== 'lage') continue;
+    const z = abl.zustand.get(e.id).z;
+    if (z === 'geschlossen' || z === 'ersetzt') continue;
+    const w = wirksam(e, jetzt);
+    if (!w.ok) { if (!w.abgelaufen) unwirksam.push({ e, grund: w.grund }); continue; }
+    if (e.art === 'halt') {
+      const veto = (alsListe(e.bezug).find(b => b && b.art === 'widerspricht') || {}).id || null;
+      halts.push({ e, bis: w.bis, veto, antworten: (abl.rueck.get(e.id) || []).filter(x => x.von.art === 'antwort').map(x => x.von) });
+    } else lagen.push({ e, bis: w.bis });
+  }
+  // Je Schreiber gilt seine JUENGSTE Lage; „fertig" beendet sie.
+  const proVon = new Map();
+  for (const l of lagen.sort((a, b) => ordnung(a.e).localeCompare(ordnung(b.e)))) proVon.set(l.e.von, l);
+  const aktiv = [...proVon.values()].filter(l => l.e.phase !== 'fertig');
+  // Uebernahme = aktive Lage mit baut_auf:<id>. Mehrere auf dasselbe Ziel: die AELTESTE gilt — wer
+  // zuletzt schreibt, gewinnt sonst immer, und der Erste erfaehrt es nie.
+  const uebernahme = new Map();
+  for (const l of aktiv.slice().sort((a, b) => ordnung(a.e).localeCompare(ordnung(b.e)))) for (const b of alsListe(l.e.bezug)) if (b && b.art === 'baut_auf') {
+    if (!uebernahme.has(b.id)) uebernahme.set(b.id, { lage: l, auch: [] }); else uebernahme.get(b.id).auch.push(l);
+  }
+  const vetos = new Map();
+  for (const h of halts) if (h.veto) { if (!vetos.has(h.veto)) vetos.set(h.veto, []); vetos.get(h.veto).push(h); }
+  return { halts, lagen: aktiv, uebernahme, vetos, unwirksam };
+}
+
+// Was hat DIESE Sitzung geaendert? Seit dem Abzweigen UND heute anders als main — sonst zaehlt ein
+// weiterbenutzter, squash-gemergter Branch alles mit, was laengst auf main liegt (gemessen: 240
+// Dateien statt 0). Fuer index.html auf FUNKTIONEN: 13 von 17 frischen Branches aendern die Datei,
+// eine Ueberschneidung auf Dateiebene waere die Zahl, die man zu ignorieren lernt (v32.21).
+export function funktionenImDiff(diff) {
+  const aus = new Set();
+  const name = (z) => { const x = z.match(/function\s+([A-Za-z_$][\w$]*)/) || z.match(/([A-Za-z_$][\w$]*)\s*[:=]\s*(?:async\s+)?function\b/); return x ? x[1] : null; };
+  // Der Kopf eines Hunks nennt die Funktion VOR seiner ersten Zeile. Beginnt der Hunk mit einer
+  // Deklaration, ist das die vorige Funktion — dann zaehlt nur die geaenderte Zeile selbst.
+  let kopf = null, erste = true;
+  const schliesse = () => { if (kopf) aus.add(kopf); kopf = null; };
+  for (const z of String(diff).split('\n')) {
+    if (z.slice(0, 2) === '@@') { schliesse(); kopf = name(z.replace(/^@@[^@]*@@/, '')); erste = true; continue; }
+    if ((z[0] === '+' || z[0] === '-') && z.slice(0, 3) !== '+++' && z.slice(0, 3) !== '---') {
+      const n = name(z.slice(1));
+      if (n) { aus.add(n); if (erste) kopf = null; }
+      erste = false;
+    }
+  }
+  schliesse();
+  return aus;
+}
+export function eigeneAenderung(wurzel) {
+  const MAIN = 'refs/remotes/origin/main';
+  if (git(wurzel, ['rev-parse', '--verify', '--quiet', MAIN]) == null) return { grund: 'origin/main ist nicht bekannt (erst `holen`)' };
+  const basis = (git(wurzel, ['merge-base', 'HEAD', MAIN]) || '').trim();
+  if (!basis) return { grund: 'kein gemeinsamer Vorfahr mit origin/main (flacher Klon? `git fetch --unshallow`)' };
+  const namen = (args) => new Set((git(wurzel, args) || '').split('\n').map(x => x.trim()).filter(Boolean));
+  const neuDa = namen(['ls-files', '--others', '--exclude-standard']);
+  const seitBasis = namen(['diff', '--name-only', basis]), gegenMain = namen(['diff', '--name-only', MAIN]);
+  neuDa.forEach(n => { seitBasis.add(n); gegenMain.add(n); });
+  // Eintraege des Bretts beruehren nie einen Halt — sonst haelt ein Halt auch die Antwort darauf an.
+  const dateien = [...seitBasis].filter(n => gegenMain.has(n) && n.indexOf('docs/austausch/') !== 0).sort();
+  const fa = funktionenImDiff(git(wurzel, ['diff', '-U0', basis, '--', 'index.html']) || ''), fm = funktionenImDiff(git(wurzel, ['diff', '-U0', MAIN, '--', 'index.html']) || '');
+  const v = (t) => ((t || '').match(SW_VERSION) || [])[1] || null;
+  let swHier = null; try { swHier = fs.readFileSync(path.join(wurzel, 'sw.js'), 'utf8'); } catch (_) {}
+  const vHier = v(swHier), vMain = v(git(wurzel, ['show', MAIN + ':sw.js']));
+  return { basis, dateien, funktionen: [...fa].filter(x => fm.has(x)).sort(), bump: !!(vHier && vMain && vHier !== vMain) };
+}
+// Welche Geltung eines Halts beruehrt diese Aenderung?
+export function haltBeruehrt(h, aend) {
+  if (!aend || aend.grund) return [];
+  const t = [];
+  for (const g0 of alsListe(h.geltung)) {
+    const g = String(g0).trim();
+    if (g === 'bump') { if (aend.bump) t.push('bump'); continue; }
+    if (/^[A-Za-z_$][\w$]*$/.test(g)) { if (aend.funktionen.indexOf(g) >= 0) t.push(g + '()'); continue; }
+    const pre = g.replace(/\/+$/, '');
+    for (const d of aend.dateien) if (d === pre || d.indexOf(pre + '/') === 0) t.push(d);
+  }
+  return [...new Set(t)];
+}
+
+// Wer arbeitet laut git an einem offenen Eintrag? Niemand muss es melden: (a) sein Anker steht an der
+// Abzweigstelle eines frischen Branches noch, an dessen Spitze nicht mehr; (b) seine id steht in einer
+// Commit-Nachricht eines Branches, auf dem er nicht geschrieben wurde.
+export function inArbeitAusGit(wurzel, eintraege, jetzt, tage, wo) {
+  const MAIN = 'refs/remotes/origin/main', aus = new Map();
+  if (git(wurzel, ['rev-parse', '--verify', '--quiet', MAIN]) == null) return aus;
+  const { rueck, zustand } = ableiten(eintraege);
+  const offen = eintraege.filter(e => zustand.get(e.id).z === 'offen' && ['befund', 'idee', 'frage', 'klasse'].indexOf(e.art) >= 0);
+  const offenIds = new Set(offen.map(e => e.id));
+  const dazu = (id, ref, wie) => { if (!aus.has(id)) aus.set(id, []); if (!aus.get(id).some(x => x.ref === ref)) aus.get(id).push({ ref, wie }); };
+  const cache = new Map(), zeige = (rev, datei) => { const k = rev + ':' + datei; if (!cache.has(k)) cache.set(k, messtext(datei, git(wurzel, ['show', k]))); return cache.get(k); };
+  for (const z of frischeZweige(wurzel, jetzt, tage) || []) {
+    const voll = 'refs/remotes/' + z.ref, mb = (git(wurzel, ['merge-base', MAIN, voll]) || '').trim();
+    if (!mb) continue;
+    // Squash-Merge: ein gemergter, stehengebliebener Branch unterscheidet sich nicht mehr von main —
+    // er arbeitet an nichts. Geaendert ist, was seit dem Abzweigen anders ist UND heute anders als main.
+    const gegenMain = new Set((git(wurzel, ['diff', '--name-only', MAIN, voll]) || '').split('\n').filter(Boolean));
+    if (!gegenMain.size) continue;
+    const geaendert = new Set((git(wurzel, ['diff', '--name-only', mb, voll]) || '').split('\n').filter(n => n && gegenMain.has(n)));
+    for (const e of offen) for (const a of ankerWirksam(e, rueck)) {
+      if (!geaendert.has(a.datei)) continue;
+      const vor = zeige(mb, a.datei), nach = zeige(voll, a.datei);
+      if (vor != null && vor.indexOf(a.text) >= 0 && (nach == null || nach.indexOf(a.text) < 0)) { dazu(e.id, z.ref, 'Stelle dort geaendert'); break; }
+    }
+    for (const m of (git(wurzel, ['log', '--format=%B', mb + '..' + voll]) || '').matchAll(/\b(\d{4}-\d{2}-\d{2}-[0-9a-f]{4}(?:[0-9a-f]{4})?)\b/g)) {
+      if (!offenIds.has(m[1]) || (wo && wo.get(m[1]) && wo.get(m[1]).has(z.ref))) continue;
+      dazu(m[1], z.ref, 'im Commit genannt');
+    }
+  }
+  return aus;
+}
+
+// ── Waechter 1: nichts verschwindet, nichts wird umgeschrieben — gegen die ABZWEIGSTELLE (lokal
+//    merge-base mit origin/main, in CI die Basis-Seite des PR-Merge-Commits), nie gegen die
+//    bewegliche Spitze von main: gegen die waeren 15 von 17 frischen Branches rot gewesen, ohne
+//    etwas geloescht zu haben (gemessen 17.11.2026). Erlaubt: was auf der Grabstein-Liste steht.
+export function geloeschtSeit(wurzel, basis) {
+  const ls = git(wurzel, ['ls-tree', '-r', '-z', basis, '--', ORDNER + '/']);
+  if (ls == null) return { grund: 'Basis ' + basis + ' ist nicht lesbar' };
+  const grab = grabsteine(wurzel, false).ids, fehlt = [], anders = [];
+  let n = 0;
+  for (const z of ls.split('\0')) {
+    const m = z.match(/^\d+ blob ([0-9a-f]+)\t(.+\.json)$/);
+    if (!m) continue;
+    n++;
+    let hier = null; try { hier = fs.readFileSync(path.join(wurzel, m[2]), 'utf8'); } catch (_) {}
+    if (hier == null) { if (!grab.has(idAusName(path.posix.basename(m[2])))) fehlt.push(m[2]); continue; }
+    const alt = git(wurzel, ['cat-file', 'blob', m[1]]);
+    if (alt != null && alt !== hier) anders.push(m[2]);
+  }
+  return { n, fehlt, anders };
+}
+
+// ── Die Sicherung: was der Waechter (eine Action, ohne Sitzung) stuendlich nach `zz-sicherung`
+//    schreibt. Byte-gleich, derselbe Pfad wie im Brett (dieselbe id ergibt dieselbe Datei — keine
+//    Dubletten), ohne Geheimnisse, ohne Grabsteine. Was NUR noch hier liegt, hat ein Branch verloren.
+export function sicherungSchreiben(wurzel, ziel) {
+  const brett = brettLesen(wurzel, { alleRefs: true });
+  const aus = { neu: [], gleich: 0, abweichend: [], uebersprungen: [], entfernt: [], nurHier: [], refs: brett.refs, unlesbar: brett.unlesbar.length };
+  if (!brett.gitDa) return Object.assign(aus, { grund: 'git ist nicht verfuegbar' });
+  const grab = grabsteine(wurzel, true).ids, dir = path.join(ziel, ORDNER), vorhanden = new Map();
+  const liesOrdner = (d) => { if (!fs.existsSync(d)) return; for (const n of fs.readdirSync(d).sort()) { const p = path.join(d, n); if (fs.statSync(p).isDirectory()) liesOrdner(p); else if (/\.json$/.test(n) && idAusName(n)) vorhanden.set(idAusName(n), p); } };
+  liesOrdner(dir);
+  for (const e of brett.eintraege) {
+    if (istSicherungsRef(e._quelle)) continue;
+    const geheim = GEHEIM.find(([re]) => re.test(textVon(e)));
+    if (geheim) { aus.uebersprungen.push({ id: e.id, quelle: e._quelle, grund: 'sieht aus wie ' + geheim[1] }); continue; }
+    const p = vorhanden.get(e.id);
+    if (p) { let alt = null; try { alt = fs.readFileSync(p, 'utf8'); } catch (_) {} if (alt === e._roh) aus.gleich++; else aus.abweichend.push({ id: e.id, quelle: e._quelle }); continue; }
+    const neuP = path.join(dir, e.id.slice(0, 7), e._datei);
+    fs.mkdirSync(path.dirname(neuP), { recursive: true });
+    fs.writeFileSync(neuP, e._roh, { flag: 'wx' });
+    aus.neu.push({ id: e.id, quelle: e._quelle, titel: e.titel });
+  }
+  for (const [id, p] of vorhanden) {
+    if (grab.has(id)) { fs.unlinkSync(p); aus.entfernt.push(id); continue; }
+    const w = brett.wo.get(id);
+    if (!(w && [...w].some(q => !istSicherungsRef(q)))) aus.nurHier.push(id);
+  }
+  return aus;
 }
 
 // ── Schreiben. Alles oder nichts.
@@ -731,12 +1027,14 @@ export function einspielen(wurzel, roh, opts) {
     const wo = 'Eintrag ' + (i + 1);
     if (!r || typeof r !== 'object' || Array.isArray(r)) { fehler.push({ wo, grund: 'kein JSON-Objekt' }); return; }
     const e = Object.assign({}, r);
+    // Ein zeitgebundener Eintrag mit selbst gewaehltem Datum (2099) wirkte sonst unbegrenzt.
+    if ((e.art === 'lage' || e.art === 'halt') && (r.datum || r.zeit || opts.datum)) fehler.push({ wo, grund: 'Datum und Zeit einer ' + (e.art === 'lage' ? 'Lage' : 'Halts') + ' setzt das Werkzeug (die Frist rechnet ab dem Schreiben)' });
     if (!e.datum) e.datum = datum;
     if (!e.zeit) e.zeit = opts.zeit || jetzt.zeit;
     if (!e.von && opts.von) e.von = opts.von;
     if (e.id) fehler.push({ wo, grund: 'eine id vergibt das Werkzeug — ein Eintrag wird nicht umgeschrieben' });
     else {
-      for (let n = 0; n < 50 && !e.id; n++) { const id = (datumGueltig(e.datum) ? e.datum : datum) + '-' + crypto.randomBytes(2).toString('hex'); if (!belegt.has(id)) e.id = id; }
+      for (let n = 0; n < 50 && !e.id; n++) { const id = (datumGueltig(e.datum) ? e.datum : datum) + '-' + crypto.randomBytes(4).toString('hex'); if (!belegt.has(id)) e.id = id; }
       belegt.add(e.id);
     }
     if (e.schluessel != null) {
