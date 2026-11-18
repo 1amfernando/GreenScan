@@ -48,6 +48,16 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: 22
+      # Das Brett (austausch_check A8): ein Halt einer laufenden Sitzung liegt auf IHREM Branch, nicht im
+      # Baum dieses PR — ohne die anderen Branches sah A8 nur Halts, die schon auf main liegen
+      # (Gegenpruefung 18.11.2026). Nur lesend, ohne Zugangsdaten (das Repo ist oeffentlich). Als
+      # Teil-Abruf ohne grosse Dateien: jeder Branch traegt eine eigene index.html (6 MB) — A8 braucht nur
+      # die Eintraege (hoechstens 64 KB). Gemessen 18.11.2026: 143 Refs in 1,5 s, 16 MB.
+      - name: Branches fuer das Brett (nur lesend)
+        run: |
+          git config remote.origin.promisor true
+          git config remote.origin.partialclonefilter 'blob:limit=200k'
+          git fetch --quiet --no-tags --depth=1 --filter=blob:limit=200k origin '+refs/heads/*:refs/remotes/origin/*' || echo "::warning::Branches nicht geholt — A8 sieht nur Halts im Baum"
       - name: psql + python
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client python3
       # v33.49: apk_check baut das Android-Paket WIRKLICH und sieht darin nach.

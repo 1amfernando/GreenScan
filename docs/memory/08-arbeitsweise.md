@@ -22,8 +22,9 @@ BETREFFEND (fremder Halt auf deinen Dateien, Veto gegen deinen Eintrag, Antworte
 Lieferungen auf deine Fragen, nicht Gepushtes — „dein" heisst: von dir geschrieben, nicht: liegt
 in deinem Arbeitsbaum); eine Aufgabe nimmst du mit `nehme <id>` und gibst sie mit
 `lage --phase fertig` frei, einen Halt setzt `halt` (Funktionsnamen oder Pfade — nie
-`STATUS.md` oder `index.html` als Ganzes), `naechste` endet unter einem fremden Bump-Halt mit
-Exit 1 (README „Der Schwarm").
+`STATUS.md` oder `index.html` als Ganzes), `naechste` holt selbst und endet unter einem fremden
+Bump-Halt mit Exit 1 (README „Der Schwarm"). Was eine Austausch-Runde schreibt, traegt als `von`
+die Sitzung und als `rolle` den Blickwinkel.
 
 Arbeite in einer **Kopie** (`tar --exclude=.git -cf - . | (cd KOPIE && tar -xf -)`),
 nie im Repo selbst, solange die Suite nicht gruen ist. Beide Dateien eines

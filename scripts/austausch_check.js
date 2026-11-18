@@ -216,16 +216,11 @@ const FAELLE = [
     },
   },
   {
-    name: 'A8 · Halt und dieser Stand · welche WIRKSAMEN Halts im Baum beruehrt dieser Stand (im PR: gegen die Basis-Seite des Merge-Commits)? Ein Bericht, keine Sperre — wer merged, liest hier, worum eine andere Sitzung gebeten hat',
+    name: 'A8 · Halt und dieser Stand · welche WIRKSAMEN Halts — auf main UND auf jedem anderen Branch — beruehrt dieser Stand (im PR: gegen die Basis-Seite des Merge-Commits)? Ein Bericht, keine Sperre — wer merged, liest hier, worum eine andere Sitzung gebeten hat',
     lauf: () => {
-      const wb = A.waechterBasis(WURZEL, process.env);
-      if (wb.grund) return { ok: true, info: 'nicht rechenbar: ' + wb.grund };
-      const aend = A.eigeneAenderung(WURZEL, process.env.GITHUB_EVENT_NAME === 'pull_request' ? { basis: wb.basis } : {});
-      if (aend.grund) return { ok: true, info: 'nicht rechenbar: ' + aend.grund };
-      const ich = process.env.GITHUB_HEAD_REF ? 'sitzung/' + process.env.GITHUB_HEAD_REF : null;
-      const b = A.brettLesen(WURZEL, { alleRefs: false }), sw = A.schwarm(b.eintraege, Date.now(), { ich });
-      const treffer = sw.halts.filter(h => !h.veto && h.e.von !== ich).map(h => ({ h, t: A.haltBeruehrt(h.e, aend) })).filter(x => x.t.length);
-      return { ok: true, info: sw.halts.length + ' wirksame Halt(s) im Baum · ' + aend.dateien.length + ' Datei(en), ' + aend.funktionen.length + ' Funktion(en) geaendert' + (aend.bump ? ', mit Bump' : '') + ' · ' + (treffer.length ? '!! BERUEHRT: ' + treffer.map(x => x.h.e.id + ' von ' + x.h.e.von + ' bis ' + x.h.e.bis + ' (' + x.t.slice(0, 3).join(', ') + ') — „' + kurz(x.h.e.text, 80) + '"').join(' | ') : 'keiner beruehrt diesen Stand') };
+      const r = A.haltsDiesesStands(WURZEL, process.env);
+      if (r.grund) return { ok: true, info: 'nicht rechenbar: ' + r.grund };
+      return { ok: true, info: r.halts.length + ' wirksame Halt(s) auf ' + r.refs + ' Remote-Refs und im Baum · ' + r.aend.dateien.length + ' Datei(en), ' + r.aend.funktionen.length + ' Funktion(en) geaendert' + (r.aend.bump ? ', mit Bump' : '') + ' · ' + (r.treffer.length ? '!! BERUEHRT: ' + r.treffer.map(x => x.h.e.id + ' {' + x.h.e._quelle + '} von ' + x.h.e.von + ' bis ' + x.h.e.bis + ' (' + x.t.slice(0, 3).join(', ') + ') — „' + kurz(x.h.e.text, 80) + '"').join(' | ') : 'keiner beruehrt diesen Stand') };
     },
   },
   {
@@ -805,7 +800,9 @@ const FAELLE = [
         // Ohne origin/main laesst sich nichts rechnen — das wird gesagt, nicht geraten.
         const ohne = repo('ohne-remote');
         try { r = werkzeug(ohne, ['naechste']); if (r.code !== 2 || !/Nicht rechenbar: origin\/main ist nicht bekannt/.test(r.aus)) f.push('ohne origin/main: Exit ' + r.code + ' — erwartet 2 und „Nicht rechenbar"'); r = werkzeug(ohne, []); if (/^VERGEBEN/m.test(r.aus)) f.push('ohne origin/main zeigt `lesen` einen VERGEBEN-Block'); } finally { weg(ohne); }
-        // Ein Sprung weit ueber main (gs-v9.99) und eine Commit-Zeit 2099 verschieben „naechste" nicht.
+        // Ein Sprung weit ueber main (gs-v9.99) verschiebt „naechste" nicht; ein Branch mit Commit-Zeit 2099 ist
+        // nicht „frisch" — seine Nummer (v1.05) ist aber VERGEBEN und zaehlt mit (sonst empfahl `naechste` sie
+        // still ein zweites Mal — Gegenpruefung 2), und `naechste` sagt es.
         // (Eigene Linie von claude/a: ihre Kuerzel-Ueberschrift fuegt keine neue Linie hinzu.)
         zweig('claude/sprung', 'v9.99', 'ab', 'Alpha', vor(1), 'origin/claude/a');
         zweig('claude/zukunft', 'v1.05', 'ab', 'Alpha', '2099-01-01T00:00:00Z', 'origin/claude/a');
@@ -813,9 +810,14 @@ const FAELLE = [
         const m3 = A.vergebeneMarken(d, Date.now(), 14);
         if ((m3.unplausibel || []).map(u => ohneO(u.ref) + ':' + u.wert).join() !== 'sprung:v9.99') f.push('unplausibel: ' + JSON.stringify(m3.unplausibel) + ' — erwartet claude/sprung mit v9.99');
         if ((m3.zukunft || []).map(z => ohneO(z.ref)).join() !== 'zukunft') f.push('Commit-Zeit in der Zukunft: ' + JSON.stringify(m3.zukunft) + ' — erwartet claude/zukunft, nicht als frisch gezaehlt');
-        if (m3.naechsteVersion !== 'v1.04') f.push('mit Sprung und Zukunfts-Branch: naechste freie ' + m3.naechsteVersion + ' — erwartet weiter v1.04');
+        if (m3.naechsteVersion !== 'v1.06') f.push('mit Sprung und Zukunfts-Branch: naechste freie ' + m3.naechsteVersion + ' — erwartet v1.06 (v1.05 traegt der Zukunfts-Branch, der Sprung zaehlt nicht)');
         r = werkzeug(d, ['naechste']);
         if (!/Nicht gezaehlt — mehr als 20 Versionen ueber main[^\n]*claude\/sprung v9\.99/.test(r.aus)) f.push('`naechste` nennt den unplausiblen Sprung nicht');
+        if (!/!! 1 Branch\(es\) mit Commit-Zeit in der Zukunft — ihre Nummern sind MITGEZAEHLT: claude\/zukunft/.test(r.aus)) f.push('`naechste` verschweigt den Zukunfts-Branch: ' + kurz(r.aus, 200));
+        // Der EIGENE Arbeitsbaum mit einem unplausiblen Sprung wird ebenso genannt (nicht still uebergangen).
+        stand('v9.98', 'ab', 'Alpha drei'); r = werkzeug(d, ['naechste']);
+        if (!/!! Dein Arbeitsbaum traegt v9\.98 — mehr als 20 Versionen ueber main/.test(r.aus)) f.push('`naechste` uebergeht den unplausiblen eigenen Sprung still: ' + kurz(r.aus, 200));
+        stand('v1.01', 'ab', 'Alpha drei');
         // Die Reihenfolge der Kuerzel: a … z, aa … zz.
         const folge = [['z', 'aa'], ['jd', 'je'], ['az', 'ba'], ['zz', 'aaa']].filter(([a, b]) => A.kuerzelNach(a) !== b);
         if (folge.length) f.push('kuerzelNach: ' + folge.map(([a, b]) => a + ' → ' + A.kuerzelNach(a) + ' (erwartet ' + b + ')').join(', '));
@@ -948,6 +950,74 @@ const FAELLE = [
       if (!A.kritischOhneZitat([kOffen], 'brett:' + kOffen.id + 'ab12').ohne.length) f.push('ein Zitat einer LAENGEREN id (…' + kOffen.id.slice(-4) + 'ab12) gilt als Zitat von ' + kOffen.id);
       const fw = A.fernandoText('# S\n## 0 · Neu\nbrett:' + kZu.id + '\n## 2 · Offen\nbrett:' + kNormal.id + '\n## 3 · Rest\n', 'brett:' + kSchluss.id);
       if ([...A.zitierteIds(fw)].sort().join() !== [kNormal.id, kSchluss.id].sort().join()) f.push('fernandoText liest mehr oder weniger als §2 und FUER-FERNANDO: ' + [...A.zitierteIds(fw)].join());
+      // ── Gegenpruefung 2 (18.11.2026): die Rechnung.
+      { // Nur ein GUELTIGER Eintrag schliesst, ersetzt, beantwortet — und ersetzen darf nur, wer geschrieben hat.
+        const kb = mk('befund', { dringlichkeit: 'kritisch' }), egal = mk('abschluss', { ergebnis: 'egal', bezug: [bz('schliesst', kb)] });
+        const kb2 = mk('befund', { dringlichkeit: 'kritisch' }), ohneBeleg = mk('befund', { beleg: undefined, bezug: [bz('ersetzt', kb2)] });
+        const kb3 = mk('befund', { von: 'sitzung/autor' }), fremdErsatz = mk('befund', { von: 'sitzung/fremd', bezug: [bz('ersetzt', kb3)] }), eigenErsatz = mk('befund', { von: 'sitzung/autor', bezug: [bz('ersetzt', kb3)] });
+        const fr = mk('frage'), leereAntw = mk('antwort', { titel: undefined, bezug: [bz('beantwortet', fr)] });
+        let zs = A.ableiten([kb, egal, kb2, ohneBeleg, kb3, fremdErsatz, fr, leereAntw]).zustand;
+        if (zs.get(kb.id).z !== 'offen') f.push('ein ungueltiger Abschluss (ergebnis „egal") schliesst einen kritischen Befund');
+        if (zs.get(kb2.id).z !== 'offen') f.push('ein ungueltiger Ersatz (Befund ohne Beleg) versteckt einen kritischen Befund');
+        if (zs.get(kb3.id).z !== 'offen') f.push('ein FREMDER Schreiber ersetzt einen Befund');
+        if (zs.get(fr.id).z !== 'offen') f.push('eine ungueltige Antwort (ohne Titel) beantwortet eine Frage');
+        if (A.ableiten([kb3, eigenErsatz]).zustand.get(kb3.id).z !== 'ersetzt') f.push('der Autor kann seinen Befund nicht mehr ersetzen');
+        // Halt und Lage, die eine Bezugsregel verletzen, wirken nicht; ein Veto traegt keine Geltung.
+        const zu = mk('abschluss', { bezug: [bz('schliesst', mk('befund'))] }), vetoAbschluss = mk('halt', { geltung: undefined, bezug: [bz('widerspricht', zu)] }), lageAbschluss = mk('lage', { bezug: [bz('baut_auf', zu)] });
+        const s6 = A.schwarm([zu, vetoAbschluss, lageAbschluss], T);
+        if (s6.halts.length || s6.uebernahme.size || s6.unwirksam.length !== 2) f.push('Veto gegen einen Abschluss / Lage, die einen Abschluss nimmt, wirken (oder werden nicht als unwirksam genannt): ' + s6.halts.length + ' Halts, ' + s6.uebernahme.size + ' Uebernahmen');
+        nein(mk('halt', { bezug: [bz('widerspricht', mk('befund'))] }), /Veto[^]*traegt keine „geltung"/, 'Halt mit Geltung UND widerspricht (galt nur als Veto, die Geltung wirkte still nicht)');
+        // Gute Grenzfaelle (sonst waere eine zu strenge Regel gruen): Veto gegen Lage und gegen Halt, Halt „dringend",
+        // Lage mit genau drei Zielen, Lage mit genau 24 h, Halt mit genau 72 h.
+        const gl = mk('lage'), gh = mk('halt'), drei = [mk('befund'), mk('befund'), mk('befund')];
+        const vL = mk('halt', { geltung: undefined, bezug: [bz('widerspricht', gl)] }), vH = mk('halt', { geltung: undefined, bezug: [bz('widerspricht', gh)] });
+        gut(vL, 'Veto gegen eine Lage'); gut(vH, 'Veto gegen einen Halt');
+        const s7 = A.schwarm([gl, gh, vL, vH], T);
+        if (!s7.vetos.has(gl.id) || !s7.vetos.has(gh.id)) f.push('ein Veto gegen eine Lage oder einen Halt wirkt nicht');
+        gut(mk('halt', { dringlichkeit: 'dringend' }), 'dringender Halt');
+        gut(mk('lage', { bezug: drei.map(x => bz('baut_auf', x)) }), 'Lage mit genau drei Zielen');
+        gut(mk('lage', { bis: '2026-01-02T10:00:00Z' }), 'Lage mit genau 24 h');
+        gut(mk('halt', { bis: '2026-01-04T10:00:00Z' }), 'Halt mit genau 72 h');
+        nein(mk('halt', { geltung: ['index.html:gsZwei'] }), /ohne Datei/, 'Geltung „datei:funktion"');
+        // `von` gegen die Quelle auch bei Halt und Veto; main traegt jede (gemergt); ein abgelaufener Eintrag wird nicht gemeldet.
+        const hf = mk('halt', { von: 'sitzung/claude/opfer' }), lm = mk('lage', { von: 'sitzung/claude/koord', bezug: [bz('baut_auf', zc0())] });
+        function zc0() { return mk('befund'); }
+        const lAlt = mk('lage', { von: 'sitzung/claude/alt', zeit: '01:00:00', bis: '2026-01-01T02:00:00Z' });
+        const wo2 = new Map([[hf.id, new Set(['origin/claude/angreifer'])], [lm.id, new Set(['origin/main'])], [lAlt.id, new Set(['origin/claude/fremd'])]]);   // abgelaufen UND mit fremdem von: trotzdem still
+        const s8 = A.schwarm([hf, lm, lAlt], T, { wo: wo2, ich: 'sitzung/claude/opfer' });
+        if (s8.halts.some(h0 => h0.e === hf) || !s8.unwirksam.some(u => u.e === hf && /passt nicht/.test(u.grund))) f.push('ein Halt im Namen von claude/opfer, der auf claude/angreifer liegt, wirkt');
+        if (s8.uebernahme.size !== 1) f.push('eine Uebernahme, die nach main gemergt wurde (ihr Branch geloescht), gilt nicht mehr — „auf main jede"');
+        if (s8.unwirksam.some(u => u.e === lAlt)) f.push('eine ABGELAUFENE Lage wird als unwirksam gemeldet — Laerm bei jedem Lesen');
+        // Hoechstens drei Uebernahmen je Schreiber zugleich; „fertig" in derselben Sekunde gibt nichts frei.
+        const vierZ = [mk('befund'), mk('befund'), mk('befund'), mk('befund')];
+        const ql = vierZ.map((z, i) => mk('lage', { von: 'sitzung/q', zeit: '10:0' + i + ':00', bezug: [bz('baut_auf', z)] }));
+        const s9 = A.schwarm(vierZ.concat(ql), T);
+        if (s9.uebernahme.size !== 3 || s9.uebernahme.has(vierZ[3].id) || !s9.unwirksam.some(u => u.e === ql[3] && /mehr als 3/.test(u.grund))) f.push('vier Uebernahmen eines Schreibers: ' + s9.uebernahme.size + ' gelten — erwartet die drei aeltesten, die vierte als unwirksam genannt');
+        const zs1 = mk('befund'), fertigGleich = mk('lage', { von: 'sitzung/r', zeit: '10:00:00', phase: 'fertig' }), nimmGleich = mk('lage', { von: 'sitzung/r', zeit: '10:00:00', bezug: [bz('baut_auf', zs1)] });
+        if (!A.schwarm([zs1, nimmGleich, fertigGleich], T).uebernahme.has(zs1.id)) f.push('ein „fertig" in DERSELBEN Sekunde gibt die eben genommene Aufgabe frei');
+        // Rueckdatiert (Zeitstempel weit vor dem Commit, der die Lage brachte) und vordatiert: unwirksam.
+        const zr = mk('befund'), ehrlich = mk('lage', { von: 'sitzung/e', zeit: '11:00:00', bezug: [bz('baut_auf', zr)] }), rueck = mk('lage', { von: 'sitzung/f', zeit: '01:00:00', bis: '2026-01-02T00:00:00Z', bezug: [bz('baut_auf', zr)] });
+        Object.defineProperty(rueck, '_angekommen', { value: Date.parse('2026-01-01T11:30:00Z') });
+        const vor0 = mk('halt', { zeit: '11:00:00', bis: '2026-01-03T00:00:00Z' }); Object.defineProperty(vor0, '_angekommen', { value: Date.parse('2026-01-01T09:00:00Z') });
+        const s10 = A.schwarm([zr, ehrlich, rueck, vor0], T);
+        if ((s10.uebernahme.get(zr.id) || { lage: { e: {} } }).lage.e !== ehrlich || !s10.unwirksam.some(u => u.e === rueck && /rueckdatiert/.test(u.grund))) f.push('eine rueckdatierte Lage (01:00, angekommen 11:30) stiehlt die Uebernahme von 11:00');
+        if (s10.halts.some(h0 => h0.e === vor0) || !s10.unwirksam.some(u => u.e === vor0 && /vordatiert/.test(u.grund))) f.push('ein vordatierter Halt (11:00, angekommen 09:00) wirkt');
+        // Viele Eintraege an EINEM Stichwort werden gezaehlt, nicht gepaart (2 000: zwei Millionen Paare, 5 000: Speicher voll).
+        const viele = Array.from({ length: 2000 }, (_, i) => mk('befund', { von: 'sitzung/v' + i, stichworte: ['kalender'] }));
+        const t0 = Date.now(), an0 = A.anstoesse(viele), dauer = Date.now() - t0;
+        if (an0.length > 5 || dauer > 3000) f.push('2 000 Befunde an einem Stichwort: ' + an0.length + ' Anstoesse in ' + dauer + ' ms — erwartet EINE Zeile, schnell');
+        // Die Suchmuster fuer Geheimnisse bleiben linear: 64 KB „eyJ-" (JWT) und 64 KB ohne „@" (E-Mail).
+        for (const [was, text] of [['eyJ-', 'eyJ-'.repeat(16000)], ['ohne @', 'a.'.repeat(32000)]]) {
+          const t1 = Date.now(); A.eintragPruefen(mk('befund', { beleg: [text] })); const ms = Date.now() - t1;
+          if (ms > 400) f.push('eintragPruefen auf 64 KB „' + was + '": ' + ms + ' ms — ein Muster springt quadratisch zurueck'); }
+        // Funktionsgrenzen: eine Zeile gehoert ALLEN umschliessenden Funktionen, eine ausserhalb keiner (CSS, Changelog, Version).
+        const html = ['<style>.x { color: red; }</style>', '<script>', "var GS_VERSION = 'v1.00';", 'function gsAussen(von) {', '  var im = function (t) { return t; };', '  var x = 1;', '  return im(x) + "}" + /}/.source;', '}', 'window.GS_RELEASES = [', "  { v: 'v1.00' }", '];', '</script>', ''].join('\n');
+        const html2 = html.replace('var x = 1;', 'var x = 2;').replace('color: red', 'color: blue').replace("GS_VERSION = 'v1.00'", "GS_VERSION = 'v1.01'").replace("{ v: 'v1.00' }", "{ v: 'v1.01' }, { v: 'v1.00' }");
+        const fa = (zeile) => [...A.funktionenAusDiff('@@ -' + zeile + ' +' + zeile + ' @@\n', html, html2)].sort().join();
+        if (fa(6) !== 'gsAussen') f.push('eine Zeile mitten im Rumpf (hinter dem Helfer „im"): „' + fa(6) + '" — erwartet gsAussen');
+        if (fa(5) !== 'gsAussen,im') f.push('die Zeile des Helfers: „' + fa(5) + '" — erwartet gsAussen und im');
+        if (fa(1) || fa(3) || fa(10)) f.push('CSS, GS_VERSION oder der Changelog gehoeren zu einer Funktion: „' + [fa(1), fa(3), fa(10)].join('|') + '"');
+      }
       if (f.length) return { ok: false, warum: f.join(' · ') };
       return { ok: true, info: '39 Formfaelle · 7 Bezugsregeln · wirksam (gueltig, abgelaufen, 2099, ohne Z, Geltung *, Vorlauf 5/20 min) · aelteste Uebernahme je Schreiber und Ziel, Fortschritt, fertig mit/ohne Bezug, von gegen Quelle, aufgehoben nur gueltig, ersetzt nie · Zustand ohne Uhr · Geltung (Datei ohne Punkt, ./) und Funktionen aus Zeilennummern · Zitate genau' };
     },
@@ -1001,12 +1071,19 @@ const FAELLE = [
         // entscheidet die id (fuer alle Leser gleich, aber nicht „die aeltere"). Gemessen: unter Last in
         // 5 von 12 Laeufen dieselbe Sekunde. Also bis zur naechsten Sekunde warten.
         Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1050 - (Date.now() % 1000));
+        // Wer bewusst mithilft (--auch), weiss, dass ein anderer zuerst war — kein Satz bei jedem Lesen
+        // (Gegenpruefung 2). Wer OHNE --auch nachrangig nimmt (gleichzeitig, oder am Werkzeug vorbei), erfaehrt es.
         r = werkzeug(d, ['nehme', befund.slice(-4), '--auch']);
         if (r.code !== 0 || !geschrieben(r)) f.push('`nehme --auch` schreibt nicht: ' + kurz(r.aus, 200));
         r = werkzeug(d, []);
+        if (/Deine Uebernahme von [^\n]*gilt nicht/.test(r.aus)) f.push('nach bewusstem --auch steht trotzdem „Deine Uebernahme gilt nicht"');
+        { const st = path.join(eltern, 'nachrangig.json'); fs.writeFileSync(st, JSON.stringify([{ art: 'lage', titel: 'Nehme (gleichzeitig)', phase: 'laeuft', bis: new Date(Date.now() + 36e5).toISOString().replace(/\.\d{3}Z$/, 'Z'), bezug: [{ art: 'baut_auf', id: befund }] }]));
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1050 - (Date.now() % 1000));
+          werkzeug(d, ['einspielen', st]); }
+        r = werkzeug(d, []);
         if (!/Deine Uebernahme von [^\n]*gilt nicht: sitzung\/claude\/halter war zuerst/.test(r.aus)) {
           const u = A.schwarm(A.brettLesen(d, { alleRefs: true }).eintraege, Date.now()).uebernahme.get(befund);
-          f.push('die nachrangige eigene Uebernahme wird nicht gesagt — gerechnet: ' + (u ? u.lage.e.von + ' ' + u.lage.e.zeit + ' {' + u.lage.e._quelle + '}, daneben ' + u.auch.map(x => x.e.von + ' ' + x.e.zeit + ' {' + x.e._quelle + '}').join(', ') : 'keine Uebernahme'));
+          f.push('die nachrangige eigene Uebernahme (ohne --auch) wird nicht gesagt — gerechnet: ' + (u ? u.lage.e.von + ' ' + u.lage.e.zeit + ' {' + u.lage.e._quelle + '}, daneben ' + u.auch.map(x => x.e.von + ' ' + x.e.zeit + ' {' + x.e._quelle + '}').join(', ') : 'keine Uebernahme'));
         }
         if (!/liegen NUR in diesem Arbeitsbaum — nicht gepusht/.test(r.aus)) f.push('der nicht gepushte Eintrag wird nicht genannt');
         // Aufheben (von hier, mit Grund) wirkt ueber die Branch-Grenze; danach laeuft `naechste` wieder.
@@ -1148,13 +1225,197 @@ const FAELLE = [
         // Mit fester Basis (im PR): dieselbe Rechnung gegen HEAD^1.
         const p = A.eigeneAenderung(d, { basis: g(d, ['rev-parse', 'origin/main']).trim() });
         if (!p.bump || p.funktionen.indexOf('gsZwei') < 0) f.push('mit fester Basis: ' + JSON.stringify(p));
+        // Ein Pfad mit Umlaut und einer mit Leerzeichen kommen ungequotet an (sonst „"docs/pl\\303\\244ne/x.md"", und kein Halt traefe ihn).
+        fs.mkdirSync(path.join(d, 'docs', 'pläne'), { recursive: true }); fs.writeFileSync(path.join(d, 'docs', 'pläne', 'x.md'), 'x\n'); fs.writeFileSync(path.join(d, 'docs', 'mein plan.md'), 'y\n');
+        a = A.eigeneAenderung(d);
+        const ht = A.haltBeruehrt({ geltung: ['docs/pläne/', 'docs/mein plan.md'] }, a);
+        if (ht.join() !== 'docs/pläne/x.md,docs/mein plan.md') f.push('Halt auf docs/pläne/ und „docs/mein plan.md": „' + ht.join() + '" — dateien ' + JSON.stringify(a.dateien));
         if (f.length) return { ok: false, warum: f.join(' · ') };
-        return { ok: true, info: 'main gebumpt, gsEins geaendert und einen Schritt der Sitzung squash-gemergt, die Sitzung gsZwei + eingerueckt gsInnen + Umbenennung + Brett: dateien, funktionen, bump stimmen; gleiche Aenderung wie main zaehlt nicht; eigener Bump zaehlt; feste Basis' };
+        return { ok: true, info: 'main gebumpt, gsEins geaendert und einen Schritt der Sitzung squash-gemergt, die Sitzung gsZwei + eingerueckt gsInnen + Umbenennung + Brett: dateien, funktionen, bump stimmen; gleiche Aenderung wie main zaehlt nicht; eigener Bump zaehlt; feste Basis; Umlaut- und Leerzeichen-Pfade ungequotet' };
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(eltern); }
     },
   },
   {
-    name: 'C13 · Waechter und Sicherung · Waechter 1 rechnet gegen die Abzweigstelle (lokal merge-base, im PR die Basis-Seite des Merge-Commits) und sieht ein geloeschtes oder umgeschriebenes Eintragsfile (ausser per Grabstein); der ECHTE Schritt aus .github/workflows/brett-waechter.yml, gefahren wie auf GitHub (frischer flacher Klon, saubere Shell, Cache als Gedaechtnis): sichert byte-gleich, ohne Geheimnis, aendert auf origin NUR zz-sicherung, wiederholt sich ohne Commit, behaelt die erste Fassung, wird ROT bei einem geloeschten Branch und bei einer zurueckgesetzten Sicherung, und ein Grabstein verschwindet aus dem Branch samt Geschichte',
+    name: 'C16 · Der Schwarm sagt es dem, den es betrifft · als PROZESS ueber vier Branches: was die Austausch-Runde schreibt, ist „meins" (Antworten darauf kommen an); Antworten auf meinen Halt und seine Aufhebung erreichen mich; AN DICH ohne stillen Deckel und nur als ganzes Wort; ein Halt mit fremdem Namen, eine rueckdatierte Lage und eine Lage mit fremdem `von` sind UNWIRKSAM; `zeige` sagt dasselbe wie das Brett; `naechste` holt selbst, nennt das Veto und gilt auch als JSON; die Bloecke KRITISCH, LAGE, HALT UND VETO, „dringend zuerst"; hoechstens drei Uebernahmen; Lieferung, Push-Hinweis, kritisch → STATUS-Zeile; ein Upstream unter anderem Namen und ein geloeschter Branch werden gesagt; `ernten` und A8',
+    lauf: () => {
+      const eltern = tmp('betrifft'), bare = path.join(eltern, 'origin.git'), d = path.join(eltern, 'klon');
+      const id = (r) => { const m = r.aus.match(/\n {2}(\d{4}-\d{2}-\d{2}-[0-9a-f]{4,8}) /); return m ? m[1] : null; };
+      const block = (aus, kopf) => { const i = aus.indexOf('\n' + kopf); if (i < 0) return ''; const rest = aus.slice(i + 1), j = rest.slice(1).search(/\n[A-Z][A-Z ]+[A-Z]( \(|\n|$)/); return j < 0 ? rest : rest.slice(0, j + 1); };
+      try {
+        const f = [];
+        const push = (zweig, msg) => { g(d, ['add', '-A']); g(d, ['commit', '-q', '--allow-empty', '-m', msg]); g(d, ['push', '-q', '-u', 'origin', zweig]); };
+        const hand = (e, name) => ablegen(d, e, name);
+        const jetzt = (dh) => new Date(Date.now() + (dh || 0) * 36e5);
+        const stamp = (dt) => ({ datum: dt.toISOString().slice(0, 10), zeit: dt.toISOString().slice(11, 19) });
+        const bisIn = (h) => jetzt(h).toISOString().replace(/\.\d{3}Z$/, 'Z');
+        cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]);
+        fs.mkdirSync(d); g(d, ['init', '-q', '-b', 'main', '.']); g(d, ['remote', 'add', 'origin', 'file://' + bare]);
+        fs.writeFileSync(path.join(d, 'index.html'), QUELLE); fs.writeFileSync(path.join(d, 'sw.js'), "const VERSION = 'gs-v1.00';\n");
+        const b = []; for (let i = 0; i < 5; i++) { const r = werkzeug(d, ['neu', 'befund', '--von', 'sitzung/start', '--titel', 'Befund ' + i + ' von main', '--beleg', 'gemessen: ' + i]); b.push(id(r)); }
+        let r = werkzeug(d, ['neu', 'befund', '--von', 'sitzung/start', '--dringlichkeit', 'dringend', '--titel', 'Ein dringender aelterer Befund', '--beleg', 'gemessen: d']); const dringend = id(r);
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1100);
+        r = werkzeug(d, ['neu', 'befund', '--von', 'sitzung/start', '--titel', 'Ein normaler juengerer Befund', '--beleg', 'gemessen: n']); const normal = id(r);
+        if (b.some(x => !x) || !dringend || !normal) return { ok: false, warum: 'Aufbau: Befunde auf main nicht geschrieben — ' + kurz(r.aus, 200) };
+        if (!/^\d{4}-\d{2}-\d{2}-[0-9a-f]{8}$/.test(b[0])) f.push('`neu` vergibt keine acht Hexstellen: ' + b[0]);
+        push('main', 'start');
+        // ── ICH: eine Frage, ein Runden-Stapel, ein Halt, ein Bump-Halt, drei Uebernahmen, ein kritischer Befund.
+        g(d, ['checkout', '-q', '-b', 'claude/ich-arbeit', 'main']);
+        const runde = path.join(eltern, 'runde.json'); fs.writeFileSync(runde, JSON.stringify([{ art: 'frage', von: 'runde/kalender', an: 'alle', titel: 'Die Runde fragt: wer misst den Kalender?' }]));
+        r = werkzeug(d, ['einspielen', runde]); const rF = (r.aus.match(/\n {2}(\d{4}-\d{2}-\d{2}-[0-9a-f]{8}) /) || [])[1];
+        const rFDatei = rF && fs.readdirSync(path.join(d, A.ORDNER, rF.slice(0, 7))).find(n => n.indexOf(rF) === 0);
+        const rFE = rFDatei ? JSON.parse(fs.readFileSync(path.join(d, A.ORDNER, rF.slice(0, 7), rFDatei), 'utf8')) : {};
+        if (rFE.von !== 'sitzung/claude/ich-arbeit' || rFE.rolle !== 'runde/kalender') f.push('ein Runden-Eintrag traegt nicht die Sitzung als `von` und die Runde als `rolle`: ' + JSON.stringify({ von: rFE.von, rolle: rFE.rolle }));
+        r = werkzeug(d, ['neu', 'frage', '--an', 'alle', '--titel', 'Eine Frage, die ich spaeter schliesse']); const fZu = id(r);
+        r = werkzeug(d, ['halt', '--geltung', 'gsEins', '--bis', '6h', '--text', 'ich baue gsEins um']); const meinHalt = id(r);
+        r = werkzeug(d, ['halt', '--geltung', 'bump', '--bis', '6h', '--text', 'ich bumpe gleich selbst']); const meinBump = id(r);
+        r = werkzeug(d, ['nehme', b[0].slice(-4), b[1].slice(-4), b[2].slice(-4)]); if (r.code !== 0) f.push('drei Uebernahmen auf einmal: Exit ' + r.code + ' · ' + kurz(r.aus, 200));
+        r = werkzeug(d, ['nehme', b[0].slice(-4)]); if (r.code !== 0) f.push('die EIGENE Uebernahme erneut nehmen (verlaengern) wird abgewiesen: Exit ' + r.code + ' · ' + kurz(r.aus, 200));
+        const meineLage = id(r);
+        // Eine eigene, schon abgelaufene Lage (von Hand: vor 3 h geschrieben, vor 1 h abgelaufen).
+        const altLage = mk('lage', Object.assign({ id: stamp(jetzt(-3)).datum + '-f00a0005', von: 'sitzung/claude/ich-arbeit', titel: 'Abgelaufene Lage', bis: bisIn(-1) }, stamp(jetzt(-3)))); hand(altLage);
+        r = werkzeug(d, ['nehme', b[3].slice(-4)]); if (r.code !== 1 || !/hoechstens 3 zugleich/.test(r.aus)) f.push('eine vierte Uebernahme zugleich: Exit ' + r.code + ' — erwartet 1 („hoechstens 3 zugleich") · ' + kurz(r.aus, 200));
+        r = werkzeug(d, ['nehme', b[3].slice(-4), '--von', 'koordinator']); if (r.code !== 2 || !/passt nicht zum Branch/.test(r.aus)) f.push('`nehme --von koordinator` auf claude/ich-arbeit: Exit ' + r.code + ' — erwartet 2 (sie waere fuer alle UNWIRKSAM)');
+        r = werkzeug(d, ['neu', 'befund', '--dringlichkeit', 'kritisch', '--titel', 'Live: der Kalender zaehlt doppelt', '--beleg', 'gemessen: 2 statt 1']); const kritisch = id(r);
+        if (!new RegExp('brett:' + kritisch + ' — ').test(r.aus)) f.push('ein kritischer Befund nennt die STATUS-Zeile nicht (A7 wuerde erst in der CI rot)');
+        if (!/git push -u origin HEAD/.test(r.aus)) f.push('der Push-Hinweis nennt kein `-u origin HEAD` (scheitert auf einem frischen Branch ohne Upstream)');
+        if (!meinHalt || !meinBump || !rF || !kritisch) return { ok: false, warum: f.concat('Aufbau: eigene Eintraege nicht geschrieben — ' + kurz(r.aus, 200)).join(' · ') };
+        fs.writeFileSync(path.join(d, 'index.html'), QUELLE.replace('function gsZwei(){ return gsEins() + gsEins(); }', 'function gsZwei(){ return 2 * gsEins(); }'));
+        push('claude/ich-arbeit', 'ich');
+        r = werkzeug(d, ['naechste']); if (r.code !== 0) f.push('der EIGENE Bump-Halt haelt das eigene `naechste` an (Exit ' + r.code + ')');
+        // ── ANDERE: antwortet der Runde und auf meinen Halt, hebt meinen Bump-Halt auf, fragt mich siebenmal, setzt einen
+        //    echten Bump-Halt — und legt von Hand drei Faelschungen ab: einen Halt im Namen von DRITT, eine rueckdatierte
+        //    Lage auf b0, eine Lage mit fremdem `von` auf b3.
+        g(d, ['checkout', '-q', '-b', 'claude/andere', 'main']); g(d, ['fetch', '-q', 'origin']);
+        fs.mkdirSync(path.join(d, 'docs'), { recursive: true }); fs.writeFileSync(path.join(d, 'docs', 'messung.csv'), 'tag;n\n1;2\n'); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'messung']);
+        r = werkzeug(d, ['antworte', rF.slice(-4), '--text', 'Gemessen: der Kalender laeuft zweimal', '--geliefert', 'docs/messung.csv']); const lieferung = id(r); if (!lieferung) f.push('Antwort auf die Runden-Frage nicht geschrieben: ' + kurz(r.aus, 200));
+        r = werkzeug(d, ['antworte', fZu.slice(-4), '--text', 'Dazu weiss ich etwas']);
+        // Eine Datei unter fremdem Namen (die id im Namen ist eine andere als im Inhalt): unlesbar, nicht gerechnet.
+        { const x = mk('idee', Object.assign({ id: stamp(jetzt()).datum + '-f00a0009', von: 'sitzung/claude/andere', titel: 'Falsch benannt' }, stamp(jetzt()))); hand(x, stamp(jetzt()).datum + '-f00a0010-idee-x.json'); }
+        r = werkzeug(d, ['antworte', meinHalt.slice(-4), '--text', 'Ich muss gsEins heute auch anfassen']); if (!id(r)) f.push('Antwort auf meinen Halt nicht geschrieben');
+        r = werkzeug(d, ['aufheben', meinBump.slice(-4), '--text', 'main ist wieder gruen, der Bump kann laufen']); const aufhebung = id(r);
+        r = werkzeug(d, ['veto', meineLage.slice(-4), '--text', 'b0 gehoert in meinen Umbau']); const vetoLage = id(r);
+        r = werkzeug(d, ['veto', altLage.id.slice(-4), '--text', 'die alte Lage war falsch']); const vetoAlt = id(r);
+        if (!vetoLage || !vetoAlt) f.push('Aufbau: Vetos gegen meine Lagen nicht geschrieben — ' + kurz(r.aus, 200));
+        for (let i = 1; i <= 7; i++) werkzeug(d, ['neu', 'frage', '--an', 'sitzung/claude/ich-arbeit', '--titel', 'Frage ' + i + ' an dich']);
+        werkzeug(d, ['neu', 'frage', '--an', 'alle', '--titel', 'Hat claude/ich-arbeit-2 schon gebumpt?']);
+        r = werkzeug(d, ['halt', '--geltung', 'gsZwei,bump', '--bis', '6h', '--text', 'andere baut gsZwei um — kein Bump']); const fremdHalt = id(r);
+        const fH = mk('halt', Object.assign({ id: stamp(jetzt()).datum + '-f00a0001', von: 'sitzung/claude/dritt', titel: 'Gefaelscht', text: 'im Namen von dritt', geltung: ['bump'], bis: bisIn(5) }, stamp(jetzt())));
+        const fL = mk('lage', Object.assign({ id: stamp(jetzt(-23)).datum + '-f00a0002', von: 'sitzung/claude/andere', titel: 'Rueckdatiert', bis: bisIn(0.9), bezug: [{ art: 'baut_auf', id: b[0] }] }, stamp(jetzt(-23))));
+        const fV = mk('lage', Object.assign({ id: stamp(jetzt()).datum + '-f00a0003', von: 'sitzung/claude/fremd', titel: 'Fremdes von', bis: bisIn(5), bezug: [{ art: 'baut_auf', id: b[3] }] }, stamp(jetzt())));
+        hand(fH); hand(fL); hand(fV);
+        // Eine Antwort IN MEINEM NAMEN auf den fremden Halt, abgelegt auf claude/andere: sie ist nicht meine.
+        hand(mk('antwort', Object.assign({ id: stamp(jetzt()).datum + '-f00a0004', von: 'sitzung/claude/ich-arbeit', titel: 'Gefaelscht in meinem Namen', text: 'ok von mir', bezug: [{ art: 'baut_auf', id: fremdHalt }] }, stamp(jetzt()))));
+        push('claude/andere', 'andere');
+        // ── ICH schliesst die Frage, auf die ANDERE geantwortet hat: die Antwort steht danach nicht mehr unter DICH BETREFFEND.
+        g(d, ['checkout', '-q', 'claude/ich-arbeit']); g(d, ['fetch', '-q', 'origin']);
+        r = werkzeug(d, ['schliesse', fZu.slice(-4), '--ergebnis', 'verworfen', '--text', 'hat sich anders geklaert']); push('claude/ich-arbeit', 'zu');
+        // ── DRITT: ein Veto gegen den Bump-Halt von ANDERE.
+        g(d, ['checkout', '-q', '-b', 'claude/dritt', 'main']); g(d, ['fetch', '-q', 'origin']);
+        r = werkzeug(d, ['veto', fremdHalt.slice(-4), '--text', 'Der Umbau ist schon auf main']); const veto = id(r);
+        push('claude/dritt', 'dritt');
+        // ── ICH, ohne vorher zu holen: `naechste` holt selbst und haelt am fremden Bump-Halt (mit seinem Veto).
+        g(d, ['checkout', '-q', 'claude/ich-arbeit']);
+        r = werkzeug(d, ['naechste']);
+        if (r.code !== 1 || !new RegExp('HALT fuer Bumps: ' + fremdHalt).test(r.aus) || !new RegExp('VETO dagegen: ' + veto).test(r.aus)) f.push('`naechste` ohne vorheriges `holen`: Exit ' + r.code + ' — erwartet 1, mit dem Halt von claude/andere und dem Veto dagegen · ' + kurz(r.aus, 300));
+        if (new RegExp(fH.id).test(r.aus)) f.push('`naechste` haelt an einem GEFAELSCHTEN Halt (von claude/dritt, liegt auf claude/andere)');
+        r = werkzeug(d, ['naechste', '--json']); let j = null; try { j = JSON.parse(r.aus); } catch (_) {}
+        if (r.code !== 1 || !j || !(j.bumpHalt || []).some(h => h.id === fremdHalt && h.vetos.length === 1)) f.push('`naechste --json`: Exit ' + r.code + ', bumpHalt ' + JSON.stringify(j && j.bumpHalt) + ' — erwartet Exit 1 und der Halt mit seinem Veto');
+        r = werkzeug(d, ['holen']);
+        const dich = block(r.aus, 'DICH BETREFFEND');
+        if (!new RegExp('ANTWORT [^\\n]*auf deine Frage ' + rF).test(dich)) f.push('die Antwort auf die Frage der RUNDE erreicht die Sitzung nicht');
+        if (!/GELIEFERT docs\/messung\.csv @ [0-9a-f]{12}[^\n]*git show [0-9a-f]{40}:docs\/messung\.csv[^\n]*nach einem Squash-Merge: git show origin\/main:docs\/messung\.csv/.test(dich)) f.push('die Lieferung nennt nicht beide Wege (Commit und, nach einem Squash-Merge, origin/main)');
+        if (new RegExp('auf deine Frage ' + fZu).test(dich)) f.push('eine Antwort auf meine GESCHLOSSENE Frage steht weiter unter DICH BETREFFEND');
+        if (!/unlesbare Datei[^\n]*f00a0010-idee-x\.json[^\n]*Dateiname passt nicht/.test(r.aus)) f.push('eine Datei, deren Name eine andere id traegt als ihr Inhalt, wird nicht als unlesbar genannt');
+        if (!/GEFAEHRDET: \d+ Eintrag\/Eintraege liegen auf nur EINEM Branch/.test(r.aus)) f.push('GEFAEHRDET fehlt, obwohl Eintraege nur auf claude/andere liegen');
+        if (!new RegExp('ANTWORT [^\\n]*auf deinen Halt ' + meinHalt).test(dich)) f.push('die Antwort auf meinen Halt steht nicht unter DICH BETREFFEND');
+        if (!new RegExp('AUFGEHOBEN dein Halt ' + meinBump + ' durch ' + aufhebung + '[^\\n]*main ist wieder gruen').test(dich)) f.push('die Aufhebung meines Halts (mit Grund) steht nicht unter DICH BETREFFEND');
+        if ((dich.match(/AN DICH /g) || []).length !== 6 || !/… \+1 weitere an dich/.test(dich)) f.push('AN DICH: ' + (dich.match(/AN DICH /g) || []).length + ' Zeilen' + (/weitere an dich/.test(dich) ? '' : ', ohne „+N weitere"') + ' — erwartet 6 und „+1 weitere"');
+        if (/claude\/ich-arbeit-2/.test(dich)) f.push('AN DICH trifft „claude/ich-arbeit-2" (der eigene Name als Teil eines anderen)');
+        if (new RegExp('HALT ' + meinHalt).test(dich)) f.push('der EIGENE Halt steht als fremder unter DICH BETREFFEND');
+        if (!new RegExp('VETO ' + vetoLage + '[^\\n]*gegen deinen Eintrag ' + meineLage).test(dich)) f.push('ein Veto gegen meine LAUFENDE Lage steht nicht unter DICH BETREFFEND');
+        if (new RegExp('VETO ' + vetoAlt).test(dich)) f.push('ein Veto gegen meine ABGELAUFENE Lage steht weiter unter DICH BETREFFEND');
+        if (!new RegExp('HALT ' + fremdHalt + '[^\\n]*beruehrt gsZwei\\(\\)').test(dich)) f.push('der fremde Halt auf gsZwei steht nicht unter DICH BETREFFEND');
+        if (new RegExp('HALT ' + fremdHalt + '[^\\n]*du hast geantwortet').test(dich)) f.push('eine Antwort IN MEINEM NAMEN auf einem fremden Branch gilt als meine („du hast geantwortet")');
+        const kr = block(r.aus, 'KRITISCH'), la = block(r.aus, 'LAGE'), hv = block(r.aus, 'HALT UND VETO'), be = block(r.aus, 'BEFUNDE');
+        if (!new RegExp(kritisch + '[^\\n]*\\[niemand dran\\]').test(kr)) f.push('KRITISCH zeigt den kritischen Befund nicht mit „niemand dran": ' + kurz(kr, 200));
+        if (!/sitzung\/claude\/ich-arbeit \(du\)/.test(la)) f.push('LAGE kennzeichnet die eigene Lage nicht: ' + kurz(la, 200));
+        if (!new RegExp(fremdHalt + '[^\\n]*Geltung: gsZwei, bump').test(hv) || !new RegExp(veto + '[^\\n]*VETO gegen ' + fremdHalt).test(hv)) f.push('HALT UND VETO zeigt Halt und Veto nicht: ' + kurz(hv, 300));
+        if (be.indexOf(dringend) < 0 || be.indexOf(normal) < 0 || be.indexOf(dringend) > be.indexOf(normal)) f.push('„dringend zuerst": der aeltere dringende Befund steht nicht vor dem juengeren normalen');
+        if (!/UNWIRKSAM[^\n]*rueckdatiert/.test(r.aus) || !/UNWIRKSAM[^\n]*passt nicht/.test(r.aus)) f.push('die rueckdatierte Lage oder die Lage/der Halt mit fremdem `von` stehen nicht unter UNWIRKSAM: ' + kurz((r.aus.match(/\(\d+ Halt\/Lage UNWIRKSAM[^\n]*/) || [''])[0], 300));
+        if (!new RegExp(b[0] + '[^\\n]*uebernommen: sitzung/claude/ich-arbeit').test(r.aus)) f.push('die rueckdatierte Lage stiehlt die Uebernahme von ' + b[0]);
+        if (new RegExp(b[3] + '[^\\n]*uebernommen').test(r.aus)) f.push('eine Lage mit fremdem `von` haelt ' + b[3]);
+        r = werkzeug(d, ['zeige', meinBump.slice(-4)]); if (!/Wirkt jetzt: nein — aufgehoben durch/.test(r.aus)) f.push('`zeige` sagt fuer den aufgehobenen Halt: ' + ((r.aus.match(/Wirkt jetzt:[^\n]*/) || ['(nichts)'])[0]));
+        r = werkzeug(d, ['zeige', fV.id.slice(-4)]); if (!/Wirkt jetzt: nein — „von"/.test(r.aus)) f.push('`zeige` sagt fuer die Lage mit fremdem `von`: ' + ((r.aus.match(/Wirkt jetzt:[^\n]*/) || ['(nichts)'])[0]));
+        r = werkzeug(d, ['zeige', fremdHalt.slice(-4)]); if (!/Wirkt jetzt: ja, bis [^\n]*1 Veto/.test(r.aus)) f.push('`zeige` nennt fuer den wirksamen Halt nicht „ja" mit dem Veto: ' + ((r.aus.match(/Wirkt jetzt:[^\n]*/) || ['(nichts)'])[0]));
+        r = werkzeug(d, ['zeige', lieferung.slice(-4)]); if (!/Geliefert: docs\/messung\.csv @ [0-9a-f]{40}[^\n]*origin\/main:docs\/messung\.csv/.test(r.aus)) f.push('`zeige` nennt die Lieferung nicht (mit dem Weg ueber origin/main)');
+        // Mit Upstream unter anderem Namen (git branch -m nach dem Push) und losgeloest: gesagt.
+        g(d, ['branch', '-m', 'claude/ich-umbenannt']);
+        r = werkzeug(d, []); if (!/sein Upstream origin\/claude\/ich-arbeit/.test(r.aus)) f.push('ein Upstream unter anderem Namen wird nicht genannt');
+        g(d, ['branch', '-m', 'claude/ich-arbeit']);
+        g(d, ['checkout', '-q', '--detach']);
+        r = werkzeug(d, []); if (!/Wer du bist, ist nicht ablesbar/.test(r.aus)) f.push('losgeloester HEAD: kein Hinweis, dass eigene Eintraege als fremde zaehlen');
+        g(d, ['checkout', '-q', 'claude/ich-arbeit']);
+        // A8: der fremde Halt auf einem NICHT gemergten Branch, im PR-Merge-Commit gerechnet.
+        g(d, ['checkout', '-q', '-b', 'pr-merge', 'origin/main']); g(d, ['merge', '-q', '--no-ff', '--no-edit', 'origin/claude/ich-arbeit']);
+        const a8 = A.haltsDiesesStands(d, { GITHUB_EVENT_NAME: 'pull_request', GITHUB_HEAD_REF: 'claude/ich-arbeit' });
+        const a8ids = (a8.treffer || []).map(x => x.h.e.id);
+        if (a8.grund || a8ids.indexOf(fremdHalt) < 0 || a8ids.indexOf(meinHalt) >= 0 || a8ids.indexOf(veto) >= 0) f.push('A8 im PR: ' + (a8.grund || a8ids.join()) + ' — erwartet der fremde Halt auf claude/andere, nicht der eigene, kein Veto');
+        g(d, ['checkout', '-q', 'claude/ich-arbeit']);
+        // `ernten`: eine Lage bleibt liegen; ein fremder kritischer Eintrag erst, wenn STATUS §2 ihn zitiert.
+        g(d, ['checkout', '-q', 'claude/andere']);
+        r = werkzeug(d, ['neu', 'befund', '--dringlichkeit', 'kritisch', '--titel', 'Live: Anmeldung bricht ab', '--beleg', 'gemessen: 3 von 3']); const fremdKrit = id(r);
+        push('claude/andere', 'kritisch');
+        g(d, ['checkout', '-q', '-b', 'claude/ernte', 'main']); g(d, ['fetch', '-q', 'origin']);
+        r = werkzeug(d, ['ernten']);
+        if (!new RegExp(fremdKrit + '[^\\n]*kritisch, aber').test(r.aus) || !new RegExp(fL.id + '[^\\n]*Absicht').test(r.aus)) f.push('`ernten` laesst den unzitierten kritischen Eintrag oder die Lage nicht mit Grund liegen · ' + kurz(r.aus, 300));
+        fs.writeFileSync(path.join(d, 'STATUS.md'), '# STATUS\n\n## 2 · Offen\n\n- brett:' + fremdKrit + ' — Anmeldung\n');
+        r = werkzeug(d, ['ernten']);
+        if (!new RegExp('\\n {2}' + fremdKrit + ' ').test(r.aus)) f.push('`ernten` holt den kritischen Eintrag nicht, obwohl STATUS §2 ihn zitiert · ' + kurz(r.aus, 300));
+        g(d, ['checkout', '-q', '-f', 'claude/ich-arbeit']); g(d, ['clean', '-q', '-fd']);
+        // „in Arbeit": ein squash-gemergter, stehengebliebener Branch zaehlt nicht; ein Commit, der vier ids nennt, auch nicht.
+        g(d, ['checkout', '-q', '-b', 'claude/squash', 'main']); fs.writeFileSync(path.join(d, 'notiz.md'), 'x\n');
+        g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'Arbeit an ' + b[4]]); g(d, ['push', '-q', 'origin', 'claude/squash']);
+        g(d, ['checkout', '-q', 'main']); fs.writeFileSync(path.join(d, 'notiz.md'), 'x\n'); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'squash']); g(d, ['push', '-q', 'origin', 'main']);
+        g(d, ['checkout', '-q', '-b', 'claude/liste', 'main']); fs.writeFileSync(path.join(d, 'liste.md'), 'y\n');
+        g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'Liste: ' + b.slice(1, 5).join(' ')]); g(d, ['push', '-q', 'origin', 'claude/liste']);
+        g(d, ['checkout', '-q', 'claude/ich-arbeit']); g(d, ['fetch', '-q', 'origin']);
+        const ia = A.inArbeitAusGit(d, A.brettLesen(d, { alleRefs: true }).eintraege, Date.now(), 14, A.brettLesen(d, { alleRefs: true }).wo);
+        const ref = (i) => (ia.get(b[i]) || []).map(x => x.ref).join();
+        if (/squash/.test(ref(4))) f.push('ein squash-gemergter, stehengebliebener Branch zaehlt als „in Arbeit" (' + ref(4) + ')');
+        if (/liste/.test(ref(1) + ref(2) + ref(3) + ref(4))) f.push('ein Commit, der vier ids nennt, markiert sie als „in Arbeit"');
+        // `einspielen`: ein Halt auf einen Namen, den es nicht gibt, und eine Lage mit eigenem Datum werden abgewiesen.
+        const st = path.join(eltern, 'stapel.json');
+        fs.writeFileSync(st, JSON.stringify([{ art: 'halt', titel: 'Halt ueber einspielen', text: 'x', bis: bisIn(5), geltung: ['gsGibtsNicht'] }]));
+        r = werkzeug(d, ['einspielen', st]); if (r.code !== 1 || !/traefe nie/.test(r.aus)) f.push('`einspielen` nimmt einen Halt auf einen Namen an, den es nicht gibt (Exit ' + r.code + ')');
+        fs.writeFileSync(st, JSON.stringify([{ art: 'halt', titel: 'Halt mit Tippfehler', text: 'x', bis: bisIn(5), geltung: ['scripts/kalendr_check.js'] }]));
+        r = werkzeug(d, ['einspielen', st]); if (r.code !== 1 || !/diesen Pfad gibt es im Baum nicht/.test(r.aus)) f.push('ein Halt auf einen Pfad mit Tippfehler wird angenommen (Exit ' + r.code + ')');
+        fs.writeFileSync(st, JSON.stringify([{ art: 'lage', titel: 'Lage mit Datum', phase: 'laeuft', datum: '2026-01-01', zeit: '01:00:00', bis: '2026-01-01T02:00:00Z' }]));
+        r = werkzeug(d, ['einspielen', st]); if (r.code !== 1 || !/setzt das Werkzeug/.test(r.aus)) f.push('`einspielen` nimmt eine Lage mit eigenem Datum an (Exit ' + r.code + ')');
+        // Laufzeit: 400 verankerte Befunde auf einem fremden Branch, dort index.html geloescht — vorher ein `git log -S` je
+        // Eintrag (1 200: 49 s) und 400 falsche „in Arbeit"; ein fremder Anker beschreibt den fremden Baum.
+        g(d, ['checkout', '-q', '-b', 'claude/anker', 'main']); g(d, ['rm', '-q', 'index.html']);
+        for (let i = 0; i < 400; i++) hand(mk('befund', Object.assign({ id: stamp(jetzt(-1)).datum + '-a' + String(i).padStart(7, '0'), von: 'sitzung/claude/anker', titel: 'Anker ' + i, anker: [{ datei: 'index.html', text: 'function gsZwei(){ return gsEins() + gsEins(); }' }] }, stamp(jetzt(-1)))));
+        push('claude/anker', 'anker'); g(d, ['checkout', '-q', 'claude/ich-arbeit']);
+        { const t1 = Date.now(), bl = A.brettLesen(d, { alleRefs: true }), ia2 = A.inArbeitAusGit(d, bl.eintraege, Date.now(), 14, bl.wo), ms = Date.now() - t1;
+          const falsch = [...ia2].filter(([k, v]) => /-a\d{7}$/.test(k) && v.some(x => /anker/.test(x.ref))).length;
+          if (ms > 6000 || falsch) f.push('400 verankerte Eintraege auf einem fremden Branch: ' + ms + ' ms, ' + falsch + '× „in Arbeit auf claude/anker" — erwartet schnell und keiner'); }
+        // Der eigene Branch verschwindet auf origin: gesagt — auch wenn eine Sicherungskopie seine Eintraege traegt
+        // (sie ist kein Branch und verdeckte sonst „nur in diesem Arbeitsbaum").
+        g(d, ['push', '-q', 'origin', 'claude/ich-arbeit:zz-sicherung']);
+        g(d, ['push', '-q', 'origin', '--delete', 'claude/ich-arbeit']);
+        r = werkzeug(d, ['holen']); if (!/Dein Branch claude\/ich-arbeit fehlt auf origin/.test(r.aus)) f.push('der eigene, auf origin geloeschte Branch wird nicht gesagt');
+        if (!/liegen NUR in diesem Arbeitsbaum/.test(r.aus)) f.push('die Sicherungskopie verdeckt „liegen NUR in diesem Arbeitsbaum"');
+        // Das Beispiel in `hilfe halt` laesst sich im ECHTEN Repo schreiben (es stand dort „index.html,bump" — abgelehnt).
+        const bsp = (werkzeug(WURZEL, ['hilfe', 'halt']).aus.match(/--geltung "([^"]+)"/) || [])[1] || '';
+        const bspF = bsp.split(',').map(x => A.geltungFehler(x)).filter(Boolean).concat(A.geltungImBaum(WURZEL, bsp.split(',')));
+        if (!bsp || bspF.length) f.push('das Beispiel in `hilfe halt` („' + bsp + '") wird vom Werkzeug abgelehnt: ' + bspF.join(' · '));
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: 'vier Branches: Runde → von = Sitzung, rolle = runde/…; Antworten auf Runde und Halt, Aufhebung, AN DICH 6 + „+1", ganzes Wort; gefaelschter Halt, rueckdatierte Lage, fremdes von UNWIRKSAM; zeige = Brett; naechste holt selbst, Veto, JSON Exit 1; KRITISCH/LAGE (du)/HALT UND VETO/dringend zuerst; 3 Uebernahmen, --von koordinator abgewiesen; STATUS-Zeile, push -u; Upstream, losgeloest, geloeschter Branch gesagt; A8 im PR; ernten; in Arbeit (Squash, Liste); einspielen pruefen Geltung und Datum; hilfe-Beispiel schreibbar' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(eltern); }
+    },
+  },
+  {
+    name: 'C13 · Waechter und Sicherung · Waechter 1 rechnet gegen die Abzweigstelle (lokal merge-base, im PR die Basis-Seite des Merge-Commits) und sieht ein geloeschtes oder umgeschriebenes Eintragsfile (ausser per Grabstein); der ECHTE Schritt aus .github/workflows/brett-waechter.yml, gefahren wie auf GitHub (frischer flacher Klon, saubere Shell, Cache als Gedaechtnis): baut den Stand aus dem Nichts, sichert JEDE Fassung byte-gleich und ohne Geheimnis, aendert auf origin NUR zz-sicherung, wird ROT, wenn eine Fassung nur noch hier liegt (auch wenn eine kaputte oder gefaelschte Kopie anderswo liegt, auch wenn ALLE Branches weg sind) und wenn die Sicherung zurueckgesetzt wurde — nicht nach einem abgelehnten Push; ein Grabstein verschwindet samt Geschichte',
     lauf: () => {
       const eltern = tmp('waechter'), bare = path.join(eltern, 'origin.git'), d = path.join(eltern, 'klon'), cache = path.join(eltern, 'cache');
       try {
@@ -1164,15 +1425,21 @@ const FAELLE = [
         if (!/^permissions: \{\}$/m.test(yml)) f.push('brett-waechter.yml: permissions: {} auf Workflow-Ebene fehlt');
         if (!/permissions:\n\s+contents: write\n/.test(yml) || /pull-requests|issues|actions: write/.test(yml)) f.push('brett-waechter.yml: der Job braucht genau contents: write');
         if (!/cron: '\d+ \* \* \* \*'/.test(yml)) f.push('brett-waechter.yml: kein stuendlicher Zeitplan');
-        if (!/uses: actions\/checkout@[0-9a-f]{40}[^\n]*\n(?: {8,}[^\n]*\n)*? {10}persist-credentials: false\n/.test(yml)) f.push('brett-waechter.yml: checkout ohne persist-credentials: false — der Token laege in .git/config, waehrend das Werkzeug fremde Branches liest');
+        // Fuehrende Leerzeichen EINDEUTIG (eine Zeile beginnt mit einem Nicht-Leerzeichen): mit „ {8,}[^\n]*" teilten sich zwei
+        // Teile dieselben Leerzeichen, und fehlte die Zeile, sprang der Ausdruck exponentiell zurueck (12 Zeilen: ueber 120 s).
+        if (!/uses: actions\/checkout@[0-9a-f]{40}[^\n]*\n(?: {8,}[^ \n][^\n]*\n)*? {10}persist-credentials: false\n/.test(yml)) f.push('brett-waechter.yml: checkout ohne persist-credentials: false — der Token laege in .git/config, waehrend das Werkzeug fremde Branches liest');
         if ([...yml.matchAll(/uses: ([^\s]+)/g)].some(m => !/@[0-9a-f]{40}$/.test(m[1]))) f.push('brett-waechter.yml: eine Action ist nicht auf einen Commit festgelegt');
         if (!/name: Gedaechtnis ablegen\n\s+if: always\(\)\n\s+uses: actions\/cache\/save@/.test(yml) || !/uses: actions\/cache\/restore@/.test(yml)) f.push('brett-waechter.yml: das Gedaechtnis wird nicht geholt oder nicht IMMER abgelegt (auch nach einem Alarm)');
         if (/git config[^\n]*(extraheader|credential)/.test(yml)) f.push('brett-waechter.yml: Zugangsdaten per git config — nur `-c` am einzelnen Aufruf');
         const schritt = ((yml.match(/name: Sicherung schreiben und melden\n(?: +env:\n(?: {10}[^\n]*\n)+)? +run: \|\n((?: {10}[^\n]*\n|\n)+)/) || [])[1] || '').replace(/^ {10}/gm, '');
         const pushes = [...schritt.matchAll(/\bpush\b[^\n]*/g)].map(m => m[0]);
         if (!pushes.length || pushes.some(x => !/--force-with-lease="refs\/heads\/zz-sicherung:\$ALT" origin "\$NEU:refs\/heads\/zz-sicherung"$/.test(x))) f.push('brett-waechter.yml: jeder push geht mit --force-with-lease nach refs/heads/zz-sicherung — gefunden: ' + pushes.join(' | '));
-        if (!/commit-tree/.test(schritt)) f.push('brett-waechter.yml: kein Orphan-Commit (commit-tree) — die Sicherung behielte ihre Geschichte, und ein Grabstein bliebe darin lesbar');
-        if (!/sichern --nach \.\.\/sicherung --gedaechtnis/.test(schritt)) return { ok: false, warum: f.concat('der Schritt „Sicherung schreiben und melden" ist nicht lesbar').join(' · ') };
+        if (!/commit-tree "\$TREE"/.test(schritt)) f.push('brett-waechter.yml: kein Orphan-Commit (commit-tree) — die Sicherung behielte ihre Geschichte, und ein Grabstein bliebe darin lesbar');
+        if (!/node scripts\/austausch\.mjs sichern --alt "\$\{ALT:-leer\}" --baum /.test(schritt)) return { ok: false, warum: f.concat('der Schritt „Sicherung schreiben und melden" ist nicht lesbar').join(' · ') };
+        const iUnset = schritt.indexOf('unset GH_TOKEN'), iNode = schritt.indexOf('node scripts/austausch.mjs');
+        if (iUnset < 0 || iUnset > iNode) f.push('brett-waechter.yml: GH_TOKEN liegt noch in der Umgebung, wenn das Werkzeug fremde Branches liest');
+        const iPush = schritt.indexOf('kopf push'), iMv = schritt.search(/mv "\$RUNNER_TEMP\/brett-stand-neu\.json" "\$STAND"/);
+        if (iMv < 0 || iMv < iPush) f.push('brett-waechter.yml: das Gedaechtnis wird VOR dem Push abgelegt — ein abgelehnter Push gaebe beim naechsten Lauf einen Fehlalarm');
         // Ein gebautes origin mit dem ECHTEN Werkzeug auf main.
         cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare]);
         fs.mkdirSync(d); g(d, ['init', '-q', '-b', 'main', '.']); g(d, ['remote', 'add', 'origin', 'file://' + bare]);
@@ -1180,7 +1447,7 @@ const FAELLE = [
         for (const n of ['austausch.mjs', '_austausch.mjs']) fs.copyFileSync(path.join(__dirname, n), path.join(d, 'scripts', n));
         fs.writeFileSync(path.join(d, 'index.html'), QUELLE);
         const m1 = mk('befund', { id: '2026-01-01-1111', titel: 'Auf main von Anfang an' }), m2 = mk('idee', { id: '2026-01-02-2222', datum: '2026-01-02', titel: 'Spaeter auf main' });
-        const s1 = mk('frage', { id: '2026-01-03-3333', datum: '2026-01-03', titel: 'Nur auf claude/s1' }), geheim = mk('frage', { id: '2026-01-03-4444', datum: '2026-01-03', titel: 'Traegt ein Geheimnis', text: 'token ' + 'gh' + 'p_' + 'A'.repeat(24) });
+        const s1 = mk('frage', { id: '2026-01-03-3333', datum: '2026-01-03', von: 'sitzung/claude/s1', titel: 'Nur auf claude/s1' }), geheim = mk('frage', { id: '2026-01-03-4444', datum: '2026-01-03', titel: 'Traegt ein Geheimnis', text: 'token ' + 'gh' + 'p_' + 'A'.repeat(24) });
         ablegen(d, m1); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'm1']); g(d, ['push', '-q', 'origin', 'main']);
         g(d, ['checkout', '-q', '-b', 'claude/alt']); g(d, ['push', '-q', 'origin', 'claude/alt']);   // zweigt VOR m2 ab
         g(d, ['checkout', '-q', 'main']); ablegen(d, m2); g(d, ['add', '-A']); g(d, ['commit', '-q', '-m', 'm2']); g(d, ['push', '-q', 'origin', 'main']);
@@ -1213,14 +1480,19 @@ const FAELLE = [
         if (!A.brettLesen(d, { alleRefs: false }).grabDateien.length || !A.brettPruefen(A.brettLesen(d, { alleRefs: false })).some(x => /Grabstein-Liste[^]*liegt noch hier/.test(x.grund))) f.push('eine Datei mit Grabstein, die noch im Baum liegt, ist kein Fehler');
         fs.unlinkSync(path.join(d, A.GRABSTEINE));
         if (A.grabsteinePruefen(JSON.stringify([{ id: m1.id, datum: '2026-01-04', grund: 'x', inhalt: 'Max' }])).fehler.length !== 1) f.push('ein Grabstein mit Inhalt wird angenommen');
+        // Genau EIN Ref ist die Sicherung — nicht jeder Branch, der auf „/zz-sicherung" endet.
+        if (!A.istSicherungsRef('origin/zz-sicherung') || A.istSicherungsRef('origin/claude/zz-sicherung') || A.istSicherungsRef('refs/remotes/origin/feature/zz-sicherung')) f.push('istSicherungsRef: claude/zz-sicherung gilt als die Sicherung — seine Eintraege wuerden nie gesichert');
         // Der Schritt der Action, gefahren wie auf GitHub: frischer flacher Klon von main, saubere Shell,
-        // RUNNER_TEMP als Cache (bleibt zwischen den Laeufen, wie actions/cache).
+        // RUNNER_TEMP als Cache (bleibt zwischen den Laeufen, wie actions/cache). Ein `node` vorn im PATH
+        // protokolliert, ob das Werkzeug den Token in seiner Umgebung sieht.
         fs.mkdirSync(cache); const leer = path.join(eltern, 'gitconfig'); fs.writeFileSync(leer, '');
+        const bin = path.join(eltern, 'bin'), tokenLog = path.join(eltern, 'token.log'); fs.mkdirSync(bin);
+        fs.writeFileSync(path.join(bin, 'node'), '#!/bin/bash\nif [ -n "${GH_TOKEN:-}" ]; then echo gesehen >> "' + tokenLog + '"; fi\nexec "' + process.execPath + '" "$@"\n', { mode: 0o755 });
         let lauf = 0;
         const remote = () => g(d, ['ls-remote', 'origin']).split('\n').filter(z => z && !/refs\/heads\/zz-sicherung$/.test(z)).sort().join('\n');
         const action = () => {
           const ws = path.join(eltern, 'lauf' + (++lauf), 'ws'); fs.mkdirSync(ws, { recursive: true });
-          const env = Object.assign({}, process.env, { GIT_CONFIG_GLOBAL: leer, GIT_CONFIG_NOSYSTEM: '1', GH_TOKEN: 'unbenutzt', RUNNER_TEMP: cache, GITHUB_STEP_SUMMARY: path.join(eltern, 'zusammenfassung.md'), AUSTAUSCH_WURZEL: '', AUSTAUSCH_VON: '' });
+          const env = Object.assign({}, process.env, { PATH: bin + ':' + process.env.PATH, GIT_CONFIG_GLOBAL: leer, GIT_CONFIG_NOSYSTEM: '1', GH_TOKEN: 'unbenutzt', RUNNER_TEMP: cache, GITHUB_STEP_SUMMARY: path.join(eltern, 'zusammenfassung.md'), AUSTAUSCH_WURZEL: '', AUSTAUSCH_VON: '' });
           for (const a of [['init', '-q', '-b', 'main', '.'], ['remote', 'add', 'origin', 'file://' + bare], ['fetch', '-q', '--depth=1', 'origin', '+refs/heads/main:refs/remotes/origin/main'], ['checkout', '-q', '-B', 'main', 'refs/remotes/origin/main']]) cp.execFileSync('git', a, { cwd: ws, env, stdio: 'ignore' });
           const vor = remote();
           const x = cp.spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', schritt], { cwd: ws, encoding: 'utf8', env });
@@ -1229,35 +1501,58 @@ const FAELLE = [
           return { code: x.status, aus: (x.stdout || '') + (x.stderr || '') };
         };
         const zz = (args) => { try { return g(d, args); } catch (_) { return ''; } };
-        const gesichert = () => zz(['ls-tree', '-r', '--name-only', 'origin/zz-sicherung']).split('\n').filter(n => /\.json$/.test(n)).map(n => path.posix.basename(n).slice(0, 15)).sort().join();
+        const baumZz = () => zz(['ls-tree', '-r', 'origin/zz-sicherung']);
+        const gesichert = () => zz(['ls-tree', '-r', '--name-only', 'origin/zz-sicherung', '--', A.ORDNER]).split('\n').filter(n => /\.json$/.test(n)).map(n => path.posix.basename(n).slice(0, 15)).sort().join();
+        const fassungen = (id) => zz(['ls-tree', '-r', '--name-only', 'origin/zz-sicherung', '--', A.FASSUNGEN + '/' + id]).split('\n').filter(Boolean);
+        const neuerZweig = (name, eintraege, von) => { g(d, ['checkout', '-q', '-B', name, von || 'origin/main']); for (const [e, n] of eintraege) ablegen(d, e, n); g(d, ['add', '-A']); g(d, ['commit', '-q', '--allow-empty', '-m', name]); g(d, ['push', '-q', '-f', 'origin', name]); g(d, ['checkout', '-q', '--detach', 'origin/main']); };   // gelesen wird danach aus einem neutralen Baum
+        const loesche = (...namen) => { for (const n of namen) { g(d, ['push', '-q', 'origin', '--delete', n]); } g(d, ['checkout', '-q', '--detach']); for (const n of namen) { try { g(d, ['branch', '-q', '-D', n]); } catch (_) {} } };
+        // 1. Erster Lauf: m1, m2, s1 gesichert, das Geheimnis nicht; ohne Sicherung UND ohne Gedaechtnis sagt er es.
         let a = action();
         if (a.code !== 0 || gesichert() !== '2026-01-01-1111,2026-01-02-2222,2026-01-03-3333') f.push('erster Lauf: Exit ' + a.code + ', gesichert „' + gesichert() + '" — erwartet m1, m2, s1 (das Geheimnis nicht) · ' + kurz(a.aus, 300));
-        if (!/Gedaechtnis neu angelegt/.test(a.aus)) f.push('erster Lauf sagt nicht, dass das Gedaechtnis neu ist');
+        if (!/Weder zz-sicherung noch ein Gedaechtnis/.test(a.aus)) f.push('erster Lauf (weder Sicherung noch Gedaechtnis) sagt nicht, dass dann nicht erkennbar ist, was fehlt');
         if (zz(['show', 'origin/zz-sicherung:' + A.ORDNER + '/2026-01/2026-01-03-3333-frage-x.json']) !== JSON.stringify(s1, null, 2) + '\n') f.push('die Sicherung ist nicht byte-gleich mit dem Eintrag auf claude/s1');
         if (!/Nicht gesichert[^\n]*2026-01-03-4444/.test(a.aus)) f.push('der Eintrag mit Geheimnis wird nicht als „nicht gesichert" genannt');
+        if (/Nur auf claude\/s1|Auf main von Anfang an|Spaeter auf main/.test(a.aus)) f.push('der Bericht (oeffentlich: Step-Summary und Log) nennt Titel — ein Grabstein erreicht ihn nicht');
+        if (fs.existsSync(tokenLog)) f.push('das Werkzeug sieht GH_TOKEN in seiner Umgebung');
         const kopf1 = zz(['rev-parse', 'origin/zz-sicherung']).trim();
         a = action();
         if (a.code !== 0 || zz(['rev-parse', 'origin/zz-sicherung']).trim() !== kopf1 || !/Nichts Neues zu sichern/.test(a.aus)) f.push('zweiter Lauf ohne Aenderung: Exit ' + a.code + ' — neuer Commit oder Meldung fehlt · ' + kurz(a.aus, 200));
         // Gelesen wird die Sicherung ZULETZT: was auch auf main liegt, kommt von main.
         const bm = A.brettLesen(d, { alleRefs: true }).eintraege.find(e => e.id === m2.id);
         if (!bm || A.istSicherungsRef(bm._quelle)) f.push('m2 liegt auf main UND in der Sicherung — gelesen wurde ' + (bm ? bm._quelle : 'nichts'));
-        // Ein Branch schreibt s1 um: die Sicherung behaelt die erste Fassung und nennt den Eintrag strittig.
+        // 2. Der AUTOR schreibt s1 auf seinem Branch um: fuer Leser gilt seine Fassung (die Sicherung ist keine Partei —
+        //    vorher war der Eintrag „strittig" und fuer alle weg); die Sicherung behaelt die erste UND sichert die neue.
         const d2 = path.join(eltern, 'anderer'); cp.execFileSync('git', ['clone', '-q', 'file://' + bare, d2]);
         g(d2, ['checkout', '-q', 'claude/s1']);
         const ps1 = path.join(d2, A.ORDNER, '2026-01', '2026-01-03-3333-frage-x.json'), roh = fs.readFileSync(ps1, 'utf8');
         fs.writeFileSync(ps1, roh.replace('Nur auf claude/s1', 'Umgeschrieben auf claude/s1')); g(d2, ['commit', '-q', '-am', 'umgeschrieben']); g(d2, ['push', '-q', 'origin', 'claude/s1']);
         a = action();
-        if (a.code !== 0 || !/Strittig[^\n]*2026-01-03-3333/.test(a.aus) || zz(['show', 'origin/zz-sicherung:' + A.ORDNER + '/2026-01/2026-01-03-3333-frage-x.json']) !== roh) f.push('ein umgeschriebener Eintrag: Exit ' + a.code + ', die erste Fassung bleibt nicht oder „Strittig" fehlt · ' + kurz(a.aus, 200));
-        fs.writeFileSync(ps1, roh); g(d2, ['commit', '-q', '-am', 'zurueck']); g(d2, ['push', '-q', 'origin', 'claude/s1']);
-        // Ein Branch wird geloescht: ALARM (einmal), sein Eintrag liegt nur noch in der Sicherung.
-        g(d2, ['push', '-q', 'origin', '--delete', 'claude/s1']); try { g(d, ['branch', '-q', '-D', 'claude/s1']); } catch (_) {}
+        if (a.code !== 0 || !/Weitere Fassung[^\n]*2026-01-03-3333/.test(a.aus) || zz(['show', 'origin/zz-sicherung:' + A.ORDNER + '/2026-01/2026-01-03-3333-frage-x.json']) !== roh || fassungen(s1.id).length !== 1) f.push('der Autor schreibt s1 um: Exit ' + a.code + ', die erste Fassung bleibt nicht unter eintraege/ oder die neue fehlt unter fassungen/ (' + fassungen(s1.id).length + ') · ' + kurz(a.aus, 200));
+        let bl = A.brettLesen(d, { alleRefs: true }), es1 = bl.eintraege.find(e => e.id === s1.id);
+        if (!es1 || es1.titel !== 'Umgeschrieben auf claude/s1' || bl.strittig.length) f.push('fuer Leser gilt nach der Berichtigung des Autors ' + (es1 ? '„' + es1.titel + '" {' + es1._quelle + '}' : 'NICHTS') + (bl.strittig.length ? ' (strittig: ' + bl.strittig.map(x => x.id).join() + ')' : '') + ' — erwartet seine Fassung');
+        // 3. Eine Kopie mit EINEM geaenderten Byte auf einem DRITTEN Branch nimmt dem Original nichts (vorher: beide weg, fuer alle).
+        neuerZweig('claude/0-faelschung', [[roh.replace('Nur auf claude/s1', 'Nur auf claude/s1.'), '2026-01-03-3333-frage-x.json']]);
+        bl = A.brettLesen(d, { alleRefs: true }); es1 = bl.eintraege.find(e => e.id === s1.id);
+        if (!es1 || es1.titel !== 'Umgeschrieben auf claude/s1' || !bl.abweichend.some(x => x.id === s1.id && /0-faelschung/.test(x.weichtAb))) f.push('eine gefaelschte Kopie auf einem dritten Branch: fuer Leser gilt ' + (es1 ? '„' + es1.titel + '"' : 'NICHTS') + ' — erwartet weiter die Fassung des Autors, die Faelschung als abweichend genannt');
         a = action();
-        if (a.code !== 3 || !/ALARM:[^\n]*Branch wurde geloescht[^\n]*2026-01-03-3333/.test(a.aus) || !/NUR NOCH IN DER SICHERUNG: 1/.test(a.aus)) f.push('geloeschter Branch: Exit ' + a.code + ' (erwartet 3) — ' + kurz(a.aus, 300));
+        if (a.code !== 0 || fassungen(s1.id).length !== 2) f.push('die gefaelschte Fassung wird nicht zusaetzlich gesichert (' + fassungen(s1.id).length + ' unter fassungen/) · Exit ' + a.code);
+        loesche('claude/0-faelschung');
+        a = action();
+        if (a.code !== 0) f.push('die Faelschung verschwindet, der Autor-Branch traegt den Eintrag: Exit ' + a.code + ' — kein Alarm erwartet · ' + kurz(a.aus, 200));
+        fs.writeFileSync(ps1, roh); g(d2, ['commit', '-q', '-am', 'zurueck']); g(d2, ['push', '-q', 'origin', 'claude/s1']);
+        a = action();
+        if (a.code !== 0) f.push('der Autor nimmt seine Berichtigung zurueck: Exit ' + a.code + ' — die berichtigte Fassung ist abgeloest, kein Alarm erwartet');
+        // 4. Der Branch des Autors wird geloescht: ALARM (einmal), jede Fassung von s1 liegt nur noch in der Sicherung.
+        const s1Kopf = zz(['rev-parse', 'origin/claude/s1']).trim();
+        loesche('claude/s1');
+        a = action();
+        if (a.code !== 3 || !/ALARM:[^\n]*Branch wurde geloescht[^\n]*2026-01-03-3333/.test(a.aus) || !/NUR NOCH IN DER SICHERUNG: 1\b/.test(a.aus)) f.push('geloeschter Branch: Exit ' + a.code + ' (erwartet 3) — ' + kurz(a.aus, 300));
         a = action();
         if (a.code !== 0) f.push('derselbe Verlust ein zweites Mal: Exit ' + a.code + ' — ein Alarm gilt EINMAL je Verlust');
-        g(d, ['checkout', '-q', '-b', 'claude/rettung', 'main']);
+        // `holen` holt mit --prune: ein veralteter Ref auf den geloeschten Branch verschwindet, GERETTET erscheint.
+        g(d, ['checkout', '-q', '-B', 'claude/rettung', 'origin/main']); g(d, ['update-ref', 'refs/remotes/origin/claude/s1', s1Kopf]);
         let r = werkzeug(d, ['holen']);
-        if (!/GERETTET: 1 Eintrag\/Eintraege liegen NUR noch in der Sicherung/.test(r.aus)) f.push('`holen` sagt nach dem Loeschen von claude/s1 nicht GERETTET');
+        if (!/GERETTET: 1 Eintrag\/Eintraege liegen NUR noch in der Sicherung/.test(r.aus) || zz(['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/claude/s1'])) f.push('`holen` raeumt den veralteten Ref auf claude/s1 nicht ab (--prune) oder sagt nicht GERETTET');
         // Grabstein NUR auf origin/main (dieser Arbeitsbaum kennt die Liste noch nicht): ernten holt ihn nicht.
         g(d2, ['checkout', '-q', 'main']); g(d2, ['pull', '-q', 'origin', 'main']);
         fs.writeFileSync(path.join(d2, A.GRABSTEINE), JSON.stringify([{ id: s1.id, datum: '2026-01-05', grund: 'Personenname im Titel' }], null, 2) + '\n');
@@ -1267,25 +1562,77 @@ const FAELLE = [
         if (fs.existsSync(path.join(d, A.ORDNER, '2026-01', '2026-01-03-3333-frage-x.json'))) f.push('`ernten` holt einen Eintrag zurueck, dessen Grabstein nur auf origin/main liegt');
         const blob = cp.execFileSync('git', ['hash-object', '--stdin'], { input: roh, encoding: 'utf8' }).trim();
         a = action();
-        if (a.code !== 0 || /2026-01-03-3333/.test(gesichert()) || !/Entfernt \(Grabstein\): 2026-01-03-3333/.test(a.aus)) f.push('Grabstein: Exit ' + a.code + ', s1 noch in der Sicherung oder nicht als entfernt gemeldet · ' + kurz(a.aus, 200));
+        if (a.code !== 0 || /3333/.test(baumZz()) || !/Entfernt \(Grabstein\): 2026-01-03-3333/.test(a.aus)) f.push('Grabstein: Exit ' + a.code + ', eine Fassung von s1 noch in der Sicherung oder nicht als entfernt gemeldet · ' + kurz(a.aus, 200));
         if (zz(['rev-list', '--objects', 'origin/zz-sicherung']).indexOf(blob) >= 0) f.push('der Grabstein-Eintrag ist aus zz-sicherung noch ERREICHBAR (Geschichte) — die Sicherung muss je Lauf ein Stand ohne Geschichte sein');
         if (zz(['rev-list', '--count', 'origin/zz-sicherung']).trim() !== '1') f.push('zz-sicherung hat Geschichte: ' + zz(['rev-list', '--count', 'origin/zz-sicherung']).trim() + ' Commits');
-        // Die Sicherung wird zurueckgesetzt (geloescht): ALARM, und sie wird neu geschrieben.
+        // 5. Die Sicherung wird zurueckgesetzt (geloescht): ALARM, und sie wird neu geschrieben.
         g(d2, ['push', '-q', 'origin', '--delete', 'zz-sicherung']);
         a = action();
         if (a.code !== 3 || !/ALARM:[^\n]*zurueckgesetzt oder geloescht/.test(a.aus) || gesichert() !== '2026-01-01-1111,2026-01-02-2222') f.push('zurueckgesetzte Sicherung: Exit ' + a.code + ' (erwartet 3), neu gesichert „' + gesichert() + '" · ' + kurz(a.aus, 300));
-        // Ohne Gedaechtnis (Cache abgelaufen): ein neuer Anfang, kein Alarm.
+        // Ohne Gedaechtnis (Cache abgelaufen): kein Alarm, aber gesagt, dass Verluste so nicht erkennbar sind.
         fs.rmSync(cache, { recursive: true, force: true }); fs.mkdirSync(cache);
         a = action();
-        if (a.code !== 0 || !/Gedaechtnis neu angelegt/.test(a.aus)) f.push('ohne Gedaechtnis: Exit ' + a.code + ' — ' + kurz(a.aus, 200));
-        // Hoechstens ein Branch sichtbar: nichts sichern, sondern sagen, dass das Holen nicht geklappt hat.
-        const b3 = path.join(eltern, 'eins.git'), d3 = path.join(eltern, 'eins');
-        cp.execFileSync('git', ['init', '-q', '--bare', '-b', 'main', b3]); cp.execFileSync('git', ['clone', '-q', 'file://' + bare, d3]); g(d3, ['remote', 'set-url', 'origin', 'file://' + b3]); g(d3, ['push', '-q', 'origin', 'main']);
-        for (const ref of g(d3, ['for-each-ref', '--format=%(refname)', 'refs/remotes']).split('\n').filter(x => x && !/origin\/main$/.test(x))) g(d3, ['update-ref', '-d', ref]);
-        const r3 = A.sicherungSchreiben(d3, path.join(eltern, 'leer'));
-        if (!/hoechstens ein Branch/.test(String(r3.grund))) f.push('mit nur origin/main wird gesichert statt gewarnt: ' + JSON.stringify(r3.grund || r3.neu.length));
+        if (a.code !== 0 || !/Kein Gedaechtnis/.test(a.aus)) f.push('ohne Gedaechtnis: Exit ' + a.code + ' — ' + kurz(a.aus, 200));
+        // 6. Der Push wird abgelehnt (Ruleset, Lease, Netz): Exit != 0 — und der NAECHSTE Lauf gibt keinen Fehlalarm
+        //    (vorher lag das Gedaechtnis schon vor dem Push auf dem neuen Stand).
+        const hook = path.join(bare, 'hooks', 'pre-receive');
+        fs.writeFileSync(hook, '#!/bin/sh\nwhile read alt neu ref; do [ "$ref" = refs/heads/zz-sicherung ] && exit 1; done\nexit 0\n', { mode: 0o755 });
+        const n1 = mk('idee', { id: '2026-01-06-6666', datum: '2026-01-06', von: 'sitzung/claude/neu', titel: 'Neu auf claude/neu' });
+        neuerZweig('claude/neu', [[n1]]);
+        a = action();
+        if (a.code === 0 || a.code === 3) f.push('abgelehnter Push: Exit ' + a.code + ' — erwartet ein Fehler (weder gruen noch Alarm)');
+        fs.unlinkSync(hook);
+        a = action();
+        if (a.code !== 0 || /ALARM/.test(a.aus) || !/2026-01-06-6666/.test(gesichert())) f.push('nach einem abgelehnten Push: Exit ' + a.code + (/ALARM/.test(a.aus) ? ' mit FEHLALARM' : '') + ', n1 gesichert: ' + /2026-01-06-6666/.test(gesichert()) + ' · ' + kurz(a.aus, 200));
+        // 7. Fremde Dateien auf zz-sicherung (.gitignore, eine Notiz, ein Symlink) legen den Waechter nicht lahm: der
+        //    neue Stand wird aus dem Nichts gebaut, und was er sichert, liegt WIRKLICH im Commit.
+        g(d2, ['fetch', '-q', 'origin']); g(d2, ['checkout', '-q', '-B', 'zz', 'origin/zz-sicherung']);
+        fs.writeFileSync(path.join(d2, '.gitignore'), '*.json\n'); fs.writeFileSync(path.join(d2, 'NOTIZ.md'), 'von Hand\n');
+        fs.symlinkSync('../../..', path.join(d2, A.ORDNER, '2026-02'));
+        g(d2, ['add', '-A', '-f']); g(d2, ['commit', '-q', '-m', 'von Hand']); g(d2, ['push', '-q', 'origin', 'zz:zz-sicherung']);
+        const n2 = mk('idee', { id: '2026-02-01-7777', datum: '2026-02-01', von: 'sitzung/claude/neu2', titel: 'Neu auf claude/neu2' });
+        neuerZweig('claude/neu2', [[n2]]);
+        a = action();
+        const bz7 = baumZz();
+        if (a.code !== 0 || !/2026-02-01-7777/.test(gesichert()) || /\.gitignore|NOTIZ\.md|\b120000\b/.test(bz7) || !/In der Sicherung verworfen/.test(a.aus)) f.push('fremde Dateien auf zz-sicherung: Exit ' + a.code + ', n2 im Commit: ' + /2026-02-01-7777/.test(gesichert()) + ', fremd im neuen Stand: ' + (bz7.match(/\.gitignore|NOTIZ\.md|120000/g) || []).join() + ' · ' + kurz(a.aus, 200));
+        // 8. Ein gewoehnlicher Branch namens claude/zz-sicherung ist NICHT die Sicherung: sein Eintrag wird gesichert.
+        const z1 = mk('idee', { id: '2026-02-02-8888', datum: '2026-02-02', von: 'sitzung/claude/zz-sicherung', titel: 'Auf claude/zz-sicherung' });
+        neuerZweig('claude/zz-sicherung', [[z1]]);
+        a = action();
+        if (a.code !== 0 || !/2026-02-02-8888/.test(gesichert())) f.push('claude/zz-sicherung: sein Eintrag wird nicht gesichert (Exit ' + a.code + ')');
+        // 9. Zwei Fassungen auf zwei Branches, keine zuzuordnen (von nennt keinen von beiden): beide gesichert; der
+        //    Branch der einen wird geloescht → ALARM (vorher: still die andere „neu gesichert").
+        const x0 = mk('befund', { id: '2026-02-03-9999', datum: '2026-02-03', von: 'sitzung/claude/niemand', titel: 'Fassung eins' });
+        neuerZweig('claude/x1', [[x0]]); neuerZweig('claude/x2', [[Object.assign({}, x0, { titel: 'Fassung zwei' })]]);
+        a = action();
+        if (a.code !== 0 || !/Strittig[^\n]*2026-02-03-9999/.test(a.aus) || !/2026-02-03-9999/.test(gesichert()) || fassungen(x0.id).length !== 1) f.push('strittig auf zwei Branches: Exit ' + a.code + ', gesichert unter eintraege/: ' + /9999/.test(gesichert()) + ', unter fassungen/: ' + fassungen(x0.id).length + ' — erwartet beide · ' + kurz(a.aus, 200));
+        loesche('claude/x1');
+        a = action();
+        if (a.code !== 3 || !/ALARM:[^\n]*2026-02-03-9999/.test(a.aus)) f.push('eine strittige Fassung verschwindet: Exit ' + a.code + ' (erwartet 3) · ' + kurz(a.aus, 200));
+        // 10. Eine kaputte Kopie und eine Datei unter fremdem Namen auf einem anderen Branch verdecken den Verlust nicht.
+        const c0 = mk('idee', { id: '2026-02-04-aaaa', datum: '2026-02-04', von: 'sitzung/claude/ca', titel: 'Nur auf claude/ca' });
+        neuerZweig('claude/ca', [[c0]]);
+        a = action();
+        neuerZweig('claude/cb', [['<<<<<<< HEAD\n' + JSON.stringify(c0) + '\n=======\n{}\n>>>>>>> x\n', c0.id + '-idee-x.json']]);
+        loesche('claude/ca');
+        a = action();
+        if (a.code !== 3 || !/ALARM:[^\n]*2026-02-04-aaaa/.test(a.aus)) f.push('eine kaputte Kopie auf claude/cb verdeckt den Verlust von claude/ca: Exit ' + a.code + ' · ' + kurz(a.aus, 200));
+        // 11. Eine unlesbare Datei (groesser als 64 KB) wird mit Quelle genannt — und ihr Verschwinden gemeldet.
+        neuerZweig('claude/gross', [[JSON.stringify(mk('idee', { id: '2026-02-05-bbbb', datum: '2026-02-05', text: 'x'.repeat(70000) })), '2026-02-05-bbbb-idee-x.json']]);
+        a = action();
+        if (a.code !== 0 || !/Unlesbar[^\n]*2026-02-05-bbbb-idee-x\.json \{origin\/claude\/gross\}/.test(a.aus)) f.push('die unlesbare Datei wird nicht mit Quelle genannt · ' + kurz(a.aus, 200));
+        loesche('claude/gross');
+        a = action();
+        if (a.code !== 3 || !/Unlesbare Datei\(en\) verschwunden[^\n]*2026-02-05-bbbb/.test(a.aus)) f.push('eine unlesbare Datei verschwindet still: Exit ' + a.code + ' · ' + kurz(a.aus, 200));
+        // 12. ALLE Arbeits-Branches geloescht (nur main und die Sicherung bleiben): kein „Holen hat nicht geklappt",
+        //     sondern ALARM mit dem, was jetzt nur noch hier liegt.
+        const rest = g(d, ['ls-remote', '--heads', 'origin']).split('\n').map(z => (z.split('\t')[1] || '').replace(/^refs\/heads\//, '')).filter(n => n && n !== 'main' && n !== 'zz-sicherung');
+        loesche(...rest);
+        a = action();
+        if (a.code !== 3 || !/ALARM:[^\n]*2026-01-06-6666/.test(a.aus) || /Holen aller Branches/.test(a.aus)) f.push('alle Branches geloescht: Exit ' + a.code + ' (erwartet 3, mit n1) · ' + kurz(a.aus, 300));
+        if (fs.existsSync(tokenLog)) f.push('das Werkzeug sah GH_TOKEN in seiner Umgebung (' + fs.readFileSync(tokenLog, 'utf8').split('\n').filter(Boolean).length + '×)');
         if (f.length) return { ok: false, warum: f.join(' · ') };
-        return { ok: true, info: 'Basis lokal/PR/main · Waechter 1 hinter main gruen, geloescht/umgeschrieben/Grabstein-im-Baum rot · ' + lauf + ' Laeufe der Action wie auf GitHub: byte-gleich, Geheimnis nicht, nur zz-sicherung geaendert, Wiederholung ohne Commit, erste Fassung bleibt, Branch geloescht → Alarm einmal, Grabstein ohne Geschichte, Reset → Alarm, ohne Gedaechtnis neu · ein Ref → keine Sicherung' };
+        return { ok: true, info: 'Basis lokal/PR/main · Waechter 1 hinter main gruen, geloescht/umgeschrieben/Grabstein-im-Baum rot · ' + lauf + ' Laeufe der Action wie auf GitHub: byte-gleich, ohne Titel, ohne Token, Geheimnis nicht, nur zz-sicherung geaendert, Wiederholung ohne Commit, Autor berichtigt (gilt, beide Fassungen gesichert), Faelschung nimmt nichts, Branch geloescht → Alarm einmal, GERETTET nach --prune, Grabstein ohne Geschichte, Reset → Alarm, ohne Gedaechtnis gesagt, abgelehnter Push ohne Fehlalarm, fremde Dateien verworfen, claude/zz-sicherung gesichert, strittige und verdeckte Verluste → Alarm, unlesbare genannt und vermisst, alle Branches weg → Alarm' };
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + String(e.message).split('\n')[0] }; } finally { weg(eltern); }
     },
   },

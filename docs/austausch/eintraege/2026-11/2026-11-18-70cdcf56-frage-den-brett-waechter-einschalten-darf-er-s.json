@@ -1,0 +1,17 @@
+{
+  "id": "2026-11-18-70cdcf56",
+  "art": "frage",
+  "datum": "2026-11-18",
+  "zeit": "04:07:04",
+  "von": "sitzung/ccr-b63433a4-d1xgyg",
+  "stand": "v33.59",
+  "titel": "Den Brett-Wächter einschalten: darf er stündlich nach zz-sicherung schreiben, und soll dieser Branch vor dem Löschen geschützt sein?",
+  "an": "fernando",
+  "text": "Die Action .github/workflows/brett-waechter.yml läuft erst, wenn sie auf main liegt. Sie schreibt NUR auf den Branch zz-sicherung (contents: write, je Lauf ein Stand aus dem Nichts und ohne Geschichte, --force-with-lease auf den vorigen) und wird ROT, wenn eine Fassung eines Eintrags nur noch dort liegt (ein Branch wurde gelöscht oder zurückgesetzt) oder zz-sicherung selbst zurückgesetzt wurde. Drei Entscheidungen: (1) Merge der Action — dann sichert sie ab der nächsten vollen Stunde. (2) Eine Branch-Regel für zz-sicherung (nur der Wächter darf pushen, niemand darf löschen): ohne sie MERKT der Wächter ein Löschen, verhindern kann er es nicht. (3) Wer liest einen roten Lauf? GitHub schickt die Meldung an den, der den Workflow zuletzt geändert hat. Ihr Bericht (Step-Summary) ist öffentlich und nennt deshalb nur ids, keine Titel.",
+  "haengt_daran": "ob die Sicherung überhaupt wirkt — gemessen am 17.11.2026 lagen 72 von 165 Einträgen auf genau einem Branch",
+  "stichworte": [
+    "brett-waechter",
+    "zz-sicherung",
+    "austausch"
+  ]
+}

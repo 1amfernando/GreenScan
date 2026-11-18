@@ -1245,8 +1245,22 @@ bis `lage --phase fertig`). Dringlichkeit, Lage, Halt/Veto, Wächter und die Sic
 > **Wer eine Regel über „meine" Dinge baut, rechnet am Schreiber.** Und **eine Sicherung mit
 > Geschichte vergisst nichts**: was ein Grabstein entfernte, blieb in `git log -p zz-sicherung`
 > lesbar — der Wächter schreibt seither je Lauf einen Stand ohne Geschichte.
+>
+> **Eine Reparatur reisst eine neue Lücke — und erst die zweite Prüfung auf dem reparierten Stand
+> findet sie** (18.11.2026). Runde 2 (71 Funde, alle nachgestellt): „am Schreiber" machte alles,
+> was die Austausch-Runde schreibt, zu niemandes Eintrag; „Zukunftszeit ist nicht frisch" liess
+> `naechste` eine Nummer still doppelt vergeben; „strittige Fassungen nicht rechnen" machte die
+> Sicherung zur Partei, und EIN Byte auf einem dritten Branch löschte jeden Halt. Und meine eigene
+> erste Reparatur für „lokaler Name ≠ Upstream" (Identität aus dem Upstream) hätte nach `git
+> checkout -b x origin/main` jede Sitzung „main" genannt. **Wer eine Regel ändert, fragt, welche
+> Fälle die ALTE Regel still richtig behandelt hat** — und lässt den reparierten Stand noch einmal
+> gegnerisch prüfen. Zwei Bauformen daraus: **ein Wächter baut seinen Stand aus dem Nichts** (wer
+> den eigenen alten Stand ungeprüft übernimmt, sichert eine Behauptung), und **was je Kennung
+> gezählt wird, verliert Fassungen** (gezählt wird je Blob).
 
-**Und noch einmal VOR dem Bump** (`git fetch origin main`, `git log HEAD..origin/main`).
+**Und noch einmal VOR dem Bump** (`git fetch origin main`, `git log HEAD..origin/main`; `naechste`
+holt seit 18.11.2026 selbst alle Branches — ein fremder Bump-Halt liegt auf einem fremden Branch,
+nicht auf `main`).
 Wer lange auf einem Zweig arbeitet, sieht sonst nicht, dass eine andere Sitzung
 dieselben Dateien geändert — oder live ausgeliefert — hat (v33.59: neun
 Function-Dateien und vier Stellen in `index.html`; am selben Tag ein zweites Mal
