@@ -51,15 +51,15 @@ Kontakt: <a href="mailto:info@greenscan.ch">info@greenscan.ch</a><br>
 <tr><th>Kategorie</th><th>Daten</th><th>Zweck</th></tr>
 <tr><td>Konto</td><td>E-Mail-Adresse, Anzeigename, verschlüsseltes Passwort</td><td>Registrierung, Login, geräteübergreifende Synchronisierung</td></tr>
 <tr><td>Scan-Inhalte</td><td>Fotos von Pflanzen/Pilzen (Kamera oder Galerie)</td><td>KI-Artbestimmung; optional Speicherung deiner Scan-Historie</td></tr>
-<tr><td>Standort</td><td>GPS-Koordinaten (nur mit deiner Erlaubnis)</td><td>Karten-Funde, lokales Wetter, Frost-/Hitze-Warnungen</td></tr>
+<tr><td>Standort</td><td>GPS-Koordinaten (nur mit deiner Erlaubnis)</td><td>Karten-Funde, lokales Wetter, Frost-/Hitze-Warnungen, ungefährer Ort für die KI-Bestimmung (siehe 3)</td></tr>
 <tr><td>Garten &amp; Tagebuch</td><td>Pflanzenlisten, Notizen, Ernte-Log, Fotos</td><td>Garten-Funktionen, Pflege-Erinnerungen</td></tr>
 <tr><td>Zahlung</td><td>Abo-Status (Pro/Lifetime). Kartendaten verarbeitet <strong>ausschliesslich Stripe</strong></td><td>Freischaltung kostenpflichtiger Funktionen</td></tr>
 <tr><td>Push</td><td>Push-Token (nur wenn aktiviert)</td><td>Erinnerungen &amp; Benachrichtigungen</td></tr>
-<tr><td>Nutzung/Fehler</td><td>Anonyme Nutzungs- &amp; Fehlerdaten</td><td>Stabilität – nur mit deiner ausdrücklichen Einwilligung (Opt-in)</td></tr>
+<tr><td>Nutzung/Fehler</td><td>Benannte Nutzungsereignisse und Fehlerberichte – <strong>pseudonym</strong>: sie tragen die Kennung deines Kontos, sind also nicht anonym. Keine Fotos, kein Standort, keine Pflanzennamen.</td><td>Stabilität – nur mit deiner ausdrücklichen Einwilligung (Opt-in, Vorgabe aus)</td></tr>
 </table>
 
 <h2>3 · KI-Verarbeitung (Artbestimmung)</h2>
-<p>Für die Bestimmung werden deine Scan-Fotos und zugehörige Textanfragen an die <strong>Anthropic-Claude-API</strong> übermittelt und dort zur Generierung der Antwort verarbeitet. Es werden keine Konto-Identifikatoren mitgesendet, die nicht für die Anfrage nötig sind. Anthropic verarbeitet die Daten als Auftragsverarbeiter; die Übermittlung kann in die USA erfolgen.</p>
+<p>Für die Bestimmung werden deine Scan-Fotos und zugehörige Textanfragen an die <strong>Anthropic-Claude-API</strong> übermittelt und dort zur Generierung der Antwort verarbeitet. Mit dem Foto geht, wenn bekannt, dein <strong>ungefährer Standort</strong> an Anthropic (auf rund 100&nbsp;m gerundet, aus dem Foto oder aus deinem gespeicherten Standort) sowie Monat und Jahreszeit – sie verbessern die Bestimmung. Die Metadaten der Foto-Datei (EXIF: GPS, Gerät, Aufnahmezeit) werden vorher entfernt. Die Anfrage läuft über unseren Server bei Supabase, der die Nutzung je Konto zählt; an Anthropic selbst geht keine Konto-Kennung mit. Hinterlegst du in den Einstellungen einen <strong>eigenen Anthropic-Schlüssel</strong>, geht die Anfrage stattdessen direkt von deinem Gerät an Anthropic – ohne unseren Server; Anthropic sieht dann deine IP-Adresse. Die Übermittlung kann in die USA erfolgen.</p>
 
 <h2>4 · Eingesetzte Dienste (Auftragsverarbeiter)</h2>
 <table>
@@ -67,12 +67,17 @@ Kontakt: <a href="mailto:info@greenscan.ch">info@greenscan.ch</a><br>
 <tr><td>Supabase</td><td>Konten, Datenbank, Datei-Speicher</td><td>EU</td></tr>
 <tr><td>Anthropic (Claude)</td><td>KI-Artbestimmung &amp; -Beratung</td><td>USA</td></tr>
 <tr><td>Stripe</td><td>Zahlungsabwicklung (Pro/Lifetime, TWINT)</td><td>EU/USA</td></tr>
-<tr><td>Cloudflare</td><td>Hosting &amp; Auslieferung (CDN)</td><td>global</td></tr>
-<tr><td>OpenStreetMap · swisstopo · Open-Meteo</td><td>Karten &amp; Wetter (keine Konto-Daten)</td><td>EU/CH</td></tr>
+<tr><td>Cloudflare · Netlify</td><td>Hosting &amp; Auslieferung (CDN)</td><td>global</td></tr>
+<tr><td>swisstopo · OpenStreetMap · Esri (ArcGIS) · OpenTopoMap</td><td>Kartenkacheln für den angezeigten Kartenausschnitt (keine Konto-Daten)</td><td>CH/EU/USA</td></tr>
+<tr><td>Nominatim (OpenStreetMap Foundation)</td><td>Ortsname zu deinem Standort bzw. Ortssuche — erhält deinen Ort auf etwa 1&nbsp;km gerundet, wenn du den Standort nutzt (keine Konto-Daten)</td><td>EU/UK</td></tr>
+<tr><td>Open-Meteo</td><td>Wetter für deinen Standort und Ortssuche (dein Ort auf etwa 1&nbsp;km gerundet, keine Konto-Daten)</td><td>EU</td></tr>
+<tr><td>Wikipedia (Wikimedia Foundation)</td><td>Kurzbeschreibung und Bild einer Art, wenn du sie öffnest (Artname, keine Konto-Daten)</td><td>USA</td></tr>
 </table>
+<p class="muted">Jeder dieser Dienste sieht bei einer Anfrage technisch bedingt deine IP-Adresse.</p>
 
 <h2>5 · Speicherort &amp; Fotos</h2>
-<p>Deine Foto-Uploads werden in deinem privaten Bereich des Supabase-Speichers (EU-Region) abgelegt – getrennt nach Nutzerkonto. Nur du kannst deine eigenen Dateien auflisten und löschen. Community-Beiträge (z.&nbsp;B. freigegebene Arten-Fotos) sind nur nach ausdrücklicher, freiwilliger Einreichung und Moderation öffentlich sichtbar.</p>
+<p>Deine Fotos (Scans, Pflanzen, Tagebuch, Funde, Community-Beiträge und Inserate) liegen im Supabase-Speicher (EU-Region), in einem Ordner je Nutzerkonto. Nur du kannst deine eigenen Dateien auflisten und löschen. <strong>Jedes Foto ist aber über seine Adresse für jeden abrufbar, der diese Adresse kennt</strong> – auch ohne Konto. Die Adresse enthält die Kennung deines Kontos und einen Dateinamen (bei Scans aus Zeitpunkt und Artname gebildet) und wird nicht veröffentlicht, solange du das Foto nicht teilst; Fotos in Community-Beiträgen, Inseraten und für die Community freigegebenen Funden sind dagegen für alle sichtbar. Bevor ein Foto das Gerät verlässt, entfernt die App seine Metadaten (EXIF: GPS-Position, Gerät, Aufnahmezeit).</p>
+<p>Gibst du einen Fund für die Community frei, wird sein Ort für alle sichtbar – auf etwa 1&nbsp;km gerundet; die genaue Stelle bleibt auf deinem Gerät. Dein Anzeigename steht öffentlich bei Beiträgen, Kommentaren, Inseraten und in der Quiz-Rangliste – du legst ihn im Profil fest.</p>
 
 <h2>6 · Lokale Speicherung</h2>
 <p>Die App speichert funktionale Daten (Login-Token, Einstellungen, Cache) lokal auf deinem Gerät (localStorage / Service-Worker-Cache), damit sie offline funktioniert. Es werden keine Werbe- oder Tracking-Cookies gesetzt.</p>

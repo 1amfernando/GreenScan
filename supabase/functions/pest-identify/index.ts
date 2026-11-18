@@ -14,13 +14,21 @@
 //   ausloesen, und ein versehentliches Umstellen des Flags haette sie voellig
 //   oeffentlich gemacht. Muster: plant-doctor-diagnose / garden-scan-analyze.
 
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 // v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
 import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
+// v33.59 (Sicherheitspruefung 10.11.2026): das Tor vor dem KI-Aufruf — Plan vom
+// Server, Tageskontingent atomar reserviert (fail-closed), Freitexte gedeckelt,
+// Bildtyp aus einer Liste; nach aussen feste Saetze statt Anbieter-Rohtext.
+// Die Reservierung gilt fuer den ganzen anthropicFetch — ein Modell-Rueckfall bucht nichts dazu.
+import { kiEingabeOk, kiFehlerCode, kiFreigabeNoetig, kiFreigeben, kiSlugAusListe, kiToken, kiTor } from "../_shared/ki_tor.mjs";
+
+const KI_FN = "pest-identify";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -56,26 +64,33 @@ Deno.serve(async (req) => {
   // unabhaengig vom Gateway-Flag). Das Frontend sendet immer ein frisches User-Token
   // (_gsFreshToken), legitime Aufrufe sind daher nicht betroffen.
   const authHdr = req.headers.get("authorization") || "";
-  const userToken = authHdr.replace(/^Bearer\s+/i, "").trim();
+  // v33.59: getUser MIT dem Token — ohne Argument fand der Client (das Token als
+  // API-Schluessel, keine Sitzung) nie einen Nutzer: jeder Aufruf 401 (vgl. B-007).
+  const userToken = kiToken(authHdr);
   if (!userToken) return json(401, { error: "unauthorized" });
-  // v33.58: das Token wird AUSDRUECKLICH geprueft. Vorher `createClient(URL, userToken).auth.getUser()`
-  // ohne Argument — ein Client ohne Sitzung und ohne eigenen Authorization-Header; neuere
-  // supabase-js-Fassungen antworten darauf mit „Auth session missing" statt den Schluessel als
-  // Bearer zu schicken, und `jsr:@supabase/supabase-js@2` zieht beim Ausliefern die neueste.
+  // v33.58: das Token wird AUSDRUECKLICH geprueft (admin.auth.getUser(userToken)). Vorher
+  // `createClient(URL, userToken).auth.getUser()` ohne Argument — neuere supabase-js-Fassungen
+  // antworten darauf mit „Auth session missing". v33.59: der Nutzer-Client traegt das Token als
+  // Bearer — mit ihm liest das Tor v_user_entitlements (die Sicht filtert auf auth.uid()).
+  const sbUser = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: "Bearer " + userToken } }, auth: { persistSession: false } });
   const { data: userData, error: userErr } = await admin.auth.getUser(userToken);
   if (userErr || !userData?.user) return json(401, { error: "invalid token" });
   const userId = userData.user.id;
 
   let body: any;
-  try { body = await req.json(); }
+  const roh = await req.text();
+  try { body = JSON.parse(roh); }
   catch (_) { return json(400, { error: "invalid json" }); }
 
   const imageB64: string | undefined = body?.image_base64;
   const mediaType: string = body?.media_type || "image/jpeg";
-  const hostPlant: string | null = body?.host_plant ?? null;
+  const hostPlant: string | null = typeof body?.host_plant === "string" && body.host_plant ? body.host_plant : null;
+  const TEXTE = { host_plant: hostPlant };
 
-  if (!imageB64) return json(400, { error: "missing image_base64" });
-  if (imageB64.length > 8 * 1024 * 1024) return json(413, { error: "image too large" });
+  if (!imageB64 || typeof imageB64 !== "string") return json(400, { error: "missing image_base64" });
+  const fehler = (code: string, status: number, plan?: string) => json(status, { error: kiFehlerCode({ code, plan }).message, code });
+  const deckel = kiEingabeOk(KI_FN, { bytes: roh.length, bilder: [imageB64], typen: [mediaType], texte: TEXTE });
+  if (!deckel.ok) return fehler(deckel.code, deckel.status);
 
   // v30.83: Rate-Limit (KI-Kostenschutz) — max 30 Schaedlings-Scans/Stunde/User.
   // Fail-open: ein Fehler im Limit-Check darf den Dienst nicht blockieren.
@@ -88,6 +103,9 @@ Deno.serve(async (req) => {
 
   const apiKey = await getAnthropicKey(admin);
   if (!apiKey) return json(503, { error: "Anthropic API-Key nicht konfiguriert" });
+
+  const tor = await kiTor({ fn: KI_FN, userClient: sbUser, admin, userId });
+  if (!tor.erlaubt) return fehler(tor.code, tor.status, tor.plan);
 
   // 1) Knowledge-Inventory: passende Schaedlinge filtern
   let pestQuery = admin.from("plant_pests").select(
@@ -134,12 +152,16 @@ Deno.serve(async (req) => {
       })
     });
     if (!aiResp.ok) {
-      const errText = await aiResp.text();
-      return json(aiResp.status, { error: `Anthropic ${aiResp.status}: ${errText.slice(0, 200)}` });
+      console.error(KI_FN + " anthropic", aiResp.status, (await aiResp.text()).slice(0, 500));
+      // v33.59: jede Ablehnung geht zurueck (der Anbieter rechnet sie nicht) — EINE Regel, kiFreigabeNoetig.
+      if (kiFreigabeNoetig(aiResp)) await kiFreigeben({ fn: KI_FN, admin, userId });
+      return fehler(aiResp.status === 429 ? "upstream_limit" : "upstream", 502);
     }
     aiJson = await aiResp.json();
   } catch (e: any) {
-    return json(502, { error: "Anthropic-Call fehlgeschlagen: " + String(e?.message || e) });
+    console.error(KI_FN + " upstream", e);
+    if (kiFreigabeNoetig(e)) await kiFreigeben({ fn: KI_FN, admin, userId });
+    return fehler("upstream", 502);
   }
 
   const text = aiJson?.content?.[0]?.text || "{}";
@@ -152,7 +174,9 @@ Deno.serve(async (req) => {
   }
 
   let fullPest = null;
-  if (parsed.matched_slug && typeof parsed.matched_slug === "string") {
+  // v33.59: ein Slug aus der KI gilt nur, wenn er in der geladenen Wissensbasis stand.
+  parsed.matched_slug = kiSlugAusListe(parsed.matched_slug, pests);
+  if (parsed.matched_slug) {
     const { data } = await admin.from("plant_pests").select("*").eq("slug", parsed.matched_slug).maybeSingle();
     fullPest = data;
   }
@@ -172,7 +196,7 @@ Deno.serve(async (req) => {
     matched_slug: parsed.matched_slug || null,
     confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0,
     reasoning: parsed.reasoning || "",
-    alternatives: Array.isArray(parsed.alternative_slugs) ? parsed.alternative_slugs.slice(0, 3) : [],
+    alternatives: Array.isArray(parsed.alternative_slugs) ? parsed.alternative_slugs.map((x: unknown) => kiSlugAusListe(x as string, pests)).filter(Boolean).slice(0, 3) : [],
     severity: parsed.severity_observed || null,
     advice: parsed.advice || "",
     pest_detail: fullPest,

@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-11-d1cc",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:44:40",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: delete-user löscht die Abo-Zeilen, kündigt aber bei Stripe nichts — das Abo wird weiter abgebucht",
+  "text": "Der Rest ist auf dem Branch ccr-5e705a36-jveaak behoben (v33.59, nicht ausgeliefert): bei der Organisations-Abfrage zählt nur eine fehlende Tabelle als „keine Sperre“ (42P01 und PGRST205); jeder andere Fehler bricht mit einem festen Satz ab, bevor etwas gelöscht wird (orgAbfrageSperre in _shared/loeschung_regeln.mjs). Offen: der Löschdialog nennt ein laufendes Abo weiterhin nicht vorab.",
+  "beleg": [
+    "node scripts/edge_check.js → 71 Fälle, 0 kaputt (8 Dateien)"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-cde7",
+      "ref": "origin/ccr-dce5a17c-2xzhvi"
+    }
+  ]
+}

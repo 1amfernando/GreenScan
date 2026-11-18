@@ -21,13 +21,21 @@
 // COMPLIANCE: Diese Funktion ist Information-only, KEINE Garantie. Frontend
 // MUSS prominent VAPKO-Disclaimer + bei toedlich/giftig Notfall-Hinweis 145 zeigen.
 
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 // v33.58: kein Modellname in dieser Datei — die Rolle bestimmt die Kette (_shared/modelle.mjs).
 import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mjs";
+// v33.59 (Sicherheitspruefung 10.11.2026): das Tor vor dem KI-Aufruf — Plan vom
+// Server, Tageskontingent atomar reserviert (fail-closed), Freitexte gedeckelt,
+// Bildtyp aus einer Liste; nach aussen feste Saetze statt Anbieter-Rohtext.
+// Die Reservierung gilt fuer den ganzen anthropicFetch — ein Modell-Rueckfall bucht nichts dazu.
+import { kiEingabeOk, kiFehlerCode, kiFreigabeNoetig, kiFreigeben, kiSlugAusListe, kiToken, kiTor } from "../_shared/ki_tor.mjs";
+
+const KI_FN = "mushroom-identify";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -57,25 +65,32 @@ Deno.serve(async (req) => {
   // unabhaengig vom Gateway-Flag). Das Frontend sendet immer ein frisches User-Token
   // (_gsFreshToken), legitime Aufrufe sind daher nicht betroffen.
   const authHdr = req.headers.get("authorization") || "";
-  const userToken = authHdr.replace(/^Bearer\s+/i, "").trim();
+  // v33.59: getUser MIT dem Token — ohne Argument fand der Client (das Token als
+  // API-Schluessel, keine Sitzung) nie einen Nutzer: jeder Aufruf 401 (vgl. B-007).
+  const userToken = kiToken(authHdr);
   if (!userToken) return json(401, { error: "unauthorized" });
-  // v33.58: das Token wird AUSDRUECKLICH geprueft. Vorher `createClient(URL, userToken).auth.getUser()`
-  // ohne Argument — ein Client ohne Sitzung und ohne eigenen Authorization-Header; neuere
-  // supabase-js-Fassungen antworten darauf mit „Auth session missing" statt den Schluessel als
-  // Bearer zu schicken, und `jsr:@supabase/supabase-js@2` zieht beim Ausliefern die neueste.
+  // v33.58: das Token wird AUSDRUECKLICH geprueft (admin.auth.getUser(userToken)). Vorher
+  // `createClient(URL, userToken).auth.getUser()` ohne Argument — neuere supabase-js-Fassungen
+  // antworten darauf mit „Auth session missing". v33.59: der Nutzer-Client traegt das Token als
+  // Bearer — mit ihm liest das Tor v_user_entitlements (die Sicht filtert auf auth.uid()).
+  const sbUser = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: "Bearer " + userToken } }, auth: { persistSession: false } });
   const { data: userData, error: userErr } = await admin.auth.getUser(userToken);
   if (userErr || !userData?.user) return json(401, { error: "invalid token" });
   const userId = userData.user.id;
 
   let body: any;
-  try { body = await req.json(); } catch (_) { return json(400, { error: "invalid json" }); }
+  const roh = await req.text();
+  try { body = JSON.parse(roh); } catch (_) { return json(400, { error: "invalid json" }); }
   const imageB64: string | undefined = body?.image_base64;
   const mediaType: string = body?.media_type || "image/jpeg";
-  const habitatHint: string | null = body?.habitat_hint ?? null;
-  const regionSlug: string | null = body?.region_slug ?? null;
+  const habitatHint: string | null = typeof body?.habitat_hint === "string" && body.habitat_hint ? body.habitat_hint : null;
+  const regionSlug: string | null = typeof body?.region_slug === "string" && body.region_slug ? body.region_slug : null;
+  const TEXTE = { habitat_hint: habitatHint, region_slug: regionSlug };
 
-  if (!imageB64) return json(400, { error: "missing image_base64" });
-  if (imageB64.length > 8 * 1024 * 1024) return json(413, { error: "image too large" });
+  if (!imageB64 || typeof imageB64 !== "string") return json(400, { error: "missing image_base64" });
+  const fehler = (code: string, status: number, plan?: string) => json(status, { error: kiFehlerCode({ code, plan }).message, code });
+  const deckel = kiEingabeOk(KI_FN, { bytes: roh.length, bilder: [imageB64], typen: [mediaType], texte: TEXTE });
+  if (!deckel.ok) return fehler(deckel.code, deckel.status);
 
   // v30.83: Rate-Limit (KI-Kostenschutz) — max 30 Pilz-Scans/Stunde/User.
   // Fail-open: Sicherheitskritischer Dienst darf nie an einem Limit-Fehler scheitern.
@@ -89,9 +104,13 @@ Deno.serve(async (req) => {
   const apiKey = await getAnthropicKey(admin);
   if (!apiKey) return json(503, { error: "Anthropic API-Key nicht konfiguriert" });
 
+  const tor = await kiTor({ fn: KI_FN, userClient: sbUser, admin, userId });
+  if (!tor.erlaubt) return fehler(tor.code, tor.status, tor.plan);
+
   const { data: mushrooms } = await admin.from("mushroom_register")
     .select("slug,common_name_de,scientific_name,family,edibility,vapko_klasse,habitat,cap_color,cap_surface,gills_or_pores,gill_color,spore_color,stem_color,smell,identifying_features,season_months")
-    .limit(50);
+    .order("slug")   // v33.59: ohne Reihenfolge entschied die Speicherreihenfolge, welche Arten das Modell kennt
+    .limit(200);
   const knownMushrooms = mushrooms || [];
 
   const knowledge = knownMushrooms.map((m: any) =>
@@ -99,7 +118,7 @@ Deno.serve(async (req) => {
   ).join("\n");
 
   const systemPrompt =
-    `Du bist ein Schweizer Pilz-Experte nach VAPKO-Standard. Analysiere das Foto und vergleiche mit dieser Knowledge-Base (20 bekannte Schweizer Pilze inkl. 5 TOEDLICHE):\n\n${knowledge}\n\nWICHTIGE REGELN:\n- SICHERHEIT VOR PRAEZISION. Im Zweifel matched_slug=null und vapko_required=true.\n- Bei toedlich-aussehenden Verwechslungen (Knollenblaetter, Pantherpilz, Spitzgebuckelter Raukopf) immer hoechste Vorsicht.\n- Wenn confidence < 70: vapko_required=true.\n- Wenn edibility=toedlich oder giftig: safety_advice IMMER mit Notfall-Hinweis 145.\n\nAntworte AUSSCHLIESSLICH valides JSON-Objekt in diesem Format:\n{\"matched_slug\": \"<slug aus Liste oder null>\",\n \"confidence\": <0-100>,\n \"reasoning\": \"<2-3 Saetze identifizierende Merkmale>\",\n \"alternative_slugs\": [\"<slug>\"],\n \"vapko_required\": true|false,\n \"observed_features\": \"<was du siehst>\"\n}\n\nKEIN Markdown, KEIN Pre-/Post-Text, NUR das JSON.`;
+    `Du bist ein Schweizer Pilz-Experte nach VAPKO-Standard. Analysiere das Foto und vergleiche mit dieser Knowledge-Base (${knownMushrooms.length} Schweizer Pilze, darunter TOEDLICHE):\n\n${knowledge}\n\nWICHTIGE REGELN:\n- SICHERHEIT VOR PRAEZISION. Im Zweifel matched_slug=null und vapko_required=true.\n- Bei toedlich-aussehenden Verwechslungen (Knollenblaetter, Pantherpilz, Spitzgebuckelter Raukopf) immer hoechste Vorsicht.\n- Wenn confidence < 70: vapko_required=true.\n- Wenn edibility=toedlich oder giftig: safety_advice IMMER mit Notfall-Hinweis 145.\n\nAntworte AUSSCHLIESSLICH valides JSON-Objekt in diesem Format:\n{\"matched_slug\": \"<slug aus Liste oder null>\",\n \"confidence\": <0-100>,\n \"reasoning\": \"<2-3 Saetze identifizierende Merkmale>\",\n \"alternative_slugs\": [\"<slug>\"],\n \"vapko_required\": true|false,\n \"observed_features\": \"<was du siehst>\"\n}\n\nKEIN Markdown, KEIN Pre-/Post-Text, NUR das JSON.`;
 
   let aiJson: any;
   try {
@@ -119,12 +138,16 @@ Deno.serve(async (req) => {
       })
     });
     if (!aiResp.ok) {
-      const errText = await aiResp.text();
-      return json(aiResp.status, { error: `Anthropic ${aiResp.status}: ${errText.slice(0, 200)}` });
+      console.error(KI_FN + " anthropic", aiResp.status, (await aiResp.text()).slice(0, 500));
+      // v33.59: jede Ablehnung geht zurueck (der Anbieter rechnet sie nicht) — EINE Regel, kiFreigabeNoetig.
+      if (kiFreigabeNoetig(aiResp)) await kiFreigeben({ fn: KI_FN, admin, userId });
+      return fehler(aiResp.status === 429 ? "upstream_limit" : "upstream", 502);
     }
     aiJson = await aiResp.json();
   } catch (e: any) {
-    return json(502, { error: "Anthropic-Call fehlgeschlagen: " + String(e?.message || e) });
+    console.error(KI_FN + " upstream", e);
+    if (kiFreigabeNoetig(e)) await kiFreigeben({ fn: KI_FN, admin, userId });
+    return fehler("upstream", 502);
   }
 
   const text = aiJson?.content?.[0]?.text || "{}";
@@ -136,15 +159,18 @@ Deno.serve(async (req) => {
   let fullMushroom: any = null;
   let safetyRow: any = null;
   let lookalikes: any[] = [];
-  if (parsed.matched_slug && typeof parsed.matched_slug === "string") {
+  // v33.59: der Slug aus der KI gilt nur, wenn er in der geladenen Liste stand — und er
+  // geht nie mehr in einen .or()-Filter (Komma/Klammern erweiterten ihn), sondern in zwei .eq.
+  parsed.matched_slug = kiSlugAusListe(parsed.matched_slug, knownMushrooms);
+  if (parsed.matched_slug) {
     const { data: full } = await admin.from("mushroom_register").select("*").eq("slug", parsed.matched_slug).maybeSingle();
     fullMushroom = full;
     const { data: saf } = await admin.from("v_mushroom_safety").select("*").eq("slug", parsed.matched_slug).maybeSingle();
     safetyRow = saf;
-    const { data: la1 } = await admin.from("mushroom_lookalikes")
-      .select("*")
-      .or(`edible_slug.eq.${parsed.matched_slug},lookalike_slug.eq.${parsed.matched_slug}`);
-    lookalikes = la1 || [];
+    const { data: la1 } = await admin.from("mushroom_lookalikes").select("*").eq("edible_slug", parsed.matched_slug);
+    const { data: la2 } = await admin.from("mushroom_lookalikes").select("*").eq("lookalike_slug", parsed.matched_slug);
+    const gesehen = new Set();
+    lookalikes = [...(la1 || []), ...(la2 || [])].filter((r: any) => { const k = JSON.stringify(r); if (gesehen.has(k)) return false; gesehen.add(k); return true; });
   }
 
   let vapkoStelle: any = null;
@@ -167,6 +193,8 @@ Deno.serve(async (req) => {
   if (fullMushroom && (fullMushroom.edibility === "toedlich" || fullMushroom.edibility === "giftig")) {
     vapkoRequired = true;
   }
+  // v33.59: eine ungepruefte Essbarkeit (knowledge-bulk-gen setzt 'unbekannt') ist keine Zusage.
+  if (!fullMushroom || !fullMushroom.edibility || fullMushroom.edibility === "unbekannt") vapkoRequired = true;
 
   // v26.50: Log usage (fire-and-forget)
   try {
@@ -184,7 +212,7 @@ Deno.serve(async (req) => {
     confidence: conf,
     reasoning: parsed.reasoning || "",
     observed_features: parsed.observed_features || "",
-    alternatives: Array.isArray(parsed.alternative_slugs) ? parsed.alternative_slugs.slice(0, 3) : [],
+    alternatives: Array.isArray(parsed.alternative_slugs) ? parsed.alternative_slugs.map((x: unknown) => kiSlugAusListe(x as string, knownMushrooms)).filter(Boolean).slice(0, 3) : [],
     mushroom: fullMushroom,
     edibility: fullMushroom?.edibility || null,
     safety_color: safetyRow?.safety_color || null,

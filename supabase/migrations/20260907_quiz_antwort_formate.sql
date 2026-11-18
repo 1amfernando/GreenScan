@@ -166,6 +166,18 @@ CREATE TRIGGER trg_quiz_answers_verify
   FOR EACH ROW EXECUTE FUNCTION public.fn_quiz_answers_verify();
 
 -- (3) Das Jahres-Ranking zählt mit derselben Funktion.
+-- v33.59: steht schon die tagesgebundene Fassung aus
+-- 20261110_sicherheit_quiz_punkte.sql, bleibt sie stehen — sonst machte diese
+-- Datei, NACH jener angewandt, die Bindung an den Tag still rueckgaengig.
+DO $wache$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+              WHERE n.nspname = 'public' AND p.proname = 'fn_grant_quiz_top3_pro'
+                AND p.prosrc LIKE '%v33.59 tagesgebunden%') THEN
+    RAISE NOTICE 'fn_grant_quiz_top3_pro: tagesgebundene Fassung (v33.59) bleibt';
+    RETURN;
+  END IF;
+  EXECUTE $def$
 CREATE OR REPLACE FUNCTION public.fn_grant_quiz_top3_pro()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -213,7 +225,9 @@ begin
                              'expires', (now() + interval '1 year')));
   return jsonb_build_object('ok', true, 'granted', v_n, 'user_ids', to_jsonb(v_ids));
 end
-$function$;
+$function$
+$def$;
+END $wache$;
 
 -- (4) Nachrechnen — nur Zeilen mit Index, nur bei Abweichung. Der Trigger
 --     läuft dabei mit (BEFORE UPDATE) und rechnet dasselbe; answered_on bleibt.

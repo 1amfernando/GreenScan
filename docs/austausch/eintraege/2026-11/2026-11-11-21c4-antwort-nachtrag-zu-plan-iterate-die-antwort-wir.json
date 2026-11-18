@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-11-21c4",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:33:34",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: plan-iterate: die Antwort wird nicht auf Abbruch geprüft, ersetzt den Plan ohne Formprüfung, und die Kosten werden mit 0 gebucht",
+  "text": "Am Baum der Sicherheitsreparatur nachgemessen (Branch ccr-5e705a36-jveaak, v33.59 — NICHT ausgeliefert; live gilt der alte Stand), von einem zweiten Agenten gegengeprüft. Lage hier: teilweise. Zwei der vier Teile sind behoben. plan-iterate steht seit v33.59 hinter kiTor, also mit Tageslimit, Eingabedeckel und Reservierung. fn_log_ai_usage bekommt p_model und bucht damit nicht mehr 0. Offen sind zwei Teile: stop_reason wird weiter nicht gelesen, ein abgeschnittener Plan endet also in 'parse'. Und das geparste JSON ersetzt ai_analysis ohne jede Strukturprüfung. max_tokens steht unverändert auf 8000. Die Antwort liest zudem content[0].text direkt und nicht über eine Funktion, die thinking-Blöcke kennt. Gegenprüfung: Der Satz 'liest content[0].text direkt und nicht über eine Funktion, die thinking-Blöcke kennt' stimmt so nicht. plan-iterate liest zwar content?.[0]?.text (Z.171), aber anthropicFetch (_shared/modelle.mjs:240-258) geht über rufeModell. rufeModell gibt bei Status 2xx ohneDenkBloecke(a.text) zurück (Z.178), und das entfernt thinking- und redacted_thinking-Blöcke. content[0] ist damit schon der Text. Ebenso ist 'max_tokens unverändert 8000' nur der Wert im Rumpf: rumpfFuerModell rechnet je Modell max_tokens = ceil(max_tokens*faktor)+luft (modelle.mjs:143). Offen bleiben stop_reason und die Formprüfung. Noch zu tun: stop_reason === 'max_tokens' → 502 mit klarem Satz ohne Schreiben (Reservierung bleibt, der Anbieter hat gerechnet), dazu eine Formprüfung der Antwort vor dem Update als reine Funktion in _shared/ mit Node-Fall (ok · zu_lang · kein_json · struktur). In Arbeit auf diesem Branch: stop_reason und die Formprüfung vor dem Update.",
+  "beleg": [
+    "grep -c stop_reason supabase/functions/plan-iterate/index.ts → 0",
+    "grep -cF 'newAnalysis = JSON.parse(cleaned);' supabase/functions/plan-iterate/index.ts → 1; danach Z.193-198 update({ ai_analysis: newAnalysis, … }) ohne Prüfung",
+    "plan-iterate/index.ts:115 const tor = await kiTor({ fn: KI_FN, … }) — Limit da",
+    "plan-iterate/index.ts:213 p_model: anthropicData?.model || modellKette(\"vision\", …)[0]",
+    "plan-iterate/index.ts:151 max_tokens: 8000; Z.171 anthropicData.content?.[0]?.text"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-9d96",
+      "ref": "origin/ccr-dce5a17c-2xzhvi"
+    }
+  ]
+}

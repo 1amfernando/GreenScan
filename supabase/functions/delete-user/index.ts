@@ -10,20 +10,28 @@
 //    liegen, waehrend der Dialog „Alle Scans & Bilder" versprach), und zwei
 //    Tabellen ohne FK (ai_usage, species_search_log).
 //
+// v6 (v33.59) — ein laufendes Stripe-Abo wird VOR dem ersten Loeschschritt gekuendigt;
+//    scheitert das (oder fehlt der Stripe-Schluessel), 409 abo_kuendigung und NICHTS geloescht
+//    (bis dahin buchte Stripe nach dem Loeschen weiter ab). Regeln: zahlung_regeln.mjs
+//    zuKuendigendeAbos, loeschung_regeln.mjs aboSperre.
+//
 // Auth: verify_jwt=true → Authorization-Header muss gültiger JWT sein.
 // Sicherheits-Check: body.user_id MUSS == JWT-user.id sein (kein Foreign-Account-Delete).
 //
 // Reihenfolge:
 //   0. Sperre: Ersteller einer Organisation → 409 org_creator, NICHTS geloescht
+//   0b. laufende Stripe-Abos kuendigen; scheitert eines → 409 abo_kuendigung, NICHTS geloescht
 //   1. Storage: alles unter <uid>/ in jedem Bucket (BUCKETS)
 //   2. Tabellen mit user_id-Spalte (USER_TABLES, RLS-bypass via Service-Role)
 //   3. profiles (id=uid)
 //   4. supabase.auth.admin.deleteUser(uid) — die Kaskaden (FK ON DELETE CASCADE) raeumen den Rest
 // Bei Fehlern in einzelnen Tabellen/Buckets: weitermachen, am Ende Counts zurückgeben.
 
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
-import { USER_TABLES, BUCKETS, loeschSperre, sperreMeldung, speicherPfade } from "../_shared/loeschung_regeln.mjs";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import Stripe from "npm:stripe@17.7.0";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+import { USER_TABLES, BUCKETS, loeschSperre, sperreMeldung, speicherRaeumen, aboSperre, aboSperreMeldung, orgAbfrageSperre } from "../_shared/loeschung_regeln.mjs";
+import { zuKuendigendeAbos } from "../_shared/zahlung_regeln.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -87,48 +95,75 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, svcKey);
 
     // 0) Sperre — VOR dem ersten Loeschschritt, damit nie ein halbes Konto bleibt.
-    try {
-      const { data: orgs, error: orgErr } = await admin
-        .from("organizations")
-        .select("id,name")
-        .eq("created_by", targetUid);
-      if (!orgErr) {
-        const sperre = loeschSperre(orgs ?? []);
-        if (sperre.gesperrt) {
-          return json(409, {
-            ok: false,
-            error: sperre.error,
-            organizations: sperre.organizations,
-            message: sperreMeldung(sperre),   // sbFetch reicht nur `message` weiter
-          });
+    // v33.59 (Brett cde7): nur eine fehlende Tabelle (42P01) heisst „keine Sperre"; jeder
+    // andere Fehler bricht ab (orgAbfrageSperre) — vorher wurde die Sperre still uebersprungen.
+    {
+      let orgs: any[] | null = null, orgErr: any = null;
+      try {
+        const r = await admin.from("organizations").select("id,name").eq("created_by", targetUid);
+        orgs = r.data; orgErr = r.error;
+      } catch (e) {
+        orgErr = { message: (e as Error)?.message ?? String(e) };
+      }
+      const pruef = orgAbfrageSperre(orgErr);
+      if (pruef.gesperrt) {
+        console.error("[delete-user] organizations", orgErr?.message ?? orgErr);
+        return json(pruef.status, { ok: false, error: pruef.error, message: pruef.message });
+      }
+      const sperre = loeschSperre(orgErr ? [] : (orgs ?? []));
+      if (sperre.gesperrt) {
+        return json(409, {
+          ok: false,
+          error: sperre.error,
+          organizations: sperre.organizations,
+          message: sperreMeldung(sperre),   // sbFetch reicht nur `message` weiter
+        });
+      }
+    }
+
+    // 0b) Laufende Stripe-Abos kuendigen — ebenfalls VOR dem ersten Loeschschritt.
+    {
+      const { data: abos, error: aboErr } = await admin
+        .from("stripe_subscriptions")
+        .select("id,status,is_lifetime")
+        .eq("user_id", targetUid);
+      let offen: string[] = [];
+      if (aboErr) {
+        // Nicht lesbar heisst nicht „kein Abo" — ausser die Tabelle gibt es gar nicht.
+        if (aboErr.code !== "42P01") offen = ["(nicht lesbar)"];
+        console.error("[delete-user] stripe_subscriptions", aboErr.message);
+      } else {
+        offen = zuKuendigendeAbos(abos ?? []);
+      }
+      const nichtGekuendigt: string[] = [];
+      const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+      if (offen.length && (!stripeKey || aboErr)) {
+        nichtGekuendigt.push(...offen);
+      } else if (offen.length) {
+        const stripe = new Stripe(stripeKey!, { apiVersion: "2024-12-18.acacia" });
+        for (const id of offen) {
+          try {
+            await stripe.subscriptions.cancel(id);
+          } catch (e) {
+            // schon weg bei Stripe → nichts mehr zu kuendigen
+            if ((e as any)?.code === "resource_missing") continue;
+            console.error("[delete-user] Kuendigung", id, (e as Error)?.message ?? e);
+            nichtGekuendigt.push(id);
+          }
         }
       }
-    } catch {
-      // Tabelle fehlt → keine Sperre noetig
+      const aboS = aboSperre(nichtGekuendigt);
+      if (aboS.gesperrt) {
+        return json(409, { ok: false, error: aboS.error, message: aboSperreMeldung(aboS) });
+      }
     }
 
     const counts: Record<string, number | string> = {};
 
-    // 1) Storage: alles unter <uid>/ — seitenweise, bis nichts mehr kommt
+    // 1) Storage: alles unter <uid>/ — seitenweise, bis nichts mehr kommt.
+    // v33.59: die Rechnung (auch Unterordner) steht in speicherRaeumen (_shared/loeschung_regeln.mjs).
     for (const bucket of BUCKETS) {
-      const key = "storage:" + bucket;
-      try {
-        let entfernt = 0;
-        for (let runde = 0; runde < 50; runde++) {
-          const { data: liste, error: listErr } = await admin.storage
-            .from(bucket)
-            .list(targetUid, { limit: 1000 });
-          if (listErr) { counts[key] = `error: ${listErr.message}`; break; }
-          const pfade = speicherPfade(targetUid, liste ?? []);
-          if (!pfade.length) { counts[key] = entfernt; break; }
-          const { error: rmErr } = await admin.storage.from(bucket).remove(pfade);
-          if (rmErr) { counts[key] = `error: ${rmErr.message}`; break; }
-          entfernt += pfade.length;
-          counts[key] = entfernt;
-        }
-      } catch (e) {
-        counts[key] = `exception: ${(e as Error)?.message ?? e}`;
-      }
+      counts["storage:" + bucket] = await speicherRaeumen(admin.storage, bucket, targetUid);
     }
 
     // 2) Cleanup aller user-Tabellen
@@ -190,6 +225,7 @@ Deno.serve(async (req) => {
       tables: counts,
     });
   } catch (e) {
-    return json(500, { error: String((e as Error)?.message ?? e) });
+    console.error("[delete-user]", (e as Error)?.message ?? e);
+    return json(500, { error: "delete_failed" });
   }
 });

@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-11-8e40",
+  "art": "idee",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/klassen",
+  "stand": "v33.59",
+  "titel": "Jeder HTTP-Prüfserver liefert die Kopfzeilen aus _headers — offline_check und sicherheit/70_sitzung.js nehmen den Helfer _kopfzeilen.js",
+  "nutzen": "Die Stripe-Rückkehr läuft seit v33.59 unter den echten Kopfzeilen (scripts/sicherheit/_kopfzeilen.js, repoServer). Zwei weitere Prüfserver liefern weiter nur die CSP bzw. gar keine Kopfzeile aus: offline_check und sicherheit/70_sitzung.js. Was dort von COOP, Permissions-Policy oder CORP abhängt, misst niemand. Dazu fehlt ein Laufzeit-Fall für die Permissions-Policy (heute wird sie nur als Text gegen den Code gelesen).",
+  "pruefbar": "grep -ln createServer scripts/*.js scripts/sicherheit/*.js | xargs grep -L '_headers\\|_kopfzeilen' → heute die Dateien ohne Kopfzeilen; ein Fall mit repoServer({ohne:['Permissions-Policy']}) gegen featurePolicy.allowsFeature('microphone') als Gegenprobe.",
+  "stichworte": [
+    "_kopfzeilen.js",
+    "_headers",
+    "offline_check",
+    "70_sitzung.js",
+    "Permissions-Policy",
+    "Pruefserver"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-c70d"
+    }
+  ]
+}

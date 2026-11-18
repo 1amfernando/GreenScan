@@ -1,6 +1,8 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+import { constantTimeEquals } from "../_shared/auth_vergleich.mjs";
 import webpush from "npm:web-push@3.6.7";
+import { sendPush, abosAuswaehlen, abarbeiten } from "../_shared/push_helfer.mjs";
 
 // send-push v3 (v30.87 — Audit P0-3): v2 + ECHTE JWT-Verifikation.
 // On-demand / Test-Push-Endpoint. verify_jwt=true (Gateway validiert JWT).
@@ -48,14 +50,8 @@ async function loadVapid() {
   };
 }
 
-// v30.87: Constant-Time-Vergleich (Muster aus daily-push, dem staerksten
-// Guard im Repo). Verhindert Timing-Rueckschluesse auf den Service-Key.
-function constantTimeEquals(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return mismatch === 0;
-}
+// v33.59 (Brett 4515): der Vergleich kommt aus EINEM Modul (_shared/auth_vergleich.mjs) statt
+// aus einer eigenen Kopie — dort sind zwei leere Werte kein Treffer.
 
 // v30.87: Ersetzt das alte, ungeprüfte `decodeJwt`. Liefert entweder einen
 // nachgewiesenen Service-Aufruf oder eine serverseitig verifizierte User-ID.
@@ -89,23 +85,12 @@ async function logSend(
   } catch (_) { /* log best-effort */ }
 }
 
-async function sendOne(sub: any, title: string, body: string, url: string, tag: string, vapid: any) {
-  try {
-    webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
-    const pushSub = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_secret } };
-    const payload = JSON.stringify({
-      title, body, url,
-      icon: "https://green-scan.ch/icons/icon-192.png",
-      badge: "https://green-scan.ch/icons/icon-96.png",
-      tag,
-      data: { url }
-    });
-    const res = await webpush.sendNotification(pushSub, payload, { TTL: 3600 });
-    return { ok: true, status: res.statusCode };
-  } catch (e: any) {
-    return { ok: false, status: e?.statusCode, error: String(e?.message || e) };
-  }
-}
+// v33.59 (Sicherheitspruefung 10.11.2026): die eigene Kopie von sendPush ist weg — sie
+// schickte an jeden Endpunkt, den die Person in push_subscriptions schreibt (SSRF mit
+// Antwort-Orakel ueber push_send_log), und ohne Frist. push_helfer.sendPush prueft den
+// Endpunkt (pushEndpunktOk) und hat eine. Nutzlast und TTL sind dieselben.
+const sendOne = (sub: any, title: string, body: string, url: string, tag: string, vapid: any) =>
+  sendPush(webpush, sub, { title, body, url, tag }, vapid);
 
 Deno.serve(async (req: Request) => {
   const cors = {
@@ -168,9 +153,11 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ ok: false, error: "no_subscription", sent: 0 }), { headers: cors });
     }
 
+    // v33.59: nur bekannte Push-Dienste, je Nutzer gedeckelt, parallel mit Budget.
+    const auswahl = abosAuswaehlen(subs);
     let sent = 0, failed = 0;
     const seenUsers = new Set<string>();
-    for (const s of subs) {
+    const lauf = await abarbeiten(auswahl.abos, async (s: any) => {
       const r = await sendOne(s, title, text, url, tag, vapid);
       const logUid = broadcast ? (s.user_id || targetUid) : targetUid;
       if (logUid) await logSend(logUid, category, title, text, { endpoint: String(s.endpoint).slice(0, 40) }, r.ok ? "sent" : "failed", r.status, r.error);
@@ -181,14 +168,15 @@ Deno.serve(async (req: Request) => {
       } else {
         failed++;
         if (r.status === 410 || r.status === 404) {
-          await sb.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+          await sb.from("push_subscriptions").delete().eq("id", s.id);   // v33.59: je Abo, nie je Endpunkt
         } else {
           await sb.from("push_subscriptions").update({ push_failure_count: (s.push_failure_count || 0) + 1 }).eq("id", s.id);
         }
       }
-    }
+    });
 
-    return new Response(JSON.stringify({ ok: sent > 0, sent, failed, subscriptions: subs.length, users: seenUsers.size, broadcast }), { headers: cors });
+    return new Response(JSON.stringify({ ok: sent > 0, sent, failed, subscriptions: subs.length, users: seenUsers.size, broadcast,
+      abgewiesen: auswahl.abgewiesen.length, gedeckelt: auswahl.gedeckelt, abgebrochen: lauf.abgebrochen }), { headers: cors });
   } catch (e: any) {
     return new Response(JSON.stringify({ error: String(e.message || e) }), { status: 500, headers: cors });
   }

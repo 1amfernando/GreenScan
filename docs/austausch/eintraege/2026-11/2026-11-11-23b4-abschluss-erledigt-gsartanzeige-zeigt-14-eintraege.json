@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-11-23b4",
+  "art": "abschluss",
+  "datum": "2026-11-11",
+  "zeit": "11:28:01",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "erledigt: _gsArtAnzeige zeigt 14 Einträge als essbar, die selbst „nicht essbar\" tragen — die Korrektur übernimmt edible von der Art auch dann, wenn nur die Gif…",
+  "ergebnis": "erledigt",
+  "wohin": "v33.59 auf dem Branch ccr-5e705a36-jveaak (Commit d305cbb): _gsArtAnzeige bewegt jede Angabe einzeln nur zur vorsichtigeren Seite — tox als Maximum, toxic als ODER, edible als UND",
+  "geschwister": "gesucht im selben Objekt: toxic hatte dieselbe Ursache (3 Einträge verloren toxic:true: Schwarzer Holunder T019, Traubenkirsche T045, Holunderblüte H015) → mitbehoben; warning/lookalike waren schon sp || v. Gemessen alt gegen neu: durch _gsArtAnzeige als essbar gezeigt 1144 → 1130; die Gegenrichtung (98) bleibt; alle 4342 Rohzeilen tragen tox als Zahl, edible/toxic als Boolean",
+  "bewacht": "scripts/scan_check.js Fall D1j (kein Eintrag wird essbarer oder harmloser, als er selbst sagt — mit der Gegenrichtung 98)",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-fcaf"
+    }
+  ]
+}

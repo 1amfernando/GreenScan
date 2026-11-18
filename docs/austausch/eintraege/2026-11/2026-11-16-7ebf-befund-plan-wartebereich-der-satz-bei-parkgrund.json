@@ -1,0 +1,27 @@
+{
+  "id": "2026-11-16-7ebf",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "09:48:05",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Plan-Wartebereich: der Satz bei parkGrund 'fehler' sagt 'Speicher voll', und der Deckel gilt für alle Konten oder keines",
+  "vorschlag": "Ein eigener ganzer Satz für 'fehler' (oder ein neutraler ohne 'Speicher voll'); den Deckel je Konto entscheiden: parken, was passt, und in gs_plans_v2 nur behalten, was nicht passt.",
+  "beleg": [
+    "gsClearUserDataKeys unterscheidet nur deckel und sonst — eine Ausnahme in parken (parkGrund() === 'fehler') bekommt den Satz 'Speicher voll'",
+    "parken() gibt −1 zurück, sobald IRGENDEIN Konto mehr als 20 nur lokale Pläne hätte; dann parkt auch ein Konto unter seinem Deckel nichts (seine Pläne bleiben gestempelt in gs_plans_v2 — kein Verlust, nur nicht im Wartebereich)",
+    "Gegenprüfung g1 (16.11.2026), am Code gelesen"
+  ],
+  "stichworte": [
+    "gsplans",
+    "abmelden",
+    "wartebereich",
+    "deckel"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var _parkGrund = null;"
+    }
+  ]
+}

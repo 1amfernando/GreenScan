@@ -11,8 +11,9 @@
 // Root-Cause des „invalid token": createClient(url, userToken) + getUser() OHNE Token-Arg
 // suchte eine nicht-existente Session -> user=null -> 401. Fix: sbAdmin.auth.getUser(userToken).
 // v25.30: Validate + Foto-Upload + INSERT in 1 Call. v26.92: MAX_PHOTOS 3->5.
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
+import { marktSperre } from "../_shared/markt_regeln.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -64,6 +65,13 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: "invalid token", detail: userErr?.message || null }), { status: 401, headers: cors });
     }
     const userId = userData.user.id;
+
+    // v33.59: ein gesperrtes Konto inseriert und bearbeitet nicht — die Datenbank-Sperre
+    // (fn_gs_sperre) prueft ein UPDATE nur aus Nutzerhand, diese Function schreibt als
+    // service_role. Deshalb hier, VOR jedem update/insert/Upload (_shared/markt_regeln.mjs).
+    const rolle = await sbAdmin.from("profiles").select("role").eq("id", userId).maybeSingle();
+    const sperre = marktSperre(rolle);
+    if (sperre) return new Response(JSON.stringify(sperre.body), { status: sperre.status, headers: cors });
 
     const body = await req.json();
 

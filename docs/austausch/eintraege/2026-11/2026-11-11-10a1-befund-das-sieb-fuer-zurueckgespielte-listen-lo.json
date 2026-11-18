@@ -1,0 +1,28 @@
+{
+  "id": "2026-11-11-10a1",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Das Sieb für zurückgespielte Listen löscht einen TEXT im Feld sun eines Gartens — das Feld steht in der Zahlenliste",
+  "text": "Seit gsGardenSync.pullAll durch den einen Eingang (_gsListeEinspielen) geht, siebt es auch die Spalten der gardens-Zeile. GS_SIEB_ZAHL enthält 'sun' (für die Pflanze ist es eine Zahl 1–3); in der Tabelle gardens ist sun ein Text. Ein Textwert dort würde beim Abgleich gelöscht. Heute folgenlos: lokale Gärten tragen kein sun (das Formular schreibt light), der Push sendet garden.sun || null, und null überspringt das Sieb. Gelesen, nicht mit einem echten Cloud-Wert gemessen.",
+  "beleg": [
+    "grep -n \"var GS_SIEB_ZAHL\" index.html → die Liste nennt 'sun'",
+    "Gegenprüfung der Gruppe s1 (Rückspiel-Wege): „pullAll siebt jetzt auch Spalten der gardens-Zeile, die keine Zahlen sind“"
+  ],
+  "vorschlag": "Die Zahlenliste je Listen-Schlüssel führen (GS_LISTEN_EINGANG), statt einer gemeinsamen — oder 'sun' herausnehmen, nachdem geklärt ist, ob myPlants.sun es braucht.",
+  "stichworte": [
+    "_gsSiebListe",
+    "GS_SIEB_ZAHL",
+    "_gsListeEinspielen",
+    "gsGardenSync",
+    "gardens"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var GS_SIEB_ZAHL = ['count', 'water', 'sun',"
+    }
+  ]
+}

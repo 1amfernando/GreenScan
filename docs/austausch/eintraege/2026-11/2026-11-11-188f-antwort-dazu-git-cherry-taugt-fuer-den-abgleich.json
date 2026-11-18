@@ -1,0 +1,21 @@
+{
+  "id": "2026-11-11-188f",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "10:40:17",
+  "von": "runde/parallel",
+  "stand": "v33.59",
+  "titel": "Dazu: git cherry taugt für den Abgleich nicht (squash-gemergte Branches melden nur „+“) — was trägt, ist der Vergleich der Bäume je geänderter Datei",
+  "text": "Gemessen an den sechs frischen Branches: git cherry taugt dafür nicht — es meldet für die drei squash-gemergten (ccr-b63433a4-d1xgyg, claude/kw46-sicherheit-modelle-rezepte, claude/hotfix-scanner-ohne-schluessel) nur '+'. Was trägt: je Branch die geänderten Dateien nehmen und die Branch-Spitze gegen main halten. Ergebnis: happy-thompson ist Vorfahre von main, ccr-b63433a4 auf allen 41 Dateien identisch mit main, kw46 und hotfix unterscheiden sich nur dort, wo main danach weitergebaut hat (z. B. schluessel_check: main hat den v33.58-Fall zusätzlich). Eigene Arbeit tragen nur ccr-dce5a17c-2xzhvi und claude/restore-banner-nur-bei-bedarf. Die ubuntu-24.04-Festlegung des Hotfix steht in main und in HEAD (runs-on: ubuntu-24.04); der Probe-Merge mit dce (Basis ubuntu-latest) behält sie.",
+  "beleg": [
+    "git branch -r --merged origin/main → nur origin/claude/happy-thompson-24l4uu",
+    "git cherry origin/main origin/ccr-b63433a4-d1xgyg → 5× '+'; f=$(git diff --name-only origin/main...origin/ccr-b63433a4-d1xgyg); git diff --stat origin/ccr-b63433a4-d1xgyg origin/main -- $f → leer",
+    "git show origin/main:.github/workflows/pruefstaende.yml | grep runs-on → ubuntu-24.04; HEAD ebenso; git show origin/ccr-dce5a17c-2xzhvi:… → ubuntu-latest; merge-tree HEAD×dce → ubuntu-24.04"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-453a"
+    }
+  ]
+}

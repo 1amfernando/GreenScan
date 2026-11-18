@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-11-7803",
+  "art": "abschluss",
+  "datum": "2026-11-11",
+  "zeit": "11:28:18",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "erledigt: Spanisch ist eine der fünf App-Sprachen, aber die Notfall-Erkennung beider Chats erkennt keinen spanischen Vergiftungssatz (0 von 8 gemessen)",
+  "ergebnis": "erledigt",
+  "wohin": "v33.59 auf dem Branch ccr-5e705a36-jveaak (Commit d305cbb): _gsNotfallStufe kennt Spanisch in allen sechs Mustern, beide Schreibweisen (mit und ohne Akzent), Wortgrenzen als Vor- und Nachschau statt \\b",
+  "geschwister": "gesucht: beide Chats (getSmartAnswer, gsLinaSend) rufen dieselbe Funktion → mit abgedeckt. Die Gegenprüfung fand drei Fehlalarme der ersten Fassung (italienisch/englisch „come“, „marea“, „Setaria“) → behoben, je mit einem harmlosen Satz im Fall. Nicht messbar von hier: ob notfall_sofort / notfall_hinweis eine spanische Übersetzung haben; Wörter aus Lateinamerika sind nicht systematisch erfasst",
+  "bewacht": "scripts/scan_check.js Fall N1 (14 spanische Notfallsätze dringend, 10 harmlose spanische Sätze ohne Notfall, 8 Hinweis-Sätze)",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-df0b"
+    }
+  ]
+}

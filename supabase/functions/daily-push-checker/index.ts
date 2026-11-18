@@ -1,7 +1,7 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
 import { cronOderService } from "../_shared/auth_vergleich.mjs";
-import { loadSettings as _pushSettings, zurichHour, sendPush as _pushSenden } from "../_shared/push_helfer.mjs";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { loadSettings as _pushSettings, zurichHour, sendPush as _pushSenden, abosAuswaehlen, abarbeiten } from "../_shared/push_helfer.mjs";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 import webpush from "npm:web-push@3.6.7";
 
 // daily-push-checker v9 (2026-08-25)
@@ -37,7 +37,9 @@ function inQuietHours(hour: number, qs: number, qe: number) {
 
 async function checkFrost(lat: number, lng: number) {
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m&forecast_days=1&timezone=auto`;
+    // v33.59: an den Wetterdienst nur ~1 km (2 Nachkommastellen) — wie _gsOrtGrob in der App.
+    const glat = Math.round(lat * 100) / 100, glng = Math.round(lng * 100) / 100;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${glat}&longitude=${glng}&hourly=temperature_2m&forecast_days=1&timezone=auto`;
     const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) return { minTempC: null as number | null, hourEta: null as number | null };
     const j = await r.json();
@@ -68,7 +70,8 @@ async function logSend(
 
 async function deleteIfGone(sub: any, status?: number) {
   if (status === 410 || status === 404) {
-    await sb.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+    // v33.59: je Abo (id) — (user_id, endpoint) ist eindeutig, ein Endpunkt allein traf auch fremde Zeilen.
+    await sb.from("push_subscriptions").delete().eq("id", sub.id);
   }
 }
 
@@ -244,13 +247,13 @@ async function notifyTrialEnd_stage(
       continue;
     }
 
-    for (const ps of pushSubs) {
+    for (const ps of abosAuswaehlen(pushSubs).abos) {   // v33.59: nur bekannte Push-Dienste, je Nutzer gedeckelt
       if (dryRun) { totalSent++; continue; }
       const r = await sendPush(ps, title, body, "/?open=abo&utm_source=push_trial_" + category, vapid);
       await logSend(userId, category, title, body, { trial_end: trialSub.trial_end, stage: category }, r.ok ? "sent" : "failed", r.status, r.error);
       if (r.ok) totalSent++;
       if (!r.ok && (r.status === 410 || r.status === 404)) {
-        await sb.from("push_subscriptions").delete().eq("endpoint", ps.endpoint);
+        await sb.from("push_subscriptions").delete().eq("id", ps.id);
       }
     }
   }
@@ -290,19 +293,27 @@ Deno.serve(async (req: Request) => {
       .lt("push_failure_count", 5);
     if (e1) throw e1;
 
+    // v33.59 (Sicherheitspruefung 10.11.2026): nur bekannte Push-Dienste, je Nutzer die
+    // ABOS_JE_NUTZER neuesten, parallel mit Budget — vorher seriell und ohne Frist: EIN
+    // Endpunkt, der nie antwortet, hielt die Pushes aller danach folgenden Nutzer an.
+    // Die Abos EINES Nutzers bleiben nacheinander (alreadySentToday zaehlt je Nutzer).
+    const auswahl = abosAuswaehlen(subs || []);
     let totalSent = 0, totalSuppressed = 0, errors = 0;
     const details: any[] = [];
-    for (const sub of (subs || [])) {
-      try {
-        const r = await processSubscription(sub, settings.vapid, dryRun);
-        if (r.suppressed) totalSuppressed++;
-        if (r.sent) totalSent += r.sent.length;
-        details.push({ user: sub.user_id.slice(0, 8), ...r });
-      } catch (e: any) {
-        errors++;
-        details.push({ user: sub.user_id.slice(0, 8), error: String(e.message || e) });
+    const lauf = await abarbeiten(auswahl.gruppen, async (gruppe: any[]) => {
+      for (const sub of gruppe) {
+        try {
+          const r = await processSubscription(sub, settings.vapid, dryRun);
+          if (r.suppressed) totalSuppressed++;
+          if (r.sent) totalSent += r.sent.length;
+          details.push({ user: sub.user_id.slice(0, 8), ...r });
+        } catch (e: any) {
+          errors++;
+          details.push({ user: sub.user_id.slice(0, 8), error: String(e.message || e) });
+        }
       }
-    }
+    }, { budgetMs: 90000 });   // Rest der Wandzeit fuer die Trial-Erinnerungen danach
+    if (auswahl.abgewiesen.length) console.warn("[daily-push-checker] Endpunkt abgewiesen:", auswahl.abgewiesen.length);
 
     let trialSent = 0;
     try {
@@ -315,6 +326,8 @@ Deno.serve(async (req: Request) => {
       ok: true, dry_run: dryRun,
       version: 9,
       total_subs: subs?.length || 0,
+      im_lauf: auswahl.abos.length, abgewiesen: auswahl.abgewiesen.length, gedeckelt: auswahl.gedeckelt,
+      abgebrochen: lauf.abgebrochen ? { nutzer_nicht_begonnen: lauf.nichtBegonnen, nutzer_haengt: lauf.haengt } : false,
       pushed_count: totalSent,
       suppressed_count: totalSuppressed,
       trial_sent: trialSent,

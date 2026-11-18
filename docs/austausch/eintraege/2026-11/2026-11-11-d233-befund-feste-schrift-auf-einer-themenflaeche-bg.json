@@ -1,0 +1,30 @@
+{
+  "id": "2026-11-11-d233",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/bestand",
+  "stand": "v33.59",
+  "titel": "Feste Schrift auf einer Themenfläche (--bg-*-soft): 28 Stellen in Fenstern, die contrast_check nicht mit Daten öffnet — gerechnet unter AA, nicht gemessen",
+  "text": "Dieselbe Klasse wie die zehn Stellen, die contrast_check mit der Sitzung und den Daten aus _seed.js erstmals fand (auf dem Branch ccr-5e705a36-jveaak behoben): eine fest dunkle oder orange Schrift auf einer Fläche, die im Dunkelmodus dunkel wird bzw. schon hell nicht reicht. Gerechnet auf --bg-yellow-soft (hell #fff8e1 / dunkel etwa #3a3014): #827717 4,30 / 2,85 · #bf360c auf --bg-warn-soft 5,27 / 2,32 · #ef6c00 2,90 (hell) · #f57f17 2,49 (hell). Bewusst kein Sweep über die Datei (CLAUDE.md: eine Farbe erst ändern, wenn der Messwert da ist) — die Stellen liegen in Fenstern, die der Prüfstand nicht mit Daten öffnet.",
+  "beleg": [
+    "grep -o 'background:var(--bg-[a-z]*-soft);color:#[0-9a-fA-F]\\{6\\}' index.html | sort | uniq -c → 12× bg-info-soft/#01579b, 7× bg-yellow-soft/#827717, 3× bg-warn-soft/#bf360c, 3× bg-purple-soft/#6a1b9a, 2× bg-yellow-soft/#f57f17, 1× bg-yellow-soft/#ef6c00",
+    "node scripts/contrast_check.js → 0 unter AA (hell und dunkel) in den Fenstern, die er öffnet"
+  ],
+  "vorschlag": "Je Stelle color:var(--c-warn-d) bzw. das passende -d-Merkmal — aber erst, wenn contrast_check das Fenster mit Daten öffnet und der Messwert dasteht.",
+  "stichworte": [
+    "contrast_check",
+    "--bg-yellow-soft",
+    "--bg-warn-soft",
+    "Dunkelmodus",
+    "WCAG",
+    "_seed.js"
+  ],
+  "zaehle": [
+    {
+      "datei": "index.html",
+      "text": "background:var(--bg-yellow-soft);color:#827717",
+      "n": 7
+    }
+  ]
+}
