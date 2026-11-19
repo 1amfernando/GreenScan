@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-11-1639",
+  "art": "abschluss",
+  "datum": "2026-11-11",
+  "zeit": "10:55:19",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "erledigt: _gsArtAnzeige zeigt 14 Einträge als essbar, die selbst „nicht essbar\" tragen — die Korrektur übernimmt edible von der Art auch dann, wenn nur die Gif…",
+  "ergebnis": "erledigt",
+  "wohin": "v33.61",
+  "geschwister": "gesucht: alle DB-Eintraege durch _gsArtAnzeige (scan_check D1j) → 14 vorher, 0 nachher; dazu gsIstEssbar und _gsPassCat auf die Art umgestellt (F1)",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-fcaf"
+    }
+  ]
+}

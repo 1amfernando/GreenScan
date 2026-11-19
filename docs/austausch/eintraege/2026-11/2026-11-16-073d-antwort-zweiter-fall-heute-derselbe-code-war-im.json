@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-16-073d",
+  "art": "antwort",
+  "datum": "2026-11-16",
+  "zeit": "09:54:53",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Zweiter Fall heute: derselbe Code war im selben Moment einmal rot und einmal grün",
+  "text": "CI-Lauf 43840259851 (Commit 291ca65, 16.11.2026 09:29 UTC) war an genau diesem Fall rot, mit derselben Zeile (angewandtOhneReload false · waiting danach true · Navigationen +0). Der Lauf 43840267513 (Commit 9f0e090) startete drei Sekunden später und war grün. 9f0e090 ist 291ca65 plus eine Datei unter docs/austausch, die App ist also byte-gleich. Derselbe Code war im selben Moment auf zwei Runnern einmal rot und einmal grün. Damit hängt es an der Zeit, nicht am Code. Auf diesem Branch sind es zwei rote von 23 Läufen (7891b1d, 291ca65).",
+  "beleg": [
+    "Lauf 43840259851: Pruefstaende · offline · Fragen geprueft: 41 · davon rot: 1 · Gleiche Version, neuer Worker: umschalten ohne Reload → angewandtOhneReload false · waiting danach true · Navigationen +0",
+    "Lauf 43840267513 (9f0e090, gestartet 09:29:54 UTC): success; git diff 291ca65 9f0e090 enthält nur docs/austausch/eintraege/2026-11/2026-11-16-bb6f-*.json"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-bb6f"
+    }
+  ]
+}
