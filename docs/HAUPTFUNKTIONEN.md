@@ -51,6 +51,13 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     Registers zeigt und die vorsichtigere gewinnt: die Artenliste ist bei 10 Giftpilzen milder als das
     Register, 34 fehlen ihr (Brett 2026-11-19-a24a). Die Function muss Fernando ausliefern
     (FUER-FERNANDO §31).
+    **Nachtrag v33.6x (`scan_check` PZ5, PZ6) — ein Ergebnis gehört zu seinem Foto.** Gemessen 19.11.: ein
+    neues Foto liess das Urteil des vorigen stehen („✅ Speisepilz" unter einem anderen Pilz); wer während der
+    Bestimmung das Fenster schloss und mit einem neuen Foto wieder öffnete, sah den Knopf weiter auf
+    „⏳ Identifiziere…", und die Antwort zum alten Foto erschien unter dem neuen — bei einem Giftpilz samt
+    Vollbild; nach dem Schliessen legte sich die Vollbild-Warnung später über die App. Jetzt eine Nummer je
+    Bestimmung (`gsPilzAbbrechen`), und der Knopf trägt danach wieder seine eigene Beschriftung statt fest
+    „🔍 Pilz identifizieren" in jeder Sprache.
 
 ## Offen — Lina
 

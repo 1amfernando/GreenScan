@@ -12,6 +12,43 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-19 (jq) - v33.6x (Nummer folgt am Kopf der Reihe): Pilz-Scanner — ein Ergebnis gehört zu seinem Foto
+
+**Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"); Nachtrag zu Scanner 11
+(`docs/HAUPTFUNKTIONEN.md`). Gebaut auf main v33.66 (`bf9e843`), unabhängig von #336 (Scanner 4, (jo)) — beide
+berühren verschiedene Stellen; nur STATUS §0 und der Kopf der Merge-Reihe treffen sich. `v33.6x` ist ein Platzhalter
+(laut Koordinator als nächste frei: v33.69 / (jq)).
+
+**Gemessen** (lokal, `gsMushroomRunScan` mit gestelltem Server, Stand v33.66):
+
+- **Ein neues Foto liess das Urteil des vorigen stehen** — „✅ Speisepilz · 92 %" unter einem anderen Pilz, bis
+  jemand neu bestimmte (`gsMushroomLoadPhoto` leerte das Ergebnis nicht).
+- **Schliessen, neu öffnen, neues Foto:** der Knopf stand weiter auf „⏳ Identifiziere…" (gesperrt) — für ein Foto,
+  zu dem nichts lief —, und die Antwort zum ALTEN Foto erschien unter dem neuen; bei einem Giftpilz samt
+  Vollbild-Warnung „TÖDLICH". Umgekehrt (altes Foto essbar) stünde „✅ Speisepilz" unter dem neuen Pilz.
+- **Schliessen ohne neues Foto:** die Vollbild-Warnung legte sich später über die App, ohne Fenster dazu.
+- Nebenbei: nach jeder Bestimmung stand auf dem Knopf fest „🔍 Pilz identifizieren", in jeder Sprache.
+
+**Behoben:** eine Nummer je Bestimmung (`_gsPilzNr`, dieselbe Regel wie `analyzeImage`, CLAUDE.md §3.6): ein neues
+Foto (`gsMushroomLoadPhoto` — leert dazu das alte Ergebnis), ein neues Öffnen (`openMushroomModal`) und das
+Schliessen (Haken in `closeModal`, wie `gsBattleClose`) lösen die laufende ab (`gsPilzAbbrechen`); nach jedem
+`await` — auch vor dem Absenden — gilt nur die laufende; nur sie gibt den Knopf frei (`_gsPilzKnopf`), und der
+Knopf trägt danach seine eigene Beschriftung. Bewusst: eine verworfene tödliche Antwort zeigt KEINE Vollbild-Warnung
+— die Person hat das Foto verlassen; ein Urteil ohne sein Foto wäre die Verwechslung, die hier behoben wird.
+Doku: CLAUDE.md §3.3 (Pilz-Zeile), `docs/memory/03-daten-eigner.md`, `docs/HAUPTFUNKTIONEN.md` (Scanner 11, Nachtrag).
+
+**Prüfstände:** `scan_check` PZ5 (sieben Lagen: fertiges Ergebnis + neues Foto · läuft + neues Foto · schliessen,
+öffnen, neues Foto, alte Antwort während der neuen Bestimmung · neu öffnen ohne Schliessen · schliessen ohne neues
+Foto · schliessen vor dem Absenden · Gegenprobe: die neue Bestimmung kommt an) und PZ6 (Beschriftung) — gegen main
+beide rot, mit genau den gemessenen Sätzen. Gegenproben je Schutzzeile, jede am richtigen Teil rot: neues Foto →
+1, 2 · Öffnen → 3b · Schliessen → 4, 5 · Prüfung nach der Antwort → 2, 3, 3b, 4 · Knopf nur für die laufende → 3 ·
+Prüfung vor dem Absenden → 5 · Beschriftung → PZ6. **Die erste Fassung von 3b war mit ausgebautem Schutz am Öffnen
+grün:** sie wählte danach ein neues Foto, und dessen Schutz deckte den Fall mit — ein Fall, dessen zwei Wege dasselbe
+Ergebnis liefern, prüft keinen. Brett: Nachtrag `2026-11-19-33e0` zur Klasse 89ee. Auf diesem Stand (main v33.66 + dieses Paket): scan 129/0 · robust 33/0 · i18n · nutzersicht 12/0 · wiring · escape 11/0 · versprechen · austausch 17/0 · sicherheit (Gruppe scan) grün.
+
+**Offen:** brett:2026-11-19-a24a — der Pilz-Eintrag im Scan-Verlauf (erst nach der Datenseite); Versionsnummer `v33.6x` am Kopf der Reihe.
+**Nicht geprüft:** ein echtes Telefon; dieselbe Bauform im Pflanzendoktor und im Schädlings-Check (nicht nachgesehen, Nachtrag 33e0).
+
 ### 2026-11-19 (jn) - v33.66: Neu eingetragene Pflanzen gehen nicht mehr verloren und stehen sofort überall da (Auftrag P-F)
 
 **Auftrag (Head-Sitzung „main", 19.11.2026), Punkt 10/11:** neu eingetragene Pflanzen und Informationen sind teils

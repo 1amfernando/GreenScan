@@ -27386,6 +27386,11 @@ function closeModal(id){
   if (id === 'gs-nl-modal' && window._gsBattle && typeof gsBattleClose === 'function') {
     try { gsBattleClose(); } catch(_){}
   }
+  // Pilz-Scanner (19.11.2026): wer das Pilz-Fenster schliesst, hat die Bestimmung verlassen —
+  // eine Antwort, die danach ankommt, legt keine Vollbild-Warnung mehr über die App.
+  if (id === 'modal-mushroom' && typeof gsPilzAbbrechen === 'function') {
+    try { gsPilzAbbrechen(); } catch(_){}
+  }
   const m = document.getElementById(id);
   if(!m){
     // Defensiv: Body-Overflow trotzdem zurücksetzen, falls ein Modal schon weg ist
@@ -45774,7 +45779,36 @@ function _gsPilzFehlerSatz(j, status) {
 }
 window._gsPilzFehlerSatz = _gsPilzFehlerSatz;
 
+// ── Hauptfunktionen · Pilz-Scanner: ein Ergebnis gehört zu seinem Foto ─────
+//
+// Gemessen am 19.11.2026 (v33.66, gestellter Server): (1) Ein neues Foto liess das
+// Ergebnis des vorigen stehen — „✅ Speisepilz · 92 %" unter einem anderen Pilz, bis
+// jemand neu bestimmte. (2) Wer während der Bestimmung das Fenster schloss und mit
+// einem neuen Foto wieder öffnete, sah den Knopf weiter auf „⏳ Identifiziere…", und
+// die Antwort zum ALTEN Foto erschien unter dem neuen — bei einem Giftpilz samt
+// Vollbild-Warnung. (3) Nach dem Schliessen ohne neues Foto legte sich die
+// Vollbild-Warnung später über die App. Jede Bestimmung trägt jetzt eine Nummer
+// (dieselbe Regel wie analyzeImage, CLAUDE.md §3.6): ein neues Foto, ein neues
+// Öffnen und das Schliessen lösen die laufende ab; ihre Antwort wird verworfen.
+var _gsPilzNr = 0;
+function _gsPilzKnopf(laeuft) {
+  var btn = document.getElementById('mushroom-submit-btn');
+  if (!btn) return;
+  // Die Beschriftung, wie die Sprachschicht sie gesetzt hat, kommt zurück — vorher
+  // stand nach jeder Bestimmung fest „🔍 Pilz identifizieren", in jeder Sprache.
+  if (laeuft && !btn.disabled) btn.setAttribute('data-gs-text', btn.textContent);
+  btn.disabled = !!laeuft;
+  btn.style.opacity = laeuft ? '.6' : '1';
+  btn.textContent = laeuft ? '⏳ Identifiziere…' : (btn.getAttribute('data-gs-text') || btn.textContent);
+}
+function gsPilzAbbrechen() {
+  _gsPilzNr++;
+  _gsPilzKnopf(false);
+}
+window.gsPilzAbbrechen = gsPilzAbbrechen;
+
 function openMushroomModal() {
+  gsPilzAbbrechen();   // ein frisches Fenster: was noch für ein früheres Foto läuft, gilt nicht mehr
   window._gsMushroomPhotoB64 = null;
   var preview = document.getElementById('mushroom-photo-preview');
   if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
@@ -45791,6 +45825,10 @@ async function gsMushroomLoadPhoto(input) {
     if (typeof showProfileToast === 'function') showProfileToast('Bild zu gross (max 8 MB)', 'error');
     return;
   }
+  // Pilz-Scanner (19.11.2026): ein neues Foto — das Ergebnis des vorigen gehört nicht darunter,
+  // und eine Bestimmung, die noch für das vorige läuft, wird verworfen.
+  gsPilzAbbrechen();
+  var _altErg = document.getElementById('mushroom-result'); if (_altErg) _altErg.innerHTML = '';
   try {
     // v33.59: das Foto geht verkleinert, neu kodiert und OHNE EXIF (GPS) hinaus — derselbe
     // Weg wie die Community-Fotos (_gsFotoOhneMeta). Unlesbar: ein Satz, nichts Rohes.
@@ -45823,17 +45861,21 @@ async function gsMushroomRunScan() {
   var regionSlug = null;
   try { regionSlug = localStorage.getItem('gs_region') || null; } catch(_){}
 
-  var btn = document.getElementById('mushroom-submit-btn');
-  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Identifiziere…'; }
+  // Pilz-Scanner (19.11.2026): die Nummer dieser Bestimmung — ein neues Foto, ein neues Öffnen
+  // und das Schliessen zählen eins weiter (gsPilzAbbrechen), dann gilt ihre Antwort nicht mehr.
+  var nr = ++_gsPilzNr;
+  _gsPilzKnopf(true);
 
   if (typeof showProfileToast === 'function') showProfileToast('🔬 KI analysiert (Sicherheit vor Präzision)…', 'info');
 
   // v33.64: eine Antwort gehoert der Person, die gefragt hat (CLAUDE.md §3.6) — wer sich waehrend
   // der Bestimmung abmeldet oder das Konto wechselt, bekommt sie nicht auf den Bildschirm.
   var wer = (typeof _gsPerson === 'function') ? _gsPerson() : null;
+  var gilt = function () { return nr === _gsPilzNr && (typeof _gsPerson !== 'function' || _gsPerson() === wer); };
   try {
     // v29.01 WIRE-1: frischen Token holen (Auto-Refresh) — stale 1h-JWT führte zu 401 bis Reload.
     var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : ((window.gsStore && typeof gsStore.get === 'function') ? (gsStore.get('gs_sb_token', null) || '') : '');
+    if (!gilt()) return;   // abgebrochen, bevor die Anfrage hinausging — dann geht sie auch nicht hinaus
     var fetchFn = window._gsFetch || fetch;
     var photoB64 = String(window._gsMushroomPhotoB64).replace(/^data:image\/\w+;base64,/, '');
     var resp = await fetchFn(SB_URL + '/functions/v1/mushroom-identify', {
@@ -45842,17 +45884,18 @@ async function gsMushroomRunScan() {
       body: JSON.stringify({ image_base64: photoB64, media_type: 'image/jpeg', habitat_hint: habitat, region_slug: regionSlug })
     }, 60000);
     var j = await resp.json().catch(function(){ return null; });
-    if (typeof _gsPerson === 'function' && _gsPerson() !== wer) return;
+    if (!gilt()) return;   // eine andere Person, ein neues Foto oder das Fenster ist zu
     if (!resp.ok || !j || j.error) {
       if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + _gsPilzFehlerSatz(j, resp.status), 'error');
       return;
     }
     gsMushroomRenderResult(j);
   } catch(e) {
-    if (typeof _gsPerson === 'function' && _gsPerson() !== wer) return;
+    if (!gilt()) return;
     if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + ((typeof _gsFehlerText === 'function') ? _gsFehlerText(e) : 'Keine Verbindung zum Server — bitte erneut versuchen.'), 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🔍 Pilz identifizieren'; }
+    // Nur die laufende Bestimmung gibt den Knopf frei — eine abgelöste darf ihn einer neuen nicht entsperren.
+    if (nr === _gsPilzNr) _gsPilzKnopf(false);
   }
 }
 window.gsMushroomRunScan = gsMushroomRunScan;

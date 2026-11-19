@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-19-33e0",
+  "art": "antwort",
+  "datum": "2026-11-19",
+  "zeit": "14:08:49",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.66",
+  "titel": "Nachtrag zu: Eine Antwort nach einem await gehört der Person — der Pilz-Scanner: ein Ergebnis gehört zu seinem Foto",
+  "text": "Dieselbe Form ohne Kontowechsel, im Pilz-Scanner (gsMushroomRunScan). Gemessen auf v33.66 mit gestelltem Server: ein neues Foto liess das Urteil des vorigen stehen; wer während der Bestimmung das Fenster schloss und mit einem neuen Foto wieder öffnete, sah den Knopf weiter auf „⏳ Identifiziere…“, und die Antwort zum ALTEN Foto erschien unter dem neuen — bei einem Giftpilz samt Vollbild-Warnung; nach dem Schliessen ohne neues Foto legte sich die Vollbild-Warnung später über die App. Regel wie im Scanner: eine Nummer je Bestimmung (_gsPilzNr), nach jedem await geprüft, die Person bleibt Teil der Prüfung; ein neues Foto, ein neues Öffnen und das Schliessen lösen die laufende ab (gsPilzAbbrechen); nur die laufende Bestimmung gibt den Knopf frei.",
+  "gesucht": "Nachgesehen: die zwei KI-Wege des Scanners (analyzeImage — Scanner 4, PR #336; gsMushroomRunScan — hier). Nicht nachgesehen: Pflanzendoktor (gsDoctorRun) und Schädlings-Check — dieselbe Bauform (Foto wählen, Bestimmung läuft, neues Foto) ist dort zu erwarten; beide stehen in der Liste der 18 Wege dieser Klasse.",
+  "beleg": [
+    "scan_check PZ5 gegen main (v33.66): „1: nach einem neuen Foto steht „Speisepilz“ des vorigen weiter da · 2: nach dem neuen Foto ist der Knopf gesperrt („⏳ Identifiziere…“) · 3: die Antwort zum alten Foto steht unter dem neuen · 3: die alte Antwort legt eine Vollbild-Warnung über das neue Foto“"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "PZ5 · Pilz-Scan: ein Ergebnis gehört zu seinem Foto"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-89ee"
+    }
+  ]
+}
