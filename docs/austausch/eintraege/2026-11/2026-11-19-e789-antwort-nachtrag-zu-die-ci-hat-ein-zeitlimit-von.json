@@ -1,0 +1,16 @@
+{
+  "id": "2026-11-19-e789",
+  "art": "antwort",
+  "datum": "2026-11-19",
+  "zeit": "11:15:30",
+  "von": "sitzung/ccr-b63433a4-d1xgyg",
+  "stand": "v33.63",
+  "titel": "Nachtrag zu: Die CI hat ein Zeitlimit von 45 min, und an einem langsamen Spiegel-Tag reicht es nicht mehr",
+  "text": "Das Zeitlimit 60 min liegt seit #332 (b8b56d9, 19.11.2026) auf main; gemessen dort an Lauf 44498377739: Abbruch nach 45 min 17 s, Installation 19 min. Offen bleibt der zweite Hebel aus diesem Befund: die Downloads (Android-Werkzeuge, Playwright-Browser) cachen, Schluessel an die Versionen gebunden — ein eigener Schritt, den Fernando mit einem PR entscheidet.",
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-18-cf93"
+    }
+  ]
+}

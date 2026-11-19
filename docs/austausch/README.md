@@ -1001,9 +1001,11 @@ bei vier Stellen 12 % Kollisionsrisiko). Alte Einträge behalten ihre vier.
 (mit Dateiname) und zeigt ihn nicht — auch keine Frage an `fernando`. Das gilt für `main`, bis der
 Schwarm gemergt ist, und danach für jeden Branch, der `main` noch nicht wieder gemergt hat: wer
 `holen` auf einem alten Stand fährt und „unlesbar" mit einer achtstelligen id sieht, merged `main`
-oder liest die Datei direkt. Die zwei Einträge, die der Schwarm vor seinem Merge selbst schrieb, tragen
+oder liest die Datei direkt. Die Einträge, die der Schwarm vor seinem Merge selbst schrieb, tragen
 deshalb vier Stellen (am 19.11. umbenannt, nachdem eine andere Sitzung es auf `main` gemessen hatte;
-vor dem Umbenennen auf allen Branches nachgesehen, dass die kurze id frei ist).
+vor jedem Umbenennen auf allen Branches nachgesehen, dass die kurze id frei ist). Wer bis zum Merge
+einen Eintrag schreibt, den Sitzungen auf `main` lesen sollen, kürzt die id ebenso (Datei und Feld
+`id`) — das Werkzeug vergibt weiter acht.
 
 ## Über Branches
 
