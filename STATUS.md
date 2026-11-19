@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-19 · **Branch**: `main` · **Version**: `v33.65` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
+**Stand**: 2026-11-19 · **Branch**: `main` · **Version**: `v33.67` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
 
 ---
 
@@ -12,10 +12,10 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
-### 2026-11-19 (jo) - v33.6x (Nummer folgt am Kopf der Reihe): Scanner 4 — einen laufenden Scan abbrechen; ein neuer ersetzt den alten; keine erfundenen Meldungen über der Kamera
+### 2026-11-19 (jo) - v33.67: Scanner 4 — einen laufenden Scan abbrechen; ein neuer ersetzt den alten; keine erfundenen Meldungen über der Kamera
 
 **Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"; Arbeitsliste
-`docs/HAUPTFUNKTIONEN.md`, Scanner 4). Gebaut auf main v33.64 (`eaf9ee1`), zusammengeführt mit v33.65 (`cc8bb60`, #334). `v33.6x` ist ein Platzhalter —
+`docs/HAUPTFUNKTIONEN.md`, Scanner 4). Gebaut auf main v33.64 (`eaf9ee1`), zusammengeführt mit v33.65 (`cc8bb60`, #334). Die Nummer v33.67 hat die Head-Sitzung am Kopf der Merge-Reihe vergeben —
 die Nummer vergibt die Head-Sitzung am Kopf der Merge-Reihe (laut Koordinator als nächste frei: v33.67).
 
 **Gemessen** (lokal, `analyzeImage` mit gestellter, langsamer KI, Stand v33.64):
@@ -74,8 +74,40 @@ späteren Fall war das Zurücksetzen des Scanners tot. Jetzt merkt sich jeder, w
 (Knopf 0 px). SB1 wartet seinen Zeitgeber jetzt ab, bevor es `switchTab` zurückgibt. **Ein Fall, der eine Funktion
 ersetzt, gibt sie zurück; ein Fall, der einen Zeitgeber auslöst, wartet ihn ab.** Danach `scan_check` 131/0.
 
-**Offen:** brett:2026-11-16-8186 — ein echtes Abbruchsignal in `callAI` / `callVisionAI` (Sitzung „KI-Modelle"); dann spart „Abbrechen" auch das Kontingent, der Knopf bleibt derselbe. Versionsnummer `v33.6x` am Kopf der Reihe.
+**Offen:** brett:2026-11-16-8186 — ein echtes Abbruchsignal in `callAI` / `callVisionAI` (Sitzung „KI-Modelle"); dann spart „Abbrechen" auch das Kontingent, der Knopf bleibt derselbe. Versionsnummer `v33.67` am Kopf der Reihe.
 **Nicht geprüft:** ein echtes Telefon; ob eine abgebrochene Anfrage beim Anbieter tatsächlich zählt (von hier antwortet kein KI-Dienst — der Satz sagt deshalb „kann zählen"); der Pilz-Scanner (eigener Weg, `gsMushroomRunScan`) hat weiter kein Abbrechen
+
+### 2026-11-19 (jn) - v33.66: Neu eingetragene Pflanzen gehen nicht mehr verloren und stehen sofort überall da (Auftrag P-F)
+
+**Auftrag (Head-Sitzung „main", 19.11.2026), Punkt 10/11:** neu eingetragene Pflanzen und Informationen sind teils
+nicht sichtbar, viele Einträge werden wieder gelöscht, Speichern muss sofort und verlässlich sein. Vorgehen: fünf
+Hypothesen (H1–H5) und der Sofort-Sichern-Weg zuerst mit einem ROTEN Fall MESSEN, nur Bestätigtes repariert.
+(Die Nummer war v33.65/(jm); zwei PRs gehen davor auf main, deshalb v33.66/(jn).)
+
+| Hyp. | Ergebnis | Messung (alter Stand) |
+|---|---|---|
+| **H1** Anmelde-Abgleich arbeitet mit ganzen Listen | **bestätigt** | `sync_check` H1a: A trägt X ein, B (alter Stand, ungesendet durch Abhaken) meldet sich an → X weg auf B, Bs Push trägt X nicht · H1c Gärten/Pflanzungen ebenso · H1d: auf A Gelöschtes kam über B zurück. Der saubere Fall H1b (B ohne Änderungen) war schon grün |
+| **H2** „gespeichert" ohne Prüfung | **bestätigt** (vier Wege) | `speicher_check`: `gsAddScanToMyPlants`, `savePlant` (neu und ändern), `savePlanting`, `gsQuickDone` — bei vollem Speicher blieb der Eintrag in der Liste (bzw. `lastDone`/Tagebuch gesetzt), Toast „hinzugefügt/erledigt" |
+| **H3** `savePlanting` zeichnet nicht alles neu | **bestätigt** | `save_check` „Anzeigen ziehen sofort mit": nach dem Speichern 3 von 6 Anzeigen alt („5 Pflanzen" statt „6", Kachel „5" statt „6", Tagesplan „2 in den nächsten Tagen" statt „3") |
+| **H4** `gardens[0].id` ohne Garten | **bestätigt, schlimmer als gedacht** | ohne `gsConfirmModal` warf die Zeile, der äussere `catch` schluckte es — und es entstand STILL eine Wohnungs-Pflanze, obwohl „Garten" gewählt war. (Mit `gsConfirmModal`, dem Normalfall, kam die Stelle nie dran: nicht ohne Eingriff nachstellbar, nur über den Zweig ohne die Funktion) |
+| **H5** `gsDueCardDone` blendet aus, auch wenn nichts erledigt ist | **bestätigt** | voller Speicher UND unbekannte Pflanze: Karte weg, Aufgabe offen, kein Satz |
+| **H6** (neu gefunden) Änderung WÄHREND eines laufenden Pushes | **bestätigt** | `_setDirty(stillDirty)` und das Entfernen von `dirty_at` löschten die Marke einer zweiten Änderung: Cloud „mp_A (die zweite fehlt)", „ungesendet: {}" |
+| **H7** (neu gefunden) Sofort-Sichern beim Schliessen | **bestätigt** | die drei Blobs gingen nacheinander mit `await`, und ein Sofort-Flush bei laufendem Push wurde verworfen; der Fall hängt mit dem alten Code (Zeitablauf, rot) |
+
+**Repariert.**
+- **H1 — Zusammenführen je Eintrag** (`_gsMergeEintraege`, EINE Rechnung): Änderungsstempel `geaendert` (gestempelt an den Engpässen `savePlantsToStorage` / `saveGardenData`, `_gsStempeln`), Löschmarken `gs_geloescht` (`{liste:{id:ms}}`, 90 Tage, höchstens 300 je Liste; in `GS_USER_KEYS`, im state-Blob und im Snapshot; Rückweg = VEREINIGUNG). Regel: der spätere Stempel gewinnt; ohne Stempel oder bei Gleichstand gilt das lokale, wenn es ungesendet ist, sonst die Cloud; einseitige Einträge bleiben, ausser eine Löschmarke ist jünger. `gsSyncUserDataOnLogin` geht für `ps_myplants`, `gs_gardens`, `gs_plantings` immer hindurch, über `_gsListeEinspielen`, mit `_gsPerson()` nach jedem `await`; `markDirty` nur, wenn sich gegenüber der Cloud etwas unterscheidet.
+- **H2** `=== false` → Eintrag aus der Liste bzw. alter Wert zurück, bei `savePlant`/`savePlanting` bleibt das Fenster offen, EIN Satz. `gsQuickDone` gibt `true`/`false`/`null` zurück und ruft den Server (`gsRpcTaskDone`) erst nach erfolgreichem Speichern.
+- **H3** `savePlanting`: `_gsPflanzungenNachruesten`, `renderGarden`, `renderMyPlants`, `updatePlantStat`, `gsRenderDayPlan`, Glocke, Notizzettel.
+- **H4** immer ein Satz statt Weiterlaufen. **H5** die Karte kommt zurück (und bei „Aufgabe fehlt" ein Satz + Neuzeichnen).
+- **H6/H7** `_flush`: die drei Blobs starten gleichzeitig; ein Aufruf bei laufendem Push merkt sich `nochmal` (Sofort-Flush wird nicht verworfen); während des Fluges neu vorgemerkte Scopes bleiben dirty; `_markSuccess` entfernt `dirty_at` nur, wenn es sich seit dem Start nicht geändert hat.
+
+**Prüfstände.** `sync_check` 17 Fragen (neu: Block „Zwei Geräte, EIN Konto" H1a–d, H6, H7; zwei Geräte = der localStorage-Stand wird getauscht, die Cloud ist eine Attrappe für `sbFetch` UND den rohen `fetch` des Beacons), `speicher_check` 24 Fälle (+6, `gsCanDo` wie `gsRequire` gestellt), `save_check` 24 (+1). Jeder Fall erst gegen den alten Stand ROT.
+**Gegenproben (je einzeln gefahren, md5 der Datei danach gleich):** H1 (Merge liefert die Cloud-Liste) → vier Fälle rot (H1a, H1c, H1d, „Pull frischt …"); H6 (Marke nicht behalten) → H6 rot („Cloud: mp_A (die zweite fehlt)"); H7 (`if (inFlight) return`) → der Prüfstand hängt (Zeitablauf, nicht sauber rot); H2 vier Brüche (`if (false)` an Scan, `savePlant`, `gsQuickDone`) und H5 (`return` statt Prüfung) → je der zugehörige Fall rot; H3 (Neuzeichnen entfernt) → rot mit denselben drei Anzeigen; H4 (`return` entfernt) → rot.
+
+**Nicht bestätigt / nicht verändert.** Das Sofort-Sichern beim Schliessen ist bis auf H7 in Ordnung (`markDirty` → 500 ms → Push, Beacon mit `keepalive`). `_gsMergeById` in `gsGardenSync.pullAll` rechnet weiter daneben (zweite Merge-Rechnung — offen, siehe unten).
+
+**Offen:** nichts auf dem Brett; im Code: (1) `gsGardenSync.pullAll` → `_gsMergeById` auf `_gsMergeEintraege` umstellen (nur Zusammenführung, kein Verhaltensfehler gemessen); (2) Tagebuch (`gs_gartentagebuch`), Ernte-Log, Friedhof (`dead_plants`) und Saatgut haben KEINE Stempel/Löschmarken — viele Schreiber, kein Engpass, hier nicht gemessen; (3) ein `keepalive`-Fetch über 64 KiB schlägt fehl (der Stand bleibt dirty und geht beim nächsten Start hinaus — der Merge macht das sicher); (4) Entscheidung Fernando: ob die Löschmarken-Frist 90 Tage richtig ist (ein Gerät, das länger offline war, bringt eine gelöschte Pflanze zurück).
+**Nicht geprüft:** ein echter Server (RLS, Grösse, Antwortzeit der drei Blobs) und ein echtes zweites Gerät — beides von hier nicht messbar; Fotos/Buckets (Branch `scan-fotos-signiert`) bewusst ausgenommen. Unter Last (parallele Sitzungen) waren `kalender_check`, `a11y_check`, `quiz_check` und `sicherheit_check` (Wetter) im Gesamtlauf je ein Mal rot und einzeln grün — Zeit-/Lastabhängigkeit, nicht von dieser Änderung (bei `a11y`/`kalender` kein Bezug zu den geänderten Funktionen; nachgemessen einzeln).
 
 ### 2026-11-19 (jm) - v33.65: Der Rest von PR #329 ohne den Zahlungsteil (Auftrag P-R)
 
@@ -16473,7 +16505,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.65` (Client) · SW-Cache `gs-v33.65` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.67` (Client) · SW-Cache `gs-v33.67` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
 - **Frontend:** `index.html` **98'409 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.

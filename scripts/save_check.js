@@ -71,6 +71,53 @@ const WEGE = [
     },
   },
   {
+    // v33.65 (Auftrag P-F, H3): „neu eingetragen und nicht sichtbar". savePlanting redete nur mit dem Gartenbildschirm; was
+    // an anderer Stelle von denselben Daten lebt (Pflanzen-Kopfzahlen, Startseiten-Tagesplan, Zaehler in der Leiste), blieb
+    // bis zum naechsten Oeffnen stehen. Gemessen wird am RENDERN: Zustand nach savePlanting gegen den Zustand nach einem
+    // vollstaendigen Neuzeichnen — jede Abweichung ist eine Anzeige, die nicht mitgezogen hat.
+    name: 'Pflanzung → alle Anzeigen ziehen sofort mit (Kopfzahlen, Tagesplan, Zaehler) — ohne dass man den Bildschirm wechseln muss',
+    lauf: () => {
+      const g = (JSON.parse(localStorage.getItem('gs_gardens') || '[]') || [])[0];
+      if (!g) return { ok: false, warum: 'kein Garten vorhanden' };
+      const setz = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+      const sel = document.getElementById('plant-garden-sel');
+      if (sel) { sel.innerHTML = '<option value="' + g.id + '">x</option>'; sel.value = g.id; }
+      const alt = new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10);
+      setz('plant-name', 'Anzeige-Probe-Bohne'); setz('plant-variety', ''); setz('plant-date', alt); setz('plant-count', '3'); setz('plant-notes', '');
+      const lies = () => {
+        const t = (id) => { const e = document.getElementById(id); return e ? (e.innerText || e.textContent || '').replace(/\s+/g, ' ').trim() : '(fehlt)'; };
+        return {
+          'Kopfzahl „Meine Pflanzen"': t('plants-stat-total'),
+          'Zaehler überfällig': t('plants-due-count'),
+          'Zaehler in Ordnung': t('plants-ok-count'),
+          'Kachel Pflanzen (Startseite/Profil)': t('stat-favs'),
+          'Reiter Garten': t('favs-cnt-outdoor'),
+          'Tagesplan Startseite': t('home-dayplan'),
+        };
+      };
+      const neuZeichnen = () => {
+        try { if (typeof _gsPflanzungenNachruesten === 'function') _gsPflanzungenNachruesten(); } catch (_) {}
+        try { renderMyPlants(); } catch (_) {}
+        try { gsFavsUpdateSubCounts(); } catch (_) {}
+        try { updatePlantStat(); } catch (_) {}
+        try { gsRenderDayPlan(); } catch (_) {}
+      };
+      neuZeichnen();                       // Ausgangslage: alles frisch gezeichnet
+      const vorher = lies();
+      savePlanting();
+      const direkt = lies();               // so steht es sofort nach dem Speichern da
+      neuZeichnen();
+      const frisch = lies();               // so MUSS es dastehen
+      const alle = (JSON.parse(localStorage.getItem('gs_plantings') || '[]') || []);
+      localStorage.setItem('gs_plantings', JSON.stringify(alle.filter(x => x.name !== 'Anzeige-Probe-Bohne')));
+      const abw = Object.keys(frisch).filter(k => direkt[k] !== frisch[k]);
+      const bewegt = Object.keys(frisch).filter(k => vorher[k] !== frisch[k]);
+      if (!bewegt.length) return { ok: false, warum: 'Fall nicht hergestellt: die neue Pflanzung aendert keine Anzeige (' + JSON.stringify(vorher) + ')' };
+      if (abw.length) return { ok: false, warum: abw.length + ' Anzeige(n) stehen nach dem Speichern noch auf dem alten Stand: ' + abw.map(k => k + ': „' + String(direkt[k]).slice(0, 40) + '" statt „' + String(frisch[k]).slice(0, 40) + '"').join(' · ') };
+      return { ok: true, info: bewegt.length + ' Anzeigen aendern sich durch die Pflanzung, alle stehen sofort richtig' };
+    },
+  },
+  {
     name: 'Saatgut (Name, Menge, Ablaufdatum)',
     lauf: () => {
       const setz = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };

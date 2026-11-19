@@ -27,6 +27,7 @@ const path = require('path');
 const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
 const SEED = require('./_seed.js');
 
+
 const FAELLE = [
   {
     name: 'Tagebuch · bei vollem Speicher schrumpft es, und sagt es, wenn auch das nicht reicht',
@@ -273,6 +274,156 @@ const FAELLE = [
       } finally { window.gsConfirmModal = echt; }
     },
   },
+  // ── v33.65 · Pflanzen sichern (Auftrag P-F, H2/H4/H5) ──
+  {
+    name: 'Scan → „Zu meinen Pflanzen" bei vollem Speicher: keine Pflanze in der Liste, keine Erfolgsmeldung, ein Satz — mit Platz genau eine',
+    lauf: async () => {
+      const echt = window.gsPickScanLocation; const vorR = window._lastScanResult;
+      try {
+        window.gsPickScanLocation = async () => 'indoor';
+        window._lastScanResult = { name: 'Prüfscan-Kraut', latin: 'Prueferia scanensis', category: 'kraut', confidence: 91 };
+        const vor = myPlants.length;
+        __voll(true); await window.gsAddScanToMyPlants(); __voll(false);
+        if (!__VOLL_LOG.some(k => k === 'ps_myplants')) return { ok: false, warum: 'kein Schreibversuch auf ps_myplants — Fall nicht hergestellt (' + JSON.stringify(__VOLL_LOG) + ' · ' + JSON.stringify(__TOASTS.slice(0, 2)) + ')' };
+        if (myPlants.length !== vor) { const n0 = myPlants.length; myPlants = myPlants.filter(p => p.name !== 'Prüfscan-Kraut'); return { ok: false, warum: 'die Pflanze steht in der Liste (' + n0 + ' statt ' + vor + '), obwohl nichts gespeichert wurde' }; }
+        if (__TOASTS.some(t => /✅.*hinzugefügt/.test(t))) return { ok: false, warum: 'meldet „hinzugefügt" für nichts: ' + JSON.stringify(__TOASTS.slice(0, 3)) };
+        if (!__TOASTS.some(t => /Speicher ist voll|nicht gespeichert/i.test(t))) return { ok: false, warum: 'still verloren, keine Meldung: ' + JSON.stringify(__TOASTS.slice(0, 3)) };
+        window.__TOASTS = [];
+        await window.gsAddScanToMyPlants();
+        const n = myPlants.filter(p => p && p.name === 'Prüfscan-Kraut').length;
+        myPlants = myPlants.filter(p => !(p && p.name === 'Prüfscan-Kraut')); savePlantsToStorage();
+        if (n !== 1) return { ok: false, warum: 'mit Platz ' + n + ' statt 1 Pflanze' };
+        return { ok: true, info: 'voll → keine Pflanze + Satz · mit Platz → genau eine' };
+      } finally { window.gsPickScanLocation = echt; window._lastScanResult = vorR; }
+    },
+  },
+  {
+    name: '„Pflanze speichern" (neu) bei vollem Speicher: Pflanze nicht in der Liste, Fenster bleibt offen (Eingabe nicht weg), keine Erfolgsmeldung — mit Platz genau eine',
+    lauf: async () => {
+      const setze = (n) => { document.getElementById('mp-name').value = n; document.getElementById('mp-nick').value = ''; document.getElementById('mp-notes').value = 'Prüfnotiz'; };
+      try { editingPlantId = null; openModal('modal-addplant'); setze('Prüfpflanze-Neu'); } catch (e) { return { ok: false, warum: 'Fenster nicht herstellbar: ' + e.message }; }
+      const ind = document.querySelector('input[name="mp-location"][value="indoor"]'); if (ind) ind.checked = true;
+      const vor = myPlants.length;
+      __voll(true); await savePlant(); __voll(false);
+      const offen = document.getElementById('modal-addplant').classList.contains('open');
+      const drin = myPlants.some(p => p && p.name === 'Prüfpflanze-Neu');
+      const eingabe = document.getElementById('mp-name').value;
+      const toasts = __TOASTS.slice();
+      myPlants = myPlants.filter(p => !(p && p.name === 'Prüfpflanze-Neu'));
+      const f = [];
+      if (!__VOLL_LOG.some(k => k === 'ps_myplants')) f.push('Fall nicht hergestellt: kein Schreibversuch');
+      if (drin) f.push('die Pflanze steht in der Liste, obwohl nichts gespeichert wurde');
+      if (!offen) f.push('das Fenster ist zu — die Eingabe ist weg');
+      else if (eingabe !== 'Prüfpflanze-Neu') f.push('das Fenster ist offen, aber die Eingabe fehlt');
+      if (toasts.some(t => /✅.*Zu „Meine Pflanzen"/.test(t))) f.push('meldet „hinzugefügt" für nichts');
+      if (!toasts.some(t => /Speicher ist voll|nicht gespeichert/i.test(t))) f.push('kein Satz: ' + JSON.stringify(toasts.slice(0, 2)));
+      if (f.length) { try { closeModal('modal-addplant'); } catch (_) {} return { ok: false, warum: f.join(' · ') }; }
+      // Gegenrichtung: mit Platz genau eine, Fenster zu
+      window.__TOASTS = [];
+      await savePlant();
+      const n = myPlants.filter(p => p && p.name === 'Prüfpflanze-Neu').length;
+      const zu = !document.getElementById('modal-addplant').classList.contains('open');
+      myPlants = myPlants.filter(p => !(p && p.name === 'Prüfpflanze-Neu')); savePlantsToStorage();
+      try { closeModal('modal-addplant'); } catch (_) {}
+      if (n !== 1 || !zu) return { ok: false, warum: 'mit Platz: ' + n + ' Pflanze(n), Fenster ' + (zu ? 'zu' : 'offen') + ' — die Reparatur blockiert den Normalfall' };
+      return { ok: true, info: 'voll → nichts in der Liste, Fenster offen, Satz · mit Platz → genau eine, Fenster zu' };
+    },
+  },
+  {
+    name: '„Pflanze speichern" (ändern) bei vollem Speicher: die Pflanze behält ihren alten Stand statt halb geändert zu sein',
+    lauf: async () => {
+      const p0 = (() => { let p = myPlants.find(x => x && x.tasks && x.tasks.water && x.tasks.water.active); if (!p) { p = { id: 'mp_pf_probe', name: 'Probe-Monstera', emoji: '🌿', water: 2, sun: 2, notes: '', diary: [], added: new Date().toISOString(), tasks: { water: { active: true, intervalDays: 7, lastDone: new Date(Date.now() - 9 * 864e5).toISOString() } } }; myPlants.push(p); } return p; })();
+      const alt = p0.name;
+      try { editingPlantId = p0.id; openModal('modal-addplant'); document.getElementById('mp-name').value = 'Geändert-Prüf'; } catch (e) { return { ok: false, warum: 'Fenster nicht herstellbar: ' + e.message }; }
+      const ind = document.querySelector('input[name="mp-location"][value="indoor"]'); if (ind) ind.checked = true;
+      __voll(true); await savePlant(); __voll(false);
+      const jetzt = (myPlants.find(x => x.id === p0.id) || {}).name;
+      const toasts = __TOASTS.slice();
+      const f = [];
+      if (!__VOLL_LOG.some(k => k === 'ps_myplants')) f.push('Fall nicht hergestellt: kein Schreibversuch');
+      if (jetzt !== alt) { f.push('Name steht auf „' + jetzt + '" statt „' + alt + '", obwohl nichts gespeichert wurde'); const q = myPlants.find(x => x.id === p0.id); if (q) q.name = alt; }
+      if (toasts.some(t => /✅ Aktualisiert/.test(t))) f.push('meldet „Aktualisiert" für nichts');
+      if (!toasts.some(t => /Speicher ist voll|nicht gespeichert/i.test(t))) f.push('kein Satz: ' + JSON.stringify(toasts.slice(0, 2)));
+      try { closeModal('modal-addplant'); } catch (_) {} editingPlantId = null;
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'voll → Name bleibt „' + alt + '", Satz' };
+    },
+  },
+  {
+    name: 'Abhaken (gsQuickDone) bei vollem Speicher: lastDone und Tagebuch bleiben wie vorher, keine „erledigt!"-Meldung, ein Satz — mit Platz erledigt',
+    lauf: async () => {
+      const p = (() => { let p = myPlants.find(x => x && x.tasks && x.tasks.water && x.tasks.water.active); if (!p) { p = { id: 'mp_pf_probe', name: 'Probe-Monstera', emoji: '🌿', water: 2, sun: 2, notes: '', diary: [], added: new Date().toISOString(), tasks: { water: { active: true, intervalDays: 7, lastDone: new Date(Date.now() - 9 * 864e5).toISOString() } } }; myPlants.push(p); } return p; })();
+      const ld = p.tasks.water.lastDone, dn = (p.diary || []).length;
+      __voll(true); const r = gsQuickDone(p.id, 'water'); __voll(false);
+      const f = [];
+      if (!__VOLL_LOG.some(k => k === 'ps_myplants')) f.push('Fall nicht hergestellt: kein Schreibversuch');
+      if (p.tasks.water.lastDone !== ld) f.push('lastDone steht auf „erledigt", obwohl nichts gespeichert wurde');
+      if ((p.diary || []).length !== dn) f.push('Tagebuch-Eintrag steht da, obwohl nichts gespeichert wurde');
+      if (__TOASTS.some(t => /erledigt! ✅/.test(t))) f.push('meldet „erledigt!" für nichts');
+      if (!__TOASTS.some(t => /Speicher ist voll|nicht gespeichert/i.test(t))) f.push('kein Satz: ' + JSON.stringify(__TOASTS.slice(0, 2)));
+      if (r !== false) f.push('Rückgabe ' + JSON.stringify(r) + ' statt false');
+      p.tasks.water.lastDone = ld; if (p.diary && p.diary.length > dn) p.diary.splice(0, p.diary.length - dn);
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      window.__TOASTS = [];
+      const r2 = gsQuickDone(p.id, 'water');
+      const ok2 = p.tasks.water.lastDone !== ld && r2 === true;
+      p.tasks.water.lastDone = ld; if (p.diary && p.diary.length > dn) p.diary.splice(0, p.diary.length - dn); savePlantsToStorage();
+      if (!ok2) return { ok: false, warum: 'mit Platz nicht erledigt (Rückgabe ' + JSON.stringify(r2) + ')' };
+      return { ok: true, info: 'voll → unverändert + Satz + false · mit Platz → erledigt + true' };
+    },
+  },
+  {
+    name: 'Karte „Heute zu tun" abhaken (gsDueCardDone): die Karte verschwindet nur, wenn die Aufgabe wirklich erledigt ist — voller Speicher und unbekannte Pflanze lassen sie stehen',
+    lauf: async () => {
+      const p = (() => { let p = myPlants.find(x => x && x.tasks && x.tasks.water && x.tasks.water.active); if (!p) { p = { id: 'mp_pf_probe', name: 'Probe-Monstera', emoji: '🌿', water: 2, sun: 2, notes: '', diary: [], added: new Date().toISOString(), tasks: { water: { active: true, intervalDays: 7, lastDone: new Date(Date.now() - 9 * 864e5).toISOString() } } }; myPlants.push(p); } return p; })();
+      const ld = p.tasks.water.lastDone, dn = (p.diary || []).length;
+      const karte = (id) => { const c = document.createElement('div'); c.className = 'due-card'; c.innerHTML = '<button class="due-check"></button>'; document.body.appendChild(c); return c; };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const f = [];
+      // a · voller Speicher
+      let c = karte(); let b = c.querySelector('button');
+      __voll(true); gsDueCardDone(b, p.id, 'water'); await warte(450); __voll(false);
+      if (!__VOLL_LOG.some(k => k === 'ps_myplants')) f.push('Fall a nicht hergestellt: kein Schreibversuch');
+      if (b.classList.contains('checked') || b.disabled || c.classList.contains('gs-nc-out')) f.push('voll: die Karte ist abgehakt/ausgeblendet, obwohl nichts gespeichert wurde');
+      c.remove(); p.tasks.water.lastDone = ld; if (p.diary && p.diary.length > dn) p.diary.splice(0, p.diary.length - dn);
+      // b · die Pflanze gibt es nicht
+      window.__TOASTS = [];
+      c = karte(); b = c.querySelector('button');
+      gsDueCardDone(b, 'gibt-es-nicht', 'water'); await warte(450);
+      if (b.classList.contains('checked') || b.disabled || c.classList.contains('gs-nc-out')) f.push('unbekannte Pflanze: die Karte ist abgehakt/ausgeblendet');
+      if (!__TOASTS.length) f.push('unbekannte Pflanze: kein Satz');
+      c.remove();
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      // c · Gegenrichtung: mit Platz bleibt sie abgehakt
+      c = karte(); b = c.querySelector('button');
+      gsDueCardDone(b, p.id, 'water'); await warte(450);
+      const bleibt = b.classList.contains('checked') && c.classList.contains('gs-nc-out');
+      c.remove(); p.tasks.water.lastDone = ld; if (p.diary && p.diary.length > dn) p.diary.splice(0, p.diary.length - dn); savePlantsToStorage();
+      if (!bleibt) return { ok: false, warum: 'mit Platz: die Karte ist nicht abgehakt — die Reparatur blockiert den Normalfall' };
+      return { ok: true, info: 'voll → Karte bleibt · unbekannt → Karte bleibt + Satz · mit Platz → abgehakt' };
+    },
+  },
+  {
+    name: 'Pflanze „im Garten" ohne Garten (savePlant): keine Ausnahme, keine stille Wohnungs-Pflanze — ein Satz',
+    lauf: async () => {
+      const echt = window.gsConfirmModal; const gAlt = gardens; const vor = myPlants.length;
+      try {
+        gardens = []; window.gsConfirmModal = undefined;
+        editingPlantId = null; openModal('modal-addplant');
+        document.getElementById('mp-name').value = 'Prüf-Garten-Ohne';
+        const out = document.querySelector('input[name="mp-location"][value="outdoor"]'); if (out) out.checked = true;
+        window.__TOASTS = [];
+        await savePlant();
+        const drin = myPlants.some(p => p && p.name === 'Prüf-Garten-Ohne');
+        myPlants = myPlants.filter(p => !(p && p.name === 'Prüf-Garten-Ohne'));
+        const f = [];
+        if (drin) f.push('es wurde still eine WOHNUNGS-Pflanze angelegt, obwohl „Garten" gewählt war');
+        if (!__TOASTS.some(t => /Garten/.test(t))) f.push('kein Satz über den fehlenden Garten: ' + JSON.stringify(__TOASTS.slice(0, 2)));
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: 'keine Pflanze angelegt, Satz zum Garten' };
+      } finally { gardens = gAlt; window.gsConfirmModal = echt; try { closeModal('modal-addplant'); } catch (_) {} if (myPlants.length !== vor) myPlants = myPlants.slice(0, vor); }
+    },
+  },
   {
     // v33.59 (Austausch-Runde, uebergabe-b4): gsPlans.parken las seinen Schreibversuch nicht,
     // und gsClearUserDataKeys warf danach gs_plans_v2 weg — die einzige Kopie. Drei Lagen:
@@ -480,6 +631,7 @@ const FAELLE = [
   await p.evaluate(() => {
     document.documentElement.classList.remove('gs-preauth');
     window.gsRequire = () => true;
+    window.gsCanDo = () => true;   // wie gsRequire: die Anmelde-Sperre ist hier nicht die Frage
     // Der volle Speicher: der App-Wrapper bleibt darunter liegen; darueber
     // eine Schicht, die auf Wunsch JEDEN Schreibversuch mit false beantwortet
     // und den Schluessel notiert — so wie der Wrapper es bei Quota tut.
@@ -491,7 +643,7 @@ const FAELLE = [
     };
     window.__voll = (an) => { window.__VOLL = !!an; if (an) { window.__VOLL_LOG = []; window.__TOASTS = []; } };
     window.__TOASTS = [];
-    const merk = (t) => { window.__TOASTS.push(String((t && t.title) ? t.title + ' ' + (t.msg || t.body || '') : t)); };
+    const merk = (t) => { window.__TOASTS.push(String((t && typeof t === 'object') ? (t.title ? t.title + ' ' : '') + (t.msg || t.body || '') : t)); };
     window.gsToast = merk; window.showProfileToast = merk;
     window.gsHaptic = () => {};
   });

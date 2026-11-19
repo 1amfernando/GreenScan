@@ -16,7 +16,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
 | v33.61 (16.11.) | Suche 1–8, 10 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 7, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 8, 10 · Home 1, 1b, 2, 5, 6, 7 — Einzelheiten in STATUS (je) |
 | v33.64 (19.11.) | Scanner 11 — Pilz-Scanner: alle Register-Arten ans Modell (Server, braucht die Auslieferung), Schwelle wie am Server, rote Kopfzeile auch ohne Farbe, Kandidaten mit Namen und Warnung, Fehler als Satz, keine Antwort nach dem Abmelden |
-| v33.6x (19.11.) | Scanner 4 — „Abbrechen" auf der Wartefläche (die späte Antwort wird weder gezeigt noch gespeichert), ein neuer Scan ersetzt den laufenden (ein Zähler, eine Antwort), keine erfundenen Meldungen mehr über der Kamera |
+| v33.67 (19.11.) | Scanner 4 — „Abbrechen" auf der Wartefläche (die späte Antwort wird weder gezeigt noch gespeichert), ein neuer Scan ersetzt den laufenden (ein Zähler, eine Antwort), keine erfundenen Meldungen mehr über der Kamera |
 
 ## Offen — Scanner
 
@@ -27,7 +27,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    übernimmt `diagnostic_features` und `next_photo_hint`.
 3. ✅ v33.61 (Karte, Verlauf und Artvorschläge im Feld) — **Eine Korrektur ändert nichts Sichtbares.** `gsSubmitScanMistake` sendet nur; Ergebnis
    und Verlauf behalten den falschen Namen. Freitext ohne Artvorschlag.
-4. ✅ v33.6x (`scan_check` AB1–AB4) — **Kein Abbrechen während des Scans.** Nur ein Sekundenzähler; `callVisionAI` hat 60 s
+4. ✅ v33.67 (`scan_check` AB1–AB4) — **Kein Abbrechen während des Scans.** Nur ein Sekundenzähler; `callVisionAI` hat 60 s
    Timeout und eine Wiederholung. Gemessen 19.11.: auf der Wartefläche waren nur Glocke und
    Hauptmenü antippbar; der Zurück-Knopf führte zur Startseite, und die Antwort wurde trotzdem
    gezeichnet und gespeichert. Dazu zwei Fehler derselben Form: ein zweiter Scan bekam den

@@ -37,6 +37,14 @@ Tagebuch in `CLAUDE.md`.
    `state`-Blob auf HIN- und RUECKWEG (`_gsBuildStateBlob` + `stateMap`) und
    `markDirty('state')` am Schreiber. *(storage_check, sync_check)*
 
+5a. **Zwei Geräte, ein Konto: Pflanzen und Gärten werden je EINTRAG
+   zusammengeführt, nie als ganze Liste ersetzt** (v33.66).
+   `_gsMergeEintraege` (Stempel `geaendert`, Löschmarken `gs_geloescht`),
+   gestempelt in `savePlantsToStorage` / `saveGardenData`, eingespielt über
+   `_gsListeEinspielen`. Und: speichern heisst erst schreiben, dann melden —
+   `=== false` nimmt den Eintrag zurück und sagt einen Satz.
+   *(sync_check „Zwei Geräte", speicher_check, save_check)*
+
 5b. **Eine Antwort nach einem `await` gehört der Person, die gefragt hat.**
    `sbLogout` lädt nicht neu. Wer nach einem `await` zeichnet oder schreibt, merkt
    sich vorher `_gsPerson()` und prüft danach, ob es noch dieselbe ist; was nur im

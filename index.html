@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.65.20261119">
+<meta name="app-version" content="33.67.20261119">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -10338,12 +10338,13 @@ function gsQuickDone(plantId, taskKey) {
   gsHaptic('success');
   var _f = _gsPflanzeFinden(plantId);            // v32.47: beide Listen
   var p = _f && _f.p;
-  if (!p || !p.tasks || !p.tasks[taskKey]) return;
+  if (!p || !p.tasks || !p.tasks[taskKey]) return null;   // v33.65: null = Aufgabe nicht gefunden, false = nicht gespeichert, true = erledigt (gsDueCardDone liest es)
   var nowIso = new Date().toISOString();
+  // v33.65: den Stand VOR dem Abhaken merken — gibt der Speicher `false`, wird er zurueckgegeben.
+  var _qvor = { t: Object.assign({}, p.tasks[taskKey]), diary: Array.isArray(p.diary) ? p.diary.slice() : null };
   p.tasks[taskKey].lastDone = nowIso;
   delete p.tasks[taskKey].snoozedUntil;   // v32.46: erledigt hebt die Verschiebung auf
   delete p.tasks[taskKey].vorgezogenAuf; delete p.tasks[taskKey].vorgezogenGrund;   // v32.53: … und das Vorziehen durch einen Sensor
-  gsRpcTaskDone(plantId, taskKey);
   // v26.51: Done-History persistent — pro Pflanze in p.diary[] + global gs_gartentagebuch
   // damit "keine Daten verloren gehen" gilt auch für Quick-Done.
   try {
@@ -10354,7 +10355,14 @@ function gsQuickDone(plantId, taskKey) {
     // Cap auf 200 Diary-Einträge pro Pflanze (sonst Blob-Bloat)
     p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
   } catch(_){}
-  if (_f && _f.liste === 'plantings') { try { saveGardenData(); } catch(_){} } else savePlantsToStorage();
+  var _qok = (_f && _f.liste === 'plantings') ? saveGardenData() : savePlantsToStorage();
+  if (_qok === false) {
+    // v33.65 (H2): nicht gespeichert → nichts ist erledigt. Zustand zurueck, ein Satz, kein Erfolg.
+    p.tasks[taskKey] = _qvor.t; if (_qvor.diary) p.diary = _qvor.diary; else delete p.diary;
+    try { showProfileToast(_gsSatz('Nicht gespeichert — der Speicher ist voll. Die Aufgabe bleibt offen; bitte alte Fotos oder Scans löschen.'), 'error'); } catch(_){}
+    return false;
+  }
+  gsRpcTaskDone(plantId, taskKey);   // v33.65: erst NACH dem Speichern — sonst meldet der Server ein Erledigt, das lokal zurueckgenommen wird
   try { if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications(); } catch(_){} // v30.76: konsistent mit doneTask
   // v24.25: Server-Cron-Reminder als gelesen markieren
   try { gsMarkPlantReminderRead(plantId, taskKey); } catch(_){}
@@ -10375,6 +10383,7 @@ function gsQuickDone(plantId, taskKey) {
   try { if (typeof gsRenderDayPlan === 'function') gsRenderDayPlan(); } catch(_){}
   // Neu rendern nach kurzer Pause
   setTimeout(function(){ renderMyPlants(); }, 800);
+  return true;
 }
 
 // v30.81: Abhaken mit Micro-Animation (Kreis füllt sich, Karte gleitet raus),
@@ -10389,7 +10398,22 @@ function gsDueCardDone(btn, plantId, taskKey) {
       if (card) setTimeout(function(){ card.classList.add('gs-nc-out'); }, 140);
     }
   } catch(_){}
-  setTimeout(function(){ gsQuickDone(plantId, taskKey); }, 200);
+  setTimeout(function(){
+    var ok = gsQuickDone(plantId, taskKey);
+    if (ok === true) return;
+    // v33.65 (H5): die Karte war schon ausgeblendet, die Aufgabe aber nicht erledigt (Pflanze nicht
+    // gefunden oder Speicher voll) — sie kommt zurueck, statt dass die Aufgabe still verschwindet.
+    try {
+      if (btn && btn.classList) {
+        btn.classList.remove('checked'); btn.disabled = false;
+        var c2 = btn.closest ? btn.closest('.due-card') : null;
+        if (c2) c2.classList.remove('gs-nc-out');
+      }
+      // false: gsQuickDone hat den Satz selbst gesagt (voller Speicher) · null: die Aufgabe gibt es nicht mehr
+      if (ok !== false) showProfileToast(_gsSatz('Diese Aufgabe gibt es nicht mehr — die Liste wird neu geladen.'), 'warning');
+      if (ok !== false) setTimeout(function(){ try { renderMyPlants(); } catch(_){} }, 300);
+    } catch(_){}
+  }, 200);
 }
 window.gsDueCardDone = gsDueCardDone;
 
@@ -38804,7 +38828,15 @@ window.gsAddScanToMyPlants = async function(){
       window.myPlants = [];
     }
     myPlants.push(newPlant);
-    if (typeof savePlantsToStorage === 'function') { try { savePlantsToStorage(); } catch(_){} }
+    // v33.65: erst speichern, dann melden. Gibt der Speicher `false`, steht die Pflanze nur im
+    // Arbeitsspeicher — beim naechsten Start waere sie weg, und der Toast haette „hinzugefuegt" gesagt.
+    var _okScan = true;
+    if (typeof savePlantsToStorage === 'function') { try { _okScan = savePlantsToStorage(); } catch(_){ _okScan = false; } }
+    if (_okScan === false) {
+      var _ix = myPlants.indexOf(newPlant); if (_ix >= 0) myPlants.splice(_ix, 1);
+      if (typeof gsToast === 'function') gsToast(_gsSatz('Nicht gespeichert — der Speicher ist voll. „{1}" wurde nicht zu deinen Pflanzen hinzugefügt; bitte alte Fotos oder Scans löschen.', r.name), 'error', 7000);
+      return;
+    }
     if (typeof renderMyPlants === 'function') { try { renderMyPlants(); } catch(_){} }
     if (typeof scheduleAllNotifications === 'function') { try { scheduleAllNotifications(); } catch(_){} }
     if (typeof gsHaptic === 'function') gsHaptic('success');
@@ -40275,6 +40307,7 @@ window.gsFavsInitSub = gsFavsInitSub;
 function savePlantsToStorage(){
   // v29.24/v29.25: Return-Wert (true/false) für Feedback + setJSON-Parität (stringify
   // im try/catch → durchgehend wurf-sicher wie saveGardenData).
+  try { _gsStempeln('ps_myplants', myPlants); } catch(_){}   // v33.65: Aenderungsstempel + Loeschmarken
   var ok = gsStore.setJSON('ps_myplants', myPlants);
   // v23.73: User-Account-Sync (debounced)
   try { if (typeof gsPushPlantsNow === 'function') gsPushPlantsNow(); } catch(_){}
@@ -40994,6 +41027,9 @@ async function savePlant(){
     if (location === 'outdoor') {
       // Garten muss existieren — sonst „Neuer Garten"-Hint
       if (typeof gardens === 'undefined' || !Array.isArray(gardens) || !gardens.length) {
+        // v33.65 (H4): frueher fiel der Code ohne gsConfirmModal bis `gardens[0].id` durch — die Ausnahme
+        // schluckte der aeussere catch, und es entstand STILL eine Wohnungs-Pflanze, obwohl „Garten"
+        // gewaehlt war. Jetzt immer ein Satz, nie ein Weiterlaufen ohne Garten.
         if (typeof gsConfirmModal === 'function') {
           var go = await gsConfirmModal('Du hast noch keinen Garten angelegt. Jetzt einen Garten erstellen?', { okText:'Garten anlegen', cancelText:'Abbrechen' });
           if (go) {
@@ -41001,8 +41037,10 @@ async function savePlant(){
             if (typeof switchTab === 'function') switchTab('garden');
             setTimeout(function(){ if (typeof openModal === 'function') openModal('modal-add-garden'); }, 320);
           }
-          return;
+        } else {
+          try { gsToast(_gsSatz('Du hast noch keinen Garten — lege zuerst unter „Mein Garten" einen an, oder wähle „Wohnung".'), 'warning', 6000); } catch(_){}
         }
+        return;
       }
       // Erster Garten als Default (User kann später im Garten-Modal wechseln)
       var firstGardenId = gardens[0].id;
@@ -41032,6 +41070,7 @@ async function savePlant(){
     }
   } catch(e) { console.warn('[v26.87] location-routing', e && e.message); }
   const now = new Date().toISOString();
+  var _gsEditVorher = null, _gsNeueId = null;   // v33.65: fuer die Ruecknahme, wenn der Speicher voll ist
   if(editingPlantId){
     // v31.00 FIX: KEINE Objekt-Referenz ueber ein await hinweg halten.
     // Vorher stand hier `const p = myPlants.find(...)`, danach ein `await` auf den
@@ -41078,6 +41117,7 @@ async function savePlant(){
     // Erst JETZT — nach allen awaits — die Pflanze auflösen.
     const p = myPlants.find(x => x.id === editingPlantId);
     if (p) {
+      _gsEditVorher = {}; Object.keys(_edits).forEach(function(k){ _gsEditVorher[k] = p[k]; });   // v33.65
       Object.keys(_edits).forEach(function(k){ p[k] = _edits[k]; });
       if (!Array.isArray(p.diary)) p.diary = [];
     } else {
@@ -41137,6 +41177,7 @@ async function savePlant(){
       }
     };
     myPlants.push(newPlant);
+    _gsNeueId = newPlant.id;   // v33.65
     // v31.06: jetzt steht die id fest — haengengebliebenes Foto einreihen.
     if (window._gsPendingNewPlantPhoto) {
       var _pend = window._gsPendingNewPlantPhoto;
@@ -41150,6 +41191,21 @@ async function savePlant(){
   }
   var _wasEdit = !!editingPlantId;
   var _okPlant = savePlantsToStorage();
+  if (_okPlant === false) {
+    // v33.65 (H2): nichts gespeichert → den Zustand VOR diesem Speichern wiederherstellen und das
+    // Fenster offen lassen, damit die Eingabe nicht weg ist. Vorher blieb die Pflanze bis zum
+    // naechsten Start in der Liste, das Fenster schloss, der Satz sagte „evtl. nicht gesichert".
+    try {
+      if (_wasEdit) {
+        var _pr = myPlants.find(function(x){ return x.id === editingPlantId; });
+        if (_pr && _gsEditVorher) Object.keys(_gsEditVorher).forEach(function(k){ _pr[k] = _gsEditVorher[k]; });
+      } else {
+        for (var _i = myPlants.length - 1; _i >= 0; _i--) if (myPlants[_i] && myPlants[_i].id === _gsNeueId) myPlants.splice(_i, 1);
+      }
+    } catch(_){}
+    try { gsToast(_gsSatz('Nicht gespeichert — der Speicher ist voll. Bitte alte Fotos oder Scans löschen und es noch einmal versuchen.'), 'error', 7000); } catch(_){}
+    return;
+  }
   closeModal('modal-addplant');
   // v23.91: Photo-State zurücksetzen für nächsten Add
   try { gsClearPlantPhoto(); } catch(_){}
@@ -58557,6 +58613,126 @@ function _gsListeEinspielen(schluessel, liste, opts) {
   return { ok: true, liste: sauber };
 }
 window._gsListeEinspielen = _gsListeEinspielen;
+
+// v33.65 (Auftrag P-F, Fernando: „neu eingetragene Pflanzen verschwinden, Informationen werden wieder
+// geloescht"): Pflanzen, Gaerten und Pflanzungen werden zwischen zwei Geraeten JE EINTRAG
+// zusammengefuehrt, nicht als ganze Liste. Bis v33.64 galt: ungesendet lokal → die ganze lokale
+// Liste ueberschreibt die Cloud (was ein anderes Geraet dort eintrug, ist weg); sauber → die ganze
+// Cloud-Liste ersetzt die lokale. Drei Bausteine, alle hier:
+//  · Aenderungsstempel `geaendert` (ms) — EIN Helfer (_gsStempeln), den savePlantsToStorage und
+//    saveGardenData rufen; er vergleicht mit dem, was im Speicher steht, und stempelt nur, was sich
+//    wirklich aenderte. Eintraege ohne Stempel (Bestand) bleiben ohne.
+//  · Loeschmarken `gs_geloescht` {liste: {id: ms}} — ein entfernter Eintrag steht dort, damit er auf dem
+//    anderen Geraet nicht wiederaufersteht; 90 Tage, je Liste hoechstens 300. Reist im state-Blob
+//    (_buildStateBlob → data.geloescht, auch im Snapshot) und kommt beim Anmelden als VEREINIGUNG
+//    zurueck (_gsGeloeschtEinlesen), nie als Ersatz: ein zweites Geraet, das den state-Blob
+//    ganz ueberschreibt, nahm sonst die Marken des ersten mit.
+//  · EINE Rechnung (_gsMergeEintraege) fuer den Anmelde-Abgleich. _gsMergeById (gsGardenSync.pullAll) rechnet noch daneben (lokal gewinnt, ohne Stempel und Marken) — offen, STATUS (jn).
+var GS_STEMPEL_LISTEN = ['ps_myplants', 'gs_gardens', 'gs_plantings'];
+var GS_GELOESCHT_TAGE = 90, GS_GELOESCHT_MAX = 300;
+function _gsGeloeschtBereinigen(o) {
+  var aus = {}, grenze = Date.now() - GS_GELOESCHT_TAGE * 86400000;
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return aus;
+  GS_STEMPEL_LISTEN.forEach(function (k) {
+    var m = o[k]; if (!m || typeof m !== 'object' || Array.isArray(m)) return;
+    var ids = Object.keys(m).filter(function (id) {
+      var t = Number(m[id]); return _gsIdSicher(id) === id && isFinite(t) && t > grenze;
+    }).sort(function (a, b) { return Number(m[b]) - Number(m[a]); }).slice(0, GS_GELOESCHT_MAX);
+    if (ids.length) { aus[k] = {}; ids.forEach(function (id) { aus[k][id] = Number(m[id]); }); }
+  });
+  return aus;
+}
+function _gsGeloeschtLesen() {
+  try { return _gsGeloeschtBereinigen(JSON.parse(localStorage.getItem('gs_geloescht') || '{}')); } catch (_) { return {}; }
+}
+function _gsGeloeschtSchreiben(o) {
+  var b = _gsGeloeschtBereinigen(o);
+  try { return localStorage.setItem('gs_geloescht', JSON.stringify(b)) !== false; } catch (_) { return false; }
+}
+// Vereinigung mit dem Stand eines anderen Geraets (je Id die spaetere Zeit). Gibt zurueck, ob lokal
+// etwas dazukam ODER lokal mehr steht als dort (dann muss der state-Blob hoch).
+function _gsGeloeschtEinlesen(fremd) {
+  var lokal = _gsGeloeschtLesen(), f = _gsGeloeschtBereinigen(fremd), neuLokal = false, nurLokal = false;
+  GS_STEMPEL_LISTEN.forEach(function (k) {
+    var l = lokal[k] || {}, c = f[k] || {};
+    Object.keys(c).forEach(function (id) { if (!(id in l) || l[id] < c[id]) { l[id] = c[id]; neuLokal = true; } });
+    Object.keys(l).forEach(function (id) { if (!(id in c) || c[id] < l[id]) nurLokal = true; });
+    if (Object.keys(l).length) lokal[k] = l;
+  });
+  if (neuLokal) _gsGeloeschtSchreiben(lokal);
+  return { neu: neuLokal, nurLokal: nurLokal };
+}
+function _gsEintragJson(e) {
+  var c = {}; Object.keys(e).forEach(function (k) { if (k !== 'geaendert') c[k] = e[k]; });
+  try { return JSON.stringify(c); } catch (_) { return String(Math.random()); }
+}
+// Vor dem Schreiben einer Liste: geaenderte Eintraege stempeln, entfernte als geloescht vermerken.
+function _gsStempeln(schluessel, liste) {
+  if (!Array.isArray(liste) || GS_STEMPEL_LISTEN.indexOf(schluessel) < 0) return;
+  var jetzt = Date.now(), alt = {}, nAlt = 0;
+  try {
+    var v = JSON.parse(localStorage.getItem(schluessel) || '[]');
+    if (Array.isArray(v)) v.forEach(function (e) { if (e && typeof e === 'object' && e.id != null) { alt[String(e.id)] = _gsEintragJson(e); nAlt++; } });
+  } catch (_) {}
+  var neu = {};
+  liste.forEach(function (e) {
+    if (!e || typeof e !== 'object' || e.id == null) return;
+    var k = String(e.id); neu[k] = true;
+    if (alt[k] !== _gsEintragJson(e)) e.geaendert = jetzt;
+  });
+  var g = _gsGeloeschtLesen(), tk = g[schluessel] || {}, geaendert = false;
+  // Kein Massen-Loeschen im Start-Rennen: eine leere Liste vor dem ersten Abgleich ist kein Wille der Person.
+  var rennen = false;
+  try { rennen = (liste.length === 0 && nAlt > 1 && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && !window._gsInitialSyncDone); } catch (_) {}
+  if (!rennen) Object.keys(alt).forEach(function (k) { if (!neu[k] && !(k in tk && tk[k] >= jetzt)) { tk[k] = jetzt; geaendert = true; } });
+  Object.keys(neu).forEach(function (k) { if (k in tk) { delete tk[k]; geaendert = true; } });   // wieder da (z. B. aus dem Friedhof zurueck)
+  if (geaendert) {
+    if (Object.keys(tk).length) g[schluessel] = tk; else delete g[schluessel];
+    _gsGeloeschtSchreiben(g);
+    try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch (_) {}
+  }
+}
+// EINE Rechnung fuer zwei Staende derselben Liste. ctx: schmutzig (lokal ungesendet), tomb ({id: ms}),
+// ohneId ('beide' = Eintraege ohne Id von beiden Seiten behalten). Regel je Id:
+//  · auf beiden Seiten: der spaetere Stempel gewinnt; ohne Stempel (Bestand) oder bei Gleichstand gewinnt
+//    lokal, wenn ungesendet, sonst die Cloud.
+//  · nur lokal / nur in der Cloud: bleibt — ausser eine Loeschmarke ist nicht aelter als der Eintrag.
+//    (Ein nur lokaler Eintrag wird nie stillschweigend verworfen: ein Datenverlust ist schlimmer als ein
+//    Eintrag, den ein ALTER Stand ohne Marke geloescht hat.)
+// Reihenfolge: die der Cloud, danach die nur lokalen. gleichCloud: ergibt sich genau der Cloud-Stand?
+function _gsMergeEintraege(lokal, cloud, ctx) {
+  ctx = ctx || {}; var tomb = ctx.tomb || {};
+  var stempel = function (e) { var n = Number(e && e.geaendert); return (isFinite(n) && n > 0) ? n : 0; };
+  var L = {}, C = {}, ordC = [], ordL = [], ohneId = [];
+  (cloud || []).forEach(function (e) {
+    if (!e || typeof e !== 'object') return;
+    if (e.id == null) { ohneId.push(e); return; }
+    var k = String(e.id); if (!(k in C)) ordC.push(k); C[k] = e;
+  });
+  (lokal || []).forEach(function (e) {
+    if (!e || typeof e !== 'object') return;
+    if (e.id == null) { if (ctx.ohneId === 'beide' || ctx.schmutzig) ohneId.push(e); return; }
+    var k = String(e.id); if (!(k in L)) ordL.push(k); L[k] = e;
+  });
+  var aus = [], vorbei = {};
+  function nimm(k) {
+    if (vorbei[k]) return; vorbei[k] = true;
+    var l = L[k], c = C[k], t = Number(tomb[k]) || 0, w;
+    if (l && c) {
+      var sl = stempel(l), sc = stempel(c);
+      w = (sl || sc) ? (sl > sc ? l : (sc > sl ? c : (ctx.schmutzig ? l : c))) : (ctx.schmutzig ? l : c);
+    } else w = l || c;
+    if (t && t >= stempel(w)) return;
+    aus.push(w);
+  }
+  ordC.forEach(nimm); ordL.forEach(nimm);
+  ohneId.forEach(function (e) { aus.push(e); });
+  var sortiert = function (a) { return a.slice().sort(function (x, y) { return String(x && x.id).localeCompare(String(y && y.id)); }); };
+  var gleich = false;
+  try { gleich = JSON.stringify(sortiert(aus.filter(function (e) { return e.id != null; }))) === JSON.stringify(sortiert((cloud || []).filter(function (e) { return e && e.id != null; }))); } catch (_) {}
+  return { liste: aus, gleichCloud: gleich };
+}
+window._gsStempeln = _gsStempeln; window._gsMergeEintraege = _gsMergeEintraege; window._gsGeloeschtEinlesen = _gsGeloeschtEinlesen;
 
 // Spielt ein Backup ein und sagt, was NICHT gesichert wurde (voller Speicher:
 // der Wrapper wirft nie, er gibt false zurueck — CLAUDE.md §3.5). Kein
@@ -76777,6 +76953,7 @@ function saveGardenData() {
   // Vorher: raw localStorage.setItem('gs_gardens') OHNE try/catch → QuotaExceededError
   // brach die ganze Funktion ab, plantings wurden nie persistiert + markDirty lief nie
   // → "im Garten nicht gespeichert" (silent). gsStore.setJSON gibt false statt zu werfen.
+  try { _gsStempeln('gs_gardens', gardens); _gsStempeln('gs_plantings', plantings); } catch(_){}   // v33.65
   var okG = gsStore.setJSON('gs_gardens', gardens);
   var okP = gsStore.setJSON('gs_plantings', plantings);
   // v23.73 + v29.24: User-Account-Sync (debounced) + doppel-defensiv markDirty
@@ -77397,7 +77574,7 @@ function savePlanting() {
   const dateVal = document.getElementById('plant-date').value;
   if (!dateVal) { gsToast('Bitte ein Pflanzdatum angeben.', 'warn'); return; }
 
-  plantings.push({
+  var _neuePfl = {
     id: 'plant_' + Date.now(),
     gardenId,
     name,
@@ -77406,10 +77583,28 @@ function savePlanting() {
     count: +document.getElementById('plant-count').value || 1,
     notes: document.getElementById('plant-notes').value.trim(),
     added: new Date().toISOString(),
-  });
+  };
+  plantings.push(_neuePfl);
   var _ok = saveGardenData();
+  if (_ok === false) {
+    // v33.65 (H2): nichts gespeichert → die Pflanzung wieder herausnehmen und das Fenster offen lassen
+    // (die Eingabe bleibt), statt sie bis zum naechsten Start nur im Arbeitsspeicher zu fuehren.
+    var _pi = plantings.indexOf(_neuePfl); if (_pi >= 0) plantings.splice(_pi, 1);
+    try { gsToast(_gsSatz('Nicht gespeichert — der Speicher ist voll. Bitte alte Fotos oder Scans löschen und es noch einmal versuchen.'), 'error', 7000); } catch(_){}
+    return;
+  }
   closeModal('modal-add-planting');
+  // v33.65 (H3): ALLES, was von dieser Liste lebt, jetzt mitziehen — vorher nur der Gartenbildschirm; die
+  // Pflanzen-Kopfzahlen, der Tagesplan der Startseite und die Zaehler zeigten die neue Pflanze erst nach dem
+  // naechsten Oeffnen („eingetragen, aber nicht sichtbar"). Zuerst die Aufgaben nachruesten: ohne sie hat die
+  // neue Pflanzung keine, und die Zaehler stuenden zwar richtig bei den Pflanzen, aber falsch bei den Aufgaben.
+  try { if (typeof _gsPflanzungenNachruesten === 'function') _gsPflanzungenNachruesten(); } catch(_){}
   renderGarden();
+  try { if (typeof renderMyPlants === 'function') renderMyPlants(); } catch(_){}
+  try { if (typeof updatePlantStat === 'function') updatePlantStat(); } catch(_){}
+  try { if (typeof gsRenderDayPlan === 'function') gsRenderDayPlan(); } catch(_){}
+  try { if (typeof gsRenderNotifBadge === 'function') gsRenderNotifBadge(); } catch(_){}
+  try { if (typeof gsRenderTaskNote === 'function') gsRenderTaskNote(); } catch(_){}
   // v26.90: Sub-Tab-Counts + Inline-Garten-Liste (falls sichtbar) aktualisieren
   try { if (typeof gsFavsUpdateSubCounts === 'function') gsFavsUpdateSubCounts(); } catch(_){}
   try {
@@ -77419,8 +77614,7 @@ function savePlanting() {
   // v29.24 Bug-3: explizites Erfolgs-/Fehler-Feedback (vorher KEIN Toast → Nutzer
   // wusste nicht, ob gespeichert wurde → "wird nicht im Garten gespeichert").
   try {
-    if (_ok) gsToast('✅ Im Garten gespeichert.', 'success');
-    else gsToast({body:'⚠️ Speicher fast voll — Eintrag konnte evtl. nicht dauerhaft gesichert werden. Bitte alte Fotos/Scans löschen.', type:'error', duration:6000});
+    gsToast('✅ Im Garten gespeichert.', 'success');   // v33.65: bei false steht die Pflanzung gar nicht mehr hier (oben zurueckgenommen)
   } catch(_){}
   try { if (typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch(_){} // v30.13 Block C
 }
@@ -78987,6 +79181,30 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.67', date: '19.11.2026',
+      headline: 'Einen laufenden Scan abbrechen — und ein neuer Scan ersetzt den alten',
+      summary: 'Scanner 4 (Hauptfunktionen). Gemessen am 19.11.2026: solange die KI rechnet, waren auf der Wartefläche nur Glocke und Menü antippbar; wer zurückging, bekam die Antwort trotzdem gezeichnet und gespeichert, und zwei Scans schrieben in dieselbe Fläche. Jetzt trägt jeder Scan eine Nummer (_gsScanNr); was nach einem await ankommt, gilt nur, solange es noch der laufende Scan derselben Person ist (_gilt). „Abbrechen“ (gsScanAbbrechen) führt zurück zur Kamera; abgebrochen wird die Folge, nicht der Aufruf an die KI. gsStartScanStatus mit seinen fünf erfundenen Meldungen ist entfernt. Prüfstand: scan_check AB1–AB4.',
+      user_summary: 'Du kannst einen Scan jetzt abbrechen, während er läuft. Startest du einen neuen, zählt nur noch der neue.',
+      user_items: [
+        {emoji:'✕', bold:'Abbrechen:', text:' auf der Wartefläche steht ein Knopf, der dich zurück zur Kamera bringt. Das Ergebnis des abgebrochenen Scans wird weder gezeigt noch gespeichert.'},
+        {emoji:'🔁', bold:'Ein Scan zur Zeit:', text:' ein neuer Scan ersetzt den laufenden — die ältere Antwort legt sich nicht mehr über die neuere.'},
+        {emoji:'ℹ️', bold:'Ehrlich zum Kontingent:', text:' war das Foto schon zur KI unterwegs, sagt dir die App, dass dieser Versuch für heute zählen kann.'}
+      ],
+  },
+  {
+    v: 'v33.66', date: '19.11.2026',
+      headline: 'Neu eingetragene Pflanzen gehen nicht mehr verloren und stehen sofort überall da',
+      summary: 'Auftrag P-F: Pflanzen und Gärten werden beim Anmelden EINZELN zusammengeführt (je Eintrag mit Änderungsstempel, gelöschte Einträge als Löschmarken) statt als ganze Liste ersetzt; das Abhaken, das ein zweites Gerät noch nicht gesendet hatte, überschreibt keine neue Pflanze mehr und eine gelöschte kommt nicht zurück. Beim Speichern wird erst gesichert, dann gemeldet: bei vollem Speicher wird die Pflanze, die Pflanzung oder das Abhaken zurückgenommen und ein Satz gesagt. Eine neue Pflanzung zieht Kopfzahlen, Tagesplan und Zähler sofort mit; eine Änderung während eines laufenden Sicherns geht nicht mehr verloren, und beim Schliessen gehen alle drei Pakete gleichzeitig hinaus.',
+      user_summary: 'Was du einträgst, bleibt: zwei Geräte überschreiben einander nicht mehr, und ist der Speicher voll, sagt dir die App das, statt „gespeichert“ zu melden.',
+      user_items: [
+        {emoji:'📱', bold:'Zwei Geräte, ein Konto:', text:' eine neue Pflanze oder ein neuer Garten von einem Gerät geht beim Anmelden auf dem anderen nicht mehr verloren — auch nicht durch ein Abhaken dort.'},
+        {emoji:'🗑️', bold:'Gelöscht bleibt gelöscht:', text:' eine Pflanze, die du auf einem Gerät löschst, kommt vom anderen nicht zurück.'},
+        {emoji:'💾', bold:'Ehrlich bei vollem Speicher:', text:' Pflanze, Pflanzung und Abhaken werden nur gemeldet, wenn sie wirklich gespeichert sind; sonst bleibt das Fenster offen und ein Satz sagt warum.'},
+        {emoji:'🌱', bold:'Sofort sichtbar:', text:' eine neue Pflanzung steht gleich in den Pflanzen-Zahlen, im Tagesplan und in den Zählern.'},
+        {emoji:'🌳', bold:'Garten ohne Garten:', text:' wählst du „Garten“, ohne einen angelegt zu haben, legt die App nicht still eine Wohnungs-Pflanze an.'}
+      ],
+  },
+  {
     v: 'v33.65', date: '19.11.2026',
       headline: 'Abhaken auf der Pflanzenkarte, Notfall-Nummern in der Suche, „Tödlich giftig“ lesbar — und die Übersetzungsleiste des Browsers soll nicht mehr aufpoppen',
       summary: 'Auftrag P-R: der Rest von PR #329 ohne den Zahlungsteil (der steht seit v33.63 auf main) auf den Stand von main gebracht; wo main dieselbe Stelle schon anders gelöst hatte (Scan-Auswahl, Art-Eingang, Rückkehr aus Stripe), gilt main. Abhaken: der Knopf auf der Pflanzenkarte schreibt einen Pflegeeintrag (gsQuickDone), „Alle erledigt“ zählt in Tagebuch, Kalender und Wochenrückblick als erledigt, und jeder Eintrag trägt seine eigene Zeit. Notfall: GS_NOTFALL_NUMMERN (Tox Info Suisse 145, Ausland, 144, 112) ist über die Menü-Suche in fünf Sprachen auffindbar. Artendetail: „Tödlich giftig“ und rund zwanzig weitere Stellen erreichen AA; die Verzehr-Zeile des Scanners wird aus der Gegenprobe gerechnet (_gsListeZumEssen, fünf Zustände). Foto-Ansicht (gsFotoAnsicht) mit escapter Adresse im Pflanzentagebuch; Saatgut-Leiste mit Aussaatfenster und Frost in drei Zuständen. Neu: translate="no" an <html> und <meta name="google" content="notranslate"> — Fernando meldete, die eingestellte Sprache poppe bei jedem Neuladen auf; im Code gibt es keinen Sprachdialog, vermutet wird die Übersetzungsleiste des Browsers. Gemessen ist das Dokument (i18n_check), nicht ein echtes Telefon. contrast_check und touch_check messen ganze Tabs und warten auf den Anmeldebildschirm (anmeldebildWeg); contrast_check, render_check und field_check sind ein Tor.',
@@ -79365,41 +79583,6 @@ window.GS_RELEASES = [
         {emoji:'📍', bold:'Selten, aber genau der richtige Fehler:', text:' mit geladener Liste ist der Zustand nicht erreichbar — S1 liefert immer ok oder warn (an sieben Ergebnisformen gemessen, darunter „gar nichts erkannt"). Er gehört dem Fehler auf dem GERÄT, den kein Prüfstand vor der Auslieferung sieht.'},
         {emoji:'🧪', bold:'scan_check P1 und P2:', text:' P1 rechnet die Stufe, P2 liest die GERENDERTE Überschrift (Regel aus v31.90). Beide mit Gegenrichtung „mit Liste unverändert"; zwei Gegenproben, einzeln rot (vierter Zustand ausgebaut → 2 rot, Überschrift wieder fest → 1 rot).'}
       ],
-    },
-  {
-    v: 'v33.46', date: '16.09.2026',
-      headline: 'Ein Sync, der klemmt, sagt es — dort, wo du bist',
-      summary: 'Ein unvollständiger Cloud-Abgleich landete bis hierher in der Browser-Konsole und sonst nirgends. Die Statuszeile in den Einstellungen sagte zwar das Richtige, stand aber in den Einstellungen — und kannte keinen Unterschied zwischen „seit einer Minute offen" und „seit drei Tagen offen". gsSyncStand() ist jetzt EINE Rechnung mit vier Zuständen, und ab 24 Stunden steht sie auf der Startseite.',
-      user_summary: 'Wenn deine Änderungen länger als einen Tag nicht in die Cloud kommen, obwohl du angemeldet und online bist, sagt es dir die Startseite — mit einem Knopf, der es sofort versucht. Bist du schlicht offline, passiert nichts: dafür ist die Warteschlange da.',
-      user_items: [
-        {emoji:'⚠️', bold:'Auf der Startseite:', text:' „3 Änderungen sind seit über 24 Stunden nicht gesichert" — mit „Jetzt sichern" daneben.'},
-        {emoji:'📶', bold:'Offline ist kein Fehler:', text:' ohne Verbindung oder abgemeldet warten die Änderungen einfach, und die App sagt nichts. Gemeldet wird nur, was klemmt, obwohl es gehen müsste.'},
-        {emoji:'✅', bold:'Die Antwort kommt nach dem Versuch:', text:' „Gesichert." erst, wenn es wirklich durch ist — sonst steht da, wie viel noch offen ist.'},
-        {emoji:'⚠️', bold:'Warnungen sehen wieder aus wie Warnungen:', text:' 77 Meldungen in der App standen mit einem Blatt-Symbol auf neutralem Grund, statt orange mit Warnzeichen. Das lag an einer Schreibweise im Code und ist an einer Stelle behoben.'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'gsSyncStand():', text:' vier Zustände — ok · unterwegs · klemmt · nicht_bekannt MIT GRUND. „Klemmt" verlangt alle drei Teile: es ist etwas offen UND die App könnte senden (angemeldet und online) UND die letzte vollständige Übertragung ist älter als GS_SYNC_KLEMMT_H (24 h) oder es gab nie eine. Zwei Anzeigen, eine Rechnung: der Tagesplan und die Statuszeile in den Einstellungen lesen dieselbe Funktion.'},
-        {emoji:'🔇', bold:'Ein Fehler, den nur die Konsole sieht, ist kein gemeldeter Fehler:', text:' dieselbe Klasse wie der wegdestrukturierte Fehler im daily-push-checker (v33.41), Prefer: return=minimal beim Quiz (v32.65) und die dreizehn Admin-Sektionen (v33.42).'},
-        {emoji:'🔕', bold:'Kein Alarm im Normalzustand:', text:' wer offline ist, klemmt nicht — genau dafür gibt es die Warteschlange. Eine Warnung, die bei jedem Flugmodus aufleuchtet, ist die Zahl, die man zu ignorieren lernt (v32.21).'},
-        {emoji:'📊', bold:'sync_stuck im Vokabular:', text:' zwei Zahlen (stunden, offen), nie welche Daten und nie wohin; stunden ist −1, wenn noch nie vollständig übertragen wurde. Einmal je Tag über gs_sync_klemmt_tag (in GS_USER_KEYS, geht mit dem Konto) — ein Ereignis bei jedem Rendern wäre Rauschen, kein Signal.'},
-        {emoji:'🧪', bold:'sync_check 7 → 10 Fälle:', text:' klemmt · unterwegs · offline klemmt NICHT · die Tages-Sperre. Vier Gegenproben, jede einzeln rot: Funktion umbenannt (3 rot), „lange" fest auf true (2 rot), der canPush-Zweig ausgehängt (1 rot), das Tagesgedächtnis entfernt (1 rot).'},
-        {emoji:'⚠️', bold:'Toast-Typ normiert (Nebenfund, beim Nachlesen der eigenen Zeile):', text:' gezählt über alle Aufrufe — error 142 · info 110 · success 96 · warn 77 · warning 55. „warn" ist die EINZIGE Schreibweise, die weder die Icon-Tabelle noch das CSS kennt (.gs-toast.warning ist orange, .gs-toast.warn gibt es nicht): 77 Warnungen trugen 🌿 auf neutralem Grund. EIN Tor in _gsToastShowNow statt 77 Pflaster (wie v32.16, v32.33); robust_check B5b misst Symbol UND Fläche, plus die Gegenrichtung.'}
-      ],
-    },
-  {
-    v: 'v33.45', date: '16.09.2026',
-      headline: 'Was demnächst abläuft, steht jetzt auf dem Bildschirm',
-      summary: 'v33.44 hat das Risiko-Inventar gebaut und im selben Atemzug notiert, was daran fehlt: eine Liste, die niemand liest, ist Speicherplatz. GS_FRISTEN rechnet sechs Fristen selbst aus — fünf live auf dem Gerät, eine gemessen mit Datum — und das Admin-Panel zeigt sie.',
-      user_summary: 'Diese Auslieferung betrifft nur das Admin-Panel. Für dich ändert sich nichts — sie sorgt dafür, dass Deckel und Fristen nicht erst auffallen, wenn sie erreicht sind.',
-      user_items: [
-        {emoji:'⏳', text:'Der Speicher auf deinem Gerät und die Deckel der App werden überwacht, bevor etwas voll ist.'}
-      ],
-      items: [
-        {emoji:'📋', bold:'GS_FRISTEN + gsFristenStand():', text:' zwei Arten — ein DATUM ist gemessen (mit Messdatum und Quelle daneben), eine SCHWELLE rechnet die App live. Vier Zustände: ok · bald (ab 80 %) · fällig · nicht_bekannt MIT GRUND.'},
-        {emoji:'⚖️', bold:'Am Deckel ist der Normalzustand, nicht der Alarm:', text:' das Changelog steht bei 20 von 20, und der nächste Bump schiebt den ältesten ins Archiv. ‚Fällig‘ ist erst DARÜBER — ein Alarm, der im Normalzustand steht, ist die Zahl, die man zu ignorieren lernt.'},
-        {emoji:'🧪', bold:'risiko_check R4:', text:' liest die GERENDERTE Karte, nicht das Objekt — und beide Richtungen: jeder Eintrag steht auf dem Bildschirm, und jedes Datum aus dem Inventar hat einen Eintrag. Die Gegenrichtung fehlte zuerst, und die Gegenprobe ‚eine Frist entfernt‘ blieb genau deshalb grün.'},
-        {emoji:'🏷️', bold:'GS_MESSWERTE_MAX:', text:' der Messwerte-Deckel hiess bis hierher nur 2000 an seiner Aufrufstelle. Ein Deckel ohne Namen steht in keinem Dokument und in keiner Regel.'}
-      ],
     }
 ];
 
@@ -79611,7 +79794,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.65';
+var GS_VERSION = 'v33.67';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -86840,6 +87023,7 @@ var GS_USER_KEYS = [
                  // steht hier, weil storage_check jeden Schluessel verlangt, der im Quelltext geschrieben wird.
   'gs_user_role','gs_is_admin', // v30.35 SECURITY: Rollen-Cache pro User (Stale-Role-Leak auf geteiltem Gerät)
   'gs_garden_plans','gs_garden_plan_current','gs_gardens','gs_plantings',
+  'gs_geloescht',       // v33.65: Loeschmarken der Pflanzen-/Garten-Listen (reisen im state-Blob)
   'gs_plans_v2',        // v33.59: gespeicherte Plaene (gsPlans) — Standort und Wuensche der Person
   'gs_sb_url','gs_sb_key', // v33.59: Altbestand — nie mehr gelesen; ein untergeschobenes Ziel geht spaetestens hier
   'ps_myplants','gs_gartentagebuch','gs_ernte_log','gs_harvest_log',
@@ -87117,13 +87301,43 @@ async function gsSyncUserDataOnLogin(){
     // flushNow() schrieb den (womoeglich leeren) lokalen Stand ueber die Cloud.
     // Genau der Datenverlust, gegen den der Guard gebaut wurde.
     var _pullErrors = 0;
+    // v33.65: der state-Blob ZUERST — er traegt die Loeschmarken, und die muessen vor den Listen
+    // bekannt sein (sonst steht ein auf dem anderen Geraet entfernter Eintrag hier wieder auf).
+    // Die Person darf zwischen den awaits nicht gewechselt haben (§3.6: _gsPerson).
+    var _person0 = (typeof _gsPerson === 'function') ? _gsPerson() : null;
+    var s = await sbFetch('/rest/v1/user_app_state?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
+    if (typeof _gsPerson === 'function' && _gsPerson() !== _person0) return;
+    var _tombLok = {};
+    try {
+      if (s && !s.error && Array.isArray(s.data) && s.data[0] && s.data[0].data && s.data[0].data.geloescht) {
+        var _ge = _gsGeloeschtEinlesen(s.data[0].data.geloescht);
+        if (_ge.nurLokal) { try { gsCloudSync.markDirty('state'); } catch(_){} }
+      }
+      _tombLok = _gsGeloeschtLesen();
+    } catch(_){}
     // user_gardens — Gardens, Plantings, Pläne
     var g = await sbFetch('/rest/v1/user_gardens?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
+    if (typeof _gsPerson === 'function' && _gsPerson() !== _person0) return;
     if (g && g.error) { _pullErrors++; console.warn('[gsSync] user_gardens-Pull fehlgeschlagen:', g.error.message); }
     if (g && !g.error && Array.isArray(g.data) && g.data[0] && g.data[0].data) {
       var d = g.data[0].data;
       var gUpdated = g.data[0].updated_at || null;
-      if (_shouldOverwriteLocal('garden', gUpdated)) {
+      var _gOver = _shouldOverwriteLocal('garden', gUpdated);
+      var _gDirty = (window.gsCloudSync && gsCloudSync.localDirtyAt) ? gsCloudSync.localDirtyAt('garden') : null;
+      // v33.65: Gaerten und Pflanzungen JE EINTRAG zusammenfuehren — auch wenn lokal ungesendet ist.
+      // Bis v33.64 gewann dann die ganze lokale Liste und ueberschrieb die Cloud (was ein anderes Geraet
+      // eingetragen hatte, war weg); sauber ersetzte die ganze Cloud-Liste die lokale.
+      var _gNeu = false;
+      [['gardens', 'gs_gardens'], ['plantings', 'gs_plantings']].forEach(function (par) {
+        if (!Array.isArray(d[par[0]])) return;
+        var lok = []; try { lok = JSON.parse(localStorage.getItem(par[1]) || '[]'); } catch(_){}
+        if (!Array.isArray(lok)) lok = [];
+        var m = _gsMergeEintraege(lok, d[par[0]], { schmutzig: !!_gDirty, tomb: _tombLok[par[1]] || {} });
+        _gsListeEinspielen(par[1], m.liste);   // v33.59: Sieb, Speicher UND Variable
+        if (!m.gleichCloud) _gNeu = true;
+      });
+      if (_gNeu) { try { gsCloudSync.markDirty('garden'); } catch(_){} }   // die zusammengefuehrte Fassung gehoert auch in die Cloud
+      if (_gOver) {
         // v27.01 EMPTY-CLOBBER-GUARD: leere Cloud-Garten-Daten dürfen populated local nicht überschreiben.
         var _cloudGardenEmpty = !(((d.plans&&d.plans.length))||((d.gardens&&d.gardens.length))||((d.plantings&&d.plantings.length)));
         var _localGardenHas = false;
@@ -87136,53 +87350,48 @@ async function gsSyncUserDataOnLogin(){
           try { gsCloudSync.markDirty('garden'); } catch(_){}
           console.warn('[gsSync] v27.01: cloud garden empty but local has data — keeping local + repairing cloud');
         } else {
-          // v33.59: der Blob eines anderen Geraets geht durch denselben Eingang wie ein Backup —
-          // Sieb, Speicher UND Variable (ohne die Variable legte renderGarden unten „Mein Garten" darueber).
           if (d.plans)     _gsListeEinspielen('gs_garden_plans', Array.isArray(d.plans) ? d.plans : []);
           if (d.current)   try { localStorage.setItem('gs_garden_plan_current', JSON.stringify(d.current)); } catch(_){}
-          if (d.gardens)   _gsListeEinspielen('gs_gardens', Array.isArray(d.gardens) ? d.gardens : []);
-          if (d.plantings) _gsListeEinspielen('gs_plantings', Array.isArray(d.plantings) ? d.plantings : []);
-          if (gUpdated) try { localStorage.setItem('gs_sync_synced_at_garden', gUpdated); } catch(_){}
+          if (gUpdated && !_gNeu) try { localStorage.setItem('gs_sync_synced_at_garden', gUpdated); } catch(_){}
         }
       }
     }
     // user_plants — myPlants + Diary + dead_plants + seed_inventory (v24.24)
     var p = await sbFetch('/rest/v1/user_plants?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
+    if (typeof _gsPerson === 'function' && _gsPerson() !== _person0) return;   // v33.65: eine Antwort gehoert der Person, die gefragt hat
     if (p && p.error) { _pullErrors++; console.warn('[gsSync] user_plants-Pull fehlgeschlagen:', p.error.message); }
     if (p && !p.error && Array.isArray(p.data) && p.data[0] && p.data[0].data) {
       var pd = p.data[0].data;
       var pUpdated = p.data[0].updated_at || null;
-      if (_shouldOverwriteLocal('plants', pUpdated)) {
-        if (Array.isArray(pd.plants)) {
-          // v27.01 EMPTY-CLOBBER-GUARD: eine leere Cloud-Liste darf NIE populated local überschreiben.
-          // Stattdessen local behalten + Cloud reparieren (Re-Push). Verhindert Boot-Race-Datenverlust.
-          var _localP = []; try { _localP = JSON.parse(gsStore.get('ps_myplants', null)||'[]'); } catch(_){}
-          var _localPN = Array.isArray(_localP) ? _localP.length : 0;
-          var _cloudPN = pd.plants.length;
-          var _plantsDirty = (window.gsCloudSync && gsCloudSync.localDirtyAt) ? gsCloudSync.localDirtyAt('plants') : null;
-          // v28.22 P0: COUNT-GUARD — eine kleinere Cloud-Liste darf eine grössere lokale NIE
-          // ersetzen, solange lokal ungepushte Änderungen vorliegen (schützt vor Boot-Race UND
-          // Clock-Skew-Datenverlust; Fernando-Bug „letzte Pflanze nach Reload weg"). Bei sauberem
-          // lokalen Stand bleibt Cloud autoritativ (Löschungen von anderen Geräten propagieren).
-          // Leere-Cloud-Guard (v27.01) bleibt als Spezialfall enthalten.
-          var _keepLocalPlants = (_localPN > 0) && (_cloudPN === 0 || (_cloudPN < _localPN && _plantsDirty));
-          if (!_keepLocalPlants) {
-            _gsListeEinspielen('ps_myplants', pd.plants);   // v33.59: Sieb, Speicher, Variable
-          } else {
-            try { gsCloudSync.markDirty('plants'); } catch(_){}
-            try { if (typeof renderMyPlants === 'function') setTimeout(renderMyPlants, 60); } catch(_){}
-            console.warn('[gsSync] v28.22 count-guard: cloud plants (' + _cloudPN + ') < local (' + _localPN + ') mit ungepushten Änderungen — local behalten + Cloud reparieren');
-          }
+      var _pOver = _shouldOverwriteLocal('plants', pUpdated);
+      var _pDirty = (window.gsCloudSync && gsCloudSync.localDirtyAt) ? gsCloudSync.localDirtyAt('plants') : null;
+      var _pNeu = false;
+      if (Array.isArray(pd.plants)) {
+        var _localP = []; try { _localP = JSON.parse(gsStore.get('ps_myplants', null)||'[]'); } catch(_){}
+        if (!Array.isArray(_localP)) _localP = [];
+        // v33.65: JE EINTRAG zusammenfuehren, auch bei ungesendeten lokalen Aenderungen (vorher: die ganze
+        // lokale Liste gewann und ueberschrieb die Cloud, sonst ersetzte die ganze Cloud-Liste die lokale —
+        // eine auf einem anderen Geraet neu eingetragene Pflanze ging so verloren). Die Waechter von v27.01
+        // (leere Cloud) und v28.22 (kleinere Cloud) sind darin aufgegangen: ein nur lokaler Eintrag bleibt immer.
+        var _m = _gsMergeEintraege(_localP, pd.plants, { schmutzig: !!_pDirty, tomb: _tombLok['ps_myplants'] || {} });
+        _gsListeEinspielen('ps_myplants', _m.liste);   // v33.59: Sieb, Speicher, Variable
+        if (!_m.gleichCloud) {
+          _pNeu = true;
+          try { gsCloudSync.markDirty('plants'); } catch(_){}
+          try { if (typeof renderMyPlants === 'function') setTimeout(renderMyPlants, 60); } catch(_){}
+          console.warn('[gsSync] v33.65: Pflanzen zusammengefuehrt — Cloud (' + pd.plants.length + ') und lokal (' + _localP.length + ') ergeben ' + _m.liste.length + '; Cloud wird nachgezogen');
         }
+      }
+      if (_pOver) {
         if (pd.diary) _gsListeEinspielen('gs_gartentagebuch', Array.isArray(pd.diary) ? pd.diary : []);
         if (pd.dead_plants) _gsListeEinspielen('gs_dead_plants', Array.isArray(pd.dead_plants) ? pd.dead_plants : []);
         if (pd.seed_inventory) try { gsStore.set('gs_seed_inventory', JSON.stringify(pd.seed_inventory)); } catch(_){}
-        if (pUpdated) try { localStorage.setItem('gs_sync_synced_at_plants', pUpdated); } catch(_){}
+        if (pUpdated && !_pNeu) try { localStorage.setItem('gs_sync_synced_at_plants', pUpdated); } catch(_){}
       }
     }
     // v24.24: user_app_state — alles was nicht in plants/garden gehört
     try {
-      var s = await sbFetch('/rest/v1/user_app_state?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
+      // (v33.65: `s` wurde oben schon geholt — vor den Listen, wegen der Loeschmarken)
       if (s && s.error) { _pullErrors++; console.warn('[gsSync] user_app_state-Pull fehlgeschlagen:', s.error.message); }
       if (s && !s.error && Array.isArray(s.data) && s.data[0] && s.data[0].data) {
         var sd = s.data[0].data;
@@ -87450,6 +87659,7 @@ window.gsCloudSync = (function(){
   var LAST_PUSH_KEY = 'gs_sync_last_push';
   var debounceTimer = null;
   var inFlight = false;
+  var nochmal = false;   // v33.65: ein Flush traf auf einen laufenden
 
   function _getDirty(){ try { return JSON.parse(localStorage.getItem(DIRTY_KEY) || '{}'); } catch(_){ return {}; } }
   function _setDirty(d){ try { localStorage.setItem(DIRTY_KEY, JSON.stringify(d)); } catch(_){} }
@@ -87492,7 +87702,11 @@ window.gsCloudSync = (function(){
   async function _flush(sync){
     if (debounceTimer){ clearTimeout(debounceTimer); debounceTimer = null; }
     if (!_canPush()) return;
-    if (inFlight) return;
+    // v33.65: ein Sofort-Flush (App wird geschlossen/verborgen) laeuft auch, wenn gerade ein entprellter
+    // Push unterwegs ist — der wurde VOR der letzten Aenderung gebaut; ihn abzuwarten hiesse, die Aenderung
+    // dem Schliessen zu opfern. Ein entprellter Flush, der auf einen laufenden trifft, merkt sich das und
+    // laeuft danach noch einmal (statt bis zum 30-s-Takt zu warten).
+    if (inFlight && !sync) { nochmal = true; return; }
     // v29.28 (Review-P3): während eines laufenden Pulls keine asynchronen Pushes (Pull/Push-Race
     // vermeiden — der Pull entscheidet LWW). sync=true (beforeunload/pagehide) läuft trotzdem,
     // sonst droht Datenverlust beim App-Schliessen. dirty bleibt erhalten → Flush nach dem Pull.
@@ -87502,6 +87716,11 @@ window.gsCloudSync = (function(){
       var d = _getDirty();
       var stillDirty = {};
       var _gepusht = 0;   // v33.59: was in DIESEM Lauf wirklich hinausging (siehe Stempel unten)
+      // v33.65: Beim Schliessen (sync) gehen die drei Blobs GLEICHZEITIG los. Bis v33.64 wartete der
+      // Garten-Blob auf die Antwort des Pflanzen-Blobs — nach dem Verbergen der App kommt die nie, und
+      // der zweite und dritte Blob blieben ungesendet. Jeder Push laeuft bis zu seinem fetch
+      // synchron, also steht die Anfrage (keepalive) draussen, bevor die Seite eingefroren wird.
+      var _auftraege = [];
       // Push Plants-Blob
       if (d.plants) {
         // v27.01 BOOT-RACE-GUARD: vor dem ersten erfolgreichen Pull NIE einen leeren plants-Blob
@@ -87510,8 +87729,7 @@ window.gsCloudSync = (function(){
         if (!window._gsInitialSyncDone && (!_pblob.plants || _pblob.plants.length === 0)) {
           stillDirty.plants = d.plants; // dirty behalten → nach dem Pull erneut versuchen
         } else {
-          var ok = await _pushBlob('user_plants', _pblob, sync);
-          if (!ok) stillDirty.plants = d.plants; else _gepusht++;
+          _auftraege.push({ scope: 'plants', p: _pushBlob('user_plants', _pblob, sync) });
         }
       }
       // Push Garden-Blob
@@ -87521,8 +87739,7 @@ window.gsCloudSync = (function(){
         if (!window._gsInitialSyncDone && _gEmpty) {
           stillDirty.garden = d.garden;
         } else {
-          var ok2 = await _pushBlob('user_gardens', _gblob, sync);
-          if (!ok2) stillDirty.garden = d.garden; else _gepusht++;
+          _auftraege.push({ scope: 'garden', p: _pushBlob('user_gardens', _gblob, sync) });
         }
       }
       // v24.24: Push State-Blob
@@ -87542,9 +87759,13 @@ window.gsCloudSync = (function(){
         if (!window._gsInitialSyncDone && _stEmpty) {
           stillDirty.state = d.state; // dirty behalten → nach dem Pull erneut versuchen
         } else {
-          var ok3 = await _pushBlob('user_app_state', _sblob, sync);
-          if (!ok3) stillDirty.state = d.state; else _gepusht++;
+          _auftraege.push({ scope: 'state', p: _pushBlob('user_app_state', _sblob, sync) });
         }
+      }
+      for (var _ai = 0; _ai < _auftraege.length; _ai++) {
+        var _okA = false;
+        try { _okA = await _auftraege[_ai].p; } catch(_){ _okA = false; }
+        if (!_okA) stillDirty[_auftraege[_ai].scope] = d[_auftraege[_ai].scope]; else _gepusht++;
       }
       // Drain Pending-Queue (granulare Operationen: harvest_add/del, tb_add/del)
       var q = _getQueue();
@@ -87555,6 +87776,12 @@ window.gsCloudSync = (function(){
         if (!done) remaining.push(op); else _gepusht++;
       }
       _setQueue(remaining);
+      // v33.65: eine Aenderung, die WAEHREND dieses Pushes vorgemerkt wurde (anderer Zeitstempel als
+      // beim Start), bleibt vorgemerkt. Bis v33.64 ueberschrieb `_setDirty(stillDirty)` den Stand mit dem
+      // vom Beginn — die Aenderung war danach in keinem Push und fuer den naechsten Abgleich „sauber":
+      // sie ging beim naechsten Anmelden an die Cloud verloren.
+      var _jetztDirty = _getDirty();
+      Object.keys(_jetztDirty).forEach(function(sc){ if (_jetztDirty[sc] !== d[sc]) stillDirty[sc] = _jetztDirty[sc]; });
       _setDirty(stillDirty);
       // v31.02: Den Zeitstempel NUR bei vollstaendigem Erfolg setzen. Vorher stand
       // er hier bedingungslos — auch wenn jeder Push in einen 401 lief und
@@ -87585,6 +87812,7 @@ window.gsCloudSync = (function(){
       console.warn('[gsCloudSync] flush error', e);
     } finally {
       inFlight = false;
+      if (nochmal) { nochmal = false; flushDebounced(); }
     }
   }
 
@@ -87638,6 +87866,7 @@ window.gsCloudSync = (function(){
     // heisst: Gerät B bekommt „10", hat aber kein gs_last_login → beim nächsten
     // Start sieht es eine Lücke, setzt auf 1 und schiebt die 1 in die Cloud.
     // Der Login-Streak fiel dadurch auf 1, sobald ein zweites Gerät im Spiel war.
+    try { data.geloescht = JSON.parse(localStorage.getItem('gs_geloescht')||'{}'); } catch(_){ data.geloescht = {}; }   // v33.65: Loeschmarken (Rueckweg: Vereinigung beim Anmelden)
     try { data.last_login = localStorage.getItem('gs_last_login') || ''; } catch(_){}
     try { data.streak_sig = localStorage.getItem('gs_streak_sig') || ''; } catch(_){}
     try { data.streak_stamp = localStorage.getItem('gs_streak_stamp') || ''; } catch(_){}
@@ -87716,10 +87945,13 @@ window.gsCloudSync = (function(){
     var url = '/rest/v1/' + table + '?on_conflict=user_id';
     // v24.23: bei Erfolg speichern wir den Push-Timestamp + clearen den dirty-Marker
     var scope = (table === 'user_plants') ? 'plants' : (table === 'user_gardens' ? 'garden' : (table === 'user_app_state' ? 'state' : null));
+    var _dirtyAtVorher = null;
+    try { _dirtyAtVorher = scope ? localStorage.getItem('gs_sync_dirty_at_' + scope) : null; } catch(_){}
     var _markSuccess = function(){
       if (!scope) return;
       try { localStorage.setItem('gs_sync_synced_at_' + scope, pushTs); } catch(_){}
-      try { localStorage.removeItem('gs_sync_dirty_at_' + scope); } catch(_){}
+      // v33.65: nur wegraeumen, was dieser Push wirklich gesendet hat — eine spaetere Aenderung bleibt vorgemerkt
+      try { if (localStorage.getItem('gs_sync_dirty_at_' + scope) === _dirtyAtVorher) localStorage.removeItem('gs_sync_dirty_at_' + scope); } catch(_){}
     };
     if (sync && navigator.sendBeacon) {
       // Beacon-Pfad — beforeunload, kein Auth-Header möglich. Wir nutzen Fallback-RPC
@@ -88376,6 +88608,7 @@ function _gsApplyStateBlob(b){
     push_settings:'gs_push_settings', user_location:'gs_user_location', sae_search:'gs_sae_search', sae_cat:'gs_sae_cat'
   };
   try { Object.keys(map).forEach(function(f){ if (b[f] != null) _gsRestoreKey(map[f], b[f]); }); } catch(_){}
+  try { if (b.geloescht && typeof b.geloescht === 'object') _gsGeloeschtEinlesen(b.geloescht); } catch(_){}   // v33.65: Vereinigung, nie Ersatz
   try { if (typeof window._gsStreakApplyCloud === 'function') window._gsStreakApplyCloud(b); } catch(_){}
   try { if (typeof window._gsLoginStreakApplyCloud === 'function') window._gsLoginStreakApplyCloud(b); } catch(_){}
   try { if (b.ui && typeof b.ui==='object') ['dark','theme_color','lang'].forEach(function(k){ if (b.ui[k]!=null) _gsRestoreKey('gs_'+k, b.ui[k]); }); } catch(_){}

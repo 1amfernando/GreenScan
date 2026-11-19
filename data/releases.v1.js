@@ -30,6 +30,41 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.46', date: '16.09.2026',
+      headline: 'Ein Sync, der klemmt, sagt es — dort, wo du bist',
+      summary: 'Ein unvollständiger Cloud-Abgleich landete bis hierher in der Browser-Konsole und sonst nirgends. Die Statuszeile in den Einstellungen sagte zwar das Richtige, stand aber in den Einstellungen — und kannte keinen Unterschied zwischen „seit einer Minute offen" und „seit drei Tagen offen". gsSyncStand() ist jetzt EINE Rechnung mit vier Zuständen, und ab 24 Stunden steht sie auf der Startseite.',
+      user_summary: 'Wenn deine Änderungen länger als einen Tag nicht in die Cloud kommen, obwohl du angemeldet und online bist, sagt es dir die Startseite — mit einem Knopf, der es sofort versucht. Bist du schlicht offline, passiert nichts: dafür ist die Warteschlange da.',
+      user_items: [
+        {emoji:'⚠️', bold:'Auf der Startseite:', text:' „3 Änderungen sind seit über 24 Stunden nicht gesichert" — mit „Jetzt sichern" daneben.'},
+        {emoji:'📶', bold:'Offline ist kein Fehler:', text:' ohne Verbindung oder abgemeldet warten die Änderungen einfach, und die App sagt nichts. Gemeldet wird nur, was klemmt, obwohl es gehen müsste.'},
+        {emoji:'✅', bold:'Die Antwort kommt nach dem Versuch:', text:' „Gesichert." erst, wenn es wirklich durch ist — sonst steht da, wie viel noch offen ist.'},
+        {emoji:'⚠️', bold:'Warnungen sehen wieder aus wie Warnungen:', text:' 77 Meldungen in der App standen mit einem Blatt-Symbol auf neutralem Grund, statt orange mit Warnzeichen. Das lag an einer Schreibweise im Code und ist an einer Stelle behoben.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsSyncStand():', text:' vier Zustände — ok · unterwegs · klemmt · nicht_bekannt MIT GRUND. „Klemmt" verlangt alle drei Teile: es ist etwas offen UND die App könnte senden (angemeldet und online) UND die letzte vollständige Übertragung ist älter als GS_SYNC_KLEMMT_H (24 h) oder es gab nie eine. Zwei Anzeigen, eine Rechnung: der Tagesplan und die Statuszeile in den Einstellungen lesen dieselbe Funktion.'},
+        {emoji:'🔇', bold:'Ein Fehler, den nur die Konsole sieht, ist kein gemeldeter Fehler:', text:' dieselbe Klasse wie der wegdestrukturierte Fehler im daily-push-checker (v33.41), Prefer: return=minimal beim Quiz (v32.65) und die dreizehn Admin-Sektionen (v33.42).'},
+        {emoji:'🔕', bold:'Kein Alarm im Normalzustand:', text:' wer offline ist, klemmt nicht — genau dafür gibt es die Warteschlange. Eine Warnung, die bei jedem Flugmodus aufleuchtet, ist die Zahl, die man zu ignorieren lernt (v32.21).'},
+        {emoji:'📊', bold:'sync_stuck im Vokabular:', text:' zwei Zahlen (stunden, offen), nie welche Daten und nie wohin; stunden ist −1, wenn noch nie vollständig übertragen wurde. Einmal je Tag über gs_sync_klemmt_tag (in GS_USER_KEYS, geht mit dem Konto) — ein Ereignis bei jedem Rendern wäre Rauschen, kein Signal.'},
+        {emoji:'🧪', bold:'sync_check 7 → 10 Fälle:', text:' klemmt · unterwegs · offline klemmt NICHT · die Tages-Sperre. Vier Gegenproben, jede einzeln rot: Funktion umbenannt (3 rot), „lange" fest auf true (2 rot), der canPush-Zweig ausgehängt (1 rot), das Tagesgedächtnis entfernt (1 rot).'},
+        {emoji:'⚠️', bold:'Toast-Typ normiert (Nebenfund, beim Nachlesen der eigenen Zeile):', text:' gezählt über alle Aufrufe — error 142 · info 110 · success 96 · warn 77 · warning 55. „warn" ist die EINZIGE Schreibweise, die weder die Icon-Tabelle noch das CSS kennt (.gs-toast.warning ist orange, .gs-toast.warn gibt es nicht): 77 Warnungen trugen 🌿 auf neutralem Grund. EIN Tor in _gsToastShowNow statt 77 Pflaster (wie v32.16, v32.33); robust_check B5b misst Symbol UND Fläche, plus die Gegenrichtung.'}
+      ],
+    },
+  {
+    v: 'v33.45', date: '16.09.2026',
+      headline: 'Was demnächst abläuft, steht jetzt auf dem Bildschirm',
+      summary: 'v33.44 hat das Risiko-Inventar gebaut und im selben Atemzug notiert, was daran fehlt: eine Liste, die niemand liest, ist Speicherplatz. GS_FRISTEN rechnet sechs Fristen selbst aus — fünf live auf dem Gerät, eine gemessen mit Datum — und das Admin-Panel zeigt sie.',
+      user_summary: 'Diese Auslieferung betrifft nur das Admin-Panel. Für dich ändert sich nichts — sie sorgt dafür, dass Deckel und Fristen nicht erst auffallen, wenn sie erreicht sind.',
+      user_items: [
+        {emoji:'⏳', text:'Der Speicher auf deinem Gerät und die Deckel der App werden überwacht, bevor etwas voll ist.'}
+      ],
+      items: [
+        {emoji:'📋', bold:'GS_FRISTEN + gsFristenStand():', text:' zwei Arten — ein DATUM ist gemessen (mit Messdatum und Quelle daneben), eine SCHWELLE rechnet die App live. Vier Zustände: ok · bald (ab 80 %) · fällig · nicht_bekannt MIT GRUND.'},
+        {emoji:'⚖️', bold:'Am Deckel ist der Normalzustand, nicht der Alarm:', text:' das Changelog steht bei 20 von 20, und der nächste Bump schiebt den ältesten ins Archiv. ‚Fällig‘ ist erst DARÜBER — ein Alarm, der im Normalzustand steht, ist die Zahl, die man zu ignorieren lernt.'},
+        {emoji:'🧪', bold:'risiko_check R4:', text:' liest die GERENDERTE Karte, nicht das Objekt — und beide Richtungen: jeder Eintrag steht auf dem Bildschirm, und jedes Datum aus dem Inventar hat einen Eintrag. Die Gegenrichtung fehlte zuerst, und die Gegenprobe ‚eine Frist entfernt‘ blieb genau deshalb grün.'},
+        {emoji:'🏷️', bold:'GS_MESSWERTE_MAX:', text:' der Messwerte-Deckel hiess bis hierher nur 2000 an seiner Aufrufstelle. Ein Deckel ohne Namen steht in keinem Dokument und in keiner Regel.'}
+      ],
+    },
+  {
     v: 'v33.44', date: '16.09.2026',
       headline: 'Was später schiefgeht — gemessen, bevor es passiert',
       summary: 'Die Wochen-Tipps werden nur nach Kalenderwoche ausgewählt, wiederholen sich also jedes Jahr — und elf davon nannten ein Jahr im Sinn von ‚dieses Jahr‘. Ab dem 1. Januar 2027 hätte die App in Woche 13 von einer Pilzsaison erzählt, die vorbei ist. Bereinigt, und ein neuer Prüfstand hält es fest.',
@@ -60,7 +95,7 @@ window.GS_RELEASES_ARCHIVE = [
         {emoji:'📱', bold:'gsLaeuftAlsApp():', text:' ein Prädikat statt zwei. Nur das des Install-Banners kannte die Android-Hülle (referrer android-app://); der Push-Weg und der Druck-Rückfall hängen jetzt an derselben Rechnung.'},
         {emoji:'🧪', bold:'scripts/android_check.js (neu, 37. Prüfstand):', text:' neun Fragen, acht davon rot gegen v33.42. Drei meiner eigenen Fälle massen zuerst nichts — die Gegenproben haben es gezeigt; sie gehen jetzt den ECHTEN Weg (history.back → popstate) statt die Funktion direkt zu rufen. docs/ANDROID-APK.md nennt die Handgriffe und die Risiken.'}
       ],
-  },
+    },
   {
     v: 'v33.42', date: '16.09.2026',
       headline: 'Admin-Panel: was nicht geladen hat, sagt es — und lässt sich einzeln nachholen',
