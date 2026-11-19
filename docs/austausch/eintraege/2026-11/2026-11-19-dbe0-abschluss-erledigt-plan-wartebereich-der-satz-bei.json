@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-19-dbe0",
+  "art": "abschluss",
+  "datum": "2026-11-19",
+  "zeit": "15:30:49",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.68",
+  "titel": "erledigt: Plan-Wartebereich: der Satz bei parkGrund 'fehler' sagt 'Speicher voll', und der Deckel gilt für alle Konten oder keines",
+  "ergebnis": "erledigt",
+  "wohin": "ccr-5e705a36-jveaak, v33.68 (Platzhalter): parken je Konto, eigene Sätze für fehler / deckel / deckel_anderes_konto über _gsAbmeldenSagen — speicher_check, sicherheit_check 98_schluss_b",
+  "geschwister": "gesucht: alle Sätze in gsClearUserDataKeys beim Parken (sechs), alle unter 120 Zeichen und über _gsSatz; der Deckel-Teil in 98_schluss_b war seit g1 leer grün und misst jetzt",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-16-7ebf"
+    }
+  ]
+}

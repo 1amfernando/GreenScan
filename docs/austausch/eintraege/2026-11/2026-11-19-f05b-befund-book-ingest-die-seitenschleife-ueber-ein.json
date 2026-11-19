@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-19-f05b",
+  "art": "befund",
+  "datum": "2026-11-19",
+  "zeit": "15:30:24",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.68",
+  "titel": "book-ingest: die Seitenschleife über ein PDF läuft nach einem Kontowechsel mit dem Token der nächsten Person weiter",
+  "vorschlag": "Person vor der Schleife merken (_gsPersonJetzt) und vor jedem Aufruf _gsPersonAnders fragen — Muster gsMapFinds._uploadLocalOnly.",
+  "beleg": [
+    "Admin-Weg, rohes fetch, das Token wird je Aufruf frisch geholt — die Person wird nicht gemerkt (am Code gelesen, nicht gemessen; Gegenprüfung ki-wege 19.11.2026)"
+  ],
+  "stichworte": [
+    "book-ingest",
+    "admin",
+    "person_gewechselt"
+  ]
+}

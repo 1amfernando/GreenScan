@@ -331,7 +331,7 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 | Bezahl-Regeln (seit v33.59; seit v33.63 EIN Modul für den ganzen Zahlungsweg — PR #329 hatte daneben `stripe_regeln.mjs`, das es nicht mehr gibt) | `supabase/functions/_shared/zahlung_regeln.mjs` — was gekauft werden darf (`checkoutPlan`: kein zweites Abo neben einem laufenden, nichts neben Lifetime; Stripe wird gefragt, ob das Abo läuft), was an Checkout geht (`checkoutParameter` / `CHECKOUT_PARAMETER` — nie `automatic_payment_methods`), welcher Kunde (`kundeFinden`), welches Abo „kündigen“ meint (`portalZiel`), welche Ereignisse der Webhook kennt UND der Endpunkt abonniert (`STRIPE_EREIGNISSE`, `stripe-admin-extend-webhook`), Abo-Zeile in beiden API-Formen (`aboZeile`, `aboIdAusRechnung`), Modus von Ereignis und Schlüssel (`modusPasst`); Preis (`preisErlaubt`), Rückkehr-Adresse (`EIGENE_URSPRUENGE`, `rueckkehrAdresse`), Startangebot (`launchAngebot`), Gratistage, Reihenfolge der Ereignisse (`ereignisIstNeuer`), Entzug einer Lifetime, Experten-Zahlung, „gibt es das Konto noch?“ (`kontoFehlt` — nur 23503 auf `user_id`: ein Abo- oder Rechnungsereignis eines gelöschten Kontos wird mit 200 abgeschlossen und in `system_events` vermerkt; 23503 auf `price_id` heilt und wirft weiter, ein Lifetime-Kauf ohne Konto bleibt 500) | nie ein Preis, eine Adresse oder ein Flag aus dem Rumpf der Anfrage übernehmen; eine Zahlung setzt nie einen Zustand, den ein MENSCH bestätigen soll (`expertenZahlungFelder` schreibt nie `verified`) |
 | Erfolgsmeldung nach einer Zahlung (seit v33.59) | `_gsBillingPruefen()` — erst wenn `v_user_entitlements` einen bezahlten Plan zeigt | nie `?billing=success` oder eine Popup-Nachricht als Beleg nehmen |
 | Push-Dienste (seit v33.59) | `PUSH_HOSTS` / `pushEndpunktOk` in `_shared/push_helfer.mjs`, gebunden an den CHECK `push_subscriptions_endpoint_push_dienst` der Migration `20261110_sicherheit_konto_speicher.sql`; Abos je Nutzer `ABOS_JE_NUTZER` (10) = Deckel `fn_push_subs_deckel` | an einen Endpunkt senden, den keine der beiden Listen kennt — den Endpunkt schreibt die Person selbst; eine der zwei Zahlen allein ändern (`edge_check` 30_push hält beide) |
-| Gespeicherte Pläne (seit v33.59) | `gs_plans_v2` (in `GS_USER_KEYS`, geht beim Abmelden) über `gsPlans`; nur lokal gespeicherte warten mit `uid` gestempelt in `gs_plans_wartend` (`GS_KEEP_ON_LOGOUT`, 20 je Konto, 90 Tage ab dem PARKEN — `e.geparkt`, seit der Gesamtprüfung vom 16.11.2026), bis DASSELBE Konto wiederkommt; `gsPlans.parken` gibt −1 zurück, wenn der Schreibversuch scheitert ODER der Deckel (20 je Konto) einen nicht abgelaufenen Plan verdrängen würde — es schreibt dann nichts, `gsPlans.parkGrund()` sagt `speicher_voll` · `deckel` · `fehler`, und der Satz beim Abmelden nennt den Grund; dann räumt `gsClearUserDataKeys` zuerst alles andere, parkt ein zweites Mal und lässt sonst nur liegen, was `gsPlans.bewahrbar()` zulässt (jeder Eintrag trägt eine uid) — und davon nur die lokalen (`gsPlans.nurLokalBehalten`). `writeLS` kürzt nur Einträge, die auch in der Cloud liegen (`kuerzen`): ein nur lokaler Plan bleibt immer | einen Plan ohne Eigentümer einem anderen Konto zeigen; beim Abmelden wegwerfen, was noch nicht oben ist; die einzige Kopie löschen, bevor der Rettungsweg „geschrieben“ gemeldet hat; eine Liste „zur Not“ kürzen, in der die einzige Kopie eines Plans liegt |
+| Gespeicherte Pläne (seit v33.59) | `gs_plans_v2` (in `GS_USER_KEYS`, geht beim Abmelden) über `gsPlans`; nur lokal gespeicherte warten mit `uid` gestempelt in `gs_plans_wartend` (`GS_KEEP_ON_LOGOUT`, 20 je Konto, 90 Tage ab dem PARKEN — `e.geparkt`, seit der Gesamtprüfung vom 16.11.2026), bis DASSELBE Konto wiederkommt; `gsPlans.parken` parkt seit dem 19.11.2026 JE KONTO, was unter dessen Deckel (20) passt — ein schon wartender Plan behält seinen Platz, neue füllen freie Plätze, die neuesten zuerst; −1 heisst „`gs_plans_v2` bleibt liegen“ (Schreibversuch gescheitert, Fehler oder ein Teil passt nicht), `gsPlans.parkGrund()` sagt `speicher_voll` · `fehler` · `deckel` · `deckel_anderes_konto`, und der Satz beim Abmelden (`_gsAbmeldenSagen`) nennt den Grund; dann räumt `gsClearUserDataKeys` zuerst alles andere, parkt ein zweites Mal und lässt sonst nur liegen, was `gsPlans.bewahrbar()` zulässt (jeder Eintrag trägt eine uid) — und davon nur die lokalen, ohne das eben Geparkte (`gsPlans.nurLokalBehalten`). `writeLS` kürzt nur Einträge, die auch in der Cloud liegen (`kuerzen`): ein nur lokaler Plan bleibt immer | einen Plan ohne Eigentümer einem anderen Konto zeigen; beim Abmelden wegwerfen, was noch nicht oben ist; die einzige Kopie löschen, bevor der Rettungsweg „geschrieben“ gemeldet hat; eine Liste „zur Not“ kürzen, in der die einzige Kopie eines Plans liegt |
 | Eigene Listen aus fremder Hand (seit v33.59) | `_gsListeEinspielen(schluessel, liste, opts)` mit der Tabelle `GS_LISTEN_EINGANG` — Sieb, Speicher UND Variable in einem Schritt; die Variable wird nur gesetzt, wenn der Schreibversuch gelang. Backup-Import, Login-Abgleich (alle Zweige), Snapshot (`_gsRestoreKey`), `gsGardenSync.pullAll` und „Meine Garten-Pläne“ (`gsPPopenSavedPlans`: siebt die Cloud-Listen VOR dem Mischen, sonst stehen gesiebte und rohe Fassung nebeneinander) gehen hindurch. **Dieselbe Tabelle sagt, was beim Abmelden geht:** `gsClearUserDataKeys` setzt jede Variable und jeden Cache aus `GS_LISTEN_EINGANG` zurück, dazu die Spiegel ausserhalb (`favs`, `myVotes`, `marketChats`, `myBids`, `myPurchases`, `weatherCache`, `socialUserName`); und der Login-Abgleich liest `favs`/`myVotes` nach dem Holen neu — wer einen Eintrag hinzufügt, hat beide Richtungen | eine Liste (`gs_gardens`, `gs_plantings`, `ps_myplants`, `gs_gartentagebuch`, `gs_ernte_log`, `gs_garden_plans`, `gs_dead_plants`) aus Cloud, Snapshot oder Datei direkt schreiben — oder nur die Variable setzen (`gardens = d.gardens`); `sicherheit_check` 98_schluss_e findet jeden Schreiber |
 | Bild eines ANDEREN Nutzers (seit v33.59) | `_gsFremdBild(u)` — nur der eigene Supabase-Speicher (`SB_URL_DEFAULT` + `/storage/v1/object/public/`) oder `data:image`; serverseitig dieselbe Regel in `fn_gs_bild_url_ok` (Migration `20261110_sicherheit_community_markt.sql`, nicht angewandt) | `_gsSafeUrl` für fremde Bilder — es prüft nur das Schema, und ein fremder Host zählt jeden Betrachter mit |
 
@@ -385,7 +385,11 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   — auch der Pilz-Scanner. Deshalb gilt beim Ausliefern: **erst die Migration,
   dann die Functions** (FUER-FERNANDO §30). Stand 11.11.2026: weder die Migration
   angewandt noch eine Function mit Tor ausgeliefert; live laufen die sechs
-  KI-Functions von v33.58 ohne Tor.
+  KI-Functions von v33.58 ohne Tor. **Nachgemessen am 19.11.2026 (nur lesend):** die
+  Migration ist seit dem 16.11. um 11:28 UTC angewandt (`fn_ai_kontingent_*`,
+  SECURITY DEFINER, nur `service_role`), und die sechs KI-Functions laufen seit
+  11:29–11:32 UTC mit dem Tor — in dieser Reihenfolge, wie oben verlangt (Brett
+  `2026-11-19-c3f3`).
 - **Eine KI-Zeile, die in eine Tabelle geht, läuft durch eine Erlaubnisliste der
   Spalten** (`kiSchemaSpalten`, `kiZeileOk`) — gelesen aus dem Schema-TEXT, mit
   dem das Modell angewiesen wird, nicht aus einer zweiten Liste daneben.
@@ -477,6 +481,13 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   Fehlerfall wartet: der Offline-Rückfall der Wissenssuche hing an genau so
   einem `catch` und lief nie (gefunden v33.59, `sicherheit_check`
   95_nebenbefunde). Wer einen Rückfall braucht, prüft `r.error`.
+  **Seit dem 19.11.2026 kennt es einen Fehler mehr:** wechselte die Person zwischen
+  Anfrage und Antwort (abgemeldet, anderes Konto), kommt
+  `{data:null, error:{message:'person_gewechselt', code:'person_gewechselt', status:0}}`
+  zurück — §3.6, „Eine Antwort nach einem `await`“. Achtung: `status` 0 sieht für eine
+  alte Prüfung wie ein Netzfehler aus. Wer bei einem Fehler EINREIHT oder es später
+  erneut versucht, fragt zuerst `_gsPersonGewechselt(r)` — sonst reiht er die Arbeit
+  von A für B ein.
   Wer eine Antwort auswerten will, nimmt `.then` oder `await` — und prüft
   `_gsSchreibOk(r)` (Ablehnung ODER 0 Zeilen), nie nur `r.error`.
   **Ein Nein ist nicht immer ein Fehler:** `fn_achievements_showcase_set` gibt
@@ -666,7 +677,13 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   > entfernt); die Rechte auf dem Server nimmt erst
   > `20261110_sicherheit_funktionen.sql` weg.
 - **Die Server-Seite dieser Reparatur ist NICHT live** (Stand 11.11.2026, nur
-  lesend gemessen: 0 von 23 neuen Funktionsnamen existieren). Sechs Migrationen
+  lesend gemessen: 0 von 23 neuen Funktionsnamen existieren). *Nachgemessen am
+  19.11.2026, nur lesend:* eine der sechs Migrationen ist seit dem 16.11. angewandt
+  (`20261110_sicherheit_ki_kontingent.sql`), und am selben Tag sind die 24 Functions
+  ausgeliefert, die `AUSLIEFERUNG.json` damals als `ausliefern` bzw. `erst_nach` dieser
+  Migration führte — nach der Migration, wie §30 verlangt. Die fünf anderen
+  Migrationen sind NICHT angewandt (`fn_gs_bild_url_ok`, `fn_push_subs_deckel` gibt es
+  live nicht); was sie schliessen, ist live weiter offen (Brett `2026-11-19-c3f3`). Sechs Migrationen
   `supabase/migrations/20261110_*.sql` und die überarbeiteten Edge-Functions
   liegen im Repo; bis Fernando sie anwendet bzw. ausliefert, sind die Lücken,
   die ihre Köpfe beschreiben, live offen — und das Repo ist öffentlich. Was
@@ -707,6 +724,34 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   wird die FOLGE, nicht der Aufruf — `callVisionAI` kennt kein Abbruchsignal (Brett-Idee
   `2026-11-16-8186`); die Anfrage läuft weiter und kann zählen, und der Satz nach dem
   Abbrechen sagt das. `scan_check` AB1–AB4.
+  **Und es gibt seit dem 19.11.2026 ein TOR an den zwei Stellen, durch die jede Antwort
+  muss** (Brett `2026-11-16-89ee`, statt rund 210 Einzelstellen): `sbFetch` und
+  `_gsAiAnfrage` merken die Person beim Eintritt und geben bei einem Wechsel KEINE Daten
+  zurück — `sbFetch` den Fehler `person_gewechselt` (§3.5), `callAI`/`callVisionAI`
+  werfen `_gsPersonAusnahme()` (`e.code`, Satz `GS_PERSON_GEWECHSELT_SATZ`). Eine Anfrage,
+  die OHNE Person startet (Anmeldung), bleibt unberührt; ein Token-Refresh wechselt das
+  Token, nicht die uid, und ein später Refresh schreibt keine Sitzung mehr über die des
+  nächsten Kontos (`_gsRefreshShared`). Die Fragen dazu: `_gsPersonGewechselt(x)`,
+  `_gsPersonAnders(wer)`, `_gsPersonJetzt()`. **Was das Tor NICHT sieht und jeder Weg
+  selbst tun muss:** (1) die Person VOR dem ERSTEN `await` merken — FileReader,
+  Verkleinern, Wetter, Fotos aus dem Speicher, `_gsFreshToken` sind auch `await`s, und
+  eine Anfrage, die erst NACH dem Wechsel losgeht, läuft als B; (2) ein rohes `fetch` an
+  eine Edge-Function oder zu Stripe fragt vor dem Senden UND nach der Antwort; (3) eine
+  Schleife über die Daten einer Person (Warteschlangen, Funde hochladen, Fotos
+  nachholen) merkt die uid EINMAL und fragt vor jeder Runde; (4) ein `catch` nach einem
+  KI- oder Server-Weg fragt ZUERST `_gsPersonGewechselt(e)` und endet still (keine
+  Karte, kein Toast, Knöpfe zurück) — ein Tor, das Erfolg zu Fehler macht, schiebt die
+  Aufrufer in ihren `catch`-Zweig. Prüfstand: `sicherheit_check` 71_person (Tor a–t,
+  KI a–h). **Und Abmelden heisst derselbe BILDSCHIRM wie nach einem Neuladen:**
+  `gsClearUserDataKeys` → `_gsAbmeldenFenster` (jedes Fenster zu, auch die festen am
+  `<body>`), `_gsAbmeldenFelder` (jedes Textfeld auf seinen `defaultValue`; Ausnahmen
+  in `GS_ABMELDEN_FELDER_GERAET` mit einem Schlüssel aus `GS_KEEP_ON_LOGOUT`),
+  `GS_ABMELDEN_ANZEIGEN`, `GS_ABMELDEN_ENTWUERFE`, `GS_ABMELDEN_ZEICHNER`, danach die
+  Startseite (`_gsAbmeldenStartseite`). Sätze, die beim Abmelden entstehen, sagt
+  `_gsAbmeldenSagen` im Meldefeld des Anmeldebildschirms — ein Toast liegt darunter und
+  wäre nie sichtbar. Der Garten-Zwilling trägt sein Konto (`gsTwinGet` zeigt ihn nur
+  diesem; er liegt nur auf dem Gerät, Löschen wäre Datenverlust). `sicherheit_check`
+  98_schluss_e.
 
 ### 3.7 · revDSG (Schweizer Datenschutz)
 - Analytics ist **Opt-In** (Consent-Banner beim ersten Launch). Niemals
@@ -2805,7 +2850,9 @@ steht der Stand in STATUS (je) und §2.
 
 **Von der Server-Seite ist nichts live** (§3.6): keine der Migrationen
 `20261110_*` angewandt, keine der überarbeiteten Edge-Functions ausgeliefert.
-Was die drei Prüfstände unten grün melden, ist der REPO-Stand.
+Was die drei Prüfstände unten grün melden, ist der REPO-Stand. *(Stand 11.11.2026;
+seit dem 16.11. sind die KI-Kontingent-Migration und 24 Functions live, die fünf
+anderen Migrationen nicht — §3.6, nachgemessen 19.11.2026.)*
 
 > **Die Schlussprüfung des zusammengeführten Diffs hat einen kritischen Fehler
 > der Reparatur selbst gefunden** — und ohne sie wäre er ausgeliefert worden.

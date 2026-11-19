@@ -112,7 +112,15 @@ const APP_WEGE = {
 };
 async function appZeigt(repo, weg, antwort) {
   const w = APP_WEGE[weg];
-  const teile = [w.wrapper, 'function _gsEdgeFehler(', 'function _gsEdgeAusnahme(', 'function _gsFehlerText('].map(k => appFunktion(k, repo));
+  // Seit dem Tor (19.11.2026, Brett 89ee) fragen die Wrapper die Person (_gsPersonJetzt/_gsPersonAnders) und
+  // _gsFehlerText kennt person_gewechselt — die Helfer kommen ECHT mit, nur _gsPerson ist gestellt: hier
+  // wechselt niemand das Konto (das misst sicherheit_check 71_person, „Tor n").
+  const teile = [w.wrapper, 'function _gsEdgeFehler(', 'function _gsEdgeAusnahme(', 'function _gsFehlerText(',
+    'function _gsPersonJetzt(', 'function _gsPersonAnders(', 'function _gsPersonGewechselt(', 'function _gsPersonFehler(', 'function _gsPersonAusnahme(']
+    .map(k => appFunktion(k, repo));
+  const satz = (_appSrc.match(/\nvar GS_PERSON_GEWECHSELT_SATZ = ('[^'\n]*');/) || [])[1];
+  if (!satz) return { fehler: 'GS_PERSON_GEWECHSELT_SATZ nicht gefunden' };
+  teile.unshift('var GS_PERSON_GEWECHSELT_SATZ = ' + satz + '; function _gsPerson(){ return "u1"; }');
   const aufrufer = appFunktion(w.aufrufer, repo);
   const em = aufrufer && aufrufer.match(/\n\s*var em = ([^\n]+);\n/);
   if (teile.some(t => !t) || !em) return { fehler: 'App-Funktionen nicht gefunden: ' + teile.map(t => !!t).join(',') + ' · var em: ' + !!em };

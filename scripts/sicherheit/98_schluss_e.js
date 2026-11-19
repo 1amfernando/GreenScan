@@ -43,6 +43,27 @@ const STELLEN = `
   };
   window.__s1Lies = function (k) { try { var v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
 `;
+// Gegenpruefung dom-plaene (19.11.2026): eine frische Seite MIT den Beispieldaten von A. Zwei Wege,
+// auf denen sie ohne sie startete (gemessen, nicht vermutet, ist nur der erste):
+//   1. Der Seed setzt gs_last_active_uid nicht. Endet der Fall davor mit B, faehrt die frische Seite
+//      beim Start einen Kontowechsel (gsSyncUserDataOnLogin, 1,8 s) und raeumt A ab — gemessen:
+//      gs_last_active_uid auf B, h.frisch() → gs_sb_display_name null, 0 Pflanzen.
+//   2. Auch MIT festgenageltem gs_last_active_uid startete eine von drei Seiten ohne Pflanzen
+//      (Ursache nicht gemessen; vermutlich kommen Schreibvorgaenge der geschlossenen Seite in
+//      demselben Speicher erst nach dem Seed der neuen an).
+// Die Abmelde-Faelle meldeten dann „Fall nicht hergestellt" (Gegenprobe G1: zwei von zwei Laeufen).
+// Wer einen Zustand braucht, stellt ihn HER — und sieht nach, ob er steht; hoechstens drei Versuche.
+async function frischAlsA(seite, h) {
+  let p = seite;
+  for (let i = 0; i < 3; i++) {
+    try { await p.evaluate(() => localStorage.setItem('gs_last_active_uid', '00000000-0000-4000-8000-000000000001')); } catch (e) {}
+    p = await h.frisch();
+    const da = await p.evaluate(() => ({ n: (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants.length : 0, name: localStorage.getItem('gs_sb_display_name') }));
+    if (da.n > 0 && da.name) return p;
+  }
+  return p;   // der Fall prueft seinen Ausgangszustand selbst und sagt „Fall nicht hergestellt"
+}
+
 const LISTEN = ['ps_myplants', 'gs_gardens', 'gs_plantings', 'gs_dead_plants', 'gs_gartentagebuch', 'gs_garden_plans', 'gs_ernte_log'];
 
 // Prueft eine gespeicherte Liste: jede Id im Alphabet, kein Emoji mit Auszeichnung.
@@ -421,8 +442,11 @@ module.exports = [
       if (r.wurf) return { ok: false, warum: 'Ausnahme im Ablauf: ' + r.wurf };
       // Alle Befunde sammeln — die Wirkung soll im Bericht stehen, nicht nur die erste Stufe.
       const f = [];
+      // 19.11.2026 (Brett a6d6): das Abmelden zeichnet die Startseite aus dem geleerten Stand neu
+      // (_gsAbmeldenStartseite) — der Tagesplan liest dabei Tagebuch und Ernte und baut die zwei
+      // Caches wieder auf, aus einem LEEREN Speicher. Leer heisst darum: null oder eine leere Liste.
       const nichtLeer = Object.keys(r.nachAbmelden.var).filter(k => r.nachAbmelden.var[k] !== '[]')
-        .concat(Object.keys(r.nachAbmelden.cache).filter(k => r.nachAbmelden.cache[k] !== null));
+        .concat(Object.keys(r.nachAbmelden.cache).filter(k => r.nachAbmelden.cache[k] !== null && !/^(\[\]|\{\})$/.test(r.nachAbmelden.cache[k])));
       if (nichtLeer.length) f.push('nach dem Abmelden nicht leer: ' + nichtLeer.join(', '));
       if (r.nachAbmelden.edit) f.push('editingGardenId zeigt noch auf ' + r.nachAbmelden.edit);
       const sp = Object.keys(r.nachAbmelden.spiegel).filter(k => !/^(\[\]|\{\})$/.test(r.nachAbmelden.spiegel[k]));
@@ -627,6 +651,349 @@ module.exports = [
       if (r.state && /A-FAV-1|fb-A/.test(r.state)) f.push('der State-Push an die Cloud von B traegt Daten von A');
       if (f.length) return { ok: false, warum: f.join(' · ') + ' (ps_favs=' + r.favs + ' · ps_votes=' + r.votes + ')' };
       return { ok: true, info: 'ps_favs ' + r.favs + ' · ps_votes ' + r.votes + (r.state ? ' · State-Push mit den Favoriten von B' : ' · kein State-Push im Fenster') };
+    },
+  },
+  {
+    // Brett 2026-11-16-a6d6 (19.11.2026): der Fall davor misst den Arbeitsspeicher — das DOM
+    // trug weiter, was A hineingeschrieben hat. Gemessen gegen v33.61: nach Abmelden und dem
+    // ECHTEN Anmeldeweg von B (onbDoLogin) standen 72 Textfelder mit dem Text von A da (Namen,
+    // E-Mail im Anmeldefeld, Entwuerfe von Beitrag, Kommentar, Inserat, Feedback, Tagebuch,
+    // Rezept, Planer), #compose-avatar zeigte das Emoji aus dem Namen von A und ging als
+    // author_avatar in den ersten Beitrag von B, das Foto im Beitrags-Entwurf von A ging mit
+    // hinaus, offene Fenster von A (Rueckfrage mit seinem Namen, Scan-Verlauf, „Meine Plaene")
+    // lagen nach dem Anmelden sichtbar ueber der App, und die Startseite zeigte B den Tagesplan
+    // und den Gruss von A. Gemessen wird gegen den Stand einer FRISCH geladenen Seite — die
+    // Regel heisst „derselbe Stand wie nach einem Neuladen", nicht „leer".
+    name: 'Abmelden · kein Textfeld, kein Fenster und keine Anzeige traegt den Stand von A — jedes Feld wie nach einem Neuladen, die Startseite aus dem leeren Stand, der erste Beitrag von B mit eigenem Avatar und ohne das Foto von A (echter Anmeldeweg)',
+    lauf: async (seite, h) => {
+      seite = await frischAlsA(seite, h);
+      const r = await seite.evaluate(async () => {
+        const sleep = ms => new Promise(res => setTimeout(res, ms));
+        const TEXT = /^(text|search|email|tel|url|password|number|)$/;
+        const textFelder = () => Array.from(document.querySelectorAll('input[id], textarea[id]'))
+          .filter(el => el.tagName === 'TEXTAREA' || TEXT.test((el.getAttribute('type') || '').toLowerCase()));
+        const ANZEIGEN = ['compose-avatar', 'inline-plant-label'];
+        // 1. Der Stand nach einem Neuladen (diese Seite ist eben frisch geladen).
+        const ref = { feld: {}, anzeige: {} };
+        textFelder().forEach(el => { ref.feld[el.id] = el.value; });
+        ANZEIGEN.forEach(id => { const el = document.getElementById(id); ref.anzeige[id] = el ? el.textContent : null; });
+        const geraet = (typeof GS_ABMELDEN_FELDER_GERAET !== 'undefined') ? GS_ABMELDEN_FELDER_GERAET : {};
+        const NAME_A = 'Gartenfee Annelies Quendel';
+        const FOTO_A = 'data:image/png;base64,QUVOREVOLUFOTi1RVUVOREVM';
+        // 2. Konto A benutzt die App: Startseite, Community-Name ueber den echten Dialog, jedes
+        //    Textfeld, ein Beitrags-Entwurf mit Foto und Pflanze, und vier offene Fenster.
+        try { switchTab('home'); } catch (e) {}
+        // Den Stand von A HERSTELLEN, nicht vom Start erwarten: in einer Gegenprobe stand der Gruss
+        // nach dem Laden ohne Namen da (Zeitpunkt), und der Fall haette dann nichts gemessen.
+        try { if (typeof gsUpdateHomeGreeting === 'function') gsUpdateHomeGreeting(); } catch (e) {}
+        try { if (typeof gsRenderDayPlan === 'function') gsRenderDayPlan(); } catch (e) {}
+        const gruss = () => ((document.getElementById('home-greeting-label') || {}).textContent || '');
+        const vorA = { plan: ((document.getElementById('home-dayplan') || {}).textContent || ''), gruss: gruss() };
+        try { showNameInput(); } catch (e) {}
+        await sleep(150);
+        const pin = document.getElementById('gs-prompt-input'); if (pin) pin.value = NAME_A;
+        const pok = document.getElementById('gs-prompt-ok'); if (pok) pok.click();
+        await sleep(150);
+        const avatarA = (document.getElementById('compose-avatar') || {}).textContent;
+        const gefuellt = [];
+        textFelder().forEach(el => {
+          if (Object.prototype.hasOwnProperty.call(geraet, el.id)) return;
+          el.value = (el.getAttribute('type') || '').toLowerCase() === 'number' ? '4242' : 'Quendel·' + el.id;
+          if (el.value) gefuellt.push(el.id);
+        });
+        // Die Suche in der Artenliste ueber ihren echten Weg: doSearch liest das Feld und setzt
+        // searchText — die Liste filtert danach weiter, auch wenn das Feld leer aussieht.
+        try { const si = document.getElementById('search-input'); si.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+        await sleep(200);
+        let sucheA = null; try { sucheA = searchText; } catch (e) {}
+        try { inlinePhotoData = FOTO_A; } catch (e) {}
+        const pimg = document.getElementById('inline-photo-img'); if (pimg) pimg.src = FOTO_A;
+        const pprev = document.getElementById('inline-photo-preview'); if (pprev) pprev.style.display = 'block';
+        try { window._inlinePlantMode = true; selectIgPlant('Quendel-Pflanze', '🌿'); } catch (e) {}
+        // Die zwei anderen Entwuerfe mit Foto: das Inserat (submitListing legt es ins Inserat)
+        // und die Vorschau im Beitrags-Fenster.
+        window._gsListingPhotoB64 = 'QUVOREVOLUFOTi1JTlNFUkFU';
+        window._gsPostImage = FOTO_A;
+        localStorage.setItem('gs_plans_v2', JSON.stringify([{ localId: 'pl-a1', title: 'Plan von Quendel', type: 'garden', created: new Date().toISOString(), uid: localStorage.getItem('gs_sb_uid'), payload: {} }]));
+        try { openScanHistoryFull(); } catch (e) {}
+        try { await Promise.race([gsPlansOpen(), sleep(500)]); } catch (e) {}
+        try { openPostWithType('status'); document.getElementById('post-text').value = 'Entwurf von Quendel'; } catch (e) {}
+        try { gsPromptModal({ title: 'Name', value: NAME_A }); } catch (e) {}
+        await sleep(300);
+        // Was fest und sichtbar ueber der App liegt: jede feste Schicht ab einem Drittel des
+        // Bildschirms, deren naechster fester Vorfahr #app oder keiner ist — am <body> wie in #app
+        // (Fenster wie der Scan-Verlauf haengen in #app). Grundlinie gemessen 19.11.2026: auf
+        // allen elf Tabs ohne offenes Fenster ist das LEER.
+        const schichten = () => Array.from(document.querySelectorAll('body *')).filter(el => {
+          if (el.id === 'app' || el.closest('#gs-onboarding')) return false;
+          const cs = getComputedStyle(el); if (cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) return false;
+          let p = el.parentElement; while (p && p !== document.body && p.id !== 'app') { if (getComputedStyle(p).position === 'fixed') return false; p = p.parentElement; }
+          const b = el.getBoundingClientRect(); return b.width * b.height >= innerWidth * innerHeight / 3;
+        }).map(el => (el.id || String(el.className).split(' ')[0] || el.tagName) + ' „' + (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40) + '“');
+        const fensterA = schichten();
+        // 3. Abmelden, dann meldet sich B ueber den Anmeldebildschirm an (sbLogin echt, nur das
+        //    Netz ist gestellt; B hat keine Cloud-Daten).
+        const B_UID = '66666666-6666-4666-8666-666666666666';
+        const gesendet = [], hochgeladen = [];
+        const altFetch = window.sbFetch, altGs = window._gsFetch, altUp = window.gsUploadImage;
+        window.sbFetch = async function (pfad, opts) {
+          const m = ((opts && opts.method) || 'GET').toUpperCase();
+          if (m !== 'GET') {
+            gesendet.push({ m, pfad: String(pfad).split('?')[0], body: String((opts && opts.body) || '') });
+            // Eine RPC antwortet leer: eine gestellte Zeile machte aus fn_followup_due einen
+            // Nachfrage-Dialog FUER B (ein Fenster des neuen Kontos, kein Rest von A).
+            if (String(pfad).indexOf('/rpc/') >= 0) return { data: [], error: null, status: 200 };
+            return { data: [{ id: 'srv-1' }], error: null, status: 201 };
+          }
+          return { data: [], error: null, status: 200 };
+        };
+        window._gsFetch = async function (url) {
+          const u = String(url);
+          const body = u.indexOf('/auth/v1/token') >= 0
+            ? { access_token: 'pruef.konto.b', refresh_token: 'r-b', expires_in: 3600, user: { id: B_UID, email: 'kontob@example.invalid', user_metadata: {} } }
+            : {};
+          return { ok: true, status: 200, text: async () => JSON.stringify(body), json: async () => body };
+        };
+        window.gsUploadImage = async function (b64) { hochgeladen.push(String(b64).slice(0, 40)); return 'https://example.invalid/hochgeladen.jpg'; };
+        let wurf = null, nachAn = null, post = null, zwischen = null;
+        try {
+          await sbLogout();
+          await sleep(700);
+          // Zwischen Abmelden und Anmelden gehoert der Speicher niemandem: kein Schluessel aus
+          // GS_USER_KEYS darf hier (wieder) entstehen — auch nicht durch das Neuzeichnen der
+          // Startseite (initHomeBoard → gsTouchStreak schrieb gs_streak, Gegenprobe 19.11.2026).
+          zwischen = GS_USER_KEYS.filter(k => localStorage.getItem(k) !== null);
+          document.getElementById('onb-login-email').value = 'kontob@example.invalid';
+          document.getElementById('onb-login-pw').value = 'geheim-b-123';
+          await onbDoLogin();
+          await sleep(1500);
+          const felder = {};
+          // Ein Feld, das erst ein Fenster baut (#scan-history-search), gibt es nach dem Neuladen
+          // nicht — fuer es gilt sein Ausgangswert (defaultValue).
+          textFelder().forEach(el => { felder[el.id] = el.value; if (!Object.prototype.hasOwnProperty.call(ref.feld, el.id)) ref.feld[el.id] = el.defaultValue; });
+          const anzeige = {};
+          ANZEIGEN.forEach(id => { const el = document.getElementById(id); anzeige[id] = el ? el.textContent : null; });
+          let foto = null; try { foto = inlinePhotoData; } catch (e) { foto = '[' + e.message + ']'; }
+          let suche = null; try { suche = searchText; } catch (e) { suche = '[' + e.message + ']'; }
+          const entwurfFotos = [window._gsListingPhotoB64 ? '_gsListingPhotoB64' : '', window._gsPostImage ? '_gsPostImage' : ''].filter(Boolean);
+          nachAn = {
+            uid: localStorage.getItem('gs_sb_uid'), felder, anzeige, foto, suche, entwurfFotos,
+            fotoSicht: !!(pprev && getComputedStyle(pprev).display !== 'none'),
+            fenster: schichten(),
+            prompt: !!document.getElementById('gs-prompt-modal'),
+            tab: (document.querySelector('.screen.active') || {}).id || '',
+            plan: ((document.getElementById('home-dayplan') || {}).textContent || ''), gruss: gruss(),
+          };
+          // B schreibt seinen ersten Beitrag im Feld oben im Feed.
+          gesendet.length = 0;
+          const ta = document.getElementById('inline-post-text');
+          if (ta) ta.value = 'Erster Beitrag von Konto B';
+          await submitInlinePost();
+          await sleep(200);
+          const p = gesendet.find(x => /social_posts/.test(x.pfad));
+          post = p ? p.body : null;
+        } catch (e) { wurf = String(e && e.message); }
+        finally { window.sbFetch = altFetch; window._gsFetch = altGs; window.gsUploadImage = altUp; }
+        return { ref, vorA, avatarA, sucheA, gefuellt, fensterA, nachAn, post, hochgeladen, wurf, zwischen, NAME_A, B_UID, geraet: Object.keys(geraet), geraetGrund: geraet, keep: (typeof GS_KEEP_ON_LOGOUT !== 'undefined') ? GS_KEEP_ON_LOGOUT : [] };
+      });
+      await h.frisch();
+      if (r.wurf) return { ok: false, warum: 'Ausnahme im Ablauf: ' + r.wurf };
+      // Ist der Fall hergestellt? A hatte Gruss, Tagesplan, Avatar, gefuellte Felder und Fenster.
+      if (r.vorA.gruss.indexOf('Testnutzerin') < 0) return { ok: false, warum: 'Fall nicht hergestellt: der Gruss von A nennt den Namen nicht (' + JSON.stringify(r.vorA.gruss) + ')' };
+      if (!/Basilikum|Tomate/.test(r.vorA.plan)) return { ok: false, warum: 'Fall nicht hergestellt: der Tagesplan von A zeigt keine Aufgabe (' + r.vorA.plan.slice(0, 80) + ')' };
+      if (!r.avatarA || r.avatarA === r.ref.anzeige['compose-avatar']) return { ok: false, warum: 'Fall nicht hergestellt: #compose-avatar zeigt nach der Namenswahl von A dasselbe wie nach dem Neuladen (' + r.avatarA + ')' };
+      if (!r.sucheA || r.sucheA.indexOf('quendel') < 0) return { ok: false, warum: 'Fall nicht hergestellt: die Artensuche von A filtert nicht (searchText=' + JSON.stringify(r.sucheA) + ')' };
+      if (r.gefuellt.length < 40) return { ok: false, warum: 'Fall nicht hergestellt: nur ' + r.gefuellt.length + ' Textfelder gefuellt' };
+      if (r.fensterA.length < 3) return { ok: false, warum: 'Fall nicht hergestellt: nur ' + r.fensterA.length + ' Fenster offen (' + r.fensterA.join(', ') + ')' };
+      if (!r.nachAn || r.nachAn.uid !== r.B_UID) return { ok: false, warum: 'Fall nicht hergestellt: B ist nach onbDoLogin nicht angemeldet (' + JSON.stringify(r.nachAn && r.nachAn.uid) + ')' };
+      if (!r.post) return { ok: false, warum: 'Fall nicht hergestellt: submitInlinePost von B hat nichts an social_posts gesendet' };
+      // Jede Ausnahme in GS_ABMELDEN_FELDER_GERAET muss einen Schluessel aus GS_KEEP_ON_LOGOUT spiegeln.
+      const f = [];
+      r.geraet.forEach(id => {
+        const k = (String(r.geraetGrund[id] || '').match(/\bgs_[a-z0-9_]+/) || [])[0];
+        if (!k || r.keep.indexOf(k) < 0) f.push('GS_ABMELDEN_FELDER_GERAET nennt #' + id + ' ohne einen Schluessel aus GS_KEEP_ON_LOGOUT (' + JSON.stringify(r.geraetGrund[id]) + ')');
+      });
+      const falsch = Object.keys(r.nachAn.felder).filter(id => r.geraet.indexOf(id) < 0 && r.nachAn.felder[id] !== r.ref.feld[id]);
+      if (falsch.length) f.push(falsch.length + ' Textfelder nicht wie nach dem Neuladen (' + falsch.slice(0, 6).map(id => '#' + id + '=' + JSON.stringify(String(r.nachAn.felder[id]).slice(0, 24))).join(', ') + (falsch.length > 6 ? ', …' : '') + ')');
+      Object.keys(r.ref.anzeige).forEach(id => { if (r.nachAn.anzeige[id] !== r.ref.anzeige[id]) f.push('#' + id + ' zeigt ' + JSON.stringify(r.nachAn.anzeige[id]) + ' statt ' + JSON.stringify(r.ref.anzeige[id])); });
+      if (r.nachAn.suche) f.push('die Artenliste filtert B weiter nach dem Suchwort von A (searchText=' + JSON.stringify(r.nachAn.suche) + ')');
+      if (r.nachAn.foto) f.push('der Beitrags-Entwurf traegt noch das Foto von A');
+      if (r.nachAn.entwurfFotos.length) f.push('Entwuerfe tragen noch ein Foto von A: ' + r.nachAn.entwurfFotos.join(', '));
+      if (r.nachAn.fotoSicht) f.push('die Foto-Vorschau des Entwurfs von A ist sichtbar');
+      if (r.nachAn.fenster.length) f.push('ueber der App liegen Fenster von A: ' + r.nachAn.fenster.join(', '));
+      if (r.nachAn.prompt) f.push('die Rueckfrage mit dem Namen von A steht noch im Dokument');
+      if (r.zwischen && r.zwischen.length) f.push('zwischen Abmelden und Anmelden stehen Nutzerschluessel im Speicher: ' + r.zwischen.join(', '));
+      if (r.nachAn.tab !== 'screen-home') f.push('B landet nicht auf der Startseite (' + r.nachAn.tab + ')');
+      if (/Basilikum|Tomate|Monstera/.test(r.nachAn.plan)) f.push('der Tagesplan zeigt B die Aufgaben von A (' + r.nachAn.plan.replace(/\s+/g, ' ').slice(0, 60) + '…)');
+      if (r.nachAn.gruss.indexOf('Testnutzerin') >= 0) f.push('der Gruss nennt B den Namen von A (' + JSON.stringify(r.nachAn.gruss) + ')');
+      let rumpf = {}; try { rumpf = JSON.parse(r.post); } catch (e) {}
+      if (rumpf.author_avatar === r.avatarA) f.push('der Beitrag von B ging mit dem Avatar von A hinaus (' + rumpf.author_avatar + ')');
+      if (String(rumpf.author_name || '').indexOf(r.NAME_A) >= 0) f.push('der Beitrag von B ging unter dem Namen von A hinaus');
+      if (rumpf.plant_name) f.push('der Beitrag von B traegt die Pflanze aus dem Entwurf von A (' + rumpf.plant_name + ')');
+      if (rumpf.photo_url || r.hochgeladen.length) f.push('der Beitrag von B hat das Foto von A hochgeladen (' + r.hochgeladen.length + '×)');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      if (rumpf.content !== 'Erster Beitrag von Konto B') return { ok: false, warum: 'gutartig: der Text von B kam nicht an (' + JSON.stringify(rumpf.content) + ')' };
+      return { ok: true, info: r.gefuellt.length + ' Textfelder von A gefuellt, nach Abmelden und Anmelden von B alle wie nach dem Neuladen' + (r.geraet.length ? ' (' + r.geraet.length + ' Geraete-Filter bleiben, in GS_KEEP_ON_LOGOUT)' : '') + ' · ' + r.fensterA.length + ' Fenster von A zu · Startseite, Gruss, Avatar, Entwurf ohne A · Beitrag von B als ' + JSON.stringify(rumpf.author_avatar) + ' ohne Foto und Pflanze von A' };
+    },
+  },
+  {
+    // Gegenpruefung dom-plaene (19.11.2026): der Fall davor misst Textfelder, zwei Anzeigen und
+    // die Startseite gegen eine FRISCHE Seite von A. Zahlen, die aus Kontodaten kommen, kann er so
+    // nicht messen (die frische Seite zeigt die Zahlen von A). Hier ist die Referenz deshalb B
+    // selbst: eine zweite Seite in einem eigenen Kontext, geladen mit GENAU dem Speicher, den B
+    // nach dem Anmelden hat — „wie nach einem Neuladen" wortwoertlich. Gemessen gegen 0b930cf:
+    // #stat-favs zeigte B „4" (die Pflanzen von A, Referenz 0), das Abzeichen am Reiter
+    // „Pflanzen" „3" (die ueberfaelligen Aufgaben von A, Referenz verborgen) — beide schreibt nur
+    // ein Speichern bzw. ein Tab-Wechsel, nie das Abmelden. Und der Scan-Chat ging fuer B nicht
+    // mehr auf: sbLogout setzt display:none auf JEDES .modal-overlay, openScanChat setzte nur die
+    // Klasse (dieselbe Sperre nach Escape/Zurueck: closeModal setzt display:none ebenso).
+    name: 'Abmelden · Zahlen der Startseite, Abzeichen der Leiste und der Scan-Chat — fuer B wie nach einem Neuladen mit demselben Speicher (eigener Kontext als Referenz)',
+    lauf: async (seite, h) => {
+      seite = await frischAlsA(seite, h);
+      const ZAHLEN = () => {
+        const t = id => { const el = document.getElementById(id); return el ? String(el.textContent).trim() : null; };
+        const b = document.getElementById('gs-tab-favs-badge');
+        const g = document.getElementById('gs-bell-badge');
+        return {
+          'stat-favs': t('stat-favs'), 'stat-scans': t('stat-scans'), 'stat-total': t('stat-total'), 'stat-edible': t('stat-edible'),
+          'reiter-abzeichen': b ? (b.hidden ? '(verborgen)' : b.textContent) : null,
+          'glocke': g ? (getComputedStyle(g).display === 'none' ? '(verborgen)' : g.textContent) : null,
+        };
+      };
+      // Geht der Scan-Chat auf, und liegt er oben (elementFromPoint in seinem Kasten)?
+      const CHAT = async () => {
+        try { openScanChat(); } catch (e) { return 'wirft: ' + e.message; }
+        await new Promise(r => setTimeout(r, 400));
+        const m = document.getElementById('scan-chat-modal');
+        const box = m && (m.querySelector('.modal, .obox, .mpanel') || m);
+        let auf = false;
+        if (m && getComputedStyle(m).display !== 'none' && box) {
+          const r = box.getBoundingClientRect();
+          const el = r.width && r.height ? document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 40)) : null;
+          auf = !!(el && m.contains(el));
+        }
+        try { closeScanChat(); } catch (e) {}
+        return auf ? 'offen' : 'geht nicht auf';
+      };
+      const r = await seite.evaluate(async (fn) => {
+        const ZAHLEN = eval('(' + fn.z + ')'), CHAT = eval('(' + fn.c + ')');
+        const sleep = ms => new Promise(res => setTimeout(res, ms));
+        try { switchTab('home'); } catch (e) {}
+        await sleep(2200);
+        const vorA = { zahlen: ZAHLEN(), pflanzen: gsPflanzenZahl(), faellig: countOverdueTasks() };
+        const B_UID = '66666666-6666-4666-8666-666666666666';
+        const altFetch = window.sbFetch, altGs = window._gsFetch;
+        window.sbFetch = async function (pfad, opts) {
+          const m = ((opts && opts.method) || 'GET').toUpperCase();
+          if (m !== 'GET') return { data: String(pfad).indexOf('/rpc/') >= 0 ? [] : [{ id: 'srv-1' }], error: null, status: 200 };
+          return { data: [], error: null, status: 200 };
+        };
+        window._gsFetch = async function (url) {
+          const body = String(url).indexOf('/auth/v1/token') >= 0
+            ? { access_token: 'pruef.konto.b', refresh_token: 'r-b', expires_in: 3600, user: { id: B_UID, email: 'kontob@example.invalid', user_metadata: {} } } : {};
+          return { ok: true, status: 200, text: async () => JSON.stringify(body), json: async () => body };
+        };
+        let wurf = null, nachB = null, chatB = null, speicher = null;
+        try {
+          // A steht zuletzt auf „Meine Pflanzen" — wie im Betrieb, wenn der Knopf in den Einstellungen liegt.
+          try { switchTab('favs'); } catch (e) {}
+          await sleep(300);
+          await sbLogout();
+          await sleep(700);
+          document.getElementById('onb-login-email').value = 'kontob@example.invalid';
+          document.getElementById('onb-login-pw').value = 'geheim-b-123';
+          await onbDoLogin();
+          await sleep(1500);
+          try { switchTab('home'); } catch (e) {}
+          await sleep(2200);
+          nachB = ZAHLEN();
+          chatB = await CHAT();
+          speicher = {};
+          for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); speicher[k] = localStorage.getItem(k); }
+        } catch (e) { wurf = String(e && e.message); }
+        finally { window.sbFetch = altFetch; window._gsFetch = altGs; }
+        return { vorA, nachB, chatB, speicher, wurf, uid: localStorage.getItem('gs_sb_uid'), B_UID };
+      }, { z: ZAHLEN.toString(), c: CHAT.toString() });
+      if (r.wurf) { await h.frisch(); return { ok: false, warum: 'Ausnahme im Ablauf: ' + r.wurf }; }
+      // Ist der Fall hergestellt? A hat Pflanzen und faellige Aufgaben, und beides steht da.
+      if (!(r.vorA.pflanzen > 0) || r.vorA.zahlen['stat-favs'] !== String(r.vorA.pflanzen)) { await h.frisch(); return { ok: false, warum: 'Fall nicht hergestellt: #stat-favs zeigt bei A ' + JSON.stringify(r.vorA.zahlen['stat-favs']) + ' fuer ' + r.vorA.pflanzen + ' Pflanzen' }; }
+      if (!(r.vorA.faellig > 0) || r.vorA.zahlen['reiter-abzeichen'] !== String(r.vorA.faellig)) { await h.frisch(); return { ok: false, warum: 'Fall nicht hergestellt: das Abzeichen am Reiter zeigt bei A ' + JSON.stringify(r.vorA.zahlen['reiter-abzeichen']) + ' fuer ' + r.vorA.faellig + ' faellige Aufgaben' }; }
+      if (r.uid !== r.B_UID) { await h.frisch(); return { ok: false, warum: 'Fall nicht hergestellt: B ist nicht angemeldet (' + JSON.stringify(r.uid) + ')' }; }
+      // Die Referenz: B laedt neu — eigener Kontext (eigener Speicher, kein Seed), derselbe Speicher.
+      const WURZEL = path.resolve(__dirname, '..', '..');
+      const ctx = await seite.context().browser().newContext({ viewport: { width: 412, height: 915 } });
+      let ref = null, chatRef = null, fehlerRef = [];
+      try {
+        const p = await ctx.newPage();
+        p.on('pageerror', e => fehlerRef.push(String(e.message).split('\n')[0]));
+        p.on('dialog', d => d.dismiss().catch(() => {}));
+        await p.route('**', rt => rt.request().url().startsWith('file:') ? rt.continue() : rt.abort());
+        await p.addInitScript((st) => { try { localStorage.clear(); Object.keys(st).forEach(k => localStorage.setItem(k, st[k])); } catch (e) {} }, r.speicher);
+        await p.goto('file://' + path.join(WURZEL, 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+        await p.waitForTimeout(4500);
+        const rr = await p.evaluate(async (fn) => {
+          const ZAHLEN = eval('(' + fn.z + ')'), CHAT = eval('(' + fn.c + ')');
+          window.gsHaptic = () => {};
+          try { switchTab('home'); } catch (e) {}
+          await new Promise(res => setTimeout(res, 2200));
+          return { zahlen: ZAHLEN(), chat: await CHAT(), uid: localStorage.getItem('gs_sb_uid') };
+        }, { z: ZAHLEN.toString(), c: CHAT.toString() });
+        ref = rr.zahlen; chatRef = rr.chat;
+        if (rr.uid !== r.B_UID) { ref = null; fehlerRef.push('Referenz nicht als B angemeldet: ' + rr.uid); }
+      } finally { await ctx.close().catch(() => {}); }
+      await h.frisch();
+      if (!ref) return { ok: false, warum: 'Referenz nicht hergestellt: ' + fehlerRef.join(' | ') };
+      if (chatRef !== 'offen') return { ok: false, warum: 'Referenz: der Scan-Chat geht nach dem Neuladen nicht auf (' + chatRef + ') — der Fall misst nichts' };
+      const f = [];
+      Object.keys(ref).forEach(k => { if (r.nachB[k] !== ref[k]) f.push(k + ' zeigt ' + JSON.stringify(r.nachB[k]) + ' statt ' + JSON.stringify(ref[k]) + ' (nach dem Neuladen)'); });
+      if (r.chatB !== 'offen') f.push('der Scan-Chat ' + r.chatB + ' (nach dem Neuladen: offen)');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'A: ' + r.vorA.pflanzen + ' Pflanzen, ' + r.vorA.faellig + ' faellig · nach Abmelden und Anmelden von B = Neuladen mit demselben Speicher: ' + Object.keys(ref).map(k => k + ' ' + ref[k]).join(', ') + ' · Scan-Chat offen' };
+    },
+  },
+  {
+    // Gegenpruefung dom-plaene (19.11.2026): die Serien-Sperre (_gsAbmeldenLaeuft) gilt nur, solange
+    // _gsAbmeldenStartseite laeuft. Ein Schliessen mit Zeitzuender laeuft danach: closeDailyQuiz ruft
+    // setTimeout(initHomeBoard, 300) → gsTouchStreak → gsUpdateStreak. Gemessen gegen 0b930cf: A hat
+    // das Tagesquiz offen, meldet sich ab — 1,5 s spaeter stehen gs_streak, gs_streak_sig,
+    // gs_streak_stamp und gs_last_active_day_iso im Speicher, fuer niemanden; die naechste Person
+    // erbt den heutigen Stempel. Die Regel gehoert an den SCHREIBER (gsUpdateStreak: ohne Person kein
+    // Stempel), nicht an jeden Weg dorthin.
+    name: 'Abmelden mit offenem Tagesquiz · auch ein verzoegerter Zeichner (closeDailyQuiz → initHomeBoard) stempelt keine Serie fuer niemanden — zwischen Abmelden und Anmelden kein Nutzerschluessel',
+    lauf: async (seite, h) => {
+      seite = await frischAlsA(seite, h);
+      const r = await seite.evaluate(async () => {
+        const sleep = ms => new Promise(res => setTimeout(res, ms));
+        const altFetch = window.sbFetch, altGs = window._gsFetch;
+        window.sbFetch = async () => ({ data: [], error: null, status: 200 });
+        window._gsFetch = async () => ({ ok: true, status: 200, json: async () => ({}), text: async () => '{}' });
+        let quiz = null, sofort = null, spaeter = null, wurf = null;
+        try {
+          try { switchTab('home'); } catch (e) {}
+          await sleep(300);
+          try { const p = openDailyQuiz(); if (p && p.then) await Promise.race([p, sleep(1500)]); } catch (e) { quiz = 'wirft: ' + e.message; }
+          await sleep(500);
+          const m = document.getElementById('modal-daily-quiz');
+          quiz = quiz || (m && getComputedStyle(m).display !== 'none' ? 'offen' : 'zu');
+          await sbLogout();
+          sofort = GS_USER_KEYS.filter(k => localStorage.getItem(k) !== null);
+          await sleep(1500);
+          spaeter = GS_USER_KEYS.filter(k => localStorage.getItem(k) !== null);
+        } catch (e) { wurf = String(e && e.message); }
+        finally { window.sbFetch = altFetch; window._gsFetch = altGs; }
+        return { quiz, sofort, spaeter, wurf, person: (typeof _gsPerson === 'function') ? _gsPerson() : '?' };
+      });
+      await h.frisch();
+      if (r.wurf) return { ok: false, warum: 'Ausnahme im Ablauf: ' + r.wurf };
+      if (r.quiz !== 'offen') return { ok: false, warum: 'Fall nicht hergestellt: das Tagesquiz von A ist nicht offen (' + r.quiz + ')' };
+      if (r.person !== null) return { ok: false, warum: 'Fall nicht hergestellt: nach sbLogout noch angemeldet (' + r.person + ')' };
+      if (r.sofort.length) return { ok: false, warum: 'direkt nach dem Abmelden stehen Nutzerschluessel im Speicher: ' + r.sofort.join(', ') };
+      // gs_last_sync_ts: der Flush aus sbLogout (2,5-s-Rennen) stempelt nach dem Abmelden — Klasse
+      // 89ee (Antwort nach einem await), eigene Gruppe; hier namentlich ausgenommen, nicht still.
+      const AUSNAHME = { gs_last_sync_ts: 'Flush aus sbLogout stempelt nach dem Abmelden (Klasse 89ee, eigene Gruppe)' };
+      const neu = r.spaeter.filter(k => !Object.prototype.hasOwnProperty.call(AUSNAHME, k));
+      if (neu.length) return { ok: false, warum: '1,5 s nach dem Abmelden stehen Nutzerschluessel im Speicher — fuer niemanden: ' + neu.join(', ') };
+      return { ok: true, info: 'Tagesquiz offen · nach dem Abmelden und 1,5 s spaeter kein Nutzerschluessel' + (r.spaeter.length ? ' (ausgenommen mit Grund: ' + r.spaeter.join(', ') + ')' : '') };
     },
   },
 ];
