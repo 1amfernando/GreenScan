@@ -972,6 +972,14 @@ Kennungen, die GitHub nach dem Entfernen noch eine Weile ausliefert.
 Ids haben seit dem 18.11.2026 acht Hexstellen (am 11.11. entstanden 131 Einträge an einem Tag;
 bei vier Stellen 12 % Kollisionsrisiko). Alte Einträge behalten ihre vier.
 
+**Ein Werkzeug von vorher kennt nur vier Stellen.** Es nennt einen achtstelligen Eintrag „unlesbar"
+(mit Dateiname) und zeigt ihn nicht — auch keine Frage an `fernando`. Das gilt für `main`, bis der
+Schwarm gemergt ist, und danach für jeden Branch, der `main` noch nicht wieder gemergt hat: wer
+`holen` auf einem alten Stand fährt und „unlesbar" mit einer achtstelligen id sieht, merged `main`
+oder liest die Datei direkt. Die zwei Einträge, die der Schwarm vor seinem Merge selbst schrieb, tragen
+deshalb vier Stellen (am 19.11. umbenannt, nachdem eine andere Sitzung es auf `main` gemessen hatte;
+vor dem Umbenennen auf allen Branches nachgesehen, dass die kurze id frei ist).
+
 ## Über Branches
 
 Das Brett ist die **Vereinigung**: Arbeitsbaum plus jeder Remote-Ref, den git kennt. Ein Eintrag auf
