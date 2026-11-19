@@ -14,6 +14,7 @@ const { lade } = require('./_zahlung_rand.js');
 const U = '11111111-1111-4111-8111-111111111111';   // gewoehnliche Person
 const E = '22222222-2222-4222-8222-222222222222';   // Expertin
 const A = '33333333-3333-4333-8333-333333333333';   // jemand anderes
+const P_U = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';   // ein Beitrag von U (post_id ist live uuid — v33.63: der Webhook schreibt nur noch UUIDs)
 const NUTZER = {
   tok_u: { id: U, email: 'u@example.org' },
   tok_e: { id: E, email: 'e@example.org' },
@@ -192,6 +193,43 @@ module.exports = [
 
   // ── stripe-portal ────────────────────────────────────────────────────────
   {
+    name: 'stripe-checkout · Stripe nimmt den Aufruf an: nur Parameter, die „Create a Checkout Session" kennt — die Attrappe lehnt Unbekanntes mit 400 parameter_unknown ab wie Stripe (v33.63, P-C2: am Stand v33.62 rot wegen automatic_payment_methods)',
+    lauf: async () => {
+      const abo = await checkout({ price_id: MONAT.id, locale: 'fr' });
+      if (abo.r.status !== 200 || !abo.sess) return nein('Abo-Kauf → ' + abo.r.status + ' ' + abo.r.text.slice(0, 160));
+      const p = abo.sess.args[0];
+      if ('automatic_payment_methods' in p || 'payment_method_types' in p) return nein('feste oder falsche Zahlungsart-Angabe: ' + Object.keys(p).join(','));
+      if (p.payment_method_collection !== 'always' || p.locale !== 'fr' || !(p.subscription_data && p.subscription_data.trial_period_days === 7)) return nein('Abo-Parameter: ' + JSON.stringify(p).slice(0, 200));
+      const life = await checkout({ price_id: LIFE.id });
+      if (life.r.status !== 200 || !life.sess) return nein('Lifetime-Kauf → ' + life.r.status + ' ' + life.r.text.slice(0, 160));
+      const q = life.sess.args[0];
+      if (q.mode !== 'payment' || !(q.payment_intent_data && q.payment_intent_data.metadata && q.payment_intent_data.metadata.kind === 'lifetime')) return nein('Lifetime-Parameter: ' + JSON.stringify(q).slice(0, 200));
+      // Die Attrappe selbst: ein fremder Name wird abgelehnt (sonst misst der Fall nichts).
+      const Stripe = (await import(require('url').pathToFileURL(require('path').join(__dirname, '_zahlung_stripe.mjs')).href)).default;
+      globalThis.__gsZ = { stripe: [], stripeAntwort: {} };
+      let abgelehnt = null;
+      try { await new Stripe('sk_test_x').checkout.sessions.create({ mode: 'payment', automatic_payment_methods: { enabled: true } }); } catch (e) { abgelehnt = e; }
+      if (!abgelehnt || abgelehnt.code !== 'parameter_unknown' || abgelehnt.statusCode !== 400) return nein('die Attrappe nimmt automatic_payment_methods an — der Fall waere blind');
+      return ok('Abo + Lifetime → 200, nur bekannte Parameter (Abo: always, Probezeit 7, locale fr) · Attrappe lehnt automatic_payment_methods mit 400 parameter_unknown ab');
+    },
+  },
+  {
+    name: 'stripe-checkout · was das Konto schon hat, entscheidet der Server: kein zweites Abo neben einem laufenden (Stripe wird gefragt), nichts neben Lifetime, Lifetime NEBEN einem Abo geht; die Antwort ist eine Kennung (v33.63, aus #329)',
+    lauf: async () => {
+      const zeile = { id: 'sub_lauf1', user_id: U, status: 'active', stripe_customer_id: 'cus_1', is_lifetime: false, created_at: '2026-11-01T00:00:00Z' };
+      const laeuft = await checkout({ price_id: MONAT.id }, { tabellen: { stripe_prices: [MONAT, LIFE], stripe_subscriptions: [zeile], launch_offer_usage: [], stripe_products: [] }, stripeAntwort: { 'subscriptions.retrieve': (id) => ({ id, status: 'active' }) } });
+      if (laeuft.r.status !== 409 || laeuft.r.body.error !== 'abo_laeuft' || laeuft.sess) return nein('zweites Abo → ' + laeuft.r.status + ' ' + laeuft.r.text);
+      const veraltet = await checkout({ price_id: MONAT.id }, { tabellen: { stripe_prices: [MONAT, LIFE], stripe_subscriptions: [zeile], launch_offer_usage: [], stripe_products: [] }, stripeAntwort: { 'subscriptions.retrieve': (id) => ({ id, status: 'canceled' }) } });
+      if (veraltet.r.status !== 200) return nein('veraltete Zeile sperrt aus → ' + veraltet.r.status);
+      const lt = { id: 'lifetime_' + U, user_id: U, status: 'active', stripe_customer_id: 'cus_1', is_lifetime: true, created_at: '2026-11-02T00:00:00Z' };
+      const neben = await checkout({ price_id: MONAT.id }, { tabellen: { stripe_prices: [MONAT, LIFE], stripe_subscriptions: [lt], launch_offer_usage: [], stripe_products: [] } });
+      if (neben.r.status !== 409 || neben.r.body.error !== 'lifetime_vorhanden' || neben.sess) return nein('Abo neben Lifetime → ' + neben.r.status + ' ' + neben.r.text);
+      const lifeNebenAbo = await checkout({ price_id: LIFE.id }, { tabellen: { stripe_prices: [MONAT, LIFE], stripe_subscriptions: [zeile], launch_offer_usage: [], stripe_products: [] }, stripeAntwort: { 'subscriptions.retrieve': (id) => ({ id, status: 'active' }) } });
+      if (lifeNebenAbo.r.status !== 200) return nein('Lifetime neben Abo → ' + lifeNebenAbo.r.status);
+      return ok('laufendes Abo → 409 abo_laeuft · veraltete Zeile (Stripe: canceled) → 200 · neben Lifetime → 409 lifetime_vorhanden · Lifetime neben Abo → 200');
+    },
+  },
+  {
     name: 'stripe-portal · Kunde aus stripe_subscriptions (stripe_customers gibt es live nicht), fremde return_url → eigene (#5, #6, #15)',
     lauf: async () => {
       const f = await lade('stripe-portal', { nutzer: NUTZER, tabellen: { stripe_subscriptions: [{ id: 'sub_1', user_id: U, status: 'active', stripe_customer_id: 'cus_alt', created_at: '2026-01-01' }] } });
@@ -214,15 +252,15 @@ module.exports = [
   {
     name: 'stripe-expert-checkout · nur der Autor bezahlt, nie fuer sich selbst als Experte, Betrag fest (#2, quelle-markt-admin #3)',
     lauf: async () => {
-      const tab = () => ({ social_posts: [{ id: 'p-u', user_id: U }, { id: 'p-a', user_id: A }, { id: 'p-e', user_id: E }], profiles: [{ id: E, is_expert: true }, { id: U, is_expert: false }, { id: A, is_expert: false }], expert_verifications: [] });
+      const tab = () => ({ social_posts: [{ id: P_U, user_id: U }, { id: 'p-a', user_id: A }, { id: 'p-e', user_id: E }], profiles: [{ id: E, is_expert: true }, { id: U, is_expert: false }, { id: A, is_expert: false }], expert_verifications: [] });
       const lauf = async (tok, body) => { const f = await lade('stripe-expert-checkout', { nutzer: NUTZER, tabellen: tab() }); const r = await f.aufruf({ headers: auth(tok), body }); return { r, z: f.z, s: nimm(f.z, 'checkout.sessions.create')[0] }; };
       const fremd = await lauf('tok_u', { post_id: 'p-a', expert_id: E });
       if (fremd.s) return nein('Beitrag einer anderen Person bezahlbar (' + fremd.r.status + ')');
       const selbst = await lauf('tok_e', { post_id: 'p-e', expert_id: E });
       if (selbst.s) return nein('Expertin bezahlt Verifikation ihres eigenen Beitrags durch sich selbst');
-      const kein = await lauf('tok_u', { post_id: 'p-u', expert_id: A });
+      const kein = await lauf('tok_u', { post_id: P_U, expert_id: A });
       if (kein.s) return nein('Nicht-Experte als expert_id angenommen');
-      const g = await lauf('tok_u', { post_id: 'p-u', expert_id: E, amount_chf: 5 });
+      const g = await lauf('tok_u', { post_id: P_U, expert_id: E, amount_chf: 5 });
       if (!g.s) return nein('Autor mit echter Expertin abgewiesen: ' + g.r.status + ' ' + g.r.text);
       const betrag = g.s.args[0].line_items[0].price_data.unit_amount;
       if (betrag !== 50) return nein('Betrag aus dem Rumpf: ' + betrag);
@@ -234,8 +272,8 @@ module.exports = [
   {
     name: 'stripe-webhook · eine bezahlte Experten-Anfrage schreibt die Gebuehr, nie „verified" (#2)',
     lauf: async () => {
-      const ev = (st) => ({ expert_verifications: [{ post_id: 'p-u', expert_id: E, status: st, fee_paid_chf: 0 }] });
-      const sess = { id: 'cs_1', mode: 'payment', payment_status: 'paid', amount_total: 50, payment_intent: 'pi_ev', metadata: { kind: 'expert_verification', supabase_user_id: U, post_id: 'p-u', expert_id: E } };
+      const ev = (st) => ({ expert_verifications: [{ post_id: P_U, expert_id: E, status: st, fee_paid_chf: 0 }] });
+      const sess = { id: 'cs_1', mode: 'payment', payment_status: 'paid', amount_total: 50, payment_intent: 'pi_ev', metadata: { kind: 'expert_verification', supabase_user_id: U, post_id: P_U, expert_id: E } };
       const a = await webhook(ereignis('evt_1', 'checkout.session.completed', sess), ev('pending'));
       const z1 = a.z.tabellen.expert_verifications[0];
       if (z1.status !== 'pending') return nein('checkout.session.completed setzt status=' + z1.status);
@@ -386,7 +424,7 @@ module.exports = [
     lauf: async (h) => {
       const { SPALTEN, BEZIEHUNGEN, STAND } = await import(require('url').pathToFileURL(require('path').join(__dirname, '_live_schema.mjs')).href);
       // Bewusst: zwei Schreibvorgaenge auf Spalten, die es live nicht gibt — beide mit warne(), der Fehler wird protokolliert.
-      const BEWUSST = ['stripe-webhook/index.ts stripe_subscriptions.trial_will_end_notified_at', 'stripe-webhook/index.ts profiles.stripe_email'];
+      const BEWUSST = [];   // v33.63: die zwei Schreibvorgaenge auf Spalten, die es live nicht gibt, sind entfernt
       const ZAHLUNG = /^(stripe-[a-z-]+|delete-user|entitlements)\/index\.ts$|^_shared\/zahlung_regeln\.mjs$/;
       const rel = (a, b) => BEZIEHUNGEN.some(r => (r[0] === a && r[2] === b) || (r[0] === b && r[2] === a));
       const teile = (s) => { const o = []; let d = 0, c = ''; for (const ch of s) { if (ch === '(') d++; if (ch === ')') d--; if (ch === ',' && d === 0) { o.push(c); c = ''; } else c += ch; } o.push(c); return o.map(x => x.trim()).filter(Boolean); };
@@ -641,7 +679,8 @@ module.exports = [
       const d = await webhook(ereignis('evt_g4', 'customer.subscription.updated', sub(U, 'price_neu_im_dashboard', 'active')), {}, { stripeAntwort: { 'subscriptions.retrieve': () => sub(U, 'price_neu_im_dashboard', 'active') } });
       if (d.r.status !== 500 || evtZeile(d.z, 'evt_g4').processed_at || !evtZeile(d.z, 'evt_g4').error || (d.z.tabellen.system_events || []).length) rot.push('unbekannter Preis → ' + d.r.status + ' (erwartet 500 mit Fehler im Ereignis, kein system_events-Eintrag)');
       // Gegenpruefung g2: die 500 muss aus DIESER Ursache kommen (Fremdschluessel price_id), nicht aus irgendeiner.
-      else if (!/price_id_fkey/.test(String(evtZeile(d.z, 'evt_g4').error))) rot.push('unbekannter Preis → 500, aber aus einer anderen Ursache: ' + String(evtZeile(d.z, 'evt_g4').error).slice(0, 160));
+      // v33.63 (W6): der Webhook sagt die Ursache jetzt VOR dem Schreiben selbst (Preis nicht in stripe_prices) — dieselbe Ursache, ein Satz statt eines Constraints.
+      else if (!/price_id_fkey|price_neu_im_dashboard[^]*steht nicht in stripe_prices/.test(String(evtZeile(d.z, 'evt_g4').error))) rot.push('unbekannter Preis → 500, aber aus einer anderen Ursache: ' + String(evtZeile(d.z, 'evt_g4').error).slice(0, 160));
       // Gegenrichtung (b): jeder andere Schreibfehler bleibt 500.
       const e = await webhook(ereignis('evt_g5', 'customer.subscription.deleted', sub(G)), {}, { fehler: { 'stripe_subscriptions:upsert': { code: 'XX000', message: 'connection reset' } } });
       if (e.r.status !== 500 || evtZeile(e.z, 'evt_g5').processed_at) rot.push('Datenbankfehler → ' + e.r.status);

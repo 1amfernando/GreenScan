@@ -211,6 +211,15 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   beantwortete. Regel: Attrappen tragen den Live-Stand und scheitern wie das
   Original; ein Blick auf den ZUSAMMENGEFUEHRTEN Diff findet, was keine Gruppe
   allein sah.
+- **v33.63** `stripe-checkout` schickte seit v8 `automatic_payment_methods` an
+  Checkout — den Parameter gibt es dort nicht, Stripe lehnt ihn mit 400 ab
+  (gefolgert, nicht gegen Stripe gemessen). `edge_check` war gruen, weil die
+  Stripe-Attrappe JEDEN Parameter annahm. Regel: eine Attrappe lehnt ab, was
+  das Original ablehnt (`_zahlung_stripe.mjs`: `parameter_unknown`), und ihre
+  Liste ist eine eigene Abschrift, nie die Liste des Prueflings. Und: zwei
+  Module fuer dieselbe Frage (#329 `stripe_regeln.mjs` neben `zahlung_regeln.mjs`)
+  sind zwei Wahrheiten — vereint wird in das EINE, die Widersprueche einzeln
+  entschieden (W1–W11).
 - **v33.59** Das KI-Tor setzte zahlenden Kunden Tageslimits unter den
   bisherigen Stand, waehrend die App „unbegrenzt" verspricht. Regel: ein
   Kontingent wird gegen das gemessen, was der Kunde bekam und zugesagt

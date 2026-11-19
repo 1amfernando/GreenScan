@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.62.20261119">
+<meta name="app-version" content="33.63.20261119">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://api.anthropic.com">
@@ -18634,8 +18634,8 @@ function gsShowAboScreen() {
       card.style.opacity = '0.55';
       // v33.59: available:false heisst AUCH „du hast es schon genutzt" — dann sind noch Plaetze frei,
       // und „Ausverkauft" waere die falsche Begruendung.
-      var selbst = st.logged_in === true && typeof st.claimed === 'number' && st.claimed < 100;
-      if (note) note.textContent = selbst ? GS_ZAHLUNG_FEHLER.launch_schon_beansprucht : '❌ Ausverkauft · nur 100 User möglich';
+      var selbst = st.logged_in === true && typeof st.claimed === 'number' && st.claimed < GS_LAUNCH_PLAETZE;
+      if (note) note.textContent = selbst ? GS_ZAHLUNG_FEHLER.launch_schon_beansprucht : _gsSatz('❌ Ausverkauft · alle {1} Plätze sind vergeben', GS_LAUNCH_PLAETZE);
       var btn = card.querySelector('button[onclick*="pro_lifetime"]');
       if (btn) { btn.disabled = true; btn.style.opacity='0.5'; btn.style.cursor='not-allowed'; }
     }
@@ -18644,8 +18644,22 @@ function gsShowAboScreen() {
 
 // v33.59: die Zahlungs-Functions antworten mit einer KENNUNG statt mit dem Rohtext von Stripe
 // (zahlung_regeln.mjs fehlerCode). Hier wird daraus ein Satz; Unbekanntes bleibt ein allgemeiner Satz.
+// v33.63 (P-C2): die Plätze des Launch-Angebots — dieselbe Zahl wie launch_offer_available() und launchDeckel().
+var GS_LAUNCH_PLAETZE = 100;
+// v33.63: dazu die Kennungen des vereinten Zahlungswegs (aus PR #329: was das Konto schon hat, Portal ohne Kunde).
+// scripts/stripe_check.js hält die Liste gegen jede Kennung, die stripe-checkout / stripe-portal nennen können.
 var GS_ZAHLUNG_FEHLER = {
   unbekannter_preis: 'Dieses Angebot gibt es so nicht mehr. Bitte lade die Seite neu.',
+  abo_laeuft: 'Du hast bereits ein laufendes Abo. Ändern oder kündigen kannst du es unter «Abo verwalten».',
+  lifetime_vorhanden: 'Du hast Pro bereits auf Lebenszeit — ein weiterer Kauf ist nicht nötig.',
+  kein_kunde: 'Das Portal gibt es erst nach dem ersten Kauf.',
+  kunde_unbekannt: 'Zu diesem Konto gibt es bei Stripe keinen Kunden mehr. Bitte schreib uns: info@greenscan.ch',
+  zahlung_nicht_eingerichtet: 'Die Zahlung ist gerade nicht eingerichtet. Bitte versuche es später nochmals.',
+  nicht_angemeldet: 'Deine Anmeldung ist abgelaufen. Bitte melde dich neu an.',
+  anfrage_ungueltig: 'Die Anfrage war unvollständig. Bitte lade die Seite neu.',
+  checkout_failed: 'Der Kauf konnte nicht gestartet werden.',
+  portal_failed: 'Das Abo-Portal ist gerade nicht erreichbar.',
+  zahlung_fehlgeschlagen: 'Der Zahlungsdienst hat die Anfrage nicht angenommen.',
   launch_ausverkauft: 'Das Launch-Angebot ist ausverkauft.',
   launch_schon_beansprucht: 'Du hast das Launch-Angebot bereits genutzt.',
   launch_nicht_pruefbar: 'Das Launch-Angebot lässt sich gerade nicht prüfen. Bitte versuche es später nochmals.',
@@ -18661,6 +18675,23 @@ function _gsZahlungFehler(code, rueckfall) {
   var k = String(code || '');
   if (Object.prototype.hasOwnProperty.call(GS_ZAHLUNG_FEHLER, k)) return GS_ZAHLUNG_FEHLER[k];
   return rueckfall || 'Der Zahlungsdienst hat die Anfrage nicht angenommen.';
+}
+// v33.63 (aus PR #329): Kennungen von stripe-checkout, die KEIN Fehler sind — das Konto hat es schon, oder
+// das Angebot ist vergeben. gsStartCheckout zeigt dann einen Satz und zeichnet den Abo-Bildschirm mit dem
+// frischen Stand neu, statt „Checkout fehlgeschlagen · Support kontaktieren".  → Titel, oder '' (dann Fehler)
+function _gsCheckoutKeinFehler(grund) {
+  if (grund === 'abo_laeuft' || grund === 'lifetime_vorhanden' || grund === 'launch_schon_beansprucht') return _gsSatz('Schon freigeschaltet');
+  if (grund === 'launch_ausverkauft') return _gsSatz('Ausverkauft');
+  return '';
+}
+// v33.63 (aus PR #329): die Kennung einer Antwort von stripe-portal — die der Function (`grund`, sonst `error`),
+// oder bei der ausgelieferten Fassung bis v5 ihr einziges 404 („No Stripe customer found" hiess „noch nie gekauft").
+// Ein anderes 404 (die Function gibt es nicht) ist KEIN „nie gekauft".
+function _gsPortalKennung(data, status) {
+  if (data && typeof data.grund === 'string' && data.grund) return data.grund;
+  if (status === 404 && data && data.error === 'No Stripe customer found') return 'kein_kunde';
+  if (data && typeof data.error === 'string' && Object.prototype.hasOwnProperty.call(GS_ZAHLUNG_FEHLER, data.error)) return data.error;
+  return null;
 }
 
 // v33.59: der Stand als Objekt {available, logged_in, claimed} — die Anzeige braucht den GRUND
@@ -19569,7 +19600,9 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
           // v33.59: popup=1 NUR, wenn es ein Fenster gibt — sonst (Popup blockiert, Android-Huelle)
           // kehrt das HAUPTfenster mit popup=1 zurueck, und der Handler laedt die App nicht.
           success_url: root + '?billing=success' + ((popup && !popup.closed) ? '&popup=1' : ''),
-          cancel_url:  root + '?billing=cancel' + ((popup && !popup.closed) ? '&popup=1' : '')
+          cancel_url:  root + '?billing=cancel' + ((popup && !popup.closed) ? '&popup=1' : ''),
+          // v33.63: die Stripe-Seite in der Sprache der App (stripe-checkout nimmt de · fr · it · en, sonst die des Browsers)
+          locale: (window.gsI18n && typeof gsI18n.getLang === 'function') ? gsI18n.getLang() : 'de'
         };
         // v25.7 A3: Trial-Days optional weitergeben (Backend cap't auf max 30 + first-sub)
         if (trialDays && Number(trialDays) > 0) b.trial_days = Number(trialDays);
@@ -19578,7 +19611,9 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
     }), 15000, 'Stripe-Checkout antwortet nicht (Timeout). Bitte später nochmals versuchen.');
     var data = await resp.json().catch(function(){ return {}; });
     if (!resp.ok || !data || !data.url) {
-      throw new Error(_gsZahlungFehler(data && data.error, 'Checkout fehlgeschlagen (' + resp.status + ')'));
+      var nein = new Error(_gsZahlungFehler(data && data.error, 'Checkout fehlgeschlagen (' + resp.status + ')'));
+      nein.grund = (data && typeof data.error === 'string') ? data.error : null;   // v33.63
+      throw nein;
     }
     // 3) Popup navigieren (oder Fallback: selbes Fenster)
     if (popup && !popup.closed) {
@@ -19602,6 +19637,21 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
       location.href = data.url;
     }
   } catch(e) {
+    // v33.63 (aus PR #329): „Das hast du schon" und „ausverkauft" sind keine Fehler. Der Bildschirm bot etwas an,
+    // das es für dieses Konto nicht (mehr) gibt — sein Stand kam aus dem Gerätespeicher und war alt (zweites
+    // Gerät, Tab von gestern); gemerkt hat es der Server. Dann: Fenster zu, Stand NEU holen, Bildschirm neu
+    // zeichnen, ein Satz — kein „Checkout fehlgeschlagen", kein Angebot, dem Support zu schreiben.
+    var keinFehler = _gsCheckoutKeinFehler(e && e.grund);
+    if (keinFehler) {
+      try { if (popup && !popup.closed) popup.close(); } catch(_){}
+      btns.forEach(function(b){ b.disabled = false; b.style.opacity = '1'; });
+      gsToast({title: keinFehler, body: e.message, type: 'info', duration: 6500});
+      try {
+        if (typeof gsLoadEntitlements === 'function') await gsLoadEntitlements();
+        if (document.getElementById('abo-lifetime-card')) gsShowAboScreen();
+      } catch(_){}
+      return;
+    }
     // v23.60: Fehler IM Popup anzeigen statt stillem Loading-Hang
     try { _gsPopupError(popup, e && e.message || String(e)); } catch(_){}
     btns.forEach(function(b){ b.disabled = false; b.style.opacity = '1'; });
@@ -19649,7 +19699,8 @@ async function gsOpenBillingPortal(flow) {
     // v28.02: frischen Token erzwingen (Stripe-Portal-Robustheit, Block C)
     var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : (gsStore.get('gs_sb_token', null) || '');
     var base  = (typeof SB_URL !== 'undefined') ? SB_URL : '';
-    var bodyObj = { return_url: location.origin + (location.pathname||'/') + '?billing=return' + ((popup && !popup.closed) ? '&popup=1' : '') };   // v33.59: wie gsStartCheckout
+    var bodyObj = { return_url: location.origin + (location.pathname||'/') + '?billing=return' + ((popup && !popup.closed) ? '&popup=1' : ''),   // v33.59: wie gsStartCheckout
+      locale: (window.gsI18n && typeof gsI18n.getLang === 'function') ? gsI18n.getLang() : 'de' };   // v33.63
     if (flow === 'cancel' || flow === 'reactivate') bodyObj.flow = flow;
     var resp = await (window._gsFetch || fetch)(base + '/functions/v1/stripe-portal', {
       method: 'POST',
@@ -19662,7 +19713,12 @@ async function gsOpenBillingPortal(flow) {
     }, 20000);
     var data = await resp.json().catch(function(){ return {}; });
     if (!resp.ok || !data || !data.url) {
-      throw new Error(resp.status === 404 ? 'Zu deinem Konto ist kein Abo hinterlegt.' : _gsZahlungFehler(data && data.error, 'Portal nicht verfügbar'));
+      // v33.63: die Kennung entscheidet, nicht der Status — ein 404 der Function heisst „noch kein Kauf",
+      // ein 404 des Gateways (die Function gibt es nicht) nicht.
+      var kennungP = _gsPortalKennung(data, resp.status);
+      var neinP = new Error(kennungP ? _gsZahlungFehler(kennungP) : _gsZahlungFehler(null, 'Portal nicht verfügbar (' + resp.status + ')'));
+      neinP.grund = kennungP;
+      throw neinP;
     }
     if (popup && !popup.closed) {
       popup.location.href = data.url;
@@ -19676,8 +19732,9 @@ async function gsOpenBillingPortal(flow) {
           // damit Kündigung/Reaktivierung sofort sichtbar wird statt stillem "Aktiv".
           if (typeof gsRefreshSubInfoCardRetry === 'function') gsRefreshSubInfoCardRetry();
           try {
-            if (flow === 'cancel') gsToast('Kündigung wird verarbeitet — der Status aktualisiert sich in wenigen Sekunden.', 'info', 5000);
-            else if (flow === 'reactivate') gsToast('Reaktivierung wird verarbeitet — gleich aktualisiert.', 'info', 4000);
+            // v33.63 (aus PR #329): was im Portal geschah, weiss die App nicht — ein geschlossenes Fenster ist keine
+            // Kündigung und keine Reaktivierung. Sie sagt, was sie TUT; was gilt, zeigt danach die Abo-Karte.
+            if (flow === 'cancel' || flow === 'reactivate') gsToast(_gsSatz('Dein Abo-Stand wird neu geladen — das kann ein paar Sekunden dauern.'), 'info', 5000);
           } catch(_){}
         }
       }, 800);
@@ -19687,6 +19744,11 @@ async function gsOpenBillingPortal(flow) {
     }
   } catch(e) {
     try { if (popup && !popup.closed) popup.close(); } catch(_){}
+    // v33.63 (aus PR #329): „noch nie gekauft" ist kein Fehler und braucht keinen Support.
+    if (e && e.grund === 'kein_kunde') {
+      gsToast({title: _gsSatz('Noch kein Abo'), body: e.message, type: 'info', duration: 5000});
+      return;
+    }
     gsToast({title:'Stripe-Portal nicht verfügbar', body:(e.message||e) + ' — Bitte wende dich an info@greenscan.ch', type:'error', duration:6000});
   }
 }
@@ -78262,6 +78324,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.63', date: '19.11.2026',
+      headline: 'Der Zahlungsweg in EINER Fassung — und ein Kauf, der nicht mehr an einem falschen Parameter scheitern kann',
+      summary: 'Auftrag P-C2: der Zahlungsweg aus PR #329 und der aus v33.59 zu EINER Fassung vereint. Das eine Modul ist supabase/functions/_shared/zahlung_regeln.mjs (ein zweites, stripe_regeln.mjs, gibt es nicht). Aus #329: stripe-checkout schickt kein automatic_payment_methods mehr an Checkout (den Parameter gibt es dort nicht — Stripe lehnt ihn mit 400 ab, gefolgert aus der API-Referenz, nicht gegen Stripe gemessen) und nur noch Namen aus CHECKOUT_PARAMETER; kein zweites Abo neben einem laufenden und nichts neben Lifetime (Stripe wird gefragt, ob das Abo läuft); ein unbekannter gemerkter Kunde wird gesucht statt mit 500 abzubrechen; checkout.session.async_payment_succeeded; Abo-Zeitraum und Rechnung in beiden API-Formen; ein Lifetime-Kauf beendet ein laufendes Abo zum Periodenende; die volle Erstattung gibt den Launch-Platz frei; processed=true; ein Live-Ereignis an einem Test-Schlüssel wird als Satz gemeldet; Portal: Kündigen nur auf ein echtes laufendes Abo, Fortsetzen ohne Plan-Wechsel-Seite. Von main bleiben: eine Zahlung setzt nie verified (W1), eine Rückbuchung entzieht Lifetime (W2), nach aussen nur Kennungen (W3), Rückkehr nur auf die eigenen Ursprünge (W4), exakte Versionen (W5), ein unbekannter Preis ist 500 (W6), Launch am Preis (W7), Entzug über den PaymentIntent (W8), constructEventAsync (W9). stripe-admin-extend-webhook abonniert aus STRIPE_EREIGNISSE. Neu in der Suite: stripe_check (51 Fälle); die Stripe-Attrappe von edge_check lehnt einen unbekannten Checkout-Parameter ab und ist am alten stripe-checkout rot. Nichts davon ist ausgeliefert: die Stripe-Functions warten auf Fernandos Modus-Prüfung (FUER-FERNANDO §30i).',
+      user_summary: 'Hinter den Kulissen: der Weg zum Abo-Kauf ist zusammengeführt und geprüft. Die App sagt dir genauer, warum ein Kauf nicht nötig ist oder das Portal noch nicht geht.',
+      user_items: [
+        {emoji:'💳', bold:'Abo kaufen:', text:' hast du schon ein laufendes Abo oder Pro auf Lebenszeit, sagt dir die App das, statt einen zweiten Kauf anzubieten — der Server prüft es selbst.'},
+        {emoji:'🌐', bold:'Bezahlseite in deiner Sprache:', text:' die Seite von Stripe erscheint auf Deutsch, Französisch, Italienisch oder Englisch — wie die App.'},
+        {emoji:'🧾', bold:'Abo verwalten:', text:' wer noch nie gekauft hat, liest einen ruhigen Hinweis statt einer Fehlermeldung, und „Kündigen“ zeigt immer auf dein laufendes Abo.'},
+      ],
+  },
+  {
     v: 'v33.62', date: '19.11.2026',
       headline: 'Kein „Daten wiederherstellen?“ mehr beim Start — was fehlt, holt die App von selbst aus dem Backup',
       summary: 'Gemeldet von Fernando, zweimal: der Banner „Daten wiederherstellen?“ stand bei jedem Start da, und er will beim Öffnen gar nicht gefragt werden. Ursache des Dauerbanners, am Quelltext gemessen: seit v30.97 wurde nur die LOKALE Seite gefragt — ist irgendeiner der zwölf snapshot-exklusiven Bereiche leer (Bodenprofil, Käufe, Gebote, eigene Heilmittel …)? Das ist der Normalzustand, also war die Antwort bei fast jedem Konto „ja“, und das × war nirgends gemerkt. Jetzt gibt es den Banner nicht mehr. EINE Rechnung (_gsSnapshotFehlt) sagt, was eine Wiederherstellung zurückbrächte: der Snapshot hat dort Inhalt UND lokal ist es leer. Ist das so, holt gsSnapshotAutoWiederherstellen es still zurück (schreibt nur in leere Bereiche, überschreibt nie) und sagt danach einen Satz. Verloren und bewusst geleert werden unterschieden: stand ein Bereich beim letzten Backup auf DIESEM Gerät noch da (gs_snapshot_had) und ist jetzt leer, wurde er hier geleert — er bleibt leer und hält die automatischen Backups nicht an. Ein Versuch je Backup-Stand, keine Schleife bei vollem Speicher.',
@@ -78666,22 +78739,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'scripts/android_check.js (neu, 37. Prüfstand):', text:' neun Fragen, acht davon rot gegen v33.42. Drei meiner eigenen Fälle massen zuerst nichts — die Gegenproben haben es gezeigt; sie gehen jetzt den ECHTEN Weg (history.back → popstate) statt die Funktion direkt zu rufen. docs/ANDROID-APK.md nennt die Handgriffe und die Risiken.'}
       ],
     },
-  {
-    v: 'v33.42', date: '16.09.2026',
-      headline: 'Admin-Panel: was nicht geladen hat, sagt es — und lässt sich einzeln nachholen',
-      summary: 'Dreizehn von sechzehn Admin-Sektionen lasen den Fehler gar nicht: eine Ablehnung wurde zur leeren Liste, und auf dem Bildschirm stand ‚Keine offenen Meldungen‘. Sieben fragten nicht einmal, ob die Person Admin ist. Jetzt gibt es eine Liste, einen Weg und vier Zustände — dazu einen Überblick ganz oben und einen Aktualisieren-Knopf je Sektion.',
-      user_summary: 'Diese Auslieferung betrifft nur das Admin-Panel — für dich ändert sich nichts. Sie sorgt dafür, dass gemeldete Beiträge nicht liegen bleiben, weil eine Abfrage stillschweigend fehlgeschlagen ist.',
-      user_items: [
-        {emoji:'🛡️', text:'Meldungen an die Moderation gehen nicht mehr unbemerkt unter.'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'Gemessen an v33.41:', text:' 13 von 16 Sektionen endeten auf catch(e) { return []; } — Ablehnung, 404, Netzfehler und ‚leer‘ sahen gleich aus. 7 von 16 hatten kein gsIsAdmin()-Tor und schickten ihre Anfrage trotzdem los.'},
-        {emoji:'📋', bold:'GS_ADM_SEKTIONEN + _gsAdmHole:', text:' eine Liste mit Titel, Pfad, Anzeige und Element je Sektion; ein Weg, der IMMER einen Umschlag {state, daten, grund} zurückgibt — daten · nicht_verfuegbar · fehler · kein_zugriff. Der Grund kommt aus _gsFehlerText, nie roh aus PostgREST.'},
-        {emoji:'🔄', bold:'gsAdmSektionNeu(schlüssel):', text:' eine Anfrage statt sechzehn. Der alte _gsAdminRefreshSection nahm Funktionsreferenzen (von aussen nicht adressierbar) und baute bei fehlendem Element das ganze Panel neu auf.'},
-        {emoji:'🔎', bold:'Überblick oben im Panel:', text:' ‚3 von 16 Sektionen konnten nicht geladen werden: Moderation · Hintergrund-Jobs · Gutscheine‘ mit ‚Nur diese erneut versuchen‘ — das sind dann drei Anfragen, nicht sechzehn.'},
-        {emoji:'🧪', bold:'scripts/admin_check.js (neu, 36. Prüfstand):', text:' sechs Fälle — Zugang, drei Zustände je Sektion, was auf dem Bildschirm steht, Einzel-Refresh, die Liste selbst, der Überblick. Alle sechs waren gegen v33.41 rot; jede Regel hat ihre eigene Gegenprobe.'}
-      ],
-    },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -78892,7 +78949,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.62';
+var GS_VERSION = 'v33.63';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
