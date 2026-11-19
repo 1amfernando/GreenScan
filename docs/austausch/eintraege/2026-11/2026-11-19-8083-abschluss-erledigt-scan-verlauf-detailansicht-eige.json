@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-19-8083",
+  "art": "abschluss",
+  "datum": "2026-11-19",
+  "zeit": "10:48:47",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "erledigt: Scan-Verlauf, Detailansicht: eigene Artensuche und eine eingefrorene Giftplakette — sie geht nicht durch _gsArtAnzeige",
+  "ergebnis": "erledigt",
+  "wohin": "v33.61 (#326, a5adfc0 auf main): _gsVerlaufArt = gsMatchScanToDb, Sicherheit über _gsArtAnzeige/gsIstEssbar; scan_check SV1–SV3",
+  "geschwister": "gesucht am 16.11.2026: jede Stelle, die einen Verlaufseintrag einer Art zuordnet — Liste (renderScanHistFull), Detail (gsScanHistoryOpen) und Galerie-Detail; alle drei umgestellt, kein eigenes DB.find mehr",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-4a99",
+      "ref": "origin/claude/zahlungsweg-nachgemessen-011L7G"
+    }
+  ]
+}
