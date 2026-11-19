@@ -940,6 +940,526 @@ const FAELLE = [
       return { ok: true, info: 'Fehlschlag benannt, Unsicherheit bleibt, Wiederholung möglich' };
     },
   },
+  // ── Die Verzehr-Zeile der Gegenprobe wird GERECHNET (V1–V8) ────────────
+  //
+  // Gemessen am Stand davor (Befund IDEE-B, nachgefahren): `gsGegenprobeRender`
+  // waehlte Kopf und Satz nach `g.urteil`, die Schlusszeile aber ALLEIN nach
+  // `g.verzehr` — beide ungeprueft aus derselben KI-Antwort, die Art wurde
+  // nicht gelesen. „☠️ Der zweite Blick WIDERSPRICHT … Iss das nicht." und
+  // „🍽️ Beide Blicke halten den Verzehr für vertretbar" standen in EINER Karte.
+  // Die vier Faelle davor kennen nur die zwei STIMMIGEN Paare
+  // (widerlegt+nein, bestaetigt+ja) und konnten das nie sehen.
+  //
+  // Die Regel: eine Zustimmung gibt es hoechstens, wenn das Urteil bestaetigt
+  // ist UND die KI ja sagt UND die Artenliste die Art als essbar und ungiftig
+  // fuehrt (ein gepruefter Eintrag) UND es kein Pilz ist. Alles andere ist die
+  // vorsichtigere Zeile; „nicht pruefbar" wird ausgesprochen, mit Grund.
+  // Jeder Fall liest den GERENDERTEN Text und misst mit dem eigenen Massstab
+  // (die Felder der Liste), nicht mit der Funktion, die geprueft wird.
+  {
+    name: 'V1 · Gegenprobe · Verzehr-Zeile: Zustimmung nur bei bestätigt + ja + Art in der Liste essbar und ungiftig + kein Pilz (alle Kombinationen)',
+    lauf: () => {
+      const norm = s => String(s || '').toLowerCase().trim();
+      const binom = s => norm(s).split(' ').slice(0, 2).join(' ');
+      const gruppe = lat => DB.filter(s => s && binom(s.lat) === lat);
+      const sauber = s => s.edible === true && (Number(s.tox) || 0) === 0 && s.toxic !== true && !s._unverified;
+      // ── Aufbau: was die LISTE zu den fuenf Arten sagt ───────────────────
+      const bl = gruppe('allium ursinum'), hz = gruppe('colchicum autumnale'), sp = gruppe('boletus edulis');
+      const aufbau = [];
+      if (!bl.length || !bl.every(s => sauber(s) && s.cat !== 'pilz')) aufbau.push('Bärlauch ist in der Liste nicht durchgehend essbar · ungiftig · geprüft');
+      if (!hz.length || !hz.every(s => (Number(s.tox) || 0) >= 3 && !s._unverified)) aufbau.push('Herbstzeitlose ist nicht durchgehend Giftstufe ≥ 3');
+      if (!sp.length || !sp.every(s => sauber(s) && s.cat === 'pilz')) aufbau.push('Steinpilz ist nicht durchgehend Pilz · essbar · ungiftig · geprüft');
+      if (DB.some(s => s && (/^zzz/i.test(s.name || '') || /^zzz/i.test(s.lat || '')))) aufbau.push('die erfundene Art steht in der Liste');
+      // ein UNGEPRUEFTER Einlese-Eintrag, der selbst „essbar" behauptet und keinen geprueften Zwilling hat
+      const unv = DB.find(s => s && s._unverified && s.edible === true && (Number(s.tox) || 0) === 0 && s.cat !== 'pilz'
+        && binom(s.lat).indexOf(' ') > 0
+        && !DB.some(x => x && !x._unverified && (binom(x.lat) === binom(s.lat) || norm(x.name) === norm(s.name))));
+      if (!unv) aufbau.push('kein ungeprüfter Eintrag mit edible:true ohne geprüften Zwilling gefunden');
+      if (aufbau.length) return { ok: false, warum: 'Aufbau: ' + aufbau.join(' · ') };
+
+      // Was die KI behauptet hat — ohne „essbar" gaebe es die Gegenprobe gar nicht.
+      const ki = { edible: true, toxic: false, toxicity: 0, confidence: 88 };
+      const ARTEN = {
+        essbar:     { r: Object.assign({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze' }, ki) },
+        giftig:     { r: Object.assign({ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', category: 'wildpflanze' }, ki) },
+        pilz:       { r: Object.assign({ name: 'Steinpilz', latin: 'Boletus edulis', category: 'pilz' }, ki) },
+        unbekannt:  { r: Object.assign({ name: 'Zzz Fantasiekraut', latin: 'Zzzus fantasticus', category: 'wildpflanze' }, ki) },
+        ungeprueft: { r: Object.assign({ name: unv.name, latin: unv.lat, category: 'wildpflanze' }, ki) },
+        ohne_liste: { r: Object.assign({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze' }, ki), ohneListe: true },
+      };
+      const echt = window.DB;
+      const zeige = (g, art) => {
+        document.querySelectorAll('#gs-gegenprobe').forEach(e => e.remove());
+        const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+        document.body.appendChild(host);
+        try { if (art.ohneListe) window.DB = []; gsGegenprobeRender(g, Object.assign({}, art.r)); }
+        finally { window.DB = echt; }
+        const z = host.querySelector('.gs-gp-verzehr');
+        const aus = { karte: (host.textContent || '').replace(/\s+/g, ' '), zeile: z ? (z.textContent || '').replace(/\s+/g, ' ').trim() : '' };
+        host.remove();
+        return aus;
+      };
+      // Was die Zeile SAGT — am gerenderten Text
+      const klasse = z => /vertretbar/i.test(z) ? 'zusage'
+        : /Nicht gegengeprüft/i.test(z) ? 'ungeprueft'
+        : /Nicht verzehren/i.test(z) ? 'nein'
+        : /Pilzkontroll/i.test(z) ? 'pilz'
+        : /Fachperson/i.test(z) ? 'fach' : '?';
+      // Was sie sagen DARF — die Regel aus dem Auftrag, nicht die Funktion
+      const soll = (u, v, a) => {
+        if (u === 'widerlegt' || v === 'nein' || a === 'giftig') return 'nein';
+        if (u !== 'bestaetigt' || v !== 'ja') return a === 'pilz' ? 'pilz' : 'fach';
+        return a === 'essbar' ? 'zusage' : a === 'pilz' ? 'pilz' : 'ungeprueft';
+      };
+      const U = ['bestaetigt', 'zweifel', 'widerlegt'], V = ['ja', 'nein', 'nur_nach_fachpruefung'];
+      let n = 0, zusagen = 0, doppelt = 0, ohneZeile = 0; const falsch = [], grund = [];
+      for (const u of U) for (const v of V) for (const a of Object.keys(ARTEN)) {
+        n++;
+        const x = zeige({ urteil: u, vertrauen: 70, dagegen: ['Merkmal fehlt'], dafuer: ['Merkmal da'], fehlend: '', verzehr: v }, ARTEN[a]);
+        if (!x.zeile) { ohneZeile++; continue; }
+        const k = klasse(x.zeile), s = soll(u, v, a);
+        if (k === 'zusage') zusagen++;
+        // die Karte sagt nur EINES: keine Zusage neben einem Verbot
+        if (/vertretbar/i.test(x.karte) && /Iss das nicht|nicht verzehren/i.test(x.karte)) doppelt++;
+        if (k !== s) falsch.push(u + '+' + v + '+' + a + ' → ' + k + ' statt ' + s);
+        // „nicht pruefbar" ist ausgesprochen UND nennt seinen Grund
+        if (s === 'ungeprueft' && k === 'ungeprueft') {
+          if (a === 'ohne_liste' && !/nicht geladen/i.test(x.zeile)) grund.push(a + ': der Grund „Liste nicht geladen" fehlt');
+          if (a !== 'ohne_liste' && !/keinen geprüften Eintrag/i.test(x.zeile)) grund.push(a + ': der Grund „kein geprüfter Eintrag" fehlt');
+          if (!/keine Zustimmung/i.test(x.zeile)) grund.push(a + ': sagt nicht, dass es keine Zustimmung ist');
+        }
+        if (a === 'giftig' && u === 'bestaetigt' && v === 'ja' && k === 'nein' && !/Artenliste/.test(x.zeile)) grund.push('giftig: das Nein nennt die Artenliste nicht');
+        // „der stärkste Beleg, den diese App liefern kann" steht nur ueber einer Art, die die Liste pruefen konnte
+        if (u === 'bestaetigt') {
+          const stark = /stärkste Beleg/.test(x.karte), geprueft = (a === 'essbar' || a === 'giftig' || a === 'pilz');
+          if (stark !== geprueft) grund.push(v + '+' + a + ': „stärkster Beleg" ' + (stark ? 'steht über einer Art, die die Liste nicht prüfen konnte' : 'fehlt über einer geprüften Art'));
+        }
+      }
+      if (window.DB !== echt || !window.DB.length) return { ok: false, warum: 'Artenliste nicht wiederhergestellt' };
+      const zahl = n + ' Kombinationen · ' + zusagen + ' Zusage(n), erlaubt 1 · ' + doppelt + ' Karte(n) mit Zusage UND Verbot · ' + falsch.length + ' mit falscher Zeile';
+      if (ohneZeile) return { ok: false, warum: ohneZeile + ' von ' + n + ' Karten ohne Verzehr-Zeile — der Fall misst nichts' };
+      if (zusagen < 1) return { ok: false, warum: 'die Zeile stimmt NIE zu, auch nicht bei bestätigt + ja + Bärlauch — der Fall unterscheidet nichts (' + zahl + ')' };
+      if (zusagen !== 1 || doppelt || falsch.length || grund.length)
+        return { ok: false, warum: zahl + (falsch.length ? ' · z.B. ' + falsch.slice(0, 4).join(' | ') : '') + (grund.length ? ' · ' + grund.slice(0, 3).join(' | ') : '') };
+      return { ok: true, info: zahl + ' · Pilz → Pilzkontrolle · unbekannt, ungeprüft („' + unv.name + '"), ohne Liste → „Nicht gegengeprüft" mit Grund' };
+    },
+  },
+  {
+    name: 'V2 · Gegenprobe · Verzehr-Zeile: Schreibweisen der KI · fehlende Art · Pilz ohne Eintrag · „essbar, aber nicht ungiftig" · „nicht essbar"',
+    lauf: () => {
+      const norm = s => String(s || '').toLowerCase().trim();
+      const binom = s => norm(s).split(' ').slice(0, 2).join(' ');
+      const gepr = lat => DB.filter(s => s && binom(s.lat) === lat && !s._unverified);
+      const tox = s => Number(s.tox) || 0;
+      const echt = window.DB;
+      const zeige = (g, r, ohneListe) => {
+        document.querySelectorAll('#gs-gegenprobe').forEach(e => e.remove());
+        const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+        document.body.appendChild(host);
+        try { if (ohneListe) window.DB = []; gsGegenprobeRender(g, r); }
+        finally { window.DB = echt; }
+        const z = host.querySelector('.gs-gp-verzehr');
+        const aus = { karte: (host.textContent || '').replace(/\s+/g, ' '), zeile: z ? (z.textContent || '').replace(/\s+/g, ' ').trim() : '' };
+        host.remove();
+        return aus;
+      };
+      const klagen = [];
+      const bj = { urteil: 'bestaetigt', verzehr: 'ja' };
+      const bl = () => ({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', edible: true, toxicity: 0 });
+      let x;
+      // 1 · Umlaut und Grossschreibung: „Bestätigt" + „JA" ist dieselbe Antwort — Kopf UND Zeile lesen sie gleich
+      x = zeige({ urteil: 'Bestätigt', verzehr: 'JA' }, bl());
+      if (!/dasselbe Ergebnis/.test(x.karte) || !/vertretbar/.test(x.zeile))
+        klagen.push('„Bestätigt"+„JA": Kopf „' + x.karte.slice(0, 36) + '" · Zeile „' + x.zeile.slice(0, 44) + '"');
+      // 2 · ein „Nein." mit Punkt bleibt ein Nein
+      x = zeige({ urteil: 'bestaetigt', verzehr: 'Nein.' }, bl());
+      if (!/Nicht verzehren/i.test(x.zeile)) klagen.push('„Nein." wird nicht als Nein gelesen: „' + x.zeile.slice(0, 50) + '"');
+      // 3 · was nicht GENAU bestaetigt + ja ist, stimmt nicht zu
+      [['nicht bestaetigt', 'ja'], ['unbestaetigt', 'ja'], ['ok', 'ja'], ['', 'ja'], ['bestaetigt', 'ja, gekocht'], ['bestaetigt', 'yes'], ['bestaetigt', '']].forEach(p => {
+        const y = zeige({ urteil: p[0], verzehr: p[1] }, bl());
+        if (!y.zeile) klagen.push('„' + p[0] + '"+„' + p[1] + '": keine Zeile');
+        else if (/vertretbar/i.test(y.karte)) klagen.push('„' + p[0] + '"+„' + p[1] + '" stimmt zu');
+      });
+      // 4 · ohne Art keine Zustimmung — und kein Absturz
+      [null, undefined, {}].forEach(r => {
+        let y;
+        try { y = zeige(bj, r); } catch (e) { klagen.push('ohne Art: wirft „' + e.message + '"'); return; }
+        if (/vertretbar/i.test(y.karte) || !/Nicht gegengeprüft/i.test(y.zeile)) klagen.push('ohne Art (' + (r === null ? 'null' : typeof r) + '): „' + y.zeile.slice(0, 50) + '"');
+      });
+      // 5 · ein Pilz, den die Liste nicht kennt (nur die KI sagt „Pilz"): nicht gegengeprueft UND Pilzkontrolle
+      x = zeige(bj, { name: 'Zzz Fantasiepilz', latin: 'Zzzus fungus', category: 'Pilz', edible: true, toxicity: 0 });
+      if (/vertretbar/i.test(x.karte) || !/Nicht gegengeprüft/i.test(x.zeile) || !/Pilzkontroll/i.test(x.zeile)) klagen.push('unbekannter Pilz: „' + x.zeile.slice(0, 80) + '"');
+      // … der Gruene Knollenblaetterpilz OHNE Liste (der Fall aus P1/P2) …
+      const kb = () => ({ name: 'Grüner Knollenblätterpilz', latin: 'Amanita phalloides', category: 'pilz', edible: true, toxicity: 0 });
+      x = zeige(bj, kb(), true);
+      if (/vertretbar/i.test(x.karte) || !/nicht geladen/i.test(x.zeile) || !/Pilzkontroll/i.test(x.zeile)) klagen.push('Knollenblätterpilz ohne Liste: „' + x.zeile.slice(0, 80) + '"');
+      // … und MIT Liste ein Nein, das die Liste nennt
+      x = zeige(bj, kb(), false);
+      if (/vertretbar/i.test(x.karte) || !/Nicht verzehren/i.test(x.zeile) || !/Artenliste/.test(x.zeile)) klagen.push('Knollenblätterpilz mit Liste: „' + x.zeile.slice(0, 80) + '"');
+      // 6 · essbar, aber nicht ungiftig (Holunder: die Art traegt Giftstufe 1–2)
+      const ho = gepr('sambucus nigra');
+      if (!ho.length || !ho.every(s => s.edible === true && tox(s) < 3) || !ho.some(s => tox(s) >= 1)) klagen.push('Aufbau: Holunder ist in der Liste nicht „essbar mit Giftstufe 1–2"');
+      else {
+        x = zeige(bj, { name: 'Schwarzer Holunder', latin: 'Sambucus nigra', category: 'baum', edible: true, toxicity: 0 });
+        if (/vertretbar/i.test(x.karte) || !/nicht als ungiftig/i.test(x.zeile) || !/Fachperson/i.test(x.zeile)) klagen.push('Holunder (essbar, Giftstufe ≥ 1): „' + x.zeile.slice(0, 90) + '"');
+      }
+      // 7 · dasselbe bei einem Pilz (Morchel) → Pilzkontrolle statt Fachperson
+      const mo = gepr('morchella esculenta');
+      if (!mo.length || !mo.every(s => s.edible === true && s.cat === 'pilz' && tox(s) < 3) || !mo.some(s => tox(s) >= 1)) klagen.push('Aufbau: Morchel ist in der Liste nicht „Pilz, essbar mit Giftstufe 1–2"');
+      else {
+        x = zeige(bj, { name: 'Echte Morchel', latin: 'Morchella esculenta', category: 'pilz', edible: true, toxicity: 0 });
+        if (/vertretbar/i.test(x.karte) || !/nicht als ungiftig/i.test(x.zeile) || !/Pilzkontroll/i.test(x.zeile)) klagen.push('Morchel (Pilz, Giftstufe ≥ 1): „' + x.zeile.slice(0, 90) + '"');
+      }
+      // 8 · die Liste fuehrt die Art NICHT als essbar (Edelweiss, Giftstufe 0)
+      const ew = gepr('leontopodium alpinum');
+      if (!ew.length || !ew.every(s => s.edible === false && tox(s) < 3)) klagen.push('Aufbau: Edelweiss ist in der Liste nicht „nicht essbar, Giftstufe < 3"');
+      else {
+        x = zeige(bj, { name: 'Edelweiss', latin: 'Leontopodium alpinum', category: 'wildpflanze', edible: true, toxicity: 0 });
+        if (/vertretbar/i.test(x.karte) || !/Nicht verzehren/i.test(x.zeile) || !/nicht als essbar/i.test(x.zeile)) klagen.push('Edelweiss (Liste: nicht essbar): „' + x.zeile.slice(0, 90) + '"');
+      }
+      if (window.DB !== echt || !window.DB.length) return { ok: false, warum: 'Artenliste nicht wiederhergestellt' };
+      if (klagen.length) return { ok: false, warum: klagen.length + ' von 18 Randfällen: ' + klagen.slice(0, 6).join(' · ') + (klagen.length > 6 ? ' · +' + (klagen.length - 6) + ' weitere' : '') };
+      return { ok: true, info: '18 Randfälle · „Bestätigt"+„JA" und „Nein." gelesen · 7 Abweichungen stimmen nicht zu · ohne Art, unbekannter Pilz, Holunder, Morchel, Edelweiss je mit Grund' };
+    },
+  },
+  {
+    // Die Faelle tragen die Saetze in drei weiteren Sprachen, weil die Zeile
+    // uebersetzt wird: ein Fall, der nur „vertretbar" sucht, saehe eine
+    // Zustimmung auf Franzoesisch nie (v32.99, v33.32: „0 von 12", „3 von 3").
+    name: 'V3 · Gegenprobe · Verzehr-Zeile in fr · it · en: dieselbe Regel, und die Zeile steht in der Sprache der Person',
+    lauf: () => {
+      const S = {
+        fr: {
+          scan_gp_vz_ja: 'Les deux regards jugent la consommation acceptable, et notre liste d’espèces classe l’espèce comme comestible et non toxique — la responsabilité reste la tienne.',
+          scan_gp_vz_nein: 'Ne pas consommer.',
+          scan_gp_vz_fach: 'À consommer uniquement après vérification par une personne spécialisée.',
+          scan_gp_vz_giftig: 'Notre liste d’espèces classe cette espèce comme toxique.',
+          scan_gp_vz_nicht_essbar: 'Notre liste d’espèces ne classe pas cette espèce comme comestible.',
+          scan_gp_vz_bedingt: 'Notre liste d’espèces classe cette espèce comme comestible, mais pas comme non toxique.',
+          scan_gp_vz_kein_eintrag: 'Non vérifié : notre liste d’espèces n’a pas d’entrée vérifiée pour cette espèce — ce n’est pas un accord.',
+          scan_gp_vz_ohne_liste: 'Non vérifié : la liste d’espèces n’est pas chargée — ce n’est pas un accord. Recharge l’application.',
+          mush_vapko_body: 'Fais contrôler CHAQUE champignon cueilli par un poste officiel de contrôle des champignons avant de le manger. Cette application est une information, pas une garantie de comestibilité.',
+        },
+        it: {
+          scan_gp_vz_ja: 'Entrambi gli sguardi ritengono accettabile il consumo, e la nostra lista delle specie indica la specie come commestibile e non tossica — la responsabilità resta tua.',
+          scan_gp_vz_nein: 'Non consumare.',
+          scan_gp_vz_fach: 'Consumare solo dopo il controllo di una persona esperta.',
+          scan_gp_vz_giftig: 'La nostra lista delle specie indica questa specie come tossica.',
+          scan_gp_vz_nicht_essbar: 'La nostra lista delle specie non indica questa specie come commestibile.',
+          scan_gp_vz_bedingt: 'La nostra lista delle specie indica questa specie come commestibile, ma non come non tossica.',
+          scan_gp_vz_kein_eintrag: 'Non verificato: la nostra lista delle specie non ha una voce verificata per questa specie — non è un consenso.',
+          scan_gp_vz_ohne_liste: 'Non verificato: la lista delle specie non è caricata — non è un consenso. Ricarica l’app.',
+          mush_vapko_body: 'Fai controllare OGNI fungo raccolto da un posto ufficiale di controllo dei funghi prima di mangiarlo. Questa app è un’informazione, non una garanzia di commestibilità.',
+        },
+        en: {
+          scan_gp_vz_ja: 'Both looks consider eating it acceptable, and our species list records the species as edible and non-toxic — the responsibility remains yours.',
+          scan_gp_vz_nein: 'Do not eat.',
+          scan_gp_vz_fach: 'Eat only after a check by an expert.',
+          scan_gp_vz_giftig: 'Our species list records this species as toxic.',
+          scan_gp_vz_nicht_essbar: 'Our species list does not record this species as edible.',
+          scan_gp_vz_bedingt: 'Our species list records this species as edible, but not as non-toxic.',
+          scan_gp_vz_kein_eintrag: 'Not cross-checked: our species list has no verified entry for this species — this is not an approval.',
+          scan_gp_vz_ohne_liste: 'Not cross-checked: the species list is not loaded — this is not an approval. Reload the app.',
+          mush_vapko_body: 'Have EVERY collected mushroom checked by an official mushroom inspection point before you eat it. This app is information, not a guarantee of edibility.',
+        },
+      };
+      if (!window.gsI18n || typeof gsI18n.hydrate !== 'function' || typeof gsI18n.getBundles !== 'function') return { ok: false, warum: 'Aufbau: gsI18n.hydrate/getBundles nicht erreichbar' };
+      const norm = s => String(s || '').toLowerCase().trim();
+      const binom = s => norm(s).split(' ').slice(0, 2).join(' ');
+      const unv = DB.find(s => s && s._unverified && s.edible === true && (Number(s.tox) || 0) === 0 && s.cat !== 'pilz'
+        && binom(s.lat).indexOf(' ') > 0
+        && !DB.some(x => x && !x._unverified && (binom(x.lat) === binom(s.lat) || norm(x.name) === norm(s.name))));
+      if (!unv) return { ok: false, warum: 'Aufbau: kein ungeprüfter Eintrag mit edible:true gefunden' };
+      const ki = { edible: true, toxic: false, toxicity: 0, confidence: 88 };
+      const ARTEN = {
+        essbar:     { r: Object.assign({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze' }, ki) },
+        giftig:     { r: Object.assign({ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', category: 'wildpflanze' }, ki) },
+        pilz:       { r: Object.assign({ name: 'Steinpilz', latin: 'Boletus edulis', category: 'pilz' }, ki) },
+        unbekannt:  { r: Object.assign({ name: 'Zzz Fantasiekraut', latin: 'Zzzus fantasticus', category: 'wildpflanze' }, ki) },
+        ungeprueft: { r: Object.assign({ name: unv.name, latin: unv.lat, category: 'wildpflanze' }, ki) },
+        ohne_liste: { r: Object.assign({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze' }, ki), ohneListe: true },
+      };
+      const echt = window.DB;
+      const zeige = (g, art) => {
+        document.querySelectorAll('#gs-gegenprobe').forEach(e => e.remove());
+        const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+        document.body.appendChild(host);
+        try { if (art.ohneListe) window.DB = []; gsGegenprobeRender(g, Object.assign({}, art.r)); }
+        finally { window.DB = echt; }
+        const z = host.querySelector('.gs-gp-verzehr');
+        const aus = z ? (z.textContent || '').replace(/\s+/g, ' ').trim() : '';
+        host.remove();
+        return aus;
+      };
+      const soll = (u, v, a) => {
+        if (u === 'widerlegt' || v === 'nein' || a === 'giftig') return 'nein';
+        if (u !== 'bestaetigt' || v !== 'ja') return a === 'pilz' ? 'pilz' : 'fach';
+        return a === 'essbar' ? 'zusage' : a === 'pilz' ? 'pilz' : 'ungeprueft';
+      };
+      const U = ['bestaetigt', 'zweifel', 'widerlegt'], V = ['ja', 'nein', 'nur_nach_fachpruefung'];
+      const b = gsI18n.getBundles();
+      const vorher = { lang: gsI18n.getLang(), roh: localStorage.getItem('gs_lang'), fr: b.fr, it: b.it, en: b.en };
+      const bericht = [], klagen = [];
+      try {
+        for (const L of ['fr', 'it', 'en']) {
+          localStorage.setItem('gs_lang', L); gsI18n.hydrate();
+          b[L] = Object.assign({}, vorher[L] || {}, S[L]);
+          if (gsI18n.getLang() !== L) { klagen.push(L + ': Aufbau — die Sprache liess sich nicht stellen (' + gsI18n.getLang() + ')'); continue; }
+          const s = S[L];
+          // eine Zustimmung zaehlt in JEDER Schreibweise: der Satz dieser Sprache ODER der deutsche
+          const klasse = z => (z.indexOf(s.scan_gp_vz_ja) >= 0 || /vertretbar/i.test(z)) ? 'zusage'
+            : (z.indexOf(s.scan_gp_vz_kein_eintrag) >= 0 || z.indexOf(s.scan_gp_vz_ohne_liste) >= 0) ? 'ungeprueft'
+            : z.indexOf(s.scan_gp_vz_nein) >= 0 ? 'nein'
+            : z.indexOf(s.mush_vapko_body) >= 0 ? 'pilz'
+            : z.indexOf(s.scan_gp_vz_fach) >= 0 ? 'fach' : '?';
+          let n = 0, zus = 0, falsch = 0, deutsch = 0; const bsp = [];
+          for (const u of U) for (const v of V) for (const a of Object.keys(ARTEN)) {
+            n++;
+            const z = zeige({ urteil: u, vertrauen: 70, dagegen: [], dafuer: [], verzehr: v }, ARTEN[a]);
+            const k = klasse(z), so = soll(u, v, a);
+            if (k === 'zusage') zus++;
+            if (k !== so) { falsch++; if (bsp.length < 2) bsp.push(u + '+' + v + '+' + a + ' → ' + k + ' statt ' + so); }
+            if (/verzehr|Fachperson|Artenliste|Pilzkontroll|vertretbar|gegengeprüft/i.test(z)) deutsch++;
+          }
+          bericht.push(L + ' ' + zus + '/' + falsch + '/' + deutsch);
+          if (zus !== 1 || falsch || deutsch) klagen.push(L + ': ' + zus + ' Zusage(n), erlaubt 1 · ' + falsch + ' von ' + n + ' Zeilen falsch · ' + deutsch + ' deutsch geblieben' + (bsp.length ? ' — z.B. ' + bsp.join(' | ') : ''));
+        }
+      } finally {
+        b.fr = vorher.fr; b.it = vorher.it; b.en = vorher.en;
+        if (vorher.roh === null) localStorage.removeItem('gs_lang'); else localStorage.setItem('gs_lang', vorher.roh);
+        gsI18n.hydrate();
+        window.DB = echt;
+      }
+      if (gsI18n.getLang() !== vorher.lang) klagen.push('Sprache nicht zurückgestellt (' + gsI18n.getLang() + ' statt ' + vorher.lang + ')');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '3 Sprachen × 54 Kombinationen · je Sprache Zusagen/falsch/deutsch: ' + bericht.join(' · ') };
+    },
+  },
+  {
+    // Gemessen: `gsPickAlternative` baute `Object.assign({}, original, …)` und
+    // erbte damit `_gegenprobe`. Baerlauch → Gegenprobe „bestaetigt"+„ja" →
+    // „Herbstzeitlose" angetippt: auf der Karte der Herbstzeitlose stand
+    // „Beide Blicke halten den Verzehr für vertretbar".
+    name: 'V4 · Gegenprobe · gehört zu IHRER Art: nach „Alternative wählen" steht nichts von der vorigen Art auf der neuen Karte',
+    lauf: async () => {
+      const echtKI = window.callVisionAI;
+      const karte = () => ((document.getElementById('scan-result') || {}).textContent || '').replace(/\s+/g, ' ');
+      const kopf = () => ((document.querySelector('#scan-result .sr2-hero-name') || {}).textContent || '').trim();
+      const waehle = name => {
+        const k = Object.keys(window._gsAltCandidates || {}).filter(x => window._gsAltCandidates[x].name === name).pop();
+        if (!k) return false;
+        gsPickAlternative(k);
+        return kopf() === name;
+      };
+      try {
+        try { switchTab('scanner'); } catch (_) {}
+        window._gsLastScanB64 = 'AAAA'; window._gsLastScanMt = 'image/jpeg';
+        window._gsAltCandidates = {};
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 88, edible: true, toxic: false, toxicity: 0, description: 'x',
+          alternatives: [{ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 30, toxicity: 5, edible: false }] });
+        if (!document.querySelector('#gs-gegenprobe .gs-gp-knopf')) return { ok: false, warum: 'Aufbau: die Gegenprobe wird für Bärlauch + Herbstzeitlose nicht angeboten' };
+        window.callVisionAI = async () => JSON.stringify({ urteil: 'bestaetigt', vertrauen: 90, dagegen: [], dafuer: ['Knoblauchgeruch'], fehlend: '', verzehr: 'ja' });
+        await gsScanGegenprobe();
+        if (!/dasselbe Ergebnis/.test(karte())) return { ok: false, warum: 'Aufbau: die Gegenprobe steht nicht auf der Bärlauch-Karte' };
+        if (!waehle('Herbstzeitlose')) return { ok: false, warum: 'Aufbau: der Wechsel zur Herbstzeitlose kam nicht an („' + kopf() + '")' };
+        const klagen = [];
+        const k1 = karte();
+        if (/vertretbar/i.test(k1)) klagen.push('auf der Karte der Herbstzeitlose steht „Verzehr … vertretbar"');
+        if (/dasselbe Ergebnis/.test(k1)) klagen.push('die Gegenprobe des Bärlauchs („dasselbe Ergebnis") steht auf der Karte der Herbstzeitlose');
+        // Die Vererbung in die andere Richtung: von einer KORRIGIERTEN Art zu einer harmlosen.
+        window._gsAltCandidates = {};
+        showScanResult({ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', category: 'wildpflanze', confidence: 60, edible: true, toxic: false, toxicity: 0, description: 'x',
+          alternatives: [{ name: 'Edelweiss', latin: 'Leontopodium alpinum', confidence: 30, toxicity: 0, edible: false }] });
+        if (!/giftiger ein/.test(karte())) return { ok: false, warum: 'Aufbau: die Herbstzeitlose wurde nicht nach oben korrigiert' };
+        if (!waehle('Edelweiss')) return { ok: false, warum: 'Aufbau: der Wechsel zum Edelweiss kam nicht an („' + kopf() + '")' };
+        const k2 = karte();
+        if (/giftiger ein/.test(k2)) klagen.push('die Korrektur der Herbstzeitlose („stuft diese Art als giftiger ein") steht auf der Karte des Edelweiss');
+        if (/☠️\s*Giftig/.test(k2)) klagen.push('der Chip „☠️ Giftig" der Herbstzeitlose steht auf der Karte des Edelweiss (Liste: Giftstufe 0)');
+        if (klagen.length) return { ok: false, warum: klagen.length + ' von 4: ' + klagen.join(' · ') };
+        return { ok: true, info: 'Bärlauch → Herbstzeitlose: keine Gegenprobe, keine Zustimmung · Herbstzeitlose → Edelweiss: keine geerbte Korrektur, kein geerbter Gift-Chip' };
+      } finally { window.callVisionAI = echtKI; }
+    },
+  },
+  {
+    // Gemessen: `gsSaveConfirmedScan` (KI-Sicherheit ≥ 95) und
+    // `gsAutoEnrichNewSpecies` legten per `DB.push` einen Eintrag mit den
+    // Angaben der KI in die Artenliste — ohne `_unverified`. Beim naechsten
+    // Blick sagte das Pruefwerk „In unserer Artenliste vorhanden" und
+    // „Giftigkeit stimmt mit unserer Artenliste überein": die KI bestaetigte
+    // sich selbst.
+    name: 'V5 · Ein Eintrag, den die KI selbst angelegt hat, ist kein Beleg (bestätigter Scan ≥ 95 % · nachrecherchierte Art)',
+    lauf: async () => {
+      const echtKI = window.callAI, echtCfg = window.getApiConfig;
+      const alt = { cs: localStorage.getItem('gs_confirmed_species'), us: localStorage.getItem('gs_user_species_db') };
+      const raeumen = () => { for (let i = DB.length - 1; i >= 0; i--) if (DB[i] && /^Zzz (Pruefkraut|Anreicherkraut)$/.test(DB[i].name || '')) DB.splice(i, 1); };
+      const kurz = s => String(s.id).replace(/\d+/, '…') + ' (edible=' + s.edible + ', tox=' + s.tox + ')';
+      const zeile = r => {
+        document.querySelectorAll('#gs-gegenprobe').forEach(e => e.remove());
+        const host = document.createElement('div'); host.id = 'gs-gegenprobe'; document.body.appendChild(host);
+        gsGegenprobeRender({ urteil: 'bestaetigt', verzehr: 'ja' }, Object.assign({}, r));
+        const z = ((host.querySelector('.gs-gp-verzehr') || {}).textContent || '').replace(/\s+/g, ' ');
+        host.remove();
+        return z;
+      };
+      try {
+        try { switchTab('scanner'); } catch (_) {}
+        raeumen();
+        const n0 = DB.length, klagen = [];
+        // (a) bestaetigter Scan: die KI ist sich zu 96 % sicher, die Liste kennt die Art nicht
+        const r = { name: 'Zzz Pruefkraut', latin: 'Zzzus probatus', category: 'wildpflanze', confidence: 96, edible: true, toxic: false, toxicity: 0, description: 'x',
+          alternatives: [{ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 3, toxicity: 5, edible: false }] };
+        if (_gsScanArtFinden(Object.assign({}, r))) return { ok: false, warum: 'Aufbau: die erfundene Art steht schon in der Liste' };
+        showScanResult(r);
+        const neu = DB.filter(s => s && s.name === 'Zzz Pruefkraut');
+        if (DB.length !== n0 + 1 || neu.length !== 1) return { ok: false, warum: 'Aufbau: der bestätigte Scan hat keinen Eintrag angelegt (' + n0 + ' → ' + DB.length + ') — der Fall misst nichts' };
+        const art = _gsScanArtFinden(Object.assign({}, r));
+        if (art && !art._nur_ungeprueft) klagen.push('bestätigter Scan: der KI-Eintrag ' + kurz(neu[0]) + ' gilt als Beleg');
+        const pw = _gsScanPruefwerk(Object.assign({}, r), null);
+        const ra = pw.regeln.find(x => x.id === 'art'), rg = pw.regeln.find(x => x.id === 'gift');
+        if (ra && ra.zustand === 'ok') klagen.push('Prüfwerk beim nächsten Blick: „' + ra.text + '"');
+        if (rg && rg.zustand === 'ok') klagen.push('Prüfwerk: „' + rg.text + '"');
+        if (/vertretbar/i.test(zeile(r))) klagen.push('die Gegenprobe stimmt dem Verzehr zu — gestützt auf den Eintrag der KI');
+        // (b) nachrecherchierte Art (Sicherheit 75–94): die KI schreibt ein ganzes Profil
+        let gerufen = 0;
+        window.getApiConfig = () => ({ key: 'k' });
+        window.callAI = async () => { gerufen++; return JSON.stringify({ name: 'Zzz Anreicherkraut', lat: 'Zzzus auctus', fam: 'Zzzaceae', cat: 'wildpflanze', desc: 'x', edible: true, tox: 0, warning: 'Keine bekannten Risiken', lookalike: 'Keine' }); };
+        const r2 = { name: 'Zzz Anreicherkraut', latin: 'Zzzus auctus', category: 'wildpflanze', confidence: 80, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' };
+        showScanResult(r2);
+        for (let i = 0; i < 40 && !DB.some(s => s && s.name === 'Zzz Anreicherkraut'); i++) await new Promise(res => setTimeout(res, 100));
+        const neu2 = DB.filter(s => s && s.name === 'Zzz Anreicherkraut');
+        if (!gerufen || neu2.length !== 1) return { ok: false, warum: 'Aufbau: die Nachrecherche hat keinen Eintrag angelegt (KI gerufen ' + gerufen + '×, Einträge ' + neu2.length + ') — der Fall misst nichts' };
+        const art2 = _gsScanArtFinden(Object.assign({}, r2));
+        if (art2 && !art2._nur_ungeprueft) klagen.push('Nachrecherche: der KI-Eintrag ' + kurz(neu2[0]) + ' gilt als Beleg');
+        if (/vertretbar/i.test(zeile(r2))) klagen.push('die Gegenprobe stimmt zu — gestützt auf die Nachrecherche der KI');
+        if (klagen.length) return { ok: false, warum: klagen.length + ' von 6: ' + klagen.join(' · ') };
+        return { ok: true, info: 'zwei KI-Einträge angelegt (' + kurz(neu[0]) + ', ' + kurz(neu2[0]) + ') — beide zählen nur als „ungeprüft": kein Beleg, keine Zustimmung' };
+      } finally {
+        raeumen();
+        window.callAI = echtKI; window.getApiConfig = echtCfg;
+        if (alt.cs === null) localStorage.removeItem('gs_confirmed_species'); else localStorage.setItem('gs_confirmed_species', alt.cs);
+        if (alt.us === null) localStorage.removeItem('gs_user_species_db'); else localStorage.setItem('gs_user_species_db', alt.us);
+      }
+    },
+  },
+  {
+    // Gemessen: der Zweig „Liste führt NICHT als essbar" stand hinter einem
+    // `else if` und lief nur, wenn die KI KEINE Giftstufe mitlieferte. Der
+    // Auftrag verlangt die Giftstufe in jeder Antwort.
+    name: 'V6 · S2 · die Essbarkeit wird gegengehalten — auch wenn die KI eine Giftstufe mitliefert',
+    lauf: () => {
+      const ew = DB.filter(s => s && /^leontopodium alpinum/i.test(s.lat || ''));
+      if (!ew.length || !ew.every(s => s.edible === false && (Number(s.tox) || 0) === 0 && !s._unverified)) return { ok: false, warum: 'Aufbau: Edelweiss ist in der Liste nicht „nicht essbar · Giftstufe 0 · geprüft"' };
+      const frage = extra => {
+        const r = Object.assign({ name: 'Edelweiss', latin: 'Leontopodium alpinum', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [] }, extra || {});
+        const pw = _gsScanPruefwerk(r, null);
+        return { r: r, g: pw.regeln.find(x => x.id === 'gift'), n: pw.regeln.filter(x => x.id === 'gift').length };
+      };
+      const klagen = [];
+      const ohne = frage({ toxicity: undefined, toxic: undefined }), mit = frage();
+      if (ohne.r.edible !== false) klagen.push('OHNE Giftstufe der KI bleibt Edelweiss essbar (dieser Zweig lief schon vorher)');
+      if (mit.r.edible !== false) klagen.push('MIT Giftstufe 0 der KI bleibt Edelweiss „essbar" — die Regel sagt: „' + (mit.g && mit.g.text) + '"');
+      else if (!mit.g || mit.g.zustand !== 'warn' || !/NICHT als essbar/.test(mit.g.text)) klagen.push('korrigiert, aber die Regel sagt es nicht: ' + (mit.g && (mit.g.zustand + ' · ' + mit.g.text)));
+      if (mit.n !== 1) klagen.push('die Regel „gift" steht ' + mit.n + '× in der Bilanz');
+      // die Anzeige
+      try { switchTab('scanner'); } catch (_) {}
+      showScanResult({ name: 'Edelweiss', latin: 'Leontopodium alpinum', category: 'wildpflanze', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      const t = ((document.getElementById('scan-result') || {}).textContent || '').replace(/\s+/g, ' ');
+      if (/✅\s*Essbar\s*Ja/.test(t)) klagen.push('die Karte zeigt „✅ Essbar Ja" für Edelweiss');
+      if (!/NICHT als essbar/.test(t)) klagen.push('die Karte nennt die Korrektur nicht');
+      // Gegenrichtung: eine essbare Art bleibt essbar, ohne Vorbehalt
+      const bl = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [] };
+      const gb = _gsScanPruefwerk(bl, null).regeln.find(x => x.id === 'gift');
+      if (bl.edible !== true || !gb || gb.zustand !== 'ok') klagen.push('Bärlauch wird fälschlich korrigiert: ' + (gb && gb.text));
+      // Und ueber die ganze Liste: jeder gepruefte Eintrag, den die Liste NICHT als essbar fuehrt
+      // (Giftstufe < 3), mit der Behauptung „essbar" und der Giftstufe der Liste — also ohne Tox-Widerspruch.
+      let n = 0, bleibt = 0; const bsp = [];
+      DB.forEach(s => {
+        if (!s || s._unverified || s.edible !== false || (Number(s.tox) || 0) >= 3 || !s.lat) return;
+        const r = { name: s.name, latin: s.lat, confidence: 88, edible: true, toxic: false, toxicity: Number(s.tox) || 0, alternatives: [] };
+        const pw = _gsScanPruefwerk(r, null);
+        if (!pw.art || pw.art.edible !== false) return;   // die ART wird (anderer Eintrag) als essbar gefuehrt — kein Widerspruch
+        n++;
+        if (r.edible === true) { bleibt++; if (bsp.length < 4) bsp.push(s.name); }
+      });
+      if (!n) klagen.push('Aufbau: kein einziger Eintrag „nicht essbar, Giftstufe < 3" geprüft');
+      if (bleibt) klagen.push(bleibt + ' von ' + n + ' nicht essbaren Arten bleiben „essbar", wenn die KI es behauptet (z.B. ' + bsp.join(', ') + ')');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Edelweiss mit und ohne Giftstufe korrigiert · Bärlauch unverändert · ' + n + ' nicht essbare Arten: 0 bleiben „essbar"' };
+    },
+  },
+  {
+    // Gemessen: fuer eine unbekannte Art, einen nur ungeprueften Eintrag und
+    // OHNE Liste (Gruener Knollenblaetterpilz) stand „✅ Essbar Ja" und die
+    // Plakette „✅ Ungiftig" auf der Karte — unter „⚠️ Nicht gegengeprüft".
+    name: 'V7 · Karte · „✅ Essbar" und „✅ Ungiftig" stehen nur da, wenn die Liste prüfen konnte (unbekannt · nur ungeprüft · ohne Liste)',
+    lauf: () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const norm = s => String(s || '').toLowerCase().trim();
+      const binom = s => norm(s).split(' ').slice(0, 2).join(' ');
+      const unv = DB.find(s => s && s._unverified && s.edible === true && (Number(s.tox) || 0) === 0 && s.cat !== 'pilz'
+        && binom(s.lat).indexOf(' ') > 0
+        && !DB.some(x => x && !x._unverified && (binom(x.lat) === binom(s.lat) || norm(x.name) === norm(s.name))));
+      if (!unv) return { ok: false, warum: 'Aufbau: kein ungeprüfter Eintrag mit edible:true gefunden' };
+      const echt = window.DB;
+      const lies = (r, ohneListe) => {
+        try { if (ohneListe) window.DB = []; showScanResult(Object.assign({ confidence: 80, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }, r)); }
+        finally { window.DB = echt; }
+        const el = document.getElementById('scan-result');
+        const t = ((el && el.textContent) || '').replace(/\s+/g, ' ');
+        return { t: t, essbarJa: /✅\s*Essbar\s*Ja/.test(t), plakette: (((el && el.querySelector('.scan-tox-badge')) || {}).textContent || '').replace(/\s+/g, ' ').trim() };
+      };
+      const klagen = []; let gruen = 0;
+      [
+        ['unbekannte Art', { name: 'Zzz Fantasiekraut', latin: 'Zzzus fantasticus', category: 'wildpflanze' }, false],
+        ['nur ungeprüfter Eintrag „' + unv.name + '"', { name: unv.name, latin: unv.lat, category: 'wildpflanze' }, false],
+        ['ohne Liste (Grüner Knollenblätterpilz)', { name: 'Grüner Knollenblätterpilz', latin: 'Amanita phalloides', category: 'pilz' }, true],
+      ].forEach(f => {
+        const x = lies(f[1], f[2]);
+        if (!x.plakette) { klagen.push(f[0] + ': keine Plakette gerendert (Aufbau)'); return; }
+        if (x.essbarJa) { gruen++; klagen.push(f[0] + ': „✅ Essbar Ja"'); }
+        if (/Ungiftig/.test(x.plakette)) { gruen++; klagen.push(f[0] + ': Plakette „' + x.plakette + '"'); }
+        if (!x.essbarJa && !/Essbar\s*nicht geprüft/i.test(x.t)) klagen.push(f[0] + ': sagt nicht, dass die Essbarkeit ungeprüft ist');
+      });
+      // Gegenrichtung 1: mit Beleg bleibt beides stehen
+      const bl = lies({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 92 }, false);
+      if (!bl.essbarJa || !/Ungiftig/.test(bl.plakette)) klagen.push('Bärlauch (geprüft, essbar) verliert „✅ Essbar Ja" oder „✅ Ungiftig" — Plakette „' + bl.plakette + '"');
+      // Gegenrichtung 2: zurueckgehalten wird nur die ENTWARNUNG — eine Giftwarnung der KI bleibt
+      const w = lies({ name: 'Zzz Fantasiekraut', latin: 'Zzzus fantasticus', category: 'wildpflanze', edible: false, toxic: true, toxicity: 4 }, false);
+      if (!/giftig/i.test(w.plakette)) klagen.push('eine Giftwarnung der KI (4 von 5) wird bei unbekannter Art zurückgehalten: „' + w.plakette + '"');
+      if (window.DB !== echt || !window.DB.length) return { ok: false, warum: 'Artenliste nicht wiederhergestellt' };
+      if (klagen.length) return { ok: false, warum: gruen + ' grüne Zusage(n) ohne Prüfung (erlaubt 0) · ' + klagen.join(' · ') };
+      return { ok: true, info: '3 ungeprüfte Lagen: 0 grüne Zusagen, je „Essbar · nicht geprüft" · Bärlauch behält beide · Giftwarnung der KI bleibt' };
+    },
+  },
+  {
+    // Gemessen: „Zzz Fantasiekraut 🍽️ essbar" (die Art gibt es nicht) und
+    // „Edelweiss 🍽️ essbar" (Liste: edible=false).
+    name: 'V8 · Alternativen · „🍽️ essbar" kommt aus der Liste — nie allein aus dem Feld der KI',
+    lauf: () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const norm = s => String(s || '').toLowerCase().trim();
+      const gr = lat => DB.filter(s => s && norm(s.lat).indexOf(lat) === 0 && !s._unverified);
+      const sl = gr('allium schoenoprasum'), ew = gr('leontopodium alpinum');
+      if (!sl.length || !sl.every(s => s.edible === true && (Number(s.tox) || 0) === 0 && s.toxic !== true)) return { ok: false, warum: 'Aufbau: Schnittlauch ist in der Liste nicht durchgehend essbar · ungiftig' };
+      if (!ew.length || !ew.every(s => s.edible === false)) return { ok: false, warum: 'Aufbau: Edelweiss ist in der Liste nicht „nicht essbar"' };
+      showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 70, edible: true, toxicity: 0, description: 'x', alternatives: [
+        { name: 'Zzz Fantasiekraut', latin: 'Zzzus fantasticus', confidence: 20, toxicity: 0, edible: true },
+        { name: 'Edelweiss', latin: 'Leontopodium alpinum', confidence: 10, toxicity: 0, edible: true },
+        { name: 'Schnittlauch', latin: 'Allium schoenoprasum', confidence: 5, toxicity: 0, edible: true } ] });
+      const z = {};
+      document.querySelectorAll('#scan-result .sr2-alt-card .sr2-alt-name').forEach(e => {
+        const t = (e.textContent || '').replace(/\s+/g, ' ').trim();
+        ['Zzz Fantasiekraut', 'Edelweiss', 'Schnittlauch'].forEach(nm => { if (t.indexOf(nm) === 0) z[nm] = /essbar/.test(t); });
+      });
+      if (Object.keys(z).length !== 3) return { ok: false, warum: 'Aufbau: ' + Object.keys(z).length + ' von 3 Alternativen gerendert' };
+      const klagen = [];
+      if (z['Zzz Fantasiekraut']) klagen.push('„Zzz Fantasiekraut 🍽️ essbar" — die Art steht nicht in der Liste');
+      if (z['Edelweiss']) klagen.push('„Edelweiss 🍽️ essbar" — die Liste führt es nicht als essbar');
+      if (!z['Schnittlauch']) klagen.push('„Schnittlauch" (Liste: essbar, ungiftig) verliert die Marke — der Fall unterscheidet nichts');
+      if (klagen.length) return { ok: false, warum: klagen.length + ' von 3: ' + klagen.join(' · ') };
+      return { ok: true, info: 'unbekannt: keine Marke · Edelweiss: keine Marke · Schnittlauch: „🍽️ essbar"' };
+    },
+  },
   // ── v32.11 · Netz, Fokuszonen, Phasen, Enthüllung ────────────────────
   {
     name: 'Netz · Linien und Fokuszonen kommen aus dem echten Bild',

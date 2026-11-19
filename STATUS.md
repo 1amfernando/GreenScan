@@ -4,13 +4,48 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-19 · **Branch**: `main` · **Version**: `v33.64` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
+**Stand**: 2026-11-19 · **Branch**: `main` · **Version**: `v33.65` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-11-19 (jm) - v33.65: Der Rest von PR #329 ohne den Zahlungsteil (Auftrag P-R)
+
+**Auftrag (Head-Sitzung „main", 19.11.2026):** den Rest von #329 (`claude/zahlungsweg-nachgemessen-011L7G`,
+Kopf 234a16e, nicht mergebar) auf `main` (v33.63) bringen — Hunk für Hunk gegen die Basis 2ba302e, nicht als
+Merge des Zweigs. Der Zahlungsteil steht seit v33.63 (#331) auf main, #324 (Backup-Hinweis) seit v33.62; beides
+blieb unberührt.
+
+**Übernommen.**
+- **Abhaken** auf der Pflanzenkarte (`doneTask` → `gsQuickDone`), „Alle erledigt" zählt in Tagebuch, Kalender und
+  Wochenrückblick (`_gsTbAbgehakt`, `_gsTbTitel`, `_gsDoneAllDueAusfuehren`: jeder Eintrag mit eigener Zeit).
+- **Notfall-Nummern** (`GS_NOTFALL_NUMMERN`, `gsNotfallOeffnen`, `_gsMenuNotfallTrifft`, Eintrag mit `vorrang`
+  in `MENU_ITEMS`), in der Menü-Suche in fünf Sprachen auffindbar.
+- **„Tödlich giftig" lesbar** im Artendetail (TOX bekommt eine `voll`-Farbe, Plakette als Paar `bg`+`color`),
+  rund zwanzig weitere Kontraststellen; die **Verzehr-Zeile** des Scanners wird gerechnet (`_gsListeZumEssen`,
+  `_gsGegenprobeLesen`, `_gsGegenprobeVerzehr`).
+- **Foto-Ansicht** (`gsFotoAnsicht`, `_gsFotoAdresse`) und die Saatgut-Leiste (`_gsAussaatFenster`,
+  `_gsSaeZuSaatgut`, Frost in drei Zuständen); **Artennamen-Prüfung** als Messung (`scripts/arten_namen_pruefung.py`,
+  `docs/arten-namen-pruefung.csv`) — sie ändert **keine** Daten, `tox`/`edible` in `data/plants.v1.js` sind unberührt.
+- Die zugehörigen Prüfstand-Fälle (`kalender_check`, `scan_check`, `nutzersicht_check`, `wiring_check`,
+  `escape_check`, `a11y_check`, `apk_check`, `robust_check`, `field_check`, `contrast_check`, `touch_check`,
+  `render_check`, `_seed.js` mit `anmeldebildWeg`) und die Memory-/CLAUDE.md-Teile ohne Zahlung.
+- **Neu, eigener Punkt:** `translate="no"` an `<html>` und `<meta name="google" content="notranslate">`
+  (Fernandos Meldung „die eingestellte Sprache poppt bei jedem Neuladen auf"; im Code gibt es keinen
+  Sprachdialog, vermutet wird die Übersetzungsleiste des Browsers). `applyToDOM` setzt nur `lang`, das Attribut
+  bleibt. Fall in `i18n_check`; gegen den Stand ohne Attribut rot.
+
+**Nicht übernommen.** Alles Zahlungs- und Banner-Zeug (`stripe_*`, `_shared/stripe_regeln.mjs`, die Migration zum
+Launch-Zähler, `backup_check`, die Snapshot-Hunks, `gs_restore_*`), die Release-Einträge und die Versionsstellen von
+#329; wo main (v33.59/v33.61) dieselbe Stelle anders gelöst hatte, gilt main (`gsPickAlternative`/`showScanResult`
+mit `_gsScanNeueArt`, `_gsArtEingang`, `_gsPerson()` nach jedem await). ROADMAP.md, die Zahlungs- und
+Brett-Teile von STATUS/FUER-FERNANDO und `docs/austausch/*` von #329 sind nicht herübergenommen — bis auf den Abschluss 2026-11-11-8bb1 (schliesst ec73: die drei Tore).
+
+**Offen:** nichts neu — #329 wird nicht gemergt; ob es geschlossen wird, entscheidet die Head-Sitzung
+**Nicht geprüft:** ob die Übersetzungsleiste auf einem echten Telefon (Chrome, Safari) wirklich ausbleibt — gemessen ist nur das geladene Dokument; Safari/Firefox; die Live-Seite (von hier nicht erreichbar); CI.
 
 ### 2026-11-19 (jl) - v33.64: Pilz-Scanner — die KI kannte 19 Giftpilze nicht, und ein tödlicher Pilz ohne Farbangabe stand als „Vorsicht" da
 
@@ -16373,7 +16408,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.64` (Client) · SW-Cache `gs-v33.64` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.65` (Client) · SW-Cache `gs-v33.65` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
 - **Frontend:** `index.html` **98'409 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.

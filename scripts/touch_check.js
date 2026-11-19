@@ -15,6 +15,9 @@
  *   node scripts/touch_check.js
  */
 const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
+// v33.60: nur die drei Helfer zum Anmeldebildschirm — die Beispieldaten dieses
+// Pruefstands bleiben seine eigenen (SEED unten).
+const { anmeldebildWeg, ANMELDEBILD_STEHT, ANMELDEBILD_SATZ } = require('./_seed.js');
 const TABS=['home','garden','wissen','favs','search','social','market','recipes','remedies','map','scanner'];
 // v33.59: die gemeinsamen Beispieldaten. Bis hierher stand ein EIGENER Seed da — mit
 // einem Token ohne drei Teile (gsSecurityInit raeumte ihn nach 500 ms ab, gemessen
@@ -216,23 +219,15 @@ const BREITEN = [412, 320];
     if (!el.id) el.id = 'gs-touch-probe';
     return '#' + el.id;
   };
+  let anmeldebildStand = false;
   for (const BR of BREITEN) {
   const ctx=await br.newContext({viewport:{width:BR,height:915}}); const p=await ctx.newPage();
   await p.route('**',r=>r.request().url().startsWith('file:')?r.continue():r.abort());
   await p.addInitScript(SEED);
   await p.goto('file://' + require('path').join(__dirname,'..','index.html'),{waitUntil:'domcontentloaded',timeout:90000});
   await p.waitForTimeout(3500);
-  // v33.59: frueher wurden gs-preauth und #gs-onboarding hier von Hand weggenommen — gemessen
-  // wurde der Bildschirm unter der Anmeldung einer ABGEMELDETEN App. Mit der Sitzung aus
-  // _seed.js ist beides frei (gemessen, 412 und 320 px); steht die Anmeldung doch da: laut abbrechen.
-  const anm = await p.evaluate(()=>{const o=document.getElementById('gs-onboarding');
-    return {token:!!localStorage.getItem('gs_sb_token'),preauth:document.documentElement.classList.contains('gs-preauth'),
-            onb:!!(o&&getComputedStyle(o).display!=='none'&&o.getBoundingClientRect().height>0)};});
-  console.log('  ' + BR + ' px · Sitzung nach dem Start: ' + JSON.stringify(anm));
-  if (!anm.token || anm.preauth || anm.onb) {
-    console.log('  !! Die Sitzung aus _seed.js steht nicht — gemessen wuerde eine abgemeldete App. Abbruch.');
-    process.exitCode = 1; await br.close(); return;
-  }
+  // v33.60: erst wegblenden, wenn der Anmeldebildschirm DA ist (scripts/_seed.js).
+  await anmeldebildWeg(p);
   for(const t of TABS){ try{await p.evaluate(t=>switchTab(t),t)}catch(e){}
     await p.waitForTimeout(600);
     const rT = await p.evaluate(SCAN);
@@ -264,6 +259,7 @@ const BREITEN = [412, 320];
     rF.funde.forEach(o=>{const k=BR+'|'+o.el+'|'+o.txt; if(!seen.has(k))seen.set(k,{...o,tab:name,br:BR});});
     (await p.evaluate(AUSSERHALB, sel)).forEach(o=>{const k=BR+'|'+o.el+'|'+o.txt; if(!raus.has(k))raus.set(k,{...o,tab:name,br:BR});});
   }
+  if (await p.evaluate(ANMELDEBILD_STEHT)) anmeldebildStand = true;
   await ctx.close();
   }
   const list=[...seen.values()].sort((a,b)=>a.min-b.min);
@@ -278,4 +274,7 @@ const BREITEN = [412, 320];
   rausL.slice(0,15).forEach(o=>console.log(`   ${String(o.fehlt).padStart(3)}px draussen  ${(o.br+'px').padEnd(6)} ${o.tab.padEnd(9)} ${o.el.slice(0,40).padEnd(41)} „${o.txt}"`));
   await br.close();
   process.exitCode = (list.length + rausL.length) ? 1 : 0;
+  // v33.60: drei Zustaende — ein Lauf hinter dem Anmeldebildschirm ist weder
+  // gruen noch rot.
+  if (anmeldebildStand) { console.log('!! ' + ANMELDEBILD_SATZ); process.exitCode = 2; }
 })();
