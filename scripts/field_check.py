@@ -49,6 +49,7 @@ sichtbar in der mittleren Klasse.
 """
 
 import io, os, re
+import sys
 
 # Der Pfad kommt aus dem SKRIPT, nicht aus einer Maschine. Bis heute stand hier
 # '/home/user/GreenScan/index.html' — der Pfad EINER Umgebung. Lokal war der
@@ -127,3 +128,8 @@ for z in sorted(zusammengesetzt):
     print("   .  %-26s %-26s %-15s ueber '%s' + ..." % (z[0], z[1], z[2], z[4]))
 print('Erkannte Verkettungs-Praefixe:', len(praefixe),
       ('(' + ', '.join(sorted(praefixe)[:8]) + ('...' if len(praefixe) > 8 else '') + ')') if praefixe else '')
+
+# v33.60 (brett:2026-11-11-ec73): ein TOR, kein Bericht. Bis dahin endete dieser Lauf immer mit 0 —
+# ein Feld, das nirgends sonst vorkommt, stand im Bericht und faerbte weder pruefstaende.sh noch die
+# CI rot. Gezaehlt wird nur die obere Klasse; „zusammengesetzt nachgeschlagen" ist kein Fehler.
+sys.exit(1 if verdaechtig else 0)

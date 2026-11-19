@@ -30,6 +30,36 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.45', date: '16.09.2026',
+      headline: 'Was demnächst abläuft, steht jetzt auf dem Bildschirm',
+      summary: 'v33.44 hat das Risiko-Inventar gebaut und im selben Atemzug notiert, was daran fehlt: eine Liste, die niemand liest, ist Speicherplatz. GS_FRISTEN rechnet sechs Fristen selbst aus — fünf live auf dem Gerät, eine gemessen mit Datum — und das Admin-Panel zeigt sie.',
+      user_summary: 'Diese Auslieferung betrifft nur das Admin-Panel. Für dich ändert sich nichts — sie sorgt dafür, dass Deckel und Fristen nicht erst auffallen, wenn sie erreicht sind.',
+      user_items: [
+        {emoji:'⏳', text:'Der Speicher auf deinem Gerät und die Deckel der App werden überwacht, bevor etwas voll ist.'}
+      ],
+      items: [
+        {emoji:'📋', bold:'GS_FRISTEN + gsFristenStand():', text:' zwei Arten — ein DATUM ist gemessen (mit Messdatum und Quelle daneben), eine SCHWELLE rechnet die App live. Vier Zustände: ok · bald (ab 80 %) · fällig · nicht_bekannt MIT GRUND.'},
+        {emoji:'⚖️', bold:'Am Deckel ist der Normalzustand, nicht der Alarm:', text:' das Changelog steht bei 20 von 20, und der nächste Bump schiebt den ältesten ins Archiv. ‚Fällig‘ ist erst DARÜBER — ein Alarm, der im Normalzustand steht, ist die Zahl, die man zu ignorieren lernt.'},
+        {emoji:'🧪', bold:'risiko_check R4:', text:' liest die GERENDERTE Karte, nicht das Objekt — und beide Richtungen: jeder Eintrag steht auf dem Bildschirm, und jedes Datum aus dem Inventar hat einen Eintrag. Die Gegenrichtung fehlte zuerst, und die Gegenprobe ‚eine Frist entfernt‘ blieb genau deshalb grün.'},
+        {emoji:'🏷️', bold:'GS_MESSWERTE_MAX:', text:' der Messwerte-Deckel hiess bis hierher nur 2000 an seiner Aufrufstelle. Ein Deckel ohne Namen steht in keinem Dokument und in keiner Regel.'}
+      ],
+    },
+  {
+    v: 'v33.44', date: '16.09.2026',
+      headline: 'Was später schiefgeht — gemessen, bevor es passiert',
+      summary: 'Die Wochen-Tipps werden nur nach Kalenderwoche ausgewählt, wiederholen sich also jedes Jahr — und elf davon nannten ein Jahr im Sinn von ‚dieses Jahr‘. Ab dem 1. Januar 2027 hätte die App in Woche 13 von einer Pilzsaison erzählt, die vorbei ist. Bereinigt, und ein neuer Prüfstand hält es fest.',
+      user_summary: 'Die saisonalen Tipps nennen keine Jahreszahl mehr, wenn sie ‚dieses Jahr‘ meinen — sie wären sonst ab Neujahr falsch gewesen.',
+      user_items: [
+        {emoji:'📅', text:'Kein Tipp erzählt mehr von einem Jahr, das vorbei ist.'}
+      ],
+      items: [
+        {emoji:'🔎', bold:'Gemessen:', text:' WEEKLY_SEASONAL_FACTS hat 521 Einträge und wird NUR nach Kalenderwoche gefiltert (gsGetKW) — die Liste wiederholt sich jährlich. Elf Zeilen nannten ‚Pilzsaison 2026‘, ‚Jahresrückblick Natur 2026‘, ‚Planung für 2027‘. Fünf Jahresnennungen bleiben, weil sie feste Punkte sind (Zieljahr 2030, datierte Berichte) — namentlich mit Grund im Prüfstand.'},
+        {emoji:'🧪', bold:'scripts/risiko_check.js (neu, 38. Prüfstand):', text:' R1 kein ‚dieses Jahr‘ in einem jährlich wiederkehrenden Text · R2 jede Listen-Abfrage ohne limit= ist eingeordnet (80 gedeckelt, 25 Katalog, 13 Einzelzeile, 13 wächst-mit-der-Person, je mit Grund) · R3 was docs/RISIKEN.md als Zahl nennt, steht so auch im Quelltext. Vier Gegenproben, jede macht ihren Fall rot.'},
+        {emoji:'📘', bold:'docs/RISIKEN.md:', text:' vier Klassen — was an einem DATUM aufhört (Quiz-Vorrat ermüdet am 16.06.2027, Migration nicht angewandt), was mit der GRÖSSE aufhört, was von ANDEREN abhängt (pdf.js ist der einzige CDN-Rest), und was eine ENTSCHEIDUNG braucht statt Code.'},
+        {emoji:'⚠️', bold:'Ein Messfehler von mir, festgehalten:', text:' mein erster Zähler las nur das ERSTE Zeichenketten-Literal eines Pfades und meldete device_readings als ‚ohne Deckel‘ — das limit= steht im zweiten. Gelesen wird jetzt der ganze erste Parameter von sbFetch(.'}
+      ],
+    },
+  {
     v: 'v33.43', date: '16.09.2026',
       headline: 'Der Zurück-Knopf schliesst ein Fenster — nicht die ganze App',
       summary: 'Erster Schritt zur Android-App: die App schrieb nichts in den Browser-Verlauf, also schloss der Android-Zurück-Knopf bei jedem offenen Fenster die ganze App. Jetzt gibt es EINE Zurück-Regel, an der Zurück-Taste und an Escape — und sie erreicht auch die acht Vollbild-Fenster (Tagesquiz, ‚Ueben‘, Lichtmesser), die Escape noch nie erreicht hat.',

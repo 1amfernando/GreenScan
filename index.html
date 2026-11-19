@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" translate="no">
 <head>
 <meta charset="UTF-8">
 <script>
@@ -76,6 +76,9 @@
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
 <meta name="app-version" content="33.66.20261119">
+<!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
+     in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
+<meta name="google" content="notranslate">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://api.anthropic.com">
@@ -1382,7 +1385,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .post-type-pick-btn{display:flex;align-items:center;gap:13px;width:100%;padding:13px 15px;border:none;border-radius:var(--r-lg);cursor:pointer;text-align:left;font-family:inherit;transition:var(--dur);}
 .post-type-pick-btn:active{transform:scale(.97);filter:brightness(.95);}
 
-.new-post-btn{position:fixed;bottom:calc(var(--sb)+var(--tab-h)+16px);right:18px;width:56px;height:56px;background:linear-gradient(135deg,#43a047,var(--g-main));border:none;border-radius:50%;color:#fff;font-size:var(--fs-3xl);cursor:pointer;box-shadow:0 4px 20px rgba(45,138,45,.5),0 0 0 0 rgba(45,138,45,.3);z-index:90;display:flex;align-items:center;justify-content:center;transition:var(--dur);animation:fab-pulse 2.5s infinite;}
+.new-post-btn{position:fixed;bottom:calc(var(--sb)+var(--tab-h)+16px);right:18px;width:56px;height:56px;background:linear-gradient(135deg,#2e7d32,var(--fill-brand));border:none;border-radius:50%;color:#fff;font-size:var(--fs-3xl);cursor:pointer;box-shadow:0 4px 20px rgba(45,138,45,.5),0 0 0 0 rgba(45,138,45,.3);z-index:90;display:flex;align-items:center;justify-content:center;transition:var(--dur);animation:fab-pulse 2.5s infinite;}
 .new-post-btn:active{transform:scale(.88);}
 @keyframes fab-pulse{0%,100%{box-shadow:0 4px 20px rgba(45,138,45,.5),0 0 0 0 rgba(45,138,45,.3);}50%{box-shadow:0 4px 20px rgba(45,138,45,.5),0 0 0 8px rgba(45,138,45,.0);}}
 
@@ -3294,10 +3297,12 @@ window._gsArtenFehlstart = function () {
         <div id="woche-zeilen" style="font-size:var(--fs-sm);color:var(--text2);margin-top:6px;line-height:1.6;"></div>
       </div>
     </div>
-    <div id="season-tip-card" style="background:linear-gradient(135deg,var(--g-main),#558b2f);border-radius:var(--r-lg);padding:13px 15px;color:#fff;margin-bottom:12px;cursor:pointer;display:flex;gap:12px;align-items:center;" onclick="menuNav('season')">
+    <!-- v33.60: die Flaeche nimmt --fill-brand (traegt Weiss in beiden Modi) und ein dunkles zweites Ende.
+         Gemessen: --g-main ist im Dunkelmodus #66bb6a — Weiss darauf 2,36:1; das alte zweite Ende #558b2f 4,10:1. -->
+    <div id="season-tip-card" style="background:linear-gradient(135deg,var(--fill-brand),#33691e);border-radius:var(--r-lg);padding:13px 15px;color:#fff;margin-bottom:12px;cursor:pointer;display:flex;gap:12px;align-items:center;" onclick="menuNav('season')">
       <span id="season-tip-emoji" style="font-size:36px;flex-shrink:0;"></span>
       <div>
-        <div id="season-tip-kopf" style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.8;margin-bottom:2px;">🌿 Saison-Tipp · Jetzt sammeln</div>
+        <div id="season-tip-kopf" style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.92;margin-bottom:2px;">🌿 Saison-Tipp · Jetzt sammeln</div>
         <div style="font-family:'Playfair Display',serif;font-size:var(--fs-md);font-weight:800;" id="season-tip-name"></div>
         <div style="font-size:var(--fs-sm);opacity:.88;margin-top:3px;" id="season-tip-text"></div>
       </div>
@@ -4690,7 +4695,7 @@ window._gsArtenFehlstart = function () {
           </div>
         </label>
       </div>
-      <button class="mp-save-btn" onclick="submitListing()" style="background:linear-gradient(135deg,var(--g-main),#1b5e20);font-size:var(--fs-lg);">🏷️ Inserat veröffentlichen</button>
+      <button class="mp-save-btn" onclick="submitListing()" style="background:linear-gradient(135deg,var(--fill-brand),#1b5e20);font-size:var(--fs-lg);">🏷️ Inserat veröffentlichen</button>
       <div style="font-size:var(--fs-sm);color:var(--muted);text-align:center;margin-top:8px;line-height:1.5;">GreenScan übernimmt keine Haftung für Transaktionen. Bitte persönlich übergeben oder sicheren Versand nutzen.</div>
     </div>
   </div>
@@ -7326,7 +7331,7 @@ html, body{ scroll-behavior: smooth; }
 
   <!-- Submit bar -->
   <div class="ig-post-submit">
-    <button onclick="submitIgPost()" style="width:100%;padding:14px;background:linear-gradient(135deg,#43a047,var(--g-main));color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:.3px;">🌿 Jetzt teilen</button>
+    <button onclick="submitIgPost()" style="width:100%;padding:14px;background:linear-gradient(135deg,#2e7d32,var(--fill-brand));color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:.3px;">🌿 Jetzt teilen</button>
   </div>
 </div>
 
@@ -7354,9 +7359,9 @@ html, body{ scroll-behavior: smooth; }
     <div style="font-family:'Playfair Display',serif;font-size:var(--fs-xl);font-weight:800;" data-i18n="map_title" data-i18n-fallback="🗺️ Schweizer Karte">🗺️ Schweizer Karte</div>
     <div style="font-size:var(--fs-sm);opacity:.78;" data-i18n="map_subtitle" data-i18n-fallback="Swisstopo · Pflanzenfunde · Wanderwege">Swisstopo · Pflanzenfunde · Wanderwege</div>
   </div>
-  <button onclick="gsOpenMyFinds()" aria-label="Meine Funde" title="Meine gespeicherten Funde" style="padding:6px 10px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📋</button>
-  <button onclick="gsRefreshMarkers(this)" aria-label="Funde aktualisieren" title="Fundorte neu laden (Cloud-Sync)" style="padding:6px 10px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄</button>
-  <button onclick="gsMapGPS()" style="padding:6px 11px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📍 GPS</button>
+  <button onclick="gsOpenMyFinds()" aria-label="Meine Funde" title="Meine gespeicherten Funde" style="padding:6px 10px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📋</button>
+  <button onclick="gsRefreshMarkers(this)" aria-label="Funde aktualisieren" title="Fundorte neu laden (Cloud-Sync)" style="padding:6px 10px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄</button>
+  <button onclick="gsMapGPS()" style="padding:6px 11px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📍 GPS</button>
   <button onclick="gsMapClearAll()" aria-label="Löschen" style="padding:6px 10px;background:rgba(255,100,100,.25);border:1px solid rgba(255,100,100,.4);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🗑️</button>
 </div>
   <!-- Layer-Auswahl -->
@@ -7393,7 +7398,7 @@ html, body{ scroll-behavior: smooth; }
   <!-- Info-Leiste -->
   <div style="background:#1a3d1a;padding:4px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
     <span id="gs-map-count" style="font-size:var(--fs-sm);color:rgba(255,255,255,.75);">0 Funde gespeichert</span>
-    <span style="font-size:var(--fs-xs);color:rgba(255,255,255,.45);">© swisstopo</span>
+    <span style="font-size:var(--fs-xs);color:rgba(255,255,255,.75);">© swisstopo</span>
   </div>
 </div>
 <!-- TABS - 5 Haupt-Tabs (v26.86: Home zentral als FAB-Anker für ältere Nutzer) -->
@@ -10336,7 +10341,8 @@ function gsQuickDone(plantId, taskKey) {
   try {
     var defQ = (typeof TASK_DEFS !== 'undefined' && TASK_DEFS[taskKey]) ? TASK_DEFS[taskKey] : {icon:'', name:taskKey};
     if (!Array.isArray(p.diary)) p.diary = [];
-    p.diary.unshift({ ts: nowIso, action: taskKey, title: (defQ.icon ? defQ.icon + ' ' : '') + (defQ.name||taskKey) + ' (Quick)', source: 'quick_done' });
+    // v33.60: der Titel ohne das Arbeitswort „(Quick)“ — abgehakt heisst `source`, nicht der Titel (_gsTbAbgehakt).
+    p.diary.unshift({ ts: nowIso, action: taskKey, title: (defQ.icon ? defQ.icon + ' ' : '') + (defQ.name||taskKey), source: 'quick_done' });
     // Cap auf 200 Diary-Einträge pro Pflanze (sonst Blob-Bloat)
     p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
   } catch(_){}
@@ -10449,7 +10455,16 @@ function gsDoneAllDue() {
 window.gsDoneAllDue = gsDoneAllDue;
 
 function _gsDoneAllDueAusfuehren(faellig) {
-  var count = 0, nowIso = new Date().toISOString(), listen = {};
+  // v33.60: jeder Verlaufseintrag bekommt seine EIGENE Zeit — je eine
+  // Millisekunde FRUEHER als der davor. Bis hierher trugen alle dieselbe: zwei
+  // Aufgaben derselben Pflanze ergaben zwei Eintraege mit derselben Id
+  // (`pd:<pflanze>:<ts>`), und gsDeleteDiaryEntry loescht nach `ts` — wer einen
+  // loeschte, loeschte beide. Frueher, nicht spaeter: der Kalender liest einen
+  // Eintrag, der NACH jetzt liegt, als Erinnerung (⏰) — mit „eine Millisekunde
+  // weiter“ zaehlte die Woche die eben abgehakten Aufgaben als kommende (der
+  // erste Anlauf, gefunden vom Pruefstand unter gestellter Uhr). `lastDone`
+  // bleibt fuer alle derselbe Augenblick.
+  var count = 0, basisMs = Date.now(), nowIso = new Date(basisMs).toISOString(), listen = {};
   faellig.forEach(function(x) {
     var p = x.plant, k = x.key, t = p && p.tasks && p.tasks[k];
     if (!t) return;
@@ -10461,7 +10476,7 @@ function _gsDoneAllDueAusfuehren(faellig) {
     try {
       var defB = (typeof TASK_DEFS !== 'undefined' && TASK_DEFS[k]) ? TASK_DEFS[k] : {icon:'', name:k};
       if (!Array.isArray(p.diary)) p.diary = [];
-      p.diary.unshift({ ts: nowIso, action: k, title: (defB.icon ? defB.icon + ' ' : '') + (defB.name||k) + ' (Bulk)', source: 'done_all_due' });
+      p.diary.unshift({ ts: new Date(basisMs - (count - 1)).toISOString(), action: k, title: (defB.icon ? defB.icon + ' ' : '') + (defB.name||k), source: 'done_all_due' });
       p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
     } catch(_){}
     // Zugehoerigkeit ueber die REFERENZ, nicht ueber die Id — zwei Listen, zwei Speicherwege
@@ -10700,6 +10715,9 @@ function openGartenTagebuch() {
   
   // ── Timeline ──
   var monthNames = gsMonate();
+  // v33.60: das Vorschaubild ist ein Bedienelement (es oeffnet die Foto-Ansicht)
+  // — alt UND aria-label, weil die Tastatur-Nachruestung ihm role=button gibt.
+  var _tbFotoName = escHtml(_gsSatz('Foto vergrössern'));
   var timelineHtml = '';
   if (Object.keys(groups).length === 0) {
     timelineHtml = entries.length === 0
@@ -10725,10 +10743,13 @@ function openGartenTagebuch() {
             // v33.59: der Name als TEXT in --text — die Kategorie-Farbe (fest) stand auf der Themen-Karte: #ef6c00 3,08:1 hell, #455a64 2,15:1 dunkel. Die Kategorie zeigen Rand und Emoji.
             (e.plant ? '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--text);margin-bottom:1px;">' + escHtml(e.plant) + '</div>' : '') +
             '<div style="font-size:var(--fs-sm);color:var(--text);line-height:1.45;word-wrap:break-word;">' + escHtml(e.text) + '</div>' +
-            // v29.47: Tagebuch-Foto anzeigen. v33.59: gsTagebuchAlle nennt das Feld `photo`
-            // (alle drei Quellen; Cloud: photo_url → photo) — hier stand e.photo_url, das
-            // Foto erschien nie. Adresse ueber _gsFundFoto (https/data:image/gsphoto://).
-            (e.photo && _gsFundFoto(e.photo, false) ? '<div style="margin-top:6px;"><img src="' + _gsFundFoto(e.photo, false) + '" loading="lazy" onclick="window.open(this.src,\'_blank\')" style="max-width:100%;max-height:160px;border-radius:var(--r-sm);object-fit:cover;cursor:zoom-in;" alt="">' + '</div>' : '') +
+            // v29.47: Tagebuch-Foto anzeigen (aus dem garden-diary-photos-Bucket).
+            // v33.60: `gsTagebuchAlle()` liefert das Feld `photo` (Garten-,
+            // Pflanzen- und Cloud-Tagebuch) — hier stand `e.photo_url`, das seit
+            // v32.46 kein Eintrag mehr traegt: gemessen 0 Bilder bei einem Eintrag
+            // MIT Foto. Die Adresse geht durch _gsFundFoto (auch gsphoto://), und das Bild oeffnet in
+            // der App (gsFotoAnsicht) statt per window.open.
+            (_gsFundFoto(e.photo, false) ? '<div style="margin-top:6px;"><img src="' + _gsFundFoto(e.photo, false) + '" loading="lazy" onclick="gsFotoAnsicht(this.src)" style="max-width:100%;max-height:160px;border-radius:var(--r-sm);object-fit:cover;cursor:zoom-in;" alt="' + _tbFotoName + '" aria-label="' + _tbFotoName + '">' + '</div>' : '') +
             '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:3px;">' + escHtml(e.date||'') + (e.weather ? ' · ' + escHtml(e.weather) : '') + '</div>' +
           '</div>' +
           '<button onclick="gsTbDelete(' + (Number(e.id) || 0) + ')" style="background:none;border:none;color:var(--muted);font-size:var(--fs-md);cursor:pointer;padding:2px 4px;opacity:.4;-webkit-tap-highlight-color:transparent;">✕</button>' +
@@ -15715,6 +15736,7 @@ window.GS_I18N_JS_STRINGS = {
   'garden_plant_now':         'Pflanze einsetzen',
   'garden_add_plant':         'Pflanze hinzufügen',
   'garden_plan_for':          'Plan für diesen Garten',
+  'seed_add_btn':             '+ Hinzufügen',
   'action_edit':              'Bearbeiten',
   'profile_loading':          'Profil wird geladen…',
   'prof_danger_zone':         '⚠️ Erweitert — Konto dauerhaft löschen',
@@ -16748,6 +16770,17 @@ window.GS_I18N_JS_STRINGS = {
   'tox_mid_short':             '⚠️ Giftig',
   'tox_light':                 '🟡 Leicht giftig',
   'scan_edible':               '🥗 Essbar',
+  // ── Die Verzehr-Zeile der Gegenprobe (`_gsGegenprobeVerzehr`) ──────────
+  // Bis v33.58 stand sie fest deutsch im Code. Der Satz zur Pilzkontrolle ist
+  // `mush_vapko_body` — derselbe wie im Pilz-Kalender, nicht ein zweiter.
+  'scan_gp_vz_ja':             'Beide Blicke halten den Verzehr für vertretbar, und unsere Artenliste führt die Art als essbar und ungiftig — die Verantwortung bleibt bei dir.',
+  'scan_gp_vz_nein':           'Nicht verzehren.',
+  'scan_gp_vz_fach':           'Nur nach Prüfung durch eine Fachperson verzehren.',
+  'scan_gp_vz_giftig':         'Unsere Artenliste führt diese Art als giftig.',
+  'scan_gp_vz_nicht_essbar':   'Unsere Artenliste führt diese Art nicht als essbar.',
+  'scan_gp_vz_bedingt':        'Unsere Artenliste führt diese Art als essbar, aber nicht als ungiftig.',
+  'scan_gp_vz_kein_eintrag':   'Nicht gegengeprüft: Unsere Artenliste hat zu dieser Art keinen geprüften Eintrag — das ist keine Zustimmung.',
+  'scan_gp_vz_ohne_liste':     'Nicht gegengeprüft: Die Artenliste ist nicht geladen — das ist keine Zustimmung. Lade die App neu.',
   'scan_date_label':           '📅 Datum:',
   'scan_location_label':       '📍 Standort:',
   'scan_own_note':             '📝 Eigene Notiz',
@@ -23502,7 +23535,10 @@ function renderGardenLibrary(catFilter, searchTerm) {
       '<div style="padding:13px 14px;flex:1;">' +
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">' +
           '<span style="font-size:var(--fs-xl);">'+a.icon+'</span>' +
-          '<span style="font-size:var(--fs-xs);font-weight:800;color:'+col+';text-transform:uppercase;letter-spacing:.5px;">'+(cat?cat.name:'')+'</span>' +
+          // v33.60: der Name steht in einer Themenfarbe. Bis hierher trug er die FESTE Kategoriefarbe —
+          // gemessen: „Pflanzenschutz“ 3,79:1 hell, „Bewässerung“ 2,71:1 und „Düngen“ 3,04:1 dunkel.
+          // Die Farbe der Kategorie bleibt am Balken links (kein Text, also keine Lesbarkeitsfrage).
+          '<span style="font-size:var(--fs-xs);font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;">'+(cat?cat.name:'')+'</span>' +
           '<span style="font-size:var(--fs-xs);color:var(--muted);margin-left:auto;">'+a.readTime+' Min · '+a.difficulty+'</span>' +
         '</div>' +
         '<div style="font-size:var(--fs-md);font-weight:800;color:var(--text);line-height:1.3;margin-bottom:4px;">'+a.title+'</div>' +
@@ -25194,8 +25230,10 @@ function renderDailyQuizTeaser() {
     // Teaser: großer Start-Button öffnet das Quizduell-Modal
     qEl.innerHTML = '🎯 ' + _t('quiz_ready','Tägliche Frage bereit');
     oEl.innerHTML =
-      '<button onclick="openDailyQuiz()" style="width:100%;padding:13px 16px;background:rgba(255,255,255,.95);color:var(--c-violet);border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-1);">' +
-        '▶ ' + _t('btn_start_now','Jetzt starten') + ' <span style="opacity:.6;font-weight:700;margin-left:6px;">' + _t('quiz_20s','20 Sek') + '</span>' +
+      // v33.60: eine FEST helle Flaeche braucht eine FESTE dunkle Schrift. `--c-violet` kippt im Dunkelmodus auf
+      // Hellviolett — gemessen 2,19:1 fuer „Jetzt starten“ und 1,57:1 fuer „20 Sek“ (dort zusaetzlich opacity .6).
+      '<button onclick="openDailyQuiz()" style="width:100%;padding:13px 16px;background:rgba(255,255,255,.95);color:#311b92;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-1);">' +
+        '▶ ' + _t('btn_start_now','Jetzt starten') + ' <span style="color:#5e35b1;font-weight:700;margin-left:6px;">' + _t('quiz_20s','20 Sek') + '</span>' +
       '</button>' +
       '<div style="font-size:var(--fs-xs);opacity:.8;margin-top:6px;text-align:center;">' + _t('quiz_rules','Keine zweite Chance · Nicht schummeln · App verlassen = verloren') + '</div>' +
       battleBtn + uebenBtn;
@@ -26251,16 +26289,23 @@ let myVotes = safeGetItem('ps_votes', {});
 // derselbe Fehler wie beim Sicherheitswort in v31.99. Neue Werte, alle
 // ueber 4,5:1, die Flaechen unveraendert.
 const TOX = [
-  {sym:'✅',label:'Ungiftig',        color:'#1b7a43',bg:'#e8f5e9'},   /* 4,77:1 */
-  {sym:'🟡',label:'Leicht giftig',   color:'#7a5200',bg:'#fff8e1'},   /* 6,51:1 */
-  {sym:'🟠',label:'Mässig giftig',   color:'#9a4500',bg:'#fff3e0'},   /* 5,94:1 */
-  {sym:'⚠️', label:'Giftig',         color:'#a81b1b',bg:'#ffebee'},   /* 6,47:1 */
-  {sym:'🔴',label:'Stark giftig',    color:'#8c1414',bg:'#ffcdd2'},   /* 6,70:1 */
+  {sym:'✅',label:'Ungiftig',        color:'#1b7a43',bg:'#e8f5e9',voll:'#1b7a43'},   /* 4,77:1 */
+  {sym:'🟡',label:'Leicht giftig',   color:'#7a5200',bg:'#fff8e1',voll:'#7a5200'},   /* 6,51:1 */
+  {sym:'🟠',label:'Mässig giftig',   color:'#9a4500',bg:'#fff3e0',voll:'#9a4500'},   /* 5,94:1 */
+  {sym:'⚠️', label:'Giftig',         color:'#a81b1b',bg:'#ffebee',voll:'#a81b1b'},   /* 6,47:1 */
+  {sym:'🔴',label:'Stark giftig',    color:'#8c1414',bg:'#ffcdd2',voll:'#8c1414'},   /* 6,70:1 */
   // v31.99: war `#4a0000` auf `#d32f2f` — 3,27:1, gemessen. Ausgerechnet
   // die wichtigste Angabe der ganzen Karte war die am schlechtesten lesbare.
   // Weiss auf dunkelrot statt dunkelrot auf rot.
-  {sym:'☠️', label:'Tödlich giftig', color:'#ffffff',bg:'#8e1414'},
+  {sym:'☠️', label:'Tödlich giftig', color:'#ffffff',bg:'#8e1414',voll:'#8e1414'},
 ];
+// v33.60: `color` und `bg` sind ein PAAR — die Schrift gilt nur auf IHRER
+// Flaeche. v31.99 hat Stufe 5 auf Weiss-auf-Dunkelrot gedreht; openDetail nahm
+// `color` aber allein (als Schrift auf der Karte und als Fuellung der
+// Skala-Punkte) — „Tödlich giftig" stand damit WEISS auf fast weisser Karte,
+// 1,05:1 gemessen, bei 72 Eintraegen. Wer die Einstufung zeigt, nimmt BEIDE
+// (Plakette); wer eine Flaeche FUELLT (Punkt, Balken), nimmt `voll` — die
+// kraeftige der zwei Farben, die Weiss traegt.
 function toxInfo(l){var n=Math.round(Number(l));if(!isFinite(n))n=0;return TOX[Math.max(0,Math.min(5,n))];} // v29.48: KI liefert toxicity gelegentlich als String ("hoch"/"3/5") → numerisch coercen, sonst TOX[NaN]=undefined → Render-Crash + verschwendeter Gratis-Scan
 function getEmoji(sp){
   if(typeof gsCatEmoji==='function') return gsCatEmoji(sp);
@@ -26538,6 +26583,27 @@ function _gsSafeLink(l) {
   return '';
 }
 window._gsSafeLink = _gsSafeLink;
+// v33.60: Welche Adresse laedt die Foto-Ansicht (`gsFotoAnsicht`)? Dieselbe
+// Regel wie fuer jedes fremd befuellte Bild (`_gsSafeUrl`: http(s) oder
+// data:image/) — dazu ein blob: DIESER Seite (ein Foto aus dem Ausgangskorb,
+// `gsResolvePhotosIn`). Bei `blob:https://green-scan.ch/<uuid>` ist das Schema
+// `blob`, nicht `https` (dieselbe Falle wie Pfade.imUrsprung in der
+// Android-Huelle) — verglichen wird deshalb der Anfang der GANZEN Adresse,
+// und zwar mit `self.origin`: unter file:// (die Pruefstaende) ist
+// `location.origin` „file://", ein Blob heisst dort aber `blob:null/<uuid>`
+// (gemessen) — `self.origin` sagt in beiden Faellen dasselbe wie der Blob.
+// Rueckgabe: die Adresse ROH (sie wird per DOM gesetzt, nie in HTML
+// eingesetzt) oder ''.
+function _gsFotoAdresse(u) {
+  var s = String(u == null ? '' : u).trim();
+  if (!s) return '';
+  try {
+    var eigen = (typeof self.origin === 'string' && self.origin) ? self.origin : location.origin;
+    if (s.indexOf('blob:' + eigen + '/') === 0) return s;
+  } catch (_) {}
+  return _gsSafeUrl(s) ? s : '';
+}
+window._gsFotoAdresse = _gsFotoAdresse;
 function _catEmoji(c) { return _gsNachschlag({produkte:'🍅',samen:'🌰',zubehor:'🔧',dienst:'🤝',tausch:'🔄'}, c, null) || '🌿'; }   // v33.59: l.cat aus fremder Hand
 function _catLabel(c) {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
@@ -27454,6 +27520,119 @@ function gsDismissOrphanOverlays() {
   } catch(_){}
 }
 window.gsDismissOrphanOverlays = gsDismissOrphanOverlays;
+
+// ═══ v33.60 · FOTO-ANSICHT — ein Foto oeffnet IN der App ═════════════════
+// Gemessen am 11.11.2026: zwei Stellen oeffneten ein Foto mit `window.open`
+// (Rezept, Garten-Tagebuch). Im Browser ist das ein neuer Tab. In der
+// Android-App macht `_gsHuelleNetz` daraus eine Navigation: ein fremdes
+// https-Foto verlaesst die App (der Browser des Telefons geht auf), ein
+// blob:/data:-Foto ergibt „kein Ziel", und ein Foto vom EIGENEN Ursprung
+// ersetzte die App durch das Bild.
+//
+// EIN Weg fuer PWA und Huelle: ein Dialog am <body>, angemeldet bei
+// `gsRegisterOverlay`. Damit ist er eine Schicht der Zurueck-Regel
+// (`gsZurueck`: Android-Zurueck, Escape, ✕, Tipp daneben, jeder Tab-Wechsel),
+// und `_gsHistSync` sieht ihn ueber den Beobachter am <body> — kein eigener
+// Verlaufs-Eintrag, keine eigene Taste. Der Fokus geht hinein und beim
+// Schliessen zurueck (`gsTrapFocus` / `gsReleaseFocusTrap`, wie bei openModal).
+//
+// Wer ein Foto vergroessern will, schreibt `onclick="gsFotoAnsicht(this.src)"`
+// — nie `window.open`, und nie die Adresse als Zeichenkette ins onclick: der
+// Wert durchliefe zwei Parser (v32.66; gemessen: ein Apostroph in der Adresse
+// eines Rezeptfotos lief als Code).
+// Die Ansicht liegt EINS ueber den anderen dynamischen Dialogen: `gsZurueck`
+// nimmt die Schicht mit dem hoechsten z-index ab, und bei Gleichstand die
+// erste im Dokument — das waere der Dialog darunter.
+// Vergroessern ohne Gesten-Rechnung: das Bild wird breiter als sein Feld, und
+// das Feld rollt. (Die WebView der Android-App kennt kein Zwei-Finger-Zoomen.)
+// Pruefstand: android_check (Schicht), escape_check (Adressen), apk_check A9.
+function gsFotoAnsicht(adresse, beschriftung) {
+  var u = _gsFotoAdresse(adresse);
+  if (!u) {
+    try { gsToast(_gsSatz('Dieses Foto lässt sich hier nicht öffnen.'), 'warning', 4000); } catch (_) {}
+    return false;
+  }
+  try {
+    var schon = document.getElementById('gs-foto-ansicht');
+    if (schon) gsDismissOverlay(schon);
+    var w = document.createElement('div');
+    w.id = 'gs-foto-ansicht';
+    w.setAttribute('role', 'dialog');
+    w.setAttribute('aria-modal', 'true');
+    w.setAttribute('aria-label', _gsSatz('Foto'));
+    w.style.cssText = 'position:fixed;inset:0;z-index:calc(var(--z-image-overlay,99999) + 1);background:rgba(0,0,0,.94);display:flex;';
+    var feld = document.createElement('div');
+    feld.style.cssText = 'flex:1;min-width:0;overflow:auto;display:flex;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;';
+    var bild = document.createElement('img');
+    bild.alt = String(beschriftung == null ? '' : beschriftung).trim() || _gsSatz('Foto in voller Grösse');
+    // margin:auto statt align-items:center — sonst waere beim vergroesserten
+    // Bild der obere und linke Rand nicht mehr erreichbar.
+    // flex:0 0 auto — ein Flex-Kind darf sonst SCHRUMPFEN, und sein Mindestmass
+    // ist die natuerliche Breite: ein kleines Foto bliebe vergroessert auf
+    // Bildschirmbreite stehen, und es gaebe nichts zu verschieben (gemessen:
+    // 8×6 → Inhalt 412 px in 412 px).
+    bild.style.cssText = 'flex:0 0 auto;margin:auto;display:block;max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in;';
+    var leiste = document.createElement('div');
+    leiste.style.cssText = 'position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:10px;display:flex;flex-direction:row-reverse;gap:8px;';
+    var knopf = function (zeichen, name) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-label', name);
+      b.textContent = zeichen;
+      b.style.cssText = 'width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.65);color:#fff;font-size:var(--fs-xl);line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;padding:0;-webkit-tap-highlight-color:transparent;';
+      return b;
+    };
+    // ✕ zuerst im Dokument (dorthin geht der Fokus), rechts aussen auf dem Bildschirm (row-reverse).
+    var zu = knopf('\u2715', _gsSatz('Schliessen'));
+    zu.setAttribute('data-gs-close', '1');           // _gsCloseOverlayGracefully drueckt genau diesen Knopf
+    var lupe = knopf('\ud83d\udd0d', _gsSatz('Vergrössern'));
+    lupe.setAttribute('aria-pressed', 'false');
+    var gross = false;
+    var zoomen = function () {
+      gross = !gross;
+      bild.style.maxWidth = gross ? 'none' : '100%';
+      bild.style.maxHeight = gross ? 'none' : '100%';
+      bild.style.width = gross ? '250%' : '';
+      bild.style.cursor = gross ? 'zoom-out' : 'zoom-in';
+      lupe.setAttribute('aria-label', gross ? _gsSatz('Verkleinern') : _gsSatz('Vergrössern'));
+      lupe.setAttribute('aria-pressed', gross ? 'true' : 'false');
+    };
+    lupe.addEventListener('click', zoomen);
+    bild.addEventListener('click', zoomen);
+    zu.addEventListener('click', function () { gsDismissOverlay(w); });
+    // Ein Tipp neben das Bild schliesst — das Feld fuellt den ganzen Dialog,
+    // der Rand-Klick aus gsRegisterOverlay (ev.target === w) traefe nie.
+    feld.addEventListener('click', function (ev) { if (ev.target === feld) gsDismissOverlay(w); });
+    // Laedt das Foto nicht, steht ein Satz da — kein zerbrochenes Bildsymbol,
+    // und ohne Empfang der Grund (ein Foto aus der Cloud braucht ihn).
+    bild.addEventListener('error', function () {
+      try {
+        var t = document.createElement('div');
+        t.setAttribute('role', 'status');
+        t.style.cssText = 'margin:auto;padding:24px;color:#fff;font-size:var(--fs-md);text-align:center;line-height:1.5;';
+        t.textContent = (navigator.onLine === false)
+          ? _gsSatz('Ohne Empfang lässt sich dieses Foto nicht laden.')
+          : _gsSatz('Dieses Foto liess sich nicht laden.');
+        feld.replaceChild(t, bild);
+        lupe.style.display = 'none';
+      } catch (_) {}
+    });
+    feld.appendChild(bild);
+    leiste.appendChild(zu);
+    leiste.appendChild(lupe);
+    w.appendChild(feld);
+    w.appendChild(leiste);
+    document.body.appendChild(w);
+    gsRegisterOverlay(w, function () { try { gsReleaseFocusTrap(w); } catch (_) {} });
+    try { gsTrapFocus(w); } catch (_) {}
+    bild.src = u;
+    return true;
+  } catch (e) {
+    try { var kaputt = document.getElementById('gs-foto-ansicht'); if (kaputt) gsDismissOverlay(kaputt); } catch (_) {}
+    return false;
+  }
+}
+window.gsFotoAnsicht = gsFotoAnsicht;
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -29869,6 +30048,23 @@ function _gsPflanzeAusLatein(lat) {
     return tr.length === 1 ? tr[0] : null;
   } catch (_) { return null; }
 }
+// v33.60 · EIN Leser fuer „wurde abgehakt“ und EIN Leser fuer den Titel eines
+// Pflanzentagebuch-Eintrags. Gemessen am 11.11.2026 (kalender_check „drei
+// Schreiber, ein Leser“): abgehakt wird auf drei Wegen, und die zwei Schreiber
+// dahinter setzen zwei Merker — gsQuickDone `source:'quick_done'`, „Alle
+// erledigt ✓“ `source:'done_all_due'`. gsTagebuchAlle kannte nur den ersten:
+// was ueber „Alle erledigt“ abgehakt wurde, galt als von Hand notiert und
+// stand in der Woche unter „Notizen“ statt unter „erledigt“ (7 → 10 Notizen,
+// erledigt 5 → 5). Dieselbe Klasse wie _gsScanZeit (v33.33) und _gsFundZeit
+// (v33.37): der Leser ist die Regel, nicht das Feld.
+function _gsTbAbgehakt(e) { return !!e && (e.source === 'quick_done' || e.source === 'done_all_due'); }
+window._gsTbAbgehakt = _gsTbAbgehakt;
+// Beide Schreiber haengten bis v33.59 ein englisches Arbeitswort an den Titel
+// („💧 Giessen (Quick)“, „💧 Giessen (Bulk)“) — es stand so im Tagebuch, im
+// Kalender und im Export. Neue Eintraege tragen es nicht mehr; fuer den Bestand
+// nimmt dieser Leser es ab. Gespeicherte Eintraege werden NICHT umgeschrieben.
+function _gsTbTitel(e) { return String((e && e.title) || '').replace(/\s*\((?:Quick|Bulk)\)\s*$/, ''); }
+window._gsTbTitel = _gsTbTitel;
 function gsTagebuchAlle() {
   var out = [];
   try {
@@ -29896,9 +30092,9 @@ function gsTagebuchAlle() {
       p.diary.forEach(function (e) {
         if (!e || !e.ts) return;
         var em = _GS_TB_EMOJI[e.action] || '📝';
-        out.push({ id: 'pd:' + p.id + ':' + e.ts, ts: e.ts, datum: _gsKalTag(e.ts), text: e.title || (em + ' Eintrag'), note: e.note || '', emoji: em,
+        out.push({ id: 'pd:' + p.id + ':' + e.ts, ts: e.ts, datum: _gsKalTag(e.ts), text: _gsTbTitel(e) || (em + ' Eintrag'), note: e.note || '', emoji: em,
           cat: e.action || 'note', plant: p.name || '', pflanze_id: p.id, photo: e.photo || null, weather: '',
-          date: new Date(e.ts).toLocaleDateString(gsLocale()), herkunft: 'pflanze', quelle: e.source === 'quick_done' ? 'regel' : 'hand' });
+          date: new Date(e.ts).toLocaleDateString(gsLocale()), herkunft: 'pflanze', quelle: _gsTbAbgehakt(e) ? 'regel' : 'hand' });
       });
     });
   } catch (_) {}
@@ -30039,13 +30235,35 @@ function _gsSaeZuPflanze(p) {
   } catch (_) { return null; }
 }
 window._gsSaeZuPflanze = _gsSaeZuPflanze;
-function gsAussaatEreignisse(von, bis) {
+// Saatgut heisst nach dem eigenen Formular „Kultur Sorte" („Tomate Ochsenherz",
+// gsOpenSeedInventory). Zugeordnet wird deshalb ueber die FUEHRENDEN WOERTER,
+// die laengste Folge zuerst — jede durch den EINEN Matcher oben (exakt ±n,
+// Schweizer Namen ueber die Bruecke). Kein Teilstring: die Saatgut-Leiste
+// ordnete bis hierher selbst zu, per Praefix. Gemessen an 86 Tueten-Namen
+// (11.11.2026): „Rote Zwiebeln" und „Rote Melde" trafen die Rote Bete,
+// „Salatgurke" den Salat, „Knoblauchsrauke" den Knoblauch — und „Rüebli",
+// „Karotten", „Lauch", „Randen" fanden gar nichts. Ohne Treffer keine Kultur:
+// eine erfundene Aussaatzeit waere schlimmer als keine.
+function _gsSaeZuSaatgut(e) {
+  try {
+    var w = String((e && e.name) || '').trim().split(/\s+/);
+    for (var i = w.length; i >= 1; i--) { var k = _gsSaeZuPflanze({ name: w.slice(0, i).join(' ') }); if (k) return k; }
+  } catch (_) {}
+  return null;
+}
+window._gsSaeZuSaatgut = _gsSaeZuSaatgut;
+// EINE Rechnung fuer „welches Aussaatfenster faellt in [von, bis]?" (11.11.2026).
+// Bis hierher stand sie zweimal im Code: hier, mit dem Monat ab 0 wie in
+// GS_SAE_DB — und in der Saatgut-Leiste „Jetzt dran" (gsSaatgutJetzt) mit
+// `getMonth() + 1`. 108 von 468 Kultur×Monat-Paaren sagten dort etwas anderes
+// als der Kalender: „Jetzt ins Beet: Tomaten, Gurken, Buschbohnen" im April,
+// einen Monat vor den Eisheiligen. Jetzt rufen beide diese Funktion. `dinge`
+// sind Pflanzen (Kalender) oder Tueten (Leiste), `zuordnen(ding)` nennt die
+// Kultur aus GS_SAE_DB oder null. Pruefstand: kalender_check „Saatgut-Leiste L1".
+function _gsAussaatFenster(dinge, zuordnen, von, bis) {
   var out = [];
   try {
-    var listen = [];
-    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) myPlants.forEach(function (p) { listen.push({ p: p, liste: 'myPlants' }); });
-    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) plantings.forEach(function (p) { listen.push({ p: p, liste: 'plantings' }); });
-    if (!listen.length) return out;
+    if (!Array.isArray(dinge) || !dinge.length || typeof zuordnen !== 'function') return out;
     var j0 = +String(von).slice(0, 4), j1 = +String(bis).slice(0, 4); if (!isFinite(j0) || !isFinite(j1)) return out;
     var im = function (tag) { return !!tag && tag >= von && tag <= bis; };
     var monKurz = (typeof gsMonate === 'function') ? gsMonate(true) : null;
@@ -30056,9 +30274,9 @@ function gsAussaatEreignisse(von, bis) {
     // die Zeile sagt, welche Pflanzen sie betrifft. (Der Pruefstand hat es
     // gezeigt: die Beispieldaten haben zwei Zucchini, eine je Liste.)
     var kulturen = {}, reihenfolge = [];
-    listen.forEach(function (x) {
-      var p = x.p; if (!p || !p.name) return;
-      var k = _gsSaeZuPflanze(p); if (!k) return;
+    dinge.forEach(function (p) {
+      if (!p || !p.name) return;
+      var k = zuordnen(p); if (!k) return;
       if (!kulturen[k.n]) { kulturen[k.n] = { k: k, pflanzen: [] }; reihenfolge.push(k.n); }
       var ort = p.nick || p.location || '';
       kulturen[k.n].pflanzen.push(p.name + (ort && ort !== p.name ? ' (' + ort + ')' : ''));
@@ -30077,6 +30295,7 @@ function gsAussaatEreignisse(von, bis) {
             var tag = _gsKalTag(new Date(j, m, 1)); if (!im(tag)) continue;
             out.push({ id: 'aussaat:' + _gsSaeNorm(k.n) + ':' + art[0] + ':' + tag, art: 'aussaat', datum: tag, zeit: null, ts: null,
               titel: k.n + art[1], emoji: art[2], fenster: art[0],   // v33.34: 'indoor' | 'outdoor' — das Pruefwerk fragt das Feld, nie den Titel
+              kultur: k.n,                                           // der Name der Kultur allein — die Saatgut-Leiste nennt ihn, ohne den Titel zu zerlegen
               pflanze: null, garten_id: null,
               quelle: 'kulturdaten', status: 'info', faellig_seit: null,
               verweis: { fn: 'openSaekalender', args: [] }, grund: grundKopf });
@@ -30086,6 +30305,16 @@ function gsAussaatEreignisse(von, bis) {
     });
   } catch (_) {}
   return out;
+}
+window._gsAussaatFenster = _gsAussaatFenster;
+// Der Kalender fragt fuer die Kulturen, die die Person HAT (beide Pflanzenlisten).
+function gsAussaatEreignisse(von, bis) {
+  var dinge = [];
+  try {
+    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) dinge = dinge.concat(myPlants);
+    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) dinge = dinge.concat(plantings);
+  } catch (_) {}
+  return _gsAussaatFenster(dinge, _gsSaeZuPflanze, von, bis);
 }
 window.gsAussaatEreignisse = gsAussaatEreignisse;
 
@@ -30138,7 +30367,12 @@ function gsKalenderEreignisse(von, bis) {
       try { if (!zukunft && e.cat === 'water' && e.pflanze_id && typeof gsGiessBestaetigung === 'function') { var bf = _gsPflanzeFinden(e.pflanze_id); if (bf && bf.p) { best = gsGiessBestaetigung(bf.p, e.ts); if (best && best.ohne_geraet) best = null; } } } catch (_) { best = null; }
       out.push({ id: 'tagebuch:' + e.id, art: zukunft ? 'erinnerung' : 'tagebuch', datum: e.datum, zeit: _gsKalZeit(e.ts), ts: e.ts, titel: e.text, emoji: zukunft ? '⏰' : e.emoji,
         pflanze: e.pflanze_id ? { id: e.pflanze_id, name: e.plant } : null, garten_id: null, quelle: e.quelle, status: 'info', faellig_seit: null,
-        verweis: (e.pflanze_id && e.herkunft === 'pflanze') ? { fn: 'openPlantDiary', args: [e.pflanze_id] } : { fn: 'openGartenTagebuch', args: [] },
+        // v33.60: das Pflanzentagebuch (openPlantDiary) kennt nur „Meine Pflanzen“ — fuer eine
+        // GARTEN-Pflanzung kehrte es still um, und der Knopf „›“ tat nichts (gemessen an
+        // „Giessen · Zucchini“). Ein Eintrag einer Pflanzung oeffnet deshalb das Gartentagebuch:
+        // dort steht er (gsTagebuchAlle liest beide Listen). Pruefstand: kalender_check N5.
+        verweis: (e.pflanze_id && e.herkunft === 'pflanze' && ((typeof _gsPflanzeFinden === 'function' ? _gsPflanzeFinden(e.pflanze_id) : null) || {}).liste === 'myPlants')
+          ? { fn: 'openPlantDiary', args: [e.pflanze_id] } : { fn: 'openGartenTagebuch', args: [] },
         sensor: best,
         grund: (e.quelle === 'lina'
             ? 'von Lina vorgeschlagen, von dir bestätigt' + (e.bestaetigt_am ? ' am ' + _gsKalDatumKurz(e.bestaetigt_am) : '')
@@ -30230,7 +30464,12 @@ function gsKalenderEreignisse(von, bis) {
       out.push({ id: 'scan:' + (h.id || (tag + ':' + i)), art: 'scan', datum: tag, zeit: _gsKalZeit(zt), ts: new Date(zt).toISOString(),
         titel: _gsSatz('{1} gescannt', h.name), emoji: '🔬', name: h.name,
         pflanze: null, garten_id: null, quelle: 'scan', status: 'info', faellig_seit: null,
-        verweis: (h.lat || h.name) ? { fn: 'gsSearchSpecies', args: [h.lat || h.name] } : null,
+        // v33.60: der Knopf „›“ oeffnet den Scan-Verlauf — dieselbe Regel wie bei Funden
+        // (gsOpenMyFinds) und Ernten (openErnteTracking): die Liste, in der das Ding steht.
+        // Bis hierher nannte die Zeile eine Funktion, die es nie gab (eine Artensuche nach
+        // dem Namen); gsKalHin prueft typeof und tat dann nichts — an JEDER Scan-Zeile ein
+        // toter Knopf. Pruefstaende: wiring_check Richtung 6, kalender_check N5.
+        verweis: { fn: 'openScanHistory', args: [] },
         grund: (konf != null)
           ? _gsSatz('Aus deinem Scan-Verlauf — die Erkennung war zu {1} % sicher', konf)
           : _gsSatz('Aus deinem Scan-Verlauf') });
@@ -36263,6 +36502,56 @@ function _gsScanArtFinden(res) {
   } catch (_) { return null; }
 }
 
+// ══ EINE FRAGE, EINE FUNKTION: WAS SAGT DIE ARTENLISTE ZUM ESSEN DIESER ART? ══
+//
+// Gemessen am 11.11.2026 (Befund IDEE-B, dann die Geschwister gesucht): vier
+// Stellen der Scan-Karte machten eine Aussage zum Essen ALLEIN aus einem Feld
+// der KI-Antwort — die Schlusszeile der Gegenprobe (`g.verzehr`), der Chip
+// „✅ Essbar Ja" (`r.edible`), die Marke „🍽️ essbar" an einer Alternative
+// (`a.edible`) und die Plakette „✅ Ungiftig" (`r.toxicity`). Die Liste wurde
+// nur dort gelesen, wo sie WIDERSPRACH; konnte sie nichts sagen (Art nicht in
+// der Liste, nur ein ungepruefter Eintrag, Liste nicht geladen), blieb die
+// Behauptung der KI als gruene Zusage stehen — ohne Liste fuer den Gruenen
+// Knollenblaetterpilz unter der Ueberschrift „Nicht gegengeprüft".
+//
+// CLAUDE.md §4b: was der Code rechnen kann, entscheidet nie die KI allein.
+// Das hier ist die eine Antwort, und sie hat FUENF Zustaende, nicht zwei:
+//
+//   essbar         geprueft · essbar · Giftstufe 0 · nicht als giftig gefuehrt
+//   bedingt        geprueft · essbar, aber Giftstufe 1–2 oder als giftig markiert
+//                  (Holunder, Morchel: die Liste sagt „essbar" UND „leicht giftig")
+//   nicht_essbar   geprueft · nicht als essbar gefuehrt, Giftstufe < 3
+//   giftig         geprueft · Giftstufe ≥ 3
+//   nicht_pruefbar mit Grund: liste_fehlt · kein_eintrag · ungeprueft
+//
+// Der Weg ist der des Pruefwerks, kein eigener: `_gsScanArtFinden`
+// (= `gsMatchScanToDb`, ein ungepruefter Eintrag ist kein Beleg) und danach
+// `_gsArtAnzeige` — die Sicherheitsangaben der ART, nicht des Eintrags.
+// `pilz` ist wahr, wenn die Liste ODER die KI „Pilz" sagt: das Feld der KI darf
+// die Antwort vorsichtiger machen, nie nachgiebiger.
+// Pruefstand: `scan_check` V1–V8.
+function _gsListeZumEssen(res) {
+  var kiPilz = false;
+  try { kiPilz = /pilz|fung/i.test(String((res && res.category) || '')); } catch (_) {}
+  function aus(zustand, grund, art, pilz) { return { zustand: zustand, grund: grund, art: art || null, pilz: !!pilz }; }
+  try {
+    if (typeof DB === 'undefined' || !DB || !DB.length) return aus('nicht_pruefbar', 'liste_fehlt', null, kiPilz);
+    var t = _gsScanArtFinden(res);
+    if (!t) return aus('nicht_pruefbar', 'kein_eintrag', null, kiPilz);
+    if (t._nur_ungeprueft) return aus('nicht_pruefbar', 'ungeprueft', null, kiPilz || !!(t.art && t.art.cat === 'pilz'));
+    var a = (typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(t) : t) || t;
+    var pilz = kiPilz || a.cat === 'pilz';
+    // Ohne Giftstufe als Zahl gibt es nichts, worauf sich „ungiftig" stuetzen
+    // koennte — `Number(null)` waere 0 und damit eine erfundene Entwarnung.
+    if (a._unverified || typeof a.tox !== 'number' || !isFinite(a.tox)) return aus('nicht_pruefbar', 'ungeprueft', null, pilz);
+    if (a.tox >= 3) return aus('giftig', 'liste', a, pilz);
+    if (!gsIstEssbar(a)) return aus('nicht_essbar', 'liste', a, pilz);
+    if (a.tox >= 1 || a.toxic === true) return aus('bedingt', 'liste', a, pilz);
+    return aus('essbar', 'liste', a, pilz);
+  } catch (_) { return aus('nicht_pruefbar', 'kein_eintrag', null, kiPilz); }
+}
+window._gsListeZumEssen = _gsListeZumEssen;
+
 // Monatsliste aus einer Saison-Angabe („Apr–Jun", „Mär-Mai"). Es gibt dafuer
 // bereits `gsSaisonMonate` — hier nur der sichere Durchreicher.
 function _gsScanMonate(sais) {
@@ -36768,23 +37057,37 @@ function _gsScanPruefwerk(res, qual) {
     // ── S2 · Sicherheit — hier gewinnt IMMER die vorsichtigere Angabe ────
     var kiTox = (res.toxicity != null) ? Number(res.toxicity) : (res.toxic ? 3 : null);
     var dbTox = db && db.tox != null ? Number(db.tox) : null;
-    if (db && dbTox != null && kiTox != null && isFinite(kiTox)) {
-      if (dbTox > kiTox) {
-        p.warnung = 'Unsere Artenliste stuft ' + _e(db.name || res.name) + ' als giftiger ein (' + _e(dbTox) + ' von 5) als die Bestimmung (' + _e(kiTox) + '). Es gilt die vorsichtigere Angabe.';
-        regel('gift', 'warn', p.warnung);
-        // Die Anzeige rechnet mit dem hoeheren Wert weiter — nicht mit dem
-        // gemeldeten. Eine Warnung, die man wegklicken kann, ist zu wenig.
-        res.toxicity = dbTox;
-        res._tox_korrigiert = { von: kiTox, auf: dbTox };
-        if (dbTox >= 3) { res.edible = false; res.toxic = true; }
-      } else {
-        regel('gift', 'ok', 'Giftigkeit stimmt mit unserer Artenliste überein (' + _e(dbTox) + ' von 5).');
-      }
-    } else if (db && db.edible === false && res.edible === true) {
-      p.warnung = 'Unsere Artenliste führt ' + _e(db.name || res.name) + ' NICHT als essbar. Es gilt die vorsichtigere Angabe.';
-      regel('gift', 'warn', p.warnung);
+    var _toxVergleich = !!(db && dbTox != null && kiTox != null && isFinite(kiTox));
+    var _toxHoeher = _toxVergleich && dbTox > kiTox;
+    if (_toxHoeher) {
+      p.warnung = 'Unsere Artenliste stuft ' + _e(db.name || res.name) + ' als giftiger ein (' + _e(dbTox) + ' von 5) als die Bestimmung (' + _e(kiTox) + '). Es gilt die vorsichtigere Angabe.';
+      // Die Anzeige rechnet mit dem hoeheren Wert weiter — nicht mit dem
+      // gemeldeten. Eine Warnung, die man wegklicken kann, ist zu wenig.
+      res.toxicity = dbTox;
+      res._tox_korrigiert = { von: kiTox, auf: dbTox };
+      if (dbTox >= 3) { res.edible = false; res.toxic = true; }
+    }
+    // ── Die Essbarkeit wird IMMER gegengehalten ─────────────────────────────
+    // Bis v33.58 stand dieser Vergleich hinter einem `else if` und lief nur,
+    // wenn die KI KEINE Giftstufe mitlieferte — der Auftrag verlangt sie aber
+    // in jeder Antwort („toxicity = Zahl 0..5"). Gemessen (11.11.2026): Edelweiss
+    // (Liste: nicht essbar, Giftstufe 0) mit „essbar, Giftstufe 0" der KI blieb
+    // „✅ Essbar Ja", und die Regel sagte „Giftigkeit stimmt mit unserer
+    // Artenliste überein". Ueber die Liste gerechnet: 1'456 von 1'489
+    // gepruefte, nicht essbare Arten blieben „essbar", sobald die KI es sagte
+    // (Arnika, Johanniskraut, Wiesenkerbel). Der Zweig hatte keinen Fall.
+    // Zwei Fragen, zwei Vergleiche — und EINE Regel in der Bilanz.
+    var _essbarWeg = !!(db && db.edible === false && res.edible === true);
+    if (_essbarWeg) {
+      var _essbarSatz = 'Unsere Artenliste führt ' + _e(db.name || res.name) + ' NICHT als essbar. Es gilt die vorsichtigere Angabe.';
+      p.warnung = p.warnung ? (p.warnung + ' ' + _essbarSatz) : _essbarSatz;
       res.edible = false;
       res._essbar_korrigiert = true;
+    }
+    if (_toxHoeher || _essbarWeg) {
+      regel('gift', 'warn', p.warnung);
+    } else if (_toxVergleich) {
+      regel('gift', 'ok', 'Giftigkeit stimmt mit unserer Artenliste überein (' + dbTox + ' von 5).');
     } else if (!db) {
       regel('gift', 'unbekannt', 'Ohne Eintrag in unserer Artenliste lässt sich die Sicherheitsangabe nicht gegenprüfen.');
     } else {
@@ -37065,18 +37368,106 @@ async function gsScanGegenprobe() {
 }
 window.gsScanGegenprobe = gsScanGegenprobe;
 
+// ══ DIE VERZEHR-ZEILE DER GEGENPROBE WIRD GERECHNET ═════════════════════
+//
+// Gemessen am 11.11.2026 an v33.58 (Befund IDEE-B, nachgefahren): Kopf und
+// Satz der Karte folgten `g.urteil`, die Schlusszeile ALLEIN `g.verzehr` —
+// zwei Felder derselben KI-Antwort, die niemand gegeneinander hielt, und die
+// Art (`r`) wurde dafuer nicht gelesen. Von 54 Kombinationen (Urteil × Verzehr
+// × Art) zeigten 18 „Beide Blicke halten den Verzehr für vertretbar", in 12
+// Karten stand das unter „Iss das nicht" bzw. „nicht verzehren", und ein Pilz
+// bekam die Zusage ohne ein Wort von der Pilzkontrolle. `scan_check` kannte
+// nur die zwei stimmigen Paare.
+//
+// Die Regel — und sie ist eine ERLAUBNISliste, keine Verbotsliste: eine
+// Zustimmung gibt es nur, wenn ALLES zutrifft:
+//   Urteil genau „bestaetigt"  ·  Verzehr genau „ja"
+//   ·  die Artenliste fuehrt die Art als essbar und ungiftig (`_gsListeZumEssen`)
+//   ·  es ist kein Pilz (dort gilt der Satz zur Pilzkontrolle, `mush_vapko_body`).
+// Jeder andere Fall bekommt die vorsichtigere Zeile; widersprechen sich die
+// Felder, gewinnt die Vorsicht, und die Karte sagt nur EINES. „Nicht pruefbar"
+// (Art nicht in der Liste, nur ungeprueft, Liste nicht geladen) ist ein
+// eigener, ausgesprochener Zustand mit Grund — keine Zustimmung (v33.47:
+// „Nicht geprüft ist keine Entwarnung").
+//
+// EIN Leser fuer die zwei Felder, damit Kopf und Zeile nie verschieden lesen:
+// Gross-/Kleinschreibung, Umlaute („bestätigt") und Satzzeichen („Nein.")
+// zaehlen nicht; alles, was danach nicht GENAU einer der bekannten Werte ist,
+// ist die vorsichtige Lesart (Urteil → zweifel, Verzehr → Fachpruefung).
+function _gsGegenprobeLesen(g) {
+  var glatt = function (x) {
+    return String(x == null ? '' : x).toLowerCase()
+      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+      .replace(/[^a-z]+/g, ' ').trim().replace(/ /g, '_');
+  };
+  var u = glatt(g && g.urteil), v = glatt(g && g.verzehr);
+  return {
+    urteil: (u === 'bestaetigt' || u === 'widerlegt') ? u : 'zweifel',
+    verzehr: v === 'ja' ? 'ja' : v === 'nein' ? 'nein' : 'fachpruefung'
+  };
+}
+// Rueckgabe { zustand, grund, symbol, text }:
+//   zustimmung · pilzkontrolle · fachpruefung · nein · nicht_pruefbar
+// Die Saetze gehen durch `_t` (GS_I18N_JS_STRINGS) — bis v33.58 stand die
+// Zeile in allen Sprachen deutsch da.
+function _gsGegenprobeVerzehr(g, r) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  var gl = _gsGegenprobeLesen(g);
+  var L = _gsListeZumEssen(r);
+  var NEIN = _t('scan_gp_vz_nein', 'Nicht verzehren.');
+  // Die vorsichtige Anweisung: bei Pilzen die Pilzkontrolle, sonst eine Fachperson.
+  var vorsicht = L.pilz
+    ? _t('mush_vapko_body', 'Lass JEDEN gesammelten Pilz von einer offiziellen Pilzkontrollstelle prüfen, bevor du ihn isst. Diese App ist Information, keine Verzehr-Garantie.')
+    : _t('scan_gp_vz_fach', 'Nur nach Prüfung durch eine Fachperson verzehren.');
+  var vz = L.pilz ? 'pilzkontrolle' : 'fachpruefung', vs = L.pilz ? '🍄' : '🏥';
+  function aus(zustand, grund, symbol, text) {
+    return { zustand: zustand, grund: grund, symbol: symbol, text: text, urteil: gl.urteil, verzehr: gl.verzehr, liste: L.zustand };
+  }
+  // 1 · Ein Nein gewinnt immer — vom Zweitgutachter oder aus der Liste.
+  if (gl.urteil === 'widerlegt') return aus('nein', 'urteil', '⛔', NEIN);
+  if (gl.verzehr === 'nein')     return aus('nein', 'verzehr', '⛔', NEIN);
+  if (L.zustand === 'giftig')       return aus('nein', 'liste_giftig', '⛔', _t('scan_gp_vz_giftig', 'Unsere Artenliste führt diese Art als giftig.') + ' ' + NEIN);
+  if (L.zustand === 'nicht_essbar') return aus('nein', 'liste_nicht_essbar', '⛔', _t('scan_gp_vz_nicht_essbar', 'Unsere Artenliste führt diese Art nicht als essbar.') + ' ' + NEIN);
+  // 2 · Zweifel oder ein Vorbehalt des Zweitgutachters: die vorsichtige Anweisung.
+  if (gl.urteil !== 'bestaetigt') return aus(vz, 'urteil', vs, vorsicht);
+  if (gl.verzehr !== 'ja')        return aus(vz, 'verzehr', vs, vorsicht);
+  // 3 · Beide Blicke sagen ja. Ab hier entscheidet die LISTE, nicht mehr die KI.
+  if (L.zustand === 'nicht_pruefbar') return aus('nicht_pruefbar', L.grund, '⚠️',
+    (L.grund === 'liste_fehlt'
+      ? _t('scan_gp_vz_ohne_liste', 'Nicht gegengeprüft: Die Artenliste ist nicht geladen — das ist keine Zustimmung. Lade die App neu.')
+      : _t('scan_gp_vz_kein_eintrag', 'Nicht gegengeprüft: Unsere Artenliste hat zu dieser Art keinen geprüften Eintrag — das ist keine Zustimmung.'))
+    + ' ' + vorsicht);
+  if (L.zustand === 'bedingt') return aus(vz, 'liste_bedingt', vs,
+    _t('scan_gp_vz_bedingt', 'Unsere Artenliste führt diese Art als essbar, aber nicht als ungiftig.') + ' ' + vorsicht);
+  if (L.pilz) return aus('pilzkontrolle', 'pilz', '🍄', vorsicht);
+  if (L.zustand === 'essbar') return aus('zustimmung', 'einig', '🍽️',
+    _t('scan_gp_vz_ja', 'Beide Blicke halten den Verzehr für vertretbar, und unsere Artenliste führt die Art als essbar und ungiftig — die Verantwortung bleibt bei dir.'));
+  // Ein Zustand der Liste, den diese Regel nicht kennt, ist keine Zustimmung.
+  return aus(vz, 'unklar', vs, vorsicht);
+}
+window._gsGegenprobeLesen = _gsGegenprobeLesen;
+window._gsGegenprobeVerzehr = _gsGegenprobeVerzehr;
+
 // Die Anzeige. Sie sagt zuerst, ob die zwei Blicke sich EINIG sind — das ist
 // die Aussage, auf die es ankommt.
 function gsGegenprobeRender(g, r) {
   var host = document.getElementById('gs-gegenprobe');
   if (!host) return;
   var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x || ''); };
-  var u = String(g.urteil || '').toLowerCase();
+  g = g || {};
+  // Die Schlusszeile ist GERECHNET (`_gsGegenprobeVerzehr`) — und der Kopf liest
+  // das Urteil aus DERSELBEN Rechnung, damit die Karte nur EINES sagt.
+  var vz = _gsGegenprobeVerzehr(g, r);
+  var u = vz.urteil;
   var kopf, farbe, satz;
   if (u === 'bestaetigt') {
     kopf = '✓ Zwei unabhängige Blicke, dasselbe Ergebnis';
     farbe = 'var(--c-success-d)';
-    satz = 'Der Zweitgutachter kommt — mit dem ausdrücklichen Auftrag zu widerlegen — zum selben Schluss. Das ist der stärkste Beleg, den diese App liefern kann. <b>Ein Beweis ist es nicht.</b>';
+    // „Der stärkste Beleg, den diese App liefern kann" stimmt nur, wenn auch die
+    // Artenliste pruefen konnte — sonst stuende er ueber „Nicht gegengeprüft".
+    satz = 'Der Zweitgutachter kommt — mit dem ausdrücklichen Auftrag zu widerlegen — zum selben Schluss. ' +
+      (vz.liste !== 'nicht_pruefbar' ? 'Das ist der stärkste Beleg, den diese App liefern kann. ' : '') +
+      '<b>Ein Beweis ist es nicht.</b>';
   } else if (u === 'widerlegt') {
     kopf = '☠️ Der zweite Blick WIDERSPRICHT';
     farbe = 'var(--c-danger-d)';
@@ -37091,7 +37482,11 @@ function gsGegenprobeRender(g, r) {
     return '<div class="gs-gp-block"><b>' + ico + ' ' + titel + '</b><ul>' +
       arr.slice(0, 4).map(function (x) { return '<li>' + esc(String(x)) + '</li>'; }).join('') + '</ul></div>';
   }
-  var verzehr = String(g.verzehr || '').toLowerCase();
+  // Die Farbe der Schlusszeile folgt IHREM Zustand, nicht dem Kopf: ein gruener
+  // Rahmen um „Nicht gegengeprüft" waere dieselbe Karte mit zwei Aussagen. Die
+  // drei Farben sind dieselben Text-Token wie im Kopf (in beiden Modi vermessen,
+  // contrast_check).
+  var vzFarbe = vz.zustand === 'zustimmung' ? 'var(--c-success-d)' : vz.zustand === 'nein' ? 'var(--c-danger-d)' : 'var(--c-warn-d)';
   host.innerHTML =
     '<div class="sr2-card-lbl" style="color:' + farbe + ';">' + kopf + '</div>' +
     '<div class="sr2-card-body">' + satz + '</div>' +
@@ -37103,10 +37498,8 @@ function gsGegenprobeRender(g, r) {
         esc(g.bessere_erklaerung.name) + (g.bessere_erklaerung.latin ? ' <i>(' + esc(g.bessere_erklaerung.latin) + ')</i>' : '') +
         (g.bessere_erklaerung.warum ? ' — ' + esc(g.bessere_erklaerung.warum) : '') + '</div></div>'
       : '') +
-    '<div class="gs-gp-verzehr" style="border-color:' + farbe + ';color:' + farbe + ';">' +
-      (verzehr === 'ja' ? '🍽️ Beide Blicke halten den Verzehr für vertretbar — die Verantwortung bleibt bei dir.'
-       : verzehr === 'nein' ? '⛔ Nicht verzehren.'
-       : '🏥 Nur nach Prüfung durch eine Fachperson verzehren.') +
+    '<div class="gs-gp-verzehr" data-gp-verzehr="' + vz.zustand + '" style="border-color:' + vzFarbe + ';color:' + vzFarbe + ';">' +
+      vz.symbol + ' ' + esc(vz.text) +
     '</div>' +
     '<div class="gs-gp-fuss">⚖️ Zweite, unabhängige Bestimmung desselben Fotos — mit dem Auftrag zu widerlegen, nicht zu bestätigen.</div>';
 }
@@ -37269,7 +37662,23 @@ function showScanResult(r, opts){
         : 'nicht möglich');
     }
   } catch (_) {}
-  const t = toxInfo(r.toxicity||0);
+  // ── Nicht geprueft ist keine Entwarnung — auch nicht als Plakette ──────
+  // v33.47 hat fuer „nichts konnte pruefen" die Ueberschrift und die Stufe
+  // berichtigt. Die zwei GRUENEN Zusagen derselben Karte blieben: gemessen am
+  // 11.11.2026 stand fuer eine unbekannte Art, fuer einen nur ungeprueften
+  // Eintrag und — ohne Liste — fuer den Gruenen Knollenblaetterpilz weiter
+  // „✅ Ungiftig" im Kopf und „✅ Essbar Ja" bei den Fakten, beides allein aus
+  // den Feldern der KI. Dieselbe Regel wie `openDetail` seit v31.90:
+  // zurueckgehalten wird nur die ENTWARNUNG; eine Warnung der KI (Giftstufe ≥ 1)
+  // bleibt stehen. `_essen` ist die eine Antwort der Liste (`_gsListeZumEssen`),
+  // der Chip weiter unten liest dieselbe. Pruefstand: scan_check V7.
+  const _essen = (typeof _gsListeZumEssen === 'function') ? _gsListeZumEssen(r) : { zustand: 'nicht_pruefbar', grund: 'kein_eintrag', pilz: false };
+  const _ungeprueft = _essen.zustand === 'nicht_pruefbar';
+  const _i18n = function (k, f) { return (typeof _lt === 'function') ? _lt(k, f) : f; };
+  let t = toxInfo(r.toxicity||0);
+  if (_ungeprueft && !((Number(r.toxicity) || 0) >= 1) && r.toxic !== true) {
+    t = { sym: '❔', label: _i18n('tox_open', 'Einstufung offen'), color: 'var(--text2)', bg: 'var(--surface2)' };
+  }
   const conf = r.confidence||0;
   // v31.99: die drei Farben waren fuer FLAECHEN gedacht und standen als
   // TEXT auf fast weissem Grund — „Wahrscheinlich" in `#f9a825` sind 1,87:1
@@ -37591,9 +38000,16 @@ function showScanResult(r, opts){
   // ── 2) QUICK-FACTS-STRIP — 4 Chips auf einen Blick ─────────
   var facts = [];
   // Essbar / Giftig Ampel
-  if (r.edible === true) facts.push({ico:'✅', lbl:'Essbar', val:'Ja', bg:'#e8f5e9', fg:'#1b5e20'});
+  // „✅ Essbar Ja" ist eine Zusage — sie steht nur da, wenn die Artenliste die
+  // Art als essbar fuehrt (`_essen`, oben). Sagt es nur die KI, weil die Liste
+  // nichts pruefen konnte, heisst der Chip „Essbar · nicht geprüft" und ist
+  // neutral (dieselben zwei Farben wie „Nicht essbar"). Fuehrt die Liste die Art
+  // NICHT als essbar, hat das Pruefwerk `r.edible` schon berichtigt (S2).
+  var _listeEssbar = (_essen.zustand === 'essbar' || _essen.zustand === 'bedingt');
+  if (r.edible === true && _listeEssbar) facts.push({ico:'✅', lbl:'Essbar', val:'Ja', bg:'#e8f5e9', fg:'#1b5e20'});
+  else if (r.edible === true && _ungeprueft) facts.push({ico:'❔', lbl:'Essbar', val:esc(_i18n('tag_unverified', 'nicht geprüft')), bg:'#eceff1', fg:'#455a64'});
   else if (r.toxic === true || (r.toxicity||0) >= 1) facts.push({ico:'☠️', lbl:'Giftig', val:esc(String(r.toxicity||'?'))+'/5', bg:'#ffebee', fg:'#b71c1c'});
-  else if (r.edible === false) facts.push({ico:'⚪', lbl:'Nicht essbar', val:'—', bg:'#eceff1', fg:'#455a64'});
+  else if (r.edible === false || r.edible === true) facts.push({ico:'⚪', lbl:'Nicht essbar', val:'—', bg:'#eceff1', fg:'#455a64'});
   // Saison
   if (r.season) facts.push({ico:'📅', lbl:'Saison', val:esc(String(r.season).slice(0,18)), bg:'#f3e5f5', fg:'#6a1b9a'});
   // Habitat kurz
@@ -37766,7 +38182,12 @@ function showScanResult(r, opts){
             // Die Giftigkeit steht AM NAMEN, nicht in einer Fussnote.
             (atox != null && atox >= 3
               ? ' <span class="sr2-alt-gift">' + (atox >= 5 ? '\u2620\ufe0f t\u00f6dlich' : atox >= 4 ? '\u2620\ufe0f stark giftig' : '\u26a0\ufe0f giftig') + '</span>'
-              : (atox === 0 && a.edible === true ? ' <span class="sr2-alt-ok">\ud83c\udf7d\ufe0f essbar</span>' : '')) +
+              // \u201eessbar" ist eine Zusage: sie kommt aus der LISTE (essbar und
+              // ungiftig, geprueft), nie allein aus dem Feld der KI. Gemessen am
+              // 11.11.2026: \u201eZzz Fantasiekraut \ud83c\udf7d\ufe0f essbar" (die Art gibt es nicht)
+              // und \u201eEdelweiss \ud83c\udf7d\ufe0f essbar" (Liste: nicht essbar). scan_check V8.
+              : (atox === 0 && a.edible === true && _gsListeZumEssen({ name: a.name, latin: a.latin }).zustand === 'essbar'
+                  ? ' <span class="sr2-alt-ok">\ud83c\udf7d\ufe0f essbar</span>' : '')) +
           '</div>' +
           (alt.latin ? '<div class="sr2-alt-lat">' + esc(alt.latin) + '</div>' : '') +
           (alt.distinguishing_feature ? '<div class="sr2-alt-reason">→ ' + esc(alt.distinguishing_feature) + '</div>' : '') +
@@ -39407,7 +39828,7 @@ function openDetail(id){
   // Toxizitäts-Skala
   const dots = Array.from({length:6},(_,i)=>{
     const act=(typeof sp.tox==='number')&&i<=sp.tox;
-    return '<div class="td"'+(act?' style="background:'+t.color+';color:#fff;box-shadow:0 2px 6px '+t.color+'66"':'')+'>'+( act?t.sym:'·' )+'</div>';
+    return '<div class="td"'+(act?' style="background:'+(t.voll||t.color)+';color:#fff;box-shadow:0 2px 6px '+(t.voll||t.color)+'66"':'')+'>'+( act?t.sym:'·' )+'</div>';
   }).join('');
 
   // Warnbox
@@ -39531,7 +39952,10 @@ function openDetail(id){
       '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_toxicity','☠️ Toxizität & Sicherheit') + '</h3>',
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">',
           '<span style="font-size:var(--fs-3xl);">'+t.sym+'</span>',
-          '<div><div style="font-weight:800;font-size:var(--fs-lg);color:'+t.color+';">'+t.label+'</div>',
+          // v33.60: Plakette aus dem PAAR bg+color (siehe TOX) — lesbar auf heller
+          // UND dunkler Karte. Ohne `bg` (Einstufung offen) bleibt es Text in
+          // einer Themenfarbe, die mit dem Modus kippt.
+          '<div><div style="font-weight:800;font-size:var(--fs-lg);color:'+t.color+';'+(t.bg?'display:inline-block;background:'+t.bg+';padding:1px 10px;border-radius:var(--r-sm);margin-bottom:2px;':'')+'">'+t.label+'</div>',
           '<div style="font-size:var(--fs-sm);color:var(--muted);">' + (_unv ? _t('tox_unverified','Noch nicht geprüft') : (_t('tox_scale','Skala 0–5 · Stufe') + ' '+(Math.max(0, Math.min(5, Math.round(Number(sp.tox)) || 0)))))+'</div></div>',
         '</div>',
         '<div class="tox-scale">'+dots+'</div>',
@@ -39553,7 +39977,10 @@ function openDetail(id){
         return '<div style="background:'+(isFatal?'#ffebee':'#fff8e1')+';border:2px solid '+(isFatal?'#ef9a9a':'#ffe082')+';border-radius:var(--r-md);padding:10px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;">' +
           '<span style="font-size:var(--fs-xl);flex-shrink:0;">'+(isFatal?'☠️':'⚠️')+'</span>' +
           '<div><div style="font-size:var(--fs-md);font-weight:800;color:'+(isFatal?'#c62828':'#e65100')+';margin-bottom:2px;">'+(isFatal?_t('tox_strong','STARK GIFTIG'):_t('tox_caution','VORSICHT: GIFTIG'))+'</div>' +
-          '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">'+(!gsWarnungLeer(sp.warning)?escHtml(sp.warning):_t('tox_warn_default','Nicht essen. Bei Vergiftung: Tox Info Suisse 145'))+'</div>' +
+          // v33.60: `var(--text2)` kippt im Dunkelmodus auf hell — auf dieser FEST
+          // hellen Flaeche 1,18:1 gemessen (der Warntext einer toedlichen Art).
+          // Eine feste Flaeche braucht eine feste Schrift (CLAUDE.md §7.1, v32.25).
+          '<div style="font-size:var(--fs-sm);color:'+(isFatal?'#4a1212':'#4a3200')+';line-height:1.5;">'+(!gsWarnungLeer(sp.warning)?escHtml(sp.warning):_t('tox_warn_default','Nicht essen. Bei Vergiftung: Tox Info Suisse 145'))+'</div>' +
           '</div></div>';
       })(),
       // Vollständigkeits-Indikator
@@ -40747,6 +41174,7 @@ function openPlantDiary(plantId) {
   // v32.53: `ts` ist seit v26.51 ein ISO-String (gsQuickDone) — die Differenz zweier Strings ist NaN, die Liste war unsortiert.
   var entries = p.diary.slice().sort(function(a,b){ return (new Date(b.ts||0).getTime()||0) - (new Date(a.ts||0).getTime()||0); });
 
+  var _pdFotoName = escHtml(_gsSatz('Foto vergrössern'));   // v33.60: das Vorschaubild ist ein Bedienelement — alt UND aria-label
   var entriesHtml = entries.length ? entries.map(function(e){
     var dt = new Date(e.ts || Date.now());
     var dateStr = dt.toLocaleDateString(gsLocale(), {day:'2-digit', month:'short', year:'numeric'}) + ' · ' + dt.toLocaleTimeString(gsLocale(),{hour:'2-digit',minute:'2-digit'});
@@ -40755,7 +41183,10 @@ function openPlantDiary(plantId) {
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'+
         '<span style="font-size:var(--fs-xl);">'+actionEmoji+'</span>'+
         '<div style="flex:1;">'+
-          '<div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">'+escHtml(e.title || actionEmoji+' Eintrag')+'</div>'+
+          // v33.60: der Titel ist TEXT (escHtml) und geht durch den einen Leser. Der Eintrag
+          // kommt aus dem gesyncten Blob oder aus einem eingespielten Backup — also nicht
+          // nur aus dieser App. Bis hierher stand er roh im innerHTML.
+          '<div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">'+escHtml(_gsTbTitel(e) || (actionEmoji+' Eintrag'))+'</div>'+
           '<div style="font-size:var(--fs-xs);color:var(--muted);">'+dateStr+'</div>'+
         '</div>'+
         '<button onclick="gsDeleteDiaryEntry(\''+_gsOcStr(plantId)+'\',\''+_gsOcStr(String(e.ts).replace(/[^0-9A-Za-z:.\-]/g,''))+'\')" style="background:none;border:none;font-size:var(--fs-md);color:var(--muted);cursor:pointer;padding:4px 8px;">🗑</button>'+
@@ -40763,7 +41194,11 @@ function openPlantDiary(plantId) {
       (e.note ? '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.55;margin-top:4px;white-space:pre-wrap;">'+(typeof escHtml==='function'?escHtml(e.note):e.note)+'</div>' : '')+
       // v32.53: Giessen bestaetigt sich am Sensor — nur, wenn es ein Geraet gibt
       (function(){ try { if (e.action !== 'water' || typeof gsGiessBestaetigung !== 'function') return ''; var b = gsGiessBestaetigung(p, e.ts); if (!b || b.ohne_geraet) return ''; return '<div class="gs-tb-sensor gs-tb-' + b.zustand + '">\ud83d\udcf6 Sensor: ' + (typeof escHtml==='function'?escHtml(b.text):b.text) + '</div>'; } catch(_) { return ''; } })()+
-      (e.photo && _gsFundFoto(e.photo, false) ? '<img src="'+_gsFundFoto(e.photo, false)+'" alt="Tagebuch-Foto" style="margin-top:8px;width:100%;max-height:200px;object-fit:cover;border-radius:var(--r-sm);">' : '')+   // v33.59: stand ROH im src
+      // v33.60: die Adresse geht durch _gsSafeUrl (http(s) oder data:image/, Anfuehrungszeichen
+      // entschaerft) — bis hierher stand `e.photo` roh im src-Attribut: ein Wert mit einem
+      // Anfuehrungszeichen brach aus dem Attribut aus (escape_check „Pflanzentagebuch“). Und das
+      // Foto oeffnet in der App (gsFotoAnsicht), wie im Gartentagebuch.
+      (_gsFundFoto(e.photo, false) ? '<img src="'+_gsFundFoto(e.photo, false)+'" loading="lazy" onclick="gsFotoAnsicht(this.src)" alt="'+_pdFotoName+'" aria-label="'+_pdFotoName+'" style="margin-top:8px;width:100%;max-height:200px;object-fit:cover;border-radius:var(--r-sm);cursor:zoom-in;">' : '')+
     '</div>';
   }).join('') : '<div style="text-align:center;padding:32px 20px;color:var(--muted);font-size:var(--fs-md);">📓 Noch kein Eintrag.<br>Dokumentiere die Entwicklung deiner Pflanze über die Zeit.</div>';
 
@@ -40904,23 +41339,21 @@ async function deletePlant(id){
 }
 
 // ─── Aufgabe erledigt markieren ───────────────────────────
-function doneTask(plantId, taskKey){
-  // v32.46: erledigt hebt eine Verschiebung auf (siehe gsQuickDone)
-  try { var _pS = myPlants.find(function(x){ return x && x.id === plantId; }); if (_pS && _pS.tasks && _pS.tasks[taskKey]) { delete _pS.tasks[taskKey].snoozedUntil; delete _pS.tasks[taskKey].vorgezogenAuf; delete _pS.tasks[taskKey].vorgezogenGrund; } } catch(_){}
-  const p = myPlants.find(x => x.id === plantId);
-  if(!p || !p.tasks[taskKey]) return;
-  p.tasks[taskKey].lastDone = new Date().toISOString();
-  if (typeof gsRpcTaskDone === 'function') gsRpcTaskDone(plantId, taskKey); // v26.93 Backend-Sync
-  savePlantsToStorage();
-  renderMyPlants();
-  // Nächste Benachrichtigung planen
-  scheduleAllNotifications();
-  // v24.25: Server-Cron-Reminder als gelesen markieren (Cross-Device)
-  try { if (typeof gsMarkPlantReminderRead === 'function') gsMarkPlantReminderRead(plantId, taskKey); } catch(_){}
-  // Kurzes Feedback
-  const el = document.getElementById('mpcard-' + plantId);
-  if(el){ el.style.opacity='.6'; setTimeout(()=>el.style.opacity='1', 400); }
-}
+// v33.60: EIN Weg zum Abhaken. Die Aufgaben-Knoepfe AUF der Pflanzenkarte
+// („💧 Giessen ✓“, bis zu vier je Karte) und „Jetzt erledigt“ im
+// Aufgaben-Manager riefen bis hierher eine eigene, aeltere Fassung. Sie
+// setzte `lastDone`, schrieb aber KEINEN Verlaufseintrag (`p.diary`) —
+// gemessen am 11.11.2026 mit dem echten Knopf: Tagebuch 5 → 5, im Kalender
+// 0 Ereignisse, „erledigt“ in der Woche 3 → 3. Es fehlte also im
+// Pflanzentagebuch, im Gartentagebuch, im Kalender, im Wochenrueckblick,
+// unter „Kuerzlich erledigt“ und in Linas Kontext genau das, was auf der
+// Karte abgehakt wurde; Glocke, Notizzettel und Tagesplan zogen nicht mit.
+// gsQuickDone tut das alles (v26.51 Verlauf · v30.85 Glocke und Zettel ·
+// v31.16 Tagesplan · v32.46 Verschiebung · v32.47 beide Listen · v32.53
+// Sensor). Der Name bleibt, weil zwei Stellen ihn rufen; eine zweite
+// Rechnung gibt es nicht mehr. Pruefstand: kalender_check „Abhaken auf der
+// Pflanzenkarte“ — er tippt den echten Knopf an.
+function doneTask(plantId, taskKey){ return gsQuickDone(plantId, taskKey); }
 
 // ─── Aufgaben-Manager ─────────────────────────────────────
 function openTaskManager(plantId){
@@ -44785,7 +45218,7 @@ function gsBattleRenderList(rows){
 
   function section(title, list, kind){
     var s = '<div style="font-size:var(--fs-sm);font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:6px 0 8px;">' + title + ' (' + list.length + ')</div>';
-    if (!list.length) { s += '<div style="padding:10px 12px;color:var(--muted);font-size:var(--fs-sm);opacity:.8;margin-bottom:14px;">' + _t('empty_nothing_here','Nichts hier.') + '</div>'; return s; }
+    if (!list.length) { s += '<div style="padding:10px 12px;color:var(--muted);font-size:var(--fs-sm);margin-bottom:14px;">' + _t('empty_nothing_here','Nichts hier.') + '</div>'; return s; }
     list.forEach(function(b){
       var name = esc(b.opponent_name || (b.is_random_match ? _t('battle_random_opponent','Zufalls-Gegner') : _t('battle_opponent','Gegner')));
       var emoji = esc(b.opponent_emoji || '🌿');
@@ -45299,6 +45732,48 @@ window.gsPestAddToDiary = gsPestAddToDiary;
 // VAPKO-Disclaimer ist Pflicht in jedem Result.
 // ═════════════════════════════════════════════════════════════════════
 
+// v33.64 (Pilz-Scanner, Brett 2026-11-11-2714): ab welcher Trefferquote ein Ergebnis als Bestimmung
+// gilt — DIESELBE Zahl wie am Server (PILZ_SICHER_AB in supabase/functions/_shared/pilz_wissen.mjs;
+// darunter verlangt er die VAPKO-Kontrolle). Bis v33.61 stand hier 60: zwischen 60 und 69 % zeigte die
+// Karte „✅ Speisepilz", waehrend der Server im selben Ergebnis die Kontrolle verlangte.
+// edge_check 80_pilz haelt beide Zahlen zusammen.
+var GS_PILZ_SICHER_AB = 70;
+window.GS_PILZ_SICHER_AB = GS_PILZ_SICHER_AB;
+function _gsPilzGefaehrlich(ed) { return ed === 'toedlich' || ed === 'giftig'; }
+// Ein Register-Slug lesbar: „amanita_phalloides" → „Amanita phalloides" — nur, wenn der Server keinen
+// Namen mitschickt (aeltere Fassung der Function). Nie ein roher Slug auf dem Bildschirm (v33.29).
+function _gsPilzSlugName(slug) {
+  var s = String(slug == null ? '' : slug).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+// Die Kandidaten im Zweig „unsicher": mit Namen, und ein giftiger oder toedlicher traegt seine Warnung.
+// Die Essbarkeit kommt aus dem Register (alternative_arten, seit v33.64) — nicht aus der Artenliste der
+// App: bei Pilzen ist sie teils milder als das Register (gemessen 19.11.2026, Brett).
+function _gsPilzKandidatenHtml(j, ed, _t) {
+  var arten = (j && Array.isArray(j.alternative_arten))
+    ? j.alternative_arten.filter(function (a) { return a && typeof a.slug === 'string' && a.slug; })
+    : ((j && Array.isArray(j.alternatives)) ? j.alternatives.filter(function (x) { return typeof x === 'string' && x; }).map(function (x) { return { slug: x }; }) : []);
+  if (!arten.length) return '';
+  var teile = arten.slice(0, 3).map(function (a) {
+    var name = (typeof a.name === 'string' && a.name.trim()) ? a.name.trim() : _gsPilzSlugName(a.slug);
+    var warn = a.edibility === 'toedlich' ? ' <b style="color:var(--c-danger-d);">☠️ ' + _t('mush_deadly', 'TÖDLICH') + '</b>'
+      : a.edibility === 'giftig' ? ' <b style="color:var(--c-danger-d);">⚠️ ' + _t('tag_toxic', 'GIFTIG') + '</b>' : '';
+    return ed(name) + warn;
+  });
+  return '<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--muted);">' + _t('mush_possible_candidate', 'Möglicher Kandidat:') + ' ' + teile.join(', ') + '</div>';
+}
+// Ein Satz fuer einen Fehler des Pilz-Scanners — nie eine Kennung wie „rate_limited" oder „invalid
+// token". Das Tor des Servers (ki_tor.mjs) schickt feste Saetze mit Kennung ({error: <Satz>, code});
+// die stehen. Alles andere sagt der HTTP-Status (_gsFehlerText), nie der Rohtext.
+function _gsPilzFehlerSatz(j, status) {
+  var satz = function (x) { return (typeof x === 'string' && /\s/.test(x.trim())) ? x.trim().slice(0, 200) : ''; };
+  if (j && typeof j.code === 'string' && satz(j.error)) return satz(j.error);
+  if (j && satz(j.message)) return satz(j.message);
+  var s = (typeof _gsFehlerText === 'function') ? _gsFehlerText({ message: '', status: status || 0 }) : '';
+  return (s && s !== 'Unbekannter Fehler') ? s : 'Die Bestimmung hat nicht geklappt — bitte erneut versuchen.';
+}
+window._gsPilzFehlerSatz = _gsPilzFehlerSatz;
+
 function openMushroomModal() {
   window._gsMushroomPhotoB64 = null;
   var preview = document.getElementById('mushroom-photo-preview');
@@ -45353,6 +45828,9 @@ async function gsMushroomRunScan() {
 
   if (typeof showProfileToast === 'function') showProfileToast('🔬 KI analysiert (Sicherheit vor Präzision)…', 'info');
 
+  // v33.64: eine Antwort gehoert der Person, die gefragt hat (CLAUDE.md §3.6) — wer sich waehrend
+  // der Bestimmung abmeldet oder das Konto wechselt, bekommt sie nicht auf den Bildschirm.
+  var wer = (typeof _gsPerson === 'function') ? _gsPerson() : null;
   try {
     // v29.01 WIRE-1: frischen Token holen (Auto-Refresh) — stale 1h-JWT führte zu 401 bis Reload.
     var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : ((window.gsStore && typeof gsStore.get === 'function') ? (gsStore.get('gs_sb_token', null) || '') : '');
@@ -45363,14 +45841,16 @@ async function gsMushroomRunScan() {
       headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ image_base64: photoB64, media_type: 'image/jpeg', habitat_hint: habitat, region_slug: regionSlug })
     }, 60000);
-    var j = await resp.json();
-    if (!resp.ok || j.error) {
-      if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + (j.error || 'Identifikation fehlgeschlagen'), 'error');
+    var j = await resp.json().catch(function(){ return null; });
+    if (typeof _gsPerson === 'function' && _gsPerson() !== wer) return;
+    if (!resp.ok || !j || j.error) {
+      if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + _gsPilzFehlerSatz(j, resp.status), 'error');
       return;
     }
     gsMushroomRenderResult(j);
-  } catch(_) {
-    if (typeof showProfileToast === 'function') showProfileToast('Netzwerk-Fehler — bitte erneut versuchen', 'error');
+  } catch(e) {
+    if (typeof _gsPerson === 'function' && _gsPerson() !== wer) return;
+    if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + ((typeof _gsFehlerText === 'function') ? _gsFehlerText(e) : 'Keine Verbindung zum Server — bitte erneut versuchen.'), 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🔍 Pilz identifizieren'; }
   }
@@ -45392,9 +45872,10 @@ async function gsMushroomRenderResult(j) {
   }
 
   // ============= "UNSICHER" Hint bei < 60% Confidence ohne Match =============
-  if (!m || !j.matched_slug || conf < 60) {
+  // v33.64: dieselbe Schwelle wie der Server (GS_PILZ_SICHER_AB); die Kandidaten mit Namen und Warnung.
+  if (!m || !j.matched_slug || conf < GS_PILZ_SICHER_AB) {
     var reason = (j && j.reasoning) ? j.reasoning : '';
-    var alt = (j && Array.isArray(j.alternatives) && j.alternatives.length) ? '<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--muted);">' + _t('mush_possible_candidate','Möglicher Kandidat:') + ' ' + j.alternatives.map(ed).join(', ') + '</div>' : '';
+    var alt = _gsPilzKandidatenHtml(j, ed, _t);
     box.innerHTML =
       '<div style="margin-top:14px;padding:14px;background:var(--bg-yellow-soft);border:2px solid #fbc02d;border-radius:var(--r-md);color:#bf360c;">' +
         '<div style="font-size:var(--fs-md);font-weight:900;margin-bottom:6px;">⚠️ ' + _t('mush_uncertain_id','UNSICHERE Identifikation') + ' (' + _t('confidence','Confidence') + ' ' + conf + '%)</div>' +
@@ -45425,14 +45906,16 @@ async function gsMushroomRenderResult(j) {
 
   // ============= Match-Card =============
   // safety_color aus v_mushroom_safety: red/orange/yellow/green
-  var safety = String(j.safety_color || 'yellow');
+  // v33.64: eine toedliche oder giftige Art traegt IMMER die rote Kopfzeile — ohne safety_color
+  // (Sicht ohne Zeile, aeltere Function) stand sonst „⚠️ Vorsicht" unter dem roten Vollbild.
+  var safety = _gsPilzGefaehrlich(m.edibility) ? 'red' : String(j.safety_color || 'yellow');
   var safetyMap = {
     red:    { bg:'#ffebee', border:'#c62828', col:'#b71c1c', lbl:'🚫 ' + (m.edibility === 'toedlich' ? _t('mush_deadly','TÖDLICH') : _t('tag_toxic','GIFTIG')), prom:true },
     orange: { bg:'#fff3e0', border:'#e65100', col:'#bf360c', lbl:_t('mush_cond_edible','⚠️ NUR JUNG / BEDINGT ESSBAR'), prom:true },
     yellow: { bg:'#fff8e1', border:'#fbc02d', col:'#bf360c', lbl:_t('mush_caution','⚠️ Vorsicht'), prom:false },
     green:  { bg:'#e8f5e9', border:'#2e7d32', col:'#1b5e20', lbl:_t('mush_edible','✅ Speisepilz'), prom:false }
   };
-  var sm = safetyMap[safety] || safetyMap.yellow;
+  var sm = _gsNachschlag(safetyMap, safety, null) || safetyMap.yellow;
 
   var html = '<div style="margin-top:14px;border-radius:var(--r-lg);overflow:hidden;border:2px solid ' + sm.border + ';background:var(--card);">';
   html += '<div style="background:' + sm.bg + ';color:' + sm.col + ';padding:11px 16px;font-size:var(--fs-md);font-weight:900;text-align:center;border-bottom:1px solid ' + sm.border + ';">' + sm.lbl + ' · ' + _t('confidence','Confidence') + ' ' + conf + '%</div>';
@@ -54764,7 +55247,11 @@ function openRecipeDetail(id) {
   // v28.10 B-009: Foto-Galerie (admin-kuratiert, public-read). Lazy-load, horizontal scrollbar.
   var _photoHtml = (Array.isArray(r.photo_urls) && r.photo_urls.length)
     ? '<div style="display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;-webkit-overflow-scrolling:touch;">' +
-        r.photo_urls.map(function(u){ var su=_gsSafeUrl(u); if (!su) return ''; return '<img loading="lazy" src="'+su+'" onclick="window.open(this.src,\'_blank\')" style="height:130px;border-radius:var(--r-md);object-fit:cover;flex:0 0 auto;cursor:zoom-in;box-shadow:var(--shadow-sm);">'; }).join('') +
+        // v33.60: die Adresse stand als Zeichenkette im onclick (zwei Parser —
+        // ein Apostroph lief als Code) und oeffnete per window.open. Jetzt:
+        // _gsSafeUrl fuer src, die Ansicht bekommt `this.src`, und das Bild hat einen Namen.
+        // alt UND aria-label: die Tastatur-Nachruestung gibt dem Bild role=button.
+        r.photo_urls.map(function(u){ var su=_gsSafeUrl(u), nm=escHtml(_gsSatz('Foto vergrössern')); return su ? '<img loading="lazy" src="'+su+'" onclick="gsFotoAnsicht(this.src)" style="height:130px;border-radius:var(--r-md);object-fit:cover;flex:0 0 auto;cursor:zoom-in;box-shadow:var(--shadow-sm);" alt="'+nm+'" aria-label="'+nm+'">' : ''; }).join('') +
       '</div>'
     : '';
   const body =
@@ -57191,7 +57678,7 @@ function renderTrachten() {
     html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow-sm);">' +
       '<div style="padding:10px 14px;background:' + t.color + ';color:#fff;">' +
         '<div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-lg);font-weight:800;">' + name + '</div>' +
-        '<div style="font-size:var(--fs-sm);opacity:.9;margin-top:2px;">' + t.desc + '</div>' +
+        '<div style="font-size:var(--fs-sm);margin-top:2px;">' + t.desc + '</div>' +   // v33.60: ohne opacity .9 — Weiss auf #2e7d32 lag damit bei 4,49:1
       '</div>' +
       '<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:4px;color:var(--text);">' +
         t.plants.map(p => renderTrachtenPlant(p)).join('') +
@@ -57298,15 +57785,13 @@ function renderAussaat() {
 
   monthKeys.forEach((mKey, i) => {
     const data = cal.monate[mKey];
-    // Rough month check
-    const isCurrentApprox = (i === 0 && (curMonth <= 1)) ||
-                             (i === 1 && curMonth === 2) ||
-                             (i === 2 && curMonth === 3) ||
-                             (i === 3 && curMonth === 4) ||
-                             (i === 4 && (curMonth === 5 || curMonth === 6)) ||
-                             (i === 5 && curMonth === 7) ||
-                             (i === 6 && (curMonth === 8 || curMonth === 9)) ||
-                             (i === 7 && curMonth >= 10);
+    // Der Block ist „jetzt", wenn sein NAME den laufenden Monat nennt — gelesen mit
+    // dem einen Parser fuer Monatsworte (gsSaisonMonate: „Jan/Feb" → 0,1 ·
+    // „Okt–Dez" → 9,10,11). Bis zum 11.11.2026 stand hier eine Index-Tabelle
+    // („Rough month check"), die nicht zu den acht Schluesseln passte: im Juli
+    // war „Juni" markiert, im August „Juli", im Oktober „Aug/Sep" — 3 von 12
+    // Monaten (kalender_check „Wissen-Aussaatkalender").
+    const isCurrentApprox = ((typeof gsSaisonMonate === 'function' && gsSaisonMonate(mKey)) || []).indexOf(curMonth) >= 0;
 
     html += '<div style="background:var(--card);border-radius:var(--r-lg);margin-bottom:9px;box-shadow:var(--shadow-sm);' + (isCurrentApprox ? 'outline:3px solid var(--g-main);' : '') + '">' +
       '<div style="padding:10px 14px 8px;background:' + (isCurrentApprox ? 'var(--g-main)' : '#f5f5f5') + ';color:' + (isCurrentApprox ? '#fff' : 'var(--text)') + ';border-radius:var(--r-lg) var(--r-lg) 0 0;display:flex;align-items:center;justify-content:space-between;">' +
@@ -58561,7 +59046,72 @@ function _gsMenuSub(item){
   return (item && item.sub) || '';
 }
 window._gsMenuSub = _gsMenuSub;
+// ═══ v33.60 · NOTFALL — die Nummern an EINEM Ort, und die Menue-Suche findet sie ═══
+// Gemessen am 11.11.2026: die Menue-Suche (51 Eintraege) fand zu „Notfall“, „145“,
+// „Tox Info“ und „vergiftet“ NICHTS; „Vergiftung“ und „Gift“ fuehrten zu „Giftige
+// Pflanzen“, „gegessen“ zu den Rezepten. Die Nummern standen nur dort, wo ein Scan
+// oder ein Chat sie ausloest.
+//
+// Was hier steht, sagt die App schon anderswo (`notfall_sofort`: 145 · 144 · 112) —
+// neu ist nur die Nummer fuer Anrufe aus dem Ausland. Quelle fuer 145 und die
+// Auslandnummer: Tox Info Suisse selbst (Merkblatt 2024 und Kontaktseite auf
+// toxinfo.ch, gelesen am 11.11.2026): „Notrufnummer 145 während 24 Stunden
+// täglich“, „Aus dem Ausland oder bei technischen Problemen: +41 44 251 51 51“.
+//
+// Bewusst KEIN Erste-Hilfe-Rat. Was man tun oder lassen soll, sagt die Fachperson
+// am Telefon; ein Satz dazu braeuchte eine Quelle und jemanden, der ihn pflegt
+// (ROADMAP „Notfall: Blatt und Karte“). Pruefstand: nutzersicht_check E15.
+// Wer eine Nummer aendert, aendert sie HIER, liest sie vorher bei der Quelle nach
+// und traegt das Datum ein — es steht im Fenster.
+var GS_NOTFALL_NUMMERN = { tox: '145', tox_ausland: '+41 44 251 51 51', notruf: '144', eu: '112', stand: '11.11.2026' };
+function gsNotfallOeffnen() {
+  var N = GS_NOTFALL_NUMMERN;
+  var tel = function (n) { return 'tel:' + String(n).replace(/[^0-9+]/g, ''); };
+  var knopf = 'display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:10px 12px;border:2px solid var(--c-danger-d);color:var(--c-danger-d);border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;text-decoration:none;';
+  var h =
+    '<div id="gs-notfall" style="padding:2px 2px 4px;">' +
+      // links und rechts 44 px frei: oben rechts sitzt der Schliessen-Knopf des Fensters — ohne den Rand lag er auf dem Titel
+      '<div style="font-size:var(--fs-xl);font-weight:900;color:var(--text);text-align:center;line-height:1.25;margin:0 44px 6px;"><span aria-hidden="true">🆘 </span>' + escHtml(_gsSatz('Vergiftung oder Verdacht?')) + '</div>' +
+      '<div style="font-size:var(--fs-md);color:var(--text2);text-align:center;line-height:1.5;margin-bottom:14px;">' + escHtml(_gsSatz('Ruf sofort Tox Info Suisse an — rund um die Uhr.')) + '</div>' +
+      // feste dunkle Flaeche, feste weisse Schrift (9,29:1) — in beiden Modi gleich
+      '<a href="' + tel(N.tox) + '" style="display:flex;align-items:center;justify-content:center;gap:10px;min-height:60px;padding:12px 16px;background:#8e1414;color:#fff;border-radius:var(--r-lg);font-weight:900;text-decoration:none;margin-bottom:8px;"><span aria-hidden="true" style="font-size:var(--fs-3xl);">☎️</span><span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;"><span style="font-size:var(--fs-md);font-weight:700;">' + escHtml(_gsSatz('Tox Info Suisse')) + '</span><span style="font-size:var(--fs-3xl);letter-spacing:1px;">' + escHtml(N.tox) + '</span></span></a>' +
+      '<div style="font-size:var(--fs-sm);color:var(--text2);text-align:center;line-height:1.5;margin-bottom:14px;">' + escHtml(_gsSatz('Aus dem Ausland oder wenn 145 nicht geht:')) +
+        ' <a href="' + tel(N.tox_ausland) + '" style="display:inline-block;min-height:24px;padding:3px 2px;color:var(--text);font-weight:800;white-space:nowrap;">' + escHtml(N.tox_ausland) + '</a></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">' +
+        '<a href="' + tel(N.notruf) + '" style="' + knopf + '"><span aria-hidden="true">🚑</span><span>' + escHtml(_gsSatz('Notruf')) + ' ' + escHtml(N.notruf) + '</span></a>' +
+        '<a href="' + tel(N.eu) + '" style="' + knopf + '"><span>' + escHtml(_gsSatz('EU-Notruf')) + ' ' + escHtml(N.eu) + '</span></a>' +
+      '</div>' +
+      '<div style="background:var(--surface2);border-radius:var(--r-md);padding:11px 13px;font-size:var(--fs-sm);color:var(--text);line-height:1.55;margin-bottom:10px;">' + escHtml(_gsSatz('Sag am Telefon: welche Pflanze oder welcher Pilz, wann und wie viel.')) + '</div>' +
+      '<div style="font-size:var(--fs-xs);color:var(--muted);line-height:1.5;text-align:center;">' + escHtml(_gsSatz('Eine Bestimmung per Foto kann falsch sein — im Zweifel anrufen.')) + '<br>' +
+        escHtml(_gsSatz('Nummern: Tox Info Suisse (toxinfo.ch), geprüft am {1}.', N.stand)) + '</div>' +
+    '</div>';
+  _gsNlOpen(h);
+}
+window.gsNotfallOeffnen = gsNotfallOeffnen;
+// Der Notfall-Eintrag der Menue-Suche hat eine EIGENE, engere Trefferregel — und steht
+// dann zuerst. Er trifft ab drei Zeichen, wenn eines seiner Woerter die Eingabe enthaelt
+// („notf“ → „notfall“), wenn die Eingabe eines seiner Woerter ab sechs Zeichen enthaelt
+// („kind hat beeren gegessen“), oder wenn das EINE Notfall-Vokabular anschlaegt
+// (_gsNotfallStufe, vier Sprachen). Sonst erscheint er gar nicht: ein Eintrag, der bei
+// jeder Eingabe oben steht, ist einer, den man zu ueberlesen lernt (v32.98) — „giftig“
+// fuehrt weiter zu „Giftige Pflanzen“, „essbar“ zu den essbaren.
+function _gsMenuNotfallTrifft(q, tags) {
+  try {
+    q = String(q || '').toLowerCase().trim();
+    if (q.length < 3) return false;
+    if ((tags || []).some(function (t) { return t.indexOf(q) >= 0 || (t.length >= 6 && q.indexOf(t) >= 0); })) return true;
+    // `_gsNotfallStufe` sagt Nein mit dem WORT 'keiner' — eine wahre Zeichenkette. Der erste
+    // Anlauf fragte `!!…` und traf damit bei JEDER Eingabe (gefunden von der Gegenrichtung
+    // im Fall: „tomate“, „essbar“ und „pilz“ zeigten den Notfall).
+    var st = (typeof _gsNotfallStufe === 'function') ? _gsNotfallStufe(q) : null;
+    return st === 'dringend' || st === 'hinweis';
+  } catch (_) { return false; }
+}
+window._gsMenuNotfallTrifft = _gsMenuNotfallTrifft;
+
 const MENU_ITEMS = [
+  // v33.60: der Notfall — `vorrang` heisst: eigene Trefferregel (_gsMenuNotfallTrifft), und bei einem Treffer zuerst.
+  {label:'🆘 Notfall: Vergiftung', sub:'Tox Info Suisse 145 · rund um die Uhr', action:"closeMainMenu();gsNotfallOeffnen()", vorrang:true, tags:['notfall','notruf','vergiftung','vergiftet','vergiften','gift','giftnotruf','145','144','112','tox','tox info','toxinfo','gegessen','verschluckt','geschluckt','erbrechen','urgence','empoisonnement','intoxication','emergenza','avvelenamento','veleno','emergency','poison','poisoning','poisoned','emergencia','urgencia','envenenamiento','envenenado','veneno','intoxicación','intoxicacion']},
   // Navigation
   // v31.70: Die sieben Eintraege der Gruppe „Wissen & Werkzeuge" aus
   // „Mein Garten". Fernando: „gehört nicht in Mein Garten" — richtig, es
@@ -58634,7 +59184,10 @@ const MENU_ITEMS = [
   // sagt selbst „Bitte zuerst eine Messung machen", wenn noch keine vorliegt.
   // Eine Rückmeldung ist besser als gar nichts.
   {label:'🌾 Lichtmesser kalibrieren', sub:'Dein Gerät präziser machen', action:"openLightMeter();setTimeout(function(){if(typeof gsLuxCalibrate==='function')gsLuxCalibrate();},400)", tags:['lux','licht','kalibrieren','präzision','sensor']},
-  {label:'🔒 Premium freischalten', sub:'TWINT · Karte · IBAN', action:"if(typeof gsShowAboScreen==='function')gsShowAboScreen();else menuNav('settings')", tags:['premium','abo','abonnement','stripe','twint','sepa','iban','karte','bezahlen','pro','plus']},
+  // v33.60: die Unterzeile versprach „TWINT · Karte · IBAN“. Welche Zahlungsarten im Checkout stehen, entscheidet
+  // das Stripe-Dashboard (kein fester Wert im Aufruf, _shared/stripe_regeln.mjs) — die App kann es nicht wissen.
+  // Die Suchwoerter bleiben: wer „twint“ tippt, soll den Eintrag finden (nutzersicht_check E16).
+  {label:'🔒 Premium freischalten', sub:'Pläne und Preise', action:"if(typeof gsShowAboScreen==='function')gsShowAboScreen();else menuNav('settings')", tags:['premium','abo','abonnement','stripe','twint','sepa','iban','karte','bezahlen','pro','plus']},
   {label:'📊 Mein Profil', sub:'Stats · Streak · Punkte', action:"if(typeof openUserProfile==='function')openUserProfile();else menuNav('settings')", tags:['profil','stats','punkte','streak','level','rang','achievement']},
 ];
 // v32.78 (Audit E1): der Übersetzungs-Sammler bekommt die Labels (MENU_ITEMS ist Skript-Bereich, nicht window)
@@ -58665,6 +59218,8 @@ function searchMenu(query) {
     const label = (item.label + ' ' + _tx(_labelOhneEmoji)).toLowerCase();
     const sub = (item.sub + ' ' + _tx(item.sub)).toLowerCase();
     const tags = item.tags || [];
+    // v33.60: der Notfall-Eintrag — trifft er, steht er zuerst; trifft er nicht, steht er nicht da.
+    if (item.vorrang) return {item, score: _gsMenuNotfallTrifft(q, tags) ? 1000 : 0, dbMatch: []};
     
     if (label.includes(q)) score += 10;
     if (sub.includes(q)) score += 5;
@@ -58871,7 +59426,7 @@ async function initMap() {
 
   // Lazy-Load Leaflet mit 3 Versuchen, je 2s Pause
   if (typeof L === 'undefined') {
-    if (mapDiv) mapDiv.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:#666;"><div style="font-size:40px;">🗺️</div><div style="font-size:var(--fs-md);font-weight:700;">Swisstopo lädt…</div><div style="font-size:var(--fs-sm);color:#999;">Bitte kurz warten</div></div>';
+    if (mapDiv) mapDiv.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text2);"><div style="font-size:40px;">🗺️</div><div style="font-size:var(--fs-md);font-weight:700;">Swisstopo lädt…</div><div style="font-size:var(--fs-sm);color:var(--muted);">Bitte kurz warten</div></div>';   // v33.60: war #666/#999 — „Bitte kurz warten“ 2,61:1
     for (var i = 0; i < 3; i++) {
       if (typeof L !== 'undefined') break;
       try { await gsLoadLeaflet(); } catch(_){}
@@ -76554,31 +77109,56 @@ function calcHarvestDate(planting, weather) {
 // GS_SAE_DB (39 Kulturen mit Vorkultur-, Auspflanz- und Erntemonaten).
 // Was sich nicht zuordnen laesst, faellt weg — eine erfundene Aussaatzeit
 // waere schlimmer als keine.
+//
+// 11.11.2026 — die Leiste rechnet NICHTS mehr selbst. Bis hierher las sie die
+// Monatslisten mit `getMonth() + 1` (die Listen zaehlen ab 0: 108 von 468
+// Kultur×Monat-Paaren falsch, „Jetzt ins Beet: Tomaten" im April), nannte von
+// zwei Fenstern im selben Monat nur das erste (Salat im Maerz: „vorziehen",
+// das Beet verschwiegen) und ordnete die Namen mit einem eigenen
+// Praefix-Vergleich zu. Jetzt drei Fragen, drei vorhandene Antworten:
+//   welche Kultur?   _gsSaeZuSaatgut   (der Matcher des Kalenders)
+//   welches Fenster? _gsAussaatFenster (die Rechnung des Kalenders, dieser Monat)
+//   Frost?           _gsKalPruefwerk   (R1 des Kalenders, GS_WETTER_GRENZEN.frost)
+// Rueckgabe: drinnen/draussen sind Aussaat-EREIGNISSE (je Kultur eines, mit
+// `kultur`), frost hat drei Zustaende — erfuellt · verletzt · nicht_pruefbar.
 function gsSaatgutJetzt() {
   try {
     var lager = JSON.parse(localStorage.getItem('gs_seed_inventory') || '[]');
     if (!Array.isArray(lager) || !lager.length) return null;
     if (typeof GS_SAE_DB === 'undefined' || !Array.isArray(GS_SAE_DB)) return null;
-    var m = new Date().getMonth() + 1;
-    var heute = new Date();
-    var drinnen = [], draussen = [], abgelaufen = [];
+    var jetzt = new Date(), heute = gsHeuteTag();
+    var von = _gsKalTag(new Date(jetzt.getFullYear(), jetzt.getMonth(), 1));
+    var bis = _gsKalTag(new Date(jetzt.getFullYear(), jetzt.getMonth() + 1, 0));
+    var brauchbar = [], abgelaufen = [];
     lager.forEach(function (e) {
-      var n = _gsNorm(e && e.name);
-      if (!n) return;
-      var w = n.split(' ')[0];
-      var k = null;
-      for (var i = 0; i < GS_SAE_DB.length; i++) {
-        var c = _gsNorm(GS_SAE_DB[i].n);
-        if (c === n || c === w || c.indexOf(w) === 0 || n.indexOf(c) === 0) { k = GS_SAE_DB[i]; break; }
-      }
-      var exp = _gsPD(e && e.expires);
-      if (exp && exp < heute) { abgelaufen.push(e.name); return; }   // abgelaufenes Saatgut nicht empfehlen
-      if (!k) return;
-      if (Array.isArray(k.indoor)  && k.indoor.indexOf(m)  >= 0) drinnen.push({ name: e.name, kultur: k.n, emoji: k.e });
-      else if (Array.isArray(k.outdoor) && k.outdoor.indexOf(m) >= 0) draussen.push({ name: e.name, kultur: k.n, emoji: k.e });
+      if (!e || !_gsNorm(e.name)) return;
+      var exp = _gsPD(e.expires);
+      if (exp && exp < jetzt) { abgelaufen.push(e.name); return; }   // abgelaufenes Saatgut nicht empfehlen
+      brauchbar.push(e);
     });
+    var ev = _gsAussaatFenster(brauchbar, _gsSaeZuSaatgut, von, bis);
+    var drinnen = ev.filter(function (x) { return x.fenster === 'indoor'; });
+    var draussen = ev.filter(function (x) { return x.fenster === 'outdoor'; });
     if (!drinnen.length && !draussen.length && !abgelaufen.length) return null;
-    return { monat: m, drinnen: drinnen, draussen: draussen, abgelaufen: abgelaufen, lager: lager.length };
+    // „Jetzt ins Beet" bei angesagtem Frost waere derselbe Schaden auf anderem
+    // Weg. Gemessen: −1.5 °C in zwei Tagen — der Kalender warnt an „Tomaten
+    // säen (draussen)", die Leiste sagte „Jetzt ins Beet: Tomaten". Sie legt
+    // ihre Fenster deshalb zusammen mit den Frost-Ereignissen des Kalenders dem
+    // Pruefwerk vor: eine Schwelle, ein Satz. Alle Fenster der Leiste liegen im
+    // selben Monat, R1 urteilt je Monat — das Urteil des ersten gilt fuer alle.
+    var frost = null;
+    if (draussen.length) {
+      frost = { zustand: 'nicht_pruefbar', text: '', mehr: 0, grund: _gsSatz('Frost: nicht geprüft') };
+      try {
+        var fr = gsKalenderEreignisse(heute, bis).filter(function (x) { return x && x.art === 'wetter' && /^frost:/.test(x.id); });
+        _gsKalPruefwerk(ev.concat(fr), von, bis, heute);
+        var h = (draussen[0].hinweise || []).filter(function (x) { return x && x.regel === 'frost_aussaat'; });
+        var v = h.filter(function (x) { return x.zustand === 'verletzt' && x.text; });
+        if (v.length) frost = { zustand: 'verletzt', text: v[0].text, mehr: v.length - 1, grund: v[0].grund || '' };
+        else if (h.length && (h[0].zustand === 'erfuellt' || h[0].grund || h[0].text)) frost = { zustand: h[0].zustand, text: '', mehr: 0, grund: h[0].grund || h[0].text || '' };
+      } catch (_) {}
+    }
+    return { drinnen: drinnen, draussen: draussen, abgelaufen: abgelaufen, lager: lager.length, frost: frost };
   } catch (_) { return null; }
 }
 window.gsSaatgutJetzt = gsSaatgutJetzt;
@@ -76615,17 +77195,33 @@ window.gsJetztDranRender = function () {
 
     var s = gsSaatgutJetzt();
     if (s) {
+      var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+      // Gedeckelt heisst „und N weitere" — je Kultur EIN Name (drei Tomaten-Tueten sind einmal „Tomaten").
+      var namen = function (liste) {
+        return esc(liste.slice(0, 4).map(function (x) { return x.kultur; }).join(', ')) +
+          (liste.length > 4 ? ' ' + esc(_gsSatz('und {1} weitere', liste.length - 4)) : '');
+      };
       if (s.drinnen.length) {
-        zeilen.push({ icon: '🌱', txt: '<b>Jetzt vorziehen:</b> ' +
-          esc(s.drinnen.slice(0, 4).map(function (x) { return x.kultur; }).join(', ')) +
-          (s.drinnen.length > 4 ? ' und ' + (s.drinnen.length - 4) + ' weitere' : '') +
-          ' — Saatgut hast du.', tap: 'gsOpenSeedInventory' });
+        zeilen.push({ icon: '🌱', txt: '<b>' + esc(_gsSatz('Jetzt vorziehen:')) + '</b> ' + namen(s.drinnen) +
+          ' — ' + esc(_gsSatz('Saatgut hast du.')), tap: 'gsOpenSeedInventory' });
       }
       if (s.draussen.length) {
-        zeilen.push({ icon: '🌤️', txt: '<b>Jetzt ins Beet:</b> ' +
-          esc(s.draussen.slice(0, 4).map(function (x) { return x.kultur; }).join(', ')) +
-          (s.draussen.length > 4 ? ' und ' + (s.draussen.length - 4) + ' weitere' : '') +
-          ' — Saatgut hast du.', tap: 'gsOpenSeedInventory' });
+        // Drei Zustaende aus R1 des Kalenders (gsSaatgutJetzt). „Jetzt" steht nur,
+        // wenn die Vorhersage geladen ist und keinen Frost nennt; bei Frost steht
+        // der Satz des Kalenders fuer den ERSTEN Frosttag, die uebrigen sind
+        // gezaehlt („+2 weitere Frosttage") — „danach" heisst nach dem letzten.
+        // Ohne Vorhersage: „Nicht bekannt" mit Grund. Stille ist kein „kein Frost".
+        var f = s.frost || { zustand: 'nicht_pruefbar', grund: '' };
+        if (f.zustand === 'verletzt') {
+          zeilen.push({ icon: '❄️', txt: '<b>' + esc(_gsSatz('Diesen Monat ins Beet:')) + '</b> ' + namen(s.draussen) +
+            ' — ⚠ ' + esc(f.text) + (f.mehr > 0 ? ' · ' + esc(f.mehr === 1 ? _gsSatz('+1 weiterer Frosttag') : _gsSatz('+{1} weitere Frosttage', f.mehr)) : ''), tap: 'gsOpenSeedInventory' });
+        } else if (f.zustand === 'erfuellt') {
+          zeilen.push({ icon: '🌤️', txt: '<b>' + esc(_gsSatz('Jetzt ins Beet:')) + '</b> ' + namen(s.draussen) +
+            ' — ' + esc(_gsSatz('Saatgut hast du.')), tap: 'gsOpenSeedInventory' });
+        } else {
+          zeilen.push({ icon: '🌤️', txt: '<b>' + esc(_gsSatz('Diesen Monat ins Beet:')) + '</b> ' + namen(s.draussen) +
+            ' — ' + esc(_gsSatz('Saatgut hast du.')) + ' ' + esc(_t('kal_nicht_bekannt', 'Nicht bekannt:')) + ' ' + esc(f.grund), tap: 'gsOpenSeedInventory' });
+        }
       }
       if (s.abgelaufen.length) {
         zeilen.push({ icon: '⚠️', txt: '<b>Abgelaufen:</b> ' + esc(s.abgelaufen.slice(0, 3).join(', ')) +
@@ -78531,6 +79127,37 @@ window.GS_RELEASES = [
       ],
   },
   {
+    v: 'v33.65', date: '19.11.2026',
+      headline: 'Abhaken auf der Pflanzenkarte, Notfall-Nummern in der Suche, „Tödlich giftig“ lesbar — und die Übersetzungsleiste des Browsers soll nicht mehr aufpoppen',
+      summary: 'Auftrag P-R: der Rest von PR #329 ohne den Zahlungsteil (der steht seit v33.63 auf main) auf den Stand von main gebracht; wo main dieselbe Stelle schon anders gelöst hatte (Scan-Auswahl, Art-Eingang, Rückkehr aus Stripe), gilt main. Abhaken: der Knopf auf der Pflanzenkarte schreibt einen Pflegeeintrag (gsQuickDone), „Alle erledigt“ zählt in Tagebuch, Kalender und Wochenrückblick als erledigt, und jeder Eintrag trägt seine eigene Zeit. Notfall: GS_NOTFALL_NUMMERN (Tox Info Suisse 145, Ausland, 144, 112) ist über die Menü-Suche in fünf Sprachen auffindbar. Artendetail: „Tödlich giftig“ und rund zwanzig weitere Stellen erreichen AA; die Verzehr-Zeile des Scanners wird aus der Gegenprobe gerechnet (_gsListeZumEssen, fünf Zustände). Foto-Ansicht (gsFotoAnsicht) mit escapter Adresse im Pflanzentagebuch; Saatgut-Leiste mit Aussaatfenster und Frost in drei Zuständen. Neu: translate="no" an <html> und <meta name="google" content="notranslate"> — Fernando meldete, die eingestellte Sprache poppe bei jedem Neuladen auf; im Code gibt es keinen Sprachdialog, vermutet wird die Übersetzungsleiste des Browsers. Gemessen ist das Dokument (i18n_check), nicht ein echtes Telefon. contrast_check und touch_check messen ganze Tabs und warten auf den Anmeldebildschirm (anmeldebildWeg); contrast_check, render_check und field_check sind ein Tor.',
+      user_summary: 'Du kannst Pflege direkt auf der Pflanzenkarte abhaken, die Notfall-Nummern findest du über die Suche, und „Tödlich giftig“ ist besser lesbar. Die Sprachleiste deines Browsers sollte beim Neuladen nicht mehr erscheinen.',
+      user_items: [
+        {emoji:'✅', bold:'Abhaken auf der Pflanzenkarte:', text:' ein Tipp trägt die Pflege ein; „Alle erledigt“ zählt im Tagebuch, im Kalender und im Wochenrückblick mit.'},
+        {emoji:'🚨', bold:'Notfall-Nummern über die Suche:', text:' „Notfall“ oder „Vergiftung“ zeigt Tox Info Suisse (145), die Nummer für das Ausland, 144 und 112.'},
+        {emoji:'☠️', bold:'„Tödlich giftig“ lesbar:', text:' im Artendetail stehen die Giftangaben jetzt mit genug Kontrast, hell und dunkel.'},
+        {emoji:'🖼️', bold:'Fotos grösser ansehen:', text:' im Pflanzentagebuch öffnet ein Tipp das Foto in einer eigenen Ansicht.'},
+        {emoji:'🌐', bold:'Keine Übersetzungsleiste mehr, so ist es gedacht:', text:' GreenScan sagt dem Browser, dass die Seite schon in deiner Sprache ist. Auf einem echten Gerät noch nicht geprüft.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'Eine Rechnung je Frage:', text:' _gsTbAbgehakt/_gsTbTitel (Pflegeverlauf), _gsListeZumEssen und _gsGegenprobeVerzehr (Verzehr-Zeile), _gsAussaatFenster und _gsSaeZuSaatgut (Saatgut-Leiste).'},
+        {emoji:'🌍', bold:'translate=\"no\":', text:' i18n_check misst am geladenen Dokument translate, meta notranslate und die gesetzte Sprache; ohne das Attribut ist der Fall rot.'},
+        {emoji:'🔀', bold:'Main gewinnt:', text:' gsPickAlternative/showScanResult (_gsScanNeueArt), _gsArtEingang, kein Lesen von gs_sb_url, popup=1 nur mit Bedingung, _gsPerson() nach jedem await.'},
+        {emoji:'🧪', bold:'Prüfstände:', text:' kalender_check, scan_check, nutzersicht_check, wiring_check, escape_check, a11y_check, apk_check und robust_check tragen die neuen Fälle; der Zahlungsteil (stripe_*, _shared/zahlung_regeln.mjs) blieb unberührt.'}
+      ],
+  },
+  {
+    v: 'v33.64', date: '19.11.2026',
+      headline: 'Pilz-Scanner: dieselbe Vorsicht wie der Server — und ein giftiger Kandidat trägt seine Warnung',
+      summary: 'Scanner 11 (Hauptfunktionen, Brett 2026-11-11-2714). Gemessen am 19.11.2026, nur lesend: die ausgelieferte mushroom-identify lädt 200 von 276 Arten des Registers — 76 fehlen dem Modell, 19 davon giftig. Im Repo behoben (supabase/functions/_shared/pilz_wissen.mjs: alle Arten, gekürzt würde zuerst die harmloseste Gruppe); live wirkt das erst, wenn Fernando die Function ausliefert (FUER-FERNANDO §31). In der App, sofort: die Schwelle für eine Bestimmung ist 70 wie am Server (GS_PILZ_SICHER_AB, vorher 60), eine tödliche oder giftige Art trägt immer die rote Kopfzeile, Kandidaten stehen mit Namen und Warnung da, ein Fehler ist ein Satz, und die Antwort gehört der Person, die gefragt hat. Prüfstände: scan_check PZ1–PZ4, edge_check 80_pilz.',
+      user_summary: 'Der Pilz-Scanner ist vorsichtiger: erst ab 70 % Sicherheit nennt er eine Art, und giftige Kandidaten sind klar markiert. Ein Pilz gehört vor dem Essen immer zur Pilzkontrolle (VAPKO).',
+      user_items: [
+        {emoji:'🍄', bold:'Vorsichtiger:', text:' unter 70 % Sicherheit steht „unsichere Identifikation“ statt einer Essbarkeit.'},
+        {emoji:'☠️', bold:'Giftige Kandidaten markiert:', text:' mögliche Arten stehen mit ihrem Namen da, und ein giftiger oder tödlicher trägt seine Warnung.'},
+        {emoji:'🚫', bold:'Rot bleibt rot:', text:' eine giftige oder tödliche Art zeigt immer die rote Kopfzeile.'},
+        {emoji:'💬', bold:'Verständliche Meldung:', text:' klappt die Bestimmung nicht, steht ein ganzer Satz da statt eines technischen Kürzels.'}
+      ],
+  },
+  {
     v: 'v33.63', date: '19.11.2026',
       headline: 'Der Zahlungsweg in EINER Fassung — und ein Kauf, der nicht mehr an einem falschen Parameter scheitern kann',
       summary: 'Auftrag P-C2: der Zahlungsweg aus PR #329 und der aus v33.59 zu EINER Fassung vereint. Das eine Modul ist supabase/functions/_shared/zahlung_regeln.mjs (ein zweites, stripe_regeln.mjs, gibt es nicht). Aus #329: stripe-checkout schickt kein automatic_payment_methods mehr an Checkout (den Parameter gibt es dort nicht — Stripe lehnt ihn mit 400 ab, gefolgert aus der API-Referenz, nicht gegen Stripe gemessen) und nur noch Namen aus CHECKOUT_PARAMETER; kein zweites Abo neben einem laufenden und nichts neben Lifetime (Stripe wird gefragt, ob das Abo läuft); ein unbekannter gemerkter Kunde wird gesucht statt mit 500 abzubrechen; checkout.session.async_payment_succeeded; Abo-Zeitraum und Rechnung in beiden API-Formen; ein Lifetime-Kauf beendet ein laufendes Abo zum Periodenende; die volle Erstattung gibt den Launch-Platz frei; processed=true; ein Live-Ereignis an einem Test-Schlüssel wird als Satz gemeldet; Portal: Kündigen nur auf ein echtes laufendes Abo, Fortsetzen ohne Plan-Wechsel-Seite. Von main bleiben: eine Zahlung setzt nie verified (W1), eine Rückbuchung entzieht Lifetime (W2), nach aussen nur Kennungen (W3), Rückkehr nur auf die eigenen Ursprünge (W4), exakte Versionen (W5), ein unbekannter Preis ist 500 (W6), Launch am Preis (W7), Entzug über den PaymentIntent (W8), constructEventAsync (W9). stripe-admin-extend-webhook abonniert aus STRIPE_EREIGNISSE. Neu in der Suite: stripe_check (51 Fälle); die Stripe-Attrappe von edge_check lehnt einen unbekannten Checkout-Parameter ab und ist am alten stripe-checkout rot. Nichts davon ist ausgeliefert: die Stripe-Functions warten auf Fernandos Modus-Prüfung (FUER-FERNANDO §30i).',
@@ -78898,37 +79525,7 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'sync_check 7 → 10 Fälle:', text:' klemmt · unterwegs · offline klemmt NICHT · die Tages-Sperre. Vier Gegenproben, jede einzeln rot: Funktion umbenannt (3 rot), „lange" fest auf true (2 rot), der canPush-Zweig ausgehängt (1 rot), das Tagesgedächtnis entfernt (1 rot).'},
         {emoji:'⚠️', bold:'Toast-Typ normiert (Nebenfund, beim Nachlesen der eigenen Zeile):', text:' gezählt über alle Aufrufe — error 142 · info 110 · success 96 · warn 77 · warning 55. „warn" ist die EINZIGE Schreibweise, die weder die Icon-Tabelle noch das CSS kennt (.gs-toast.warning ist orange, .gs-toast.warn gibt es nicht): 77 Warnungen trugen 🌿 auf neutralem Grund. EIN Tor in _gsToastShowNow statt 77 Pflaster (wie v32.16, v32.33); robust_check B5b misst Symbol UND Fläche, plus die Gegenrichtung.'}
       ],
-    },
-  {
-    v: 'v33.45', date: '16.09.2026',
-      headline: 'Was demnächst abläuft, steht jetzt auf dem Bildschirm',
-      summary: 'v33.44 hat das Risiko-Inventar gebaut und im selben Atemzug notiert, was daran fehlt: eine Liste, die niemand liest, ist Speicherplatz. GS_FRISTEN rechnet sechs Fristen selbst aus — fünf live auf dem Gerät, eine gemessen mit Datum — und das Admin-Panel zeigt sie.',
-      user_summary: 'Diese Auslieferung betrifft nur das Admin-Panel. Für dich ändert sich nichts — sie sorgt dafür, dass Deckel und Fristen nicht erst auffallen, wenn sie erreicht sind.',
-      user_items: [
-        {emoji:'⏳', text:'Der Speicher auf deinem Gerät und die Deckel der App werden überwacht, bevor etwas voll ist.'}
-      ],
-      items: [
-        {emoji:'📋', bold:'GS_FRISTEN + gsFristenStand():', text:' zwei Arten — ein DATUM ist gemessen (mit Messdatum und Quelle daneben), eine SCHWELLE rechnet die App live. Vier Zustände: ok · bald (ab 80 %) · fällig · nicht_bekannt MIT GRUND.'},
-        {emoji:'⚖️', bold:'Am Deckel ist der Normalzustand, nicht der Alarm:', text:' das Changelog steht bei 20 von 20, und der nächste Bump schiebt den ältesten ins Archiv. ‚Fällig‘ ist erst DARÜBER — ein Alarm, der im Normalzustand steht, ist die Zahl, die man zu ignorieren lernt.'},
-        {emoji:'🧪', bold:'risiko_check R4:', text:' liest die GERENDERTE Karte, nicht das Objekt — und beide Richtungen: jeder Eintrag steht auf dem Bildschirm, und jedes Datum aus dem Inventar hat einen Eintrag. Die Gegenrichtung fehlte zuerst, und die Gegenprobe ‚eine Frist entfernt‘ blieb genau deshalb grün.'},
-        {emoji:'🏷️', bold:'GS_MESSWERTE_MAX:', text:' der Messwerte-Deckel hiess bis hierher nur 2000 an seiner Aufrufstelle. Ein Deckel ohne Namen steht in keinem Dokument und in keiner Regel.'}
-      ],
-    },
-  {
-    v: 'v33.44', date: '16.09.2026',
-      headline: 'Was später schiefgeht — gemessen, bevor es passiert',
-      summary: 'Die Wochen-Tipps werden nur nach Kalenderwoche ausgewählt, wiederholen sich also jedes Jahr — und elf davon nannten ein Jahr im Sinn von ‚dieses Jahr‘. Ab dem 1. Januar 2027 hätte die App in Woche 13 von einer Pilzsaison erzählt, die vorbei ist. Bereinigt, und ein neuer Prüfstand hält es fest.',
-      user_summary: 'Die saisonalen Tipps nennen keine Jahreszahl mehr, wenn sie ‚dieses Jahr‘ meinen — sie wären sonst ab Neujahr falsch gewesen.',
-      user_items: [
-        {emoji:'📅', text:'Kein Tipp erzählt mehr von einem Jahr, das vorbei ist.'}
-      ],
-      items: [
-        {emoji:'🔎', bold:'Gemessen:', text:' WEEKLY_SEASONAL_FACTS hat 521 Einträge und wird NUR nach Kalenderwoche gefiltert (gsGetKW) — die Liste wiederholt sich jährlich. Elf Zeilen nannten ‚Pilzsaison 2026‘, ‚Jahresrückblick Natur 2026‘, ‚Planung für 2027‘. Fünf Jahresnennungen bleiben, weil sie feste Punkte sind (Zieljahr 2030, datierte Berichte) — namentlich mit Grund im Prüfstand.'},
-        {emoji:'🧪', bold:'scripts/risiko_check.js (neu, 38. Prüfstand):', text:' R1 kein ‚dieses Jahr‘ in einem jährlich wiederkehrenden Text · R2 jede Listen-Abfrage ohne limit= ist eingeordnet (80 gedeckelt, 25 Katalog, 13 Einzelzeile, 13 wächst-mit-der-Person, je mit Grund) · R3 was docs/RISIKEN.md als Zahl nennt, steht so auch im Quelltext. Vier Gegenproben, jede macht ihren Fall rot.'},
-        {emoji:'📘', bold:'docs/RISIKEN.md:', text:' vier Klassen — was an einem DATUM aufhört (Quiz-Vorrat ermüdet am 16.06.2027, Migration nicht angewandt), was mit der GRÖSSE aufhört, was von ANDEREN abhängt (pdf.js ist der einzige CDN-Rest), und was eine ENTSCHEIDUNG braucht statt Code.'},
-        {emoji:'⚠️', bold:'Ein Messfehler von mir, festgehalten:', text:' mein erster Zähler las nur das ERSTE Zeichenketten-Literal eines Pfades und meldete device_readings als ‚ohne Deckel‘ — das limit= steht im zweiten. Gelesen wird jetzt der ganze erste Parameter von sbFetch(.'}
-      ],
-    },
+    }
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -84352,7 +84949,7 @@ window.gsExportDiaryCSV = function(){
     var rows = [];
     plants.forEach(function(p){
       (p.diary || []).forEach(function(d){
-        rows.push({ plant: p.name || '', plantLat: p.lat || '', ts: d.ts, action: d.action || '', title: d.title || '', note: d.note || '', hasPhoto: !!d.photo });
+        rows.push({ plant: p.name || '', plantLat: p.lat || '', ts: d.ts, action: d.action || '', title: _gsTbTitel(d), note: d.note || '', hasPhoto: !!d.photo });
       });
     });
     if (!rows.length) {
@@ -88664,7 +89261,8 @@ function _gsTimeAgo(ts){
 // ── Profil-Settings: Sichtbarkeit, Bio, Region, Show-Toggles, Blocked-Liste ──
 async function gsOpenProfileSettings(){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { if(typeof gsToast==='function') gsToast('🔐 Bitte einloggen.','warning'); return; }
-  var uid = gsStore.get('gs_sb_uid', null); if (!uid) return;
+  // v33.60: ohne Konto-Id kam hier NICHTS — kein Fenster, keine Meldung (wiring_check, Richtung 3).
+  var uid = gsStore.get('gs_sb_uid', null); if (!uid) { if(typeof gsToast==='function') gsToast('🔐 Bitte einloggen.','warning'); return; }
   _gsNlOpen('<div style="text-align:center;padding:30px;color:var(--muted);">Lädt…</div>');
   try {
     var r = await sbFetch('/rest/v1/profiles?id=eq.'+uid+'&select=display_name,bio,bio_emoji,region,profile_visibility,show_finds_public,show_plants_count,show_achievements,show_marketplace,opt_in_feed&limit=1', {method:'GET'});
@@ -94674,7 +95272,7 @@ function gsOpenPlantDoctor(){
       '<div style="font-size:var(--fs-sm);color:var(--muted);">Foto hochladen → Diagnose von Krankheit, Schädling oder Mangelerscheinung</div>' +
     '</div>' +
     '<input type="file" accept="image/*" id="gs-doctor-file" style="display:none" onchange="gsDoctorRun(this.files[0])">' +
-    '<button onclick="document.getElementById(\'gs-doctor-file\').click()" style="width:100%;padding:14px;background:linear-gradient(135deg,#d32f2f,#ef5350);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;">📷 Foto auswählen</button>' +
+    '<button onclick="document.getElementById(\'gs-doctor-file\').click()" style="width:100%;padding:14px;background:linear-gradient(135deg,#a31515,#c62828);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;">📷 Foto auswählen</button>' +
     '<div id="gs-doctor-out" style="margin-top:14px;font-size:var(--fs-md);line-height:1.6;"></div>' +
     '<div style="margin-top:14px;padding:10px;background:var(--bg-warn-soft);border-radius:var(--r-md);font-size:var(--fs-sm);color:#6d4c41;line-height:1.5;"><b>💡 Tipp:</b> Fotografiere das betroffene Blatt/die Stelle aus der Nähe und gleichmässig beleuchtet. Je mehr Details, desto präziser die Diagnose.</div>' +
     histHtml;
@@ -94757,6 +95355,7 @@ function gsOpenHarvestTracker(){
 
 // ── 3. SAATGUT-INVENTAR ───────────────────────────────────────────
 function gsOpenSeedInventory(){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var items = _gsNlSafeItems('gs_seed_inventory');
   var expiring = items.filter(function(i){
     if (!i.expires) return false;
@@ -94772,11 +95371,15 @@ function gsOpenSeedInventory(){
     // v23.71: Stacked Layout — Name auf eigener Zeile (voll), dann Anzahl+Datum+Button
     '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">' +
       '<input id="gs-s-name" placeholder="Sorte (z.B. Tomate Ochsenherz)" style="padding:11px 12px;border:1px solid var(--border);border-radius:var(--r-md);font-family:inherit;font-size:var(--fs-md);box-sizing:border-box;width:100%;">' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;">' +
+      // 11.11.2026: der Knopf hiess „+ Add" — als einziger englischer in einer deutschen
+      // Oberflaeche — und stand als dritte Spalte neben Menge und Datum. Mit dem deutschen
+      // Wort in derselben Zeile blieben dem Datumsfeld bei 360 px Breite 64 px (gemessen);
+      // er steht deshalb in einer eigenen Zeile, wie die anderen Hauptknoepfe dieses Fensters.
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
         '<input id="gs-s-qty" placeholder="Anzahl g/Stk" style="padding:11px 12px;border:1px solid var(--border);border-radius:var(--r-md);font-family:inherit;font-size:var(--fs-md);min-width:0;box-sizing:border-box;">' +
         '<input id="gs-s-exp" type="date" style="padding:11px 12px;border:1px solid var(--border);border-radius:var(--r-md);font-family:inherit;font-size:var(--fs-md);min-width:0;box-sizing:border-box;">' +
-        '<button onclick="gsSeedAdd()" style="padding:11px 18px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-weight:800;cursor:pointer;font-family:inherit;font-size:var(--fs-lg);white-space:nowrap;">+ Add</button>' +
       '</div>' +
+      '<button onclick="gsSeedAdd()" style="width:100%;padding:11px 18px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-weight:800;cursor:pointer;font-family:inherit;font-size:var(--fs-lg);white-space:nowrap;">' + escHtml(_t('seed_add_btn', '+ Hinzufügen')) + '</button>' +
     '</div>' +
     '<div id="gs-s-list" style="max-height:42vh;overflow-y:auto;">' +
       (items.length ? items.slice().reverse().map(function(i,idx){
@@ -94787,7 +95390,7 @@ function gsOpenSeedInventory(){
           '<div><b>' + escHtml(i.name||'?') + '</b> · ' + escHtml(i.qty||'') + (exp?' · <span style="font-size:var(--fs-sm);color:' + (warn?'#c62828':'#888') + ';">📅 ' + exp.toLocaleDateString(gsLocale()) + (warn?' ⚠️':'') + '</span>':'') + '</div>' +
           '<button onclick="gsSeedDel(' + realIdx + ')" style="background:none;border:none;color:var(--c-danger);cursor:pointer;font-size:var(--fs-lg);">🗑️</button>' +
           '</div>';
-      }).join('') : '<div style="padding:20px;text-align:center;color:#888;">Erfasse deine Sämereien — ich warne vor Ablaufdatum.</div>') +
+      }).join('') : '<div style="padding:20px;text-align:center;color:var(--muted);">Erfasse deine Sämereien — ich warne vor Ablaufdatum.</div>') +
     '</div>';
   _gsNlOpen(html);
 }
@@ -94860,7 +95463,7 @@ function gsOpenBiodiversity(){
     '<div style="text-align:center;padding:10px 4px 14px;">' +
       '<div style="font-size:44px;">🐝</div>' +
       '<h3 style="margin:6px 0 2px;color:var(--g-dark);">Biodiversitäts-Score</h3>' +
-      '<div style="font-size:38px;font-weight:900;color:' + (total>=60?'#2e7d32':total>=40?'#f57c00':'#c62828') + ';margin:6px 0;">' + total + '<span style="font-size:var(--fs-xl);">/100</span></div>' +
+      '<div style="font-size:38px;font-weight:900;color:' + (total>=60?'var(--c-success-d)':total>=40?'var(--c-warn-d)':'var(--c-danger-d)') + ';margin:6px 0;">' + total + '<span style="font-size:var(--fs-xl);">/100</span></div>' +
       '<div style="font-size:var(--fs-md);color:var(--muted);">' + rating + '</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">' +
@@ -95098,7 +95701,7 @@ function gsOpenWeatherWarn(){
   width: 54px;
   height: 54px;
   border-radius: 27px;
-  background: linear-gradient(135deg, var(--g-main), #1b5e20);
+  background: linear-gradient(135deg, var(--fill-brand), #1b5e20);   /* v33.60: war --g-main — im Dunkelmodus hellgruen unter weissem Zeichen */
   border: none;
   color: #fff;
   font-size: var(--fs-2xl);
@@ -95486,7 +96089,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
    Sie steht jetzt in einem Fenster, das selbst scrollt — der 100px-Sockel
    wuerde dort nur einen leeren Streifen erzeugen. */
 .gs-gl-chip{flex:0 0 auto;padding:6px 12px;border-radius:var(--r-lg);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:var(--fs-sm);font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
-.gs-gl-chip.active{background:var(--g-main);border-color:var(--g-main);color:#fff;}
+.gs-gl-chip.active{background:var(--fill-brand);border-color:var(--fill-brand);color:#fff;}   /* v33.60: war --g-main — im Dunkelmodus hellgruen, Weiss darauf 2,36:1 (gemessen) */
 
 
 /* v31.32 — Leerzustaende sitzen direkt auf der Leinwand, nicht in einer
