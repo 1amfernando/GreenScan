@@ -74,6 +74,13 @@ späteren Fall war das Zurücksetzen des Scanners tot. Jetzt merkt sich jeder, w
 (Knopf 0 px). SB1 wartet seinen Zeitgeber jetzt ab, bevor es `switchTab` zurückgibt. **Ein Fall, der eine Funktion
 ersetzt, gibt sie zurück; ein Fall, der einen Zeitgeber auslöst, wartet ihn ab.** Danach `scan_check` 131/0.
 
+Auf dem mit main v33.65 zusammengeführten Stand: scan 131/0 · robust 33/0 · i18n · nutzersicht 12/0 ·
+versprechen · wiring · escape 11/0 · sicherheit 188/0 · austausch 17/0 · offline 48/0 (allein, 145 s; parallel zu
+drei anderen Prüfläufen hing er einmal bis zur Frist im Block „Teilen", der `analyzeImage` als Attrappe führt —
+der bekannte Wackler aus Befund 75c2, nicht dieses Paket). Gegen den offenen #335 (Probe-Merge in einem
+Wegwerf-Arbeitsbaum): `index.html` ohne Konflikt, scan 131/0 · speicher 24/0 · save 24/0. `_gilt()` ist keine
+zweite Regel neben `_gsPerson`: es ist `_gsPerson` plus die Nummer des Vorgangs (Nachtrag cad3 zur Klasse 89ee).
+
 **Offen:** brett:2026-11-16-8186 — ein echtes Abbruchsignal in `callAI` / `callVisionAI` (Sitzung „KI-Modelle"); dann spart „Abbrechen" auch das Kontingent, der Knopf bleibt derselbe. Versionsnummer `v33.6x` am Kopf der Reihe.
 **Nicht geprüft:** ein echtes Telefon; ob eine abgebrochene Anfrage beim Anbieter tatsächlich zählt (von hier antwortet kein KI-Dienst — der Satz sagt deshalb „kann zählen"); der Pilz-Scanner (eigener Weg, `gsMushroomRunScan`) hat weiter kein Abbrechen
 
