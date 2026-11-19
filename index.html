@@ -7005,7 +7005,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v30.97: Der Gegenpart zum Backup. Vorher gab es NUR den Sicherungs-Knopf —
            wiederherstellen ging ausschliesslich über einen Banner, den niemand je zu
-           sehen bekam (siehe gsSnapshotMaybeOfferRestore). -->
+           sehen bekam. Seit v33.59 gibt es den Banner nicht mehr (gsSnapshotAutoWiederherstellen). -->
       <div class="settings-row" id="settings-restore-row" style="cursor:pointer;" onclick="if(typeof gsSnapshotRestoreManual==='function')gsSnapshotRestoreManual()">
         <div class="settings-icon" style="background:var(--bg-info-soft,#e3f2fd);">♻️</div>
         <div class="settings-label">
@@ -63016,7 +63016,7 @@ window.gsOpenWeatherLocPicker = gsOpenWeatherLocPicker;
 // v28.03 (Bereich 7): einfache FAQ / Hilfe-Sektion (Self-Service)
 // v28.11 B-010: FAQ mit Kategorien + Live-Suche. [Kategorie, Frage, Antwort].
 var GS_FAQ = [
-  ['Account','💾 Gehen meine Daten bei Updates verloren?','Nein. GreenScan sichert deinen kompletten Stand automatisch in der Cloud (vor jedem Update + täglich). Falls dein Browser-Speicher mal geleert wird, bietet die App beim Start „Daten wiederherstellen" an.'],
+  ['Account','💾 Gehen meine Daten bei Updates verloren?','Nein. GreenScan sichert deinen kompletten Stand automatisch in der Cloud (vor jedem Update + täglich). Falls dein Browser-Speicher mal geleert wird, holt die App beim nächsten Start von selbst zurück, was fehlt — ohne nachzufragen. Von Hand geht es unter Einstellungen › „Aus Cloud-Backup wiederherstellen“.'],
   ['Account','🔑 Muss ich einen Account haben?','Vieles geht ohne — aber mit (kostenlosem) Account werden deine Pflanzen, Funde & Pläne geräteübergreifend gesichert, und der KI-Scanner ist nutzbar.'],
   ['Account','🗑️ Wie lösche ich meinen Account?','Einstellungen → ganz unten „Konto löschen". Das entfernt alle deine Daten unwiderruflich (revDSG-konform).'],
   ['Pflanzen','🪴 Wie füge ich eine Pflanze hinzu?','Tab „Meine Pflanzen" → „+ Pflanze" → Name eintippen (Autocomplete hilft) → optional Foto → speichern. Sie wird in der Cloud gesichert.'],
@@ -78335,6 +78335,26 @@ window.GS_RELEASES = [
       ],
   },
   {
+    v: 'v33.62', date: '19.11.2026',
+      headline: 'Kein „Daten wiederherstellen?“ mehr beim Start — was fehlt, holt die App von selbst aus dem Backup',
+      summary: 'Gemeldet von Fernando, zweimal: der Banner „Daten wiederherstellen?“ stand bei jedem Start da, und er will beim Öffnen gar nicht gefragt werden. Ursache des Dauerbanners, am Quelltext gemessen: seit v30.97 wurde nur die LOKALE Seite gefragt — ist irgendeiner der zwölf snapshot-exklusiven Bereiche leer (Bodenprofil, Käufe, Gebote, eigene Heilmittel …)? Das ist der Normalzustand, also war die Antwort bei fast jedem Konto „ja“, und das × war nirgends gemerkt. Jetzt gibt es den Banner nicht mehr. EINE Rechnung (_gsSnapshotFehlt) sagt, was eine Wiederherstellung zurückbrächte: der Snapshot hat dort Inhalt UND lokal ist es leer. Ist das so, holt gsSnapshotAutoWiederherstellen es still zurück (schreibt nur in leere Bereiche, überschreibt nie) und sagt danach einen Satz. Verloren und bewusst geleert werden unterschieden: stand ein Bereich beim letzten Backup auf DIESEM Gerät noch da (gs_snapshot_had) und ist jetzt leer, wurde er hier geleert — er bleibt leer und hält die automatischen Backups nicht an. Ein Versuch je Backup-Stand, keine Schleife bei vollem Speicher.',
+      user_summary: 'Beim Öffnen der App fragt kein Hinweis mehr nach dem Backup. Fehlt auf deinem Gerät etwas, das in deinem Cloud-Backup liegt, holt GreenScan es von selbst zurück und sagt es dir danach in einem Satz.',
+      user_items: [
+        {emoji:'🔕', bold:'Keine Frage mehr beim Start:', text:' der grüne Hinweis „Daten wiederherstellen?“ ist weg.'},
+        {emoji:'💾', bold:'Von selbst zurückgeholt:', text:' nach gelöschten Browserdaten oder auf einem neuen Gerät ergänzt die App, was fehlt. Vorhandenes wird dabei nie überschrieben.'},
+        {emoji:'🧹', bold:'Was du gelöscht hast, bleibt gelöscht:', text:' einen Bereich, den du auf diesem Gerät selbst geleert hast, holt die App nicht ungefragt zurück.'},
+        {emoji:'⚙️', bold:'Von Hand geht es weiter:', text:' Einstellungen › „Aus Cloud-Backup wiederherstellen“ holt jederzeit alles zurück.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'Eine Rechnung:', text:' _gsSnapshotFehlt(st, mitHaupt) — Snapshot hat Inhalt UND lokal leer. Stille Wiederherstellung, Verdrängungs-Schutz (_gsSnapshotWouldLoseData) und Prüfstand fragen alle sie; die alte Lückenfrage und der Banner sind entfernt.'},
+        {emoji:'🧾', bold:'Zustand mit Grund:', text:' gsSnapshotAutoWiederherstellen gibt {geholt, grund} zurück — auch wenn nichts geschieht, steht der Grund da.'},
+        {emoji:'🔀', bold:'Verloren oder geleert:', text:' gs_snapshot_had entscheidet; bewusst Geleertes steht in gs_restore_abgelehnt, wird von gsSnapshotRestore ausgelassen (opts.ohne) und verfällt, sobald der Bereich wieder Inhalt hat. Die manuelle Wiederherstellung holt alles.'},
+        {emoji:'🗂️', bold:'Zwei neue Schlüssel:', text:' gs_restore_geprueft (Snapshot-Id, Lücken-Signatur, Ergebnis, versucht) und gs_restore_abgelehnt — beide in GS_USER_KEYS.'},
+        {emoji:'👤', bold:'Nur für dieselbe Person:', text:' meldet sich jemand während des Holens ab oder wechselt das Konto, schreibt die App nichts (_gsPerson nach jedem await).'},
+        {emoji:'🧪', bold:'Prüfstand:', text:' backup_check, Fälle W1–W7 mit gestelltem Server; gegen v33.61 rot.'}
+      ]
+  },
+  {
     v: 'v33.61', date: '16.11.2026',
       headline: 'Suche, Scanner und Lina: „Essbar“ gilt überall gleich, Tippfehler werden verziehen — und nichts geht mehr verloren',
       summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Die Vorschau im Verlauf und das Foto für „Zu meinen Pflanzen“ wurden aus dem laufenden Kamerabild gezeichnet — das zu diesem Zeitpunkt schon gestoppt war: die Vorschau blieb leer, und jede aus einem Scan angelegte Pflanze hatte kein Foto. Jetzt kommen beide aus dem gescannten Foto selbst. (12b) Der Chat zum Scan leerte sein Gespräch bei jedem Öffnen — wer zur Ergebniskarte zurückging und wieder fragte, stand vor einem leeren Chat, und die KI kannte die erste Frage nicht mehr. Er antwortete fest auf Deutsch, auch in einer anderen App-Sprache, und sein erster Satz nannte die Trefferquote „Sicherheit: 85 %“. Jetzt bleibt das Gespräch, solange es um denselben Scan geht, die KI antwortet in der App-Sprache (dieselbe Regel wie Lina), der erste Satz nennt das Wort der Ergebniskarte, und „Mit Lina weiterreden“ öffnet Lina mit Art und letzter Frage im Feld — abgeschickt wird erst von dir. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts — und diese Rechnung stand gar nicht auf dem Bildschirm: gsInitSmartSeasonTip hatte in der App keinen Aufrufer, nur die Prüfstände riefen sie direkt. Auf der Startseite stand eine zweite Rechnung aus den Gartenkulturen (im März „Paprika“, eine Voranzucht, unter „Jetzt sammeln“, im Herbst Pilze wie der Hallimasch), und online schrieb der Server-Lader 300 ms später einen zufälligen „Wusstest du?“-Eintrag hinein (v_today_tip liest did_you_know_facts: Alpendohlen, giftige Alpenpflanzen); das Antippen öffnete die Saisonansicht. Jetzt hat die Karte einen Schreiber, und das Antippen öffnet die Art, die dasteht. Beim Verdrahten gemessen: die Rechnung hätte an 158 von 372 Tagen einen Pilz und an 104 Tagen eine Art mit giftigem oder tödlichem Doppelgänger zum Sammeln empfohlen (Samtfussrübling — Gifthäubling). „Jetzt sammeln“ nimmt deshalb nur Arten ohne Pilz, ohne Gift-Warnung und ohne Doppelgänger, den die Liste als giftig führt — an jedem Tag des Jahres bleibt ein Tipp. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). (14b) „Wusstest du?“ lud vom Server nur die ersten 30 von 192 Fakten, und 10 davon gehören zu einer bestimmten Kalenderwoche — sie standen in jeder Woche da; escaped wurde nur „<“. Jetzt alle aktiven (diese Woche 152), ein Wochenfakt nur in seiner ISO-Woche (wie die Datenbank sie zählt), Fremdtext ganz escaped. (14c) Ein Gartenplan, dessen Jahr vorbei ist, sagte das nur auf seiner Kachel in „Meine Pläne“ — seit ein Plan seine Termine in den Kalender legt (v33.10), legt einer vom letzten Jahr keinen mehr hin, und die Startseite sagte nicht, warum. Jetzt steht es im Tagesplan, wenn alle Pläne aus einem vergangenen Jahr sind (ein dieses Jahr angelegter Plan ohne Datum zählt als aktuell), mit dem Weg zu „Meine Pläne“ und „für dieses Jahr ausblenden“. Dabei gemessen: drei Stellen rechneten das Plan-Jahr je selbst, und eine Pflanze mit „sow_date: null“ machte aus dem Plan einen Plan von 1970 (Kachel „Plan-Jahr 1970 vorbei“, Vorlage „1971“) — jetzt eine Regel (_gsPlanJahr) mit dem Datumsleser des Planers. (15) Die Kartenreihe unter dem Tagesplan drehte alle 8 s, ohne dass man sie anhalten konnte, auch während der Fokus in ihr stand, und die Bauernregel war als Folie erzwungen: ohne Daten drehte die Reihe auf eine leere Fläche, mit eigenem Punkt. Jetzt ist eine Karte ohne Inhalt keine Folie (ein Beobachter je Karte hält Folien und Punkte nach), ein Pause-Knopf hält die Reihe an und wird gemerkt, und bei Fokus oder Mauszeiger auf der Reihe dreht sie nicht. (15b) Die Suche im Menü hatte einen eigenen Artenteil: ohne Umlaute („barlauch“ fand den Bärlauch nicht), ohne Rangfolge, ohne Vertipper und ohne jede Giftmarkierung — der Wasserschierling stand dort ohne Angabe. Dazu filterte sie je Tastendruck für jeden der 51 Menüeinträge die ganze Artenliste und warf das Ergebnis weg. Jetzt nimmt sie die Rangfolge der Artensuche (_gsSucheRang), und eine giftige Art trägt „Giftig“ wie in der Trefferliste. (16c) Lina leerte beim Öffnen ihr Gespräch und fragte nur die Cloud: offline stand sie danach leer da, und ein Gespräch, das „nur lokal geführt“ wurde, war beim nächsten Öffnen weg — an seiner Stelle erschien ein älteres aus der Cloud. Jetzt spiegelt das Gerät das laufende Gespräch, und das neuere gewinnt. (16b) Während Lina auf die KI wartet, steht jetzt seit wann („· 12 s“) — vorher dieselbe Zeile nach 2 und nach 90 Sekunden. (16) Linas Vorschläge standen fest — „Welche Pflanzen blühen im April?“ in jedem Monat — und waren in keiner Sprache übersetzbar: ihre Schlüssel standen nicht in der Übersetzungstabelle, übersetzt wurden sie nur über die Knöpfe des alten Chat-Bildschirms, und der ist seit v33.31 weg. Jetzt kommen sie aus dem, was gerade ist: heute Fälliges, der letzte Scan, der laufende Monat; die festen stehen in der Tabelle, und i18n_check kennt die Liste. (16d) Eine gegnerische Prüfung der Pakete fand sechs Fehler, alle nachgemessen und behoben. Eine Lina-Antwort, die nach dem Abmelden ankam, öffnete Lina wieder und legte das Gespräch auf dem Gerät ab — die nächste Person sah es; eine Scan-Antwort, die nach dem Abmelden ankam, wurde sogar unter dem Konto gespeichert, das dann angemeldet war. Jetzt gehört eine Antwort der Person, die gefragt hat, und das Abmelden räumt Lina, das letzte Scan-Ergebnis, sein Foto und den Scan-Chat. Linas Gesprächskopie gewann ab dem zweiten Öffnen gegen das vollständige Gespräch in der Cloud (40 statt 60 Nachrichten) und verdrängte ein neueres Gespräch eines anderen Geräts. „Jetzt sammeln“ empfahl an vier Tagen im Jahr Petersilie, deren Doppelgänger laut Liste der Schierling ist, und an zwei Tagen den Lärchen-Röhrling — einen Pilz, den die Liste als Baum führt. Die Menü-Suche stellte bei einem Leerzeichen am Ende einen Pilz vor den Giersch und zeigt bei einem Menüwort keine Arten mehr über Vertipper oder Beschreibungen („wetter“ → Fetter Gänsefuss). Die Kartenreihe stellte die zuletzt gezeigte Karte nur noch für die erste wieder her; der Saison-Tipp füllt sich auch, wenn die Artenliste spät kommt; „Wusstest du?“ lädt einmal am Tag, und sein Deckel steht in der Fristenliste. Der Scan-Chat übergab eine Modell-Rolle, die auf diesem Stand niemand liest — sie ist wieder heraus. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +39 (D1j, F1, F2, SC1–SC3, SU1–SU8, HS1–HS4, HW1, HW2, HK1, HK2, HF1, HP1, SV1–SV3, SB1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +12 (Lina L1–L11, T3), speicher_check +2, escape_check +1.',
@@ -78717,22 +78737,6 @@ window.GS_RELEASES = [
         {emoji:'🧮', bold:'GS_VOLLBILD_OVERLAYS:', text:' acht Vollbild-Fenster laufen nicht über openModal und waren damit für Escape unsichtbar — Tagesquiz, Ueben, Rangliste, Scan-Verlauf, Wetter, Lichtmesser, Pro-Messung, Kalibrierung. Die Liste ist die Prüfung.'},
         {emoji:'📱', bold:'gsLaeuftAlsApp():', text:' ein Prädikat statt zwei. Nur das des Install-Banners kannte die Android-Hülle (referrer android-app://); der Push-Weg und der Druck-Rückfall hängen jetzt an derselben Rechnung.'},
         {emoji:'🧪', bold:'scripts/android_check.js (neu, 37. Prüfstand):', text:' neun Fragen, acht davon rot gegen v33.42. Drei meiner eigenen Fälle massen zuerst nichts — die Gegenproben haben es gezeigt; sie gehen jetzt den ECHTEN Weg (history.back → popstate) statt die Funktion direkt zu rufen. docs/ANDROID-APK.md nennt die Handgriffe und die Risiken.'}
-      ],
-    },
-  {
-    v: 'v33.42', date: '16.09.2026',
-      headline: 'Admin-Panel: was nicht geladen hat, sagt es — und lässt sich einzeln nachholen',
-      summary: 'Dreizehn von sechzehn Admin-Sektionen lasen den Fehler gar nicht: eine Ablehnung wurde zur leeren Liste, und auf dem Bildschirm stand ‚Keine offenen Meldungen‘. Sieben fragten nicht einmal, ob die Person Admin ist. Jetzt gibt es eine Liste, einen Weg und vier Zustände — dazu einen Überblick ganz oben und einen Aktualisieren-Knopf je Sektion.',
-      user_summary: 'Diese Auslieferung betrifft nur das Admin-Panel — für dich ändert sich nichts. Sie sorgt dafür, dass gemeldete Beiträge nicht liegen bleiben, weil eine Abfrage stillschweigend fehlgeschlagen ist.',
-      user_items: [
-        {emoji:'🛡️', text:'Meldungen an die Moderation gehen nicht mehr unbemerkt unter.'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'Gemessen an v33.41:', text:' 13 von 16 Sektionen endeten auf catch(e) { return []; } — Ablehnung, 404, Netzfehler und ‚leer‘ sahen gleich aus. 7 von 16 hatten kein gsIsAdmin()-Tor und schickten ihre Anfrage trotzdem los.'},
-        {emoji:'📋', bold:'GS_ADM_SEKTIONEN + _gsAdmHole:', text:' eine Liste mit Titel, Pfad, Anzeige und Element je Sektion; ein Weg, der IMMER einen Umschlag {state, daten, grund} zurückgibt — daten · nicht_verfuegbar · fehler · kein_zugriff. Der Grund kommt aus _gsFehlerText, nie roh aus PostgREST.'},
-        {emoji:'🔄', bold:'gsAdmSektionNeu(schlüssel):', text:' eine Anfrage statt sechzehn. Der alte _gsAdminRefreshSection nahm Funktionsreferenzen (von aussen nicht adressierbar) und baute bei fehlendem Element das ganze Panel neu auf.'},
-        {emoji:'🔎', bold:'Überblick oben im Panel:', text:' ‚3 von 16 Sektionen konnten nicht geladen werden: Moderation · Hintergrund-Jobs · Gutscheine‘ mit ‚Nur diese erneut versuchen‘ — das sind dann drei Anfragen, nicht sechzehn.'},
-        {emoji:'🧪', bold:'scripts/admin_check.js (neu, 36. Prüfstand):', text:' sechs Fälle — Zugang, drei Zustände je Sektion, was auf dem Bildschirm steht, Einzel-Refresh, die Liste selbst, der Überblick. Alle sechs waren gegen v33.41 rot; jede Regel hat ihre eigene Gegenprobe.'}
       ],
     },
 ];
@@ -86199,6 +86203,8 @@ var GS_USER_KEYS = [
   // Konto-Wechsel liegen, blockierte sie die Auto-Snapshots des naechsten
   // Nutzers wegen Daten, die nie ihm gehoert haben.
   'gs_snapshot_had',
+  // v33.59: gemerkte Backup-Pruefung und die Liste bewusst geleerter Bereiche — je Konto.
+  'gs_restore_geprueft','gs_restore_abgelehnt',
   // v29.19 Stale-Leak (Audit-2): persönliche GPS-Track-Historie + Community-Anzeigename MÜSSEN bei
   // Logout/User-Switch weg (sonst sieht der nächste User auf demselben Gerät fremde Tracks/Namen).
   'gs_gpx_tracks','gs_social_name',
@@ -87462,23 +87468,87 @@ function _gsSnapshotHasContent(st){
 // v30.97: Domaenen, die AUSSCHLIESSLICH im Snapshot leben. Weder gsCloudSync
 // (_buildStateBlob) noch der Login-Pull (stateMap) kennen sie — der Snapshot ist
 // ihr einziger Rueckweg. Genau darum darf die Restore-Frage nicht am
-// Gesamt-Content haengen (siehe gsSnapshotMaybeOfferRestore).
+// Gesamt-Content haengen (siehe gsSnapshotAutoWiederherstellen).
 var _GS_SNAPSHOT_ONLY = [
-  ['gs_soil_profile',      'soil_profile'],
-  ['gs_pp_garden_location','pp_garden_location'],
-  ['gs_scan_corrections',  'scan_corrections'],
-  ['gs_purchases',         'purchases'],
-  ['gs_my_bids',           'my_bids'],
-  ['gs_action_counts',     'action_counts'],
-  ['gs_market_ratings',    'market_ratings'],
-  ['gs_market_reported',   'market_reported'],
-  ['gs_recipes',           'user_recipes'],
-  ['gs_remedies',          'user_remedies'],
-  ['gs_prefs',             'prefs'],
+  // v33.59: drittes Feld = der Name, unter dem die Domaene in der Meldung steht.
+  ['gs_soil_profile',      'soil_profile',       'Bodenprofil'],
+  ['gs_pp_garden_location','pp_garden_location', 'Garten-Standort'],
+  ['gs_scan_corrections',  'scan_corrections',   'Scan-Korrekturen'],
+  ['gs_purchases',         'purchases',          'Käufe'],
+  ['gs_my_bids',           'my_bids',            'Gebote'],
+  ['gs_action_counts',     'action_counts',      'Aktivitätszähler'],
+  ['gs_market_ratings',    'market_ratings',     'Bewertungen'],
+  ['gs_market_reported',   'market_reported',    'gemeldete Inserate'],
+  ['gs_recipes',           'user_recipes',       'eigene Rezepte'],
+  ['gs_remedies',          'user_remedies',      'eigene Heilmittel'],
+  ['gs_prefs',             'prefs',              'Einstellungen'],
   // gs_reminder_prefs wird in user_app_state GEPUSHT, aber die Pull-stateMap
   // liest es nicht zurueck — steckt nur im state-Blob des Snapshots.
-  ['gs_reminder_prefs',    null]
+  ['gs_reminder_prefs',    null,                 'Erinnerungs-Einstellungen']
 ];
+// v33.59: die Hauptdomaenen. Sie zaehlen fuer die Restore-Frage NUR, wenn lokal
+// gar kein Inhalt da ist (kompletter Speicher-Verlust und der Cloud-Pull hat
+// nichts gebracht) — im Normalfall fuellt sie der Login-Pull.
+var _GS_SNAPSHOT_HAUPT = [
+  ['ps_myplants',       'plants',       'Pflanzen'],
+  ['gs_gardens',        'gardens',      'Gärten'],
+  ['gs_plantings',      'plantings',    'Pflanzungen'],
+  ['gs_garden_plans',   'garden_plans', 'Gartenpläne'],
+  ['gs_gartentagebuch', 'diary',        'Tagebuch'],
+  ['gs_ernte_log',      'ernte',        'Ernte'],
+  ['greenscan_markers', 'markers',      'Fundorte'],
+  ['gs_scan_history',   'scan_history', 'Scan-Verlauf']
+];
+function _gsLokalLeer(k){
+  var cur = null; try { cur = localStorage.getItem(k); } catch(_){}
+  return !cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""';
+}
+function _gsSnapVoll(v){
+  if (v == null) return false;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === 'object') return Object.keys(v).length > 0;
+  return String(v) !== '' && String(v) !== 'null';
+}
+// v33.59: DIE EINE RECHNUNG fuer „was braechte eine Wiederherstellung zurueck?"
+// — eine Domaene zaehlt nur, wenn der Snapshot dort Inhalt HAT und sie lokal
+// LEER ist. Die stille Wiederherstellung, der Verdraengungs-Schutz und der
+// Pruefstand fragen alle diese Funktion. Bis v33.58 fragte ein Banner nur „ist
+// lokal irgendeine dieser Domaenen leer?" — das ist bei jedem wahr, der z. B.
+// nie ein Bodenprofil angelegt hat, und damit stand er bei jedem Start da.
+function _gsSnapshotFehlt(st, mitHaupt){
+  var out = [];
+  if (!st || typeof st !== 'object') return out;
+  function _pruefe(p, v){ if (_gsSnapVoll(v) && _gsLokalLeer(p[0])) out.push({ key: p[0], name: p[2] }); }
+  _GS_SNAPSHOT_ONLY.forEach(function(p){ _pruefe(p, p[1] ? st[p[1]] : (st.state && st.state.reminder_prefs)); });
+  if (mitHaupt) _GS_SNAPSHOT_HAUPT.forEach(function(p){ _pruefe(p, st[p[1]]); });
+  return out;
+}
+window._gsSnapshotFehlt = _gsSnapshotFehlt;
+// Welche der Kandidaten sind lokal leer? Billig (kein Netz) — und die Signatur,
+// an der die gemerkte Pruefung haengt.
+function _gsRestoreLuecken(mitHaupt){
+  var l = [];
+  _GS_SNAPSHOT_ONLY.forEach(function(p){ if (_gsLokalLeer(p[0])) l.push(p[0]); });
+  if (mitHaupt) _GS_SNAPSHOT_HAUPT.forEach(function(p){ if (_gsLokalLeer(p[0])) l.push(p[0]); });
+  return l;
+}
+// Bereiche, die auf diesem Geraet BEWUSST geleert wurden (gs_restore_abgelehnt):
+// sie werden nicht automatisch zurueckgeholt und halten kein Backup an. Die
+// Liste liegt im selben Speicher wie die Daten: geht der verloren, ist auch sie
+// weg — und dann wird zurueckgeholt, genau wenn es gebraucht wird.
+function _gsRestoreAbgelehnt(){
+  try { var a = JSON.parse(localStorage.getItem('gs_restore_abgelehnt') || '[]'); return Array.isArray(a) ? a : []; } catch(_){ return []; }
+}
+// Ein geleerter Bereich, der wieder Inhalt hat, steht nicht mehr auf der Liste:
+// geht er spaeter verloren, wird er zurueckgeholt.
+function _gsRestoreAbgelehntPflegen(){
+  try {
+    var a = _gsRestoreAbgelehnt(); if (!a.length) return;
+    var b = a.filter(function(k){ return _gsLokalLeer(k); });
+    if (b.length === a.length) return;
+    if (b.length) localStorage.setItem('gs_restore_abgelehnt', JSON.stringify(b)); else localStorage.removeItem('gs_restore_abgelehnt');
+  } catch(_){}
+}
 
 // v30.97: Merkt sich, welche snapshot-exklusiven Domaenen beim letzten
 // erfolgreichen Snapshot Inhalt hatten. Grundlage fuer den Verdraengungs-Schutz
@@ -87493,6 +87563,7 @@ function _gsSnapshotMarkHad(){
     });
     localStorage.setItem('gs_snapshot_had', JSON.stringify(had));
   } catch(_){}
+  try { _gsRestoreAbgelehntPflegen(); } catch(_){}
 }
 
 // Ist eine Domaene, die beim letzten Snapshot noch Inhalt hatte, jetzt lokal leer?
@@ -87508,9 +87579,13 @@ function _gsSnapshotWouldLoseDataLocal(){
     var had = JSON.parse(localStorage.getItem('gs_snapshot_had') || '{}');
     if (!had || typeof had !== 'object') return false;
     var keys = Object.keys(had);
+    // v33.59: was hier bewusst geleert wurde, haelt die automatischen Backups
+    // nicht mehr an — sonst stuenden sie danach fuer immer still, ohne dass
+    // etwas es sagt.
+    var abg = _gsRestoreAbgelehnt();
     for (var i = 0; i < keys.length; i++) {
-      var cur = null; try { cur = localStorage.getItem(keys[i]); } catch(_){}
-      if (!cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""') return true;
+      if (abg.indexOf(keys[i]) >= 0) continue;
+      if (_gsLokalLeer(keys[i])) return true;
     }
   } catch(_){}
   return false;
@@ -87529,21 +87604,10 @@ async function _gsSnapshotWouldLoseData(){
     });
     var st = (r && !r.error) ? r.data : null;
     if (!st || typeof st !== 'object') return false;   // kein Backup -> nichts zu verlieren
-    function _full(v){
-      if (v == null) return false;
-      if (Array.isArray(v)) return v.length > 0;
-      if (typeof v === 'object') return Object.keys(v).length > 0;
-      return String(v) !== '' && String(v) !== 'null';
-    }
-    for (var i = 0; i < _GS_SNAPSHOT_ONLY.length; i++) {
-      var lsKey = _GS_SNAPSHOT_ONLY[i][0];
-      var snapKey = _GS_SNAPSHOT_ONLY[i][1];
-      // gs_reminder_prefs steckt im state-Blob, nicht auf oberster Ebene.
-      var snapVal = snapKey ? st[snapKey] : (st.state && st.state.reminder_prefs);
-      if (!_full(snapVal)) continue;
-      var cur = null; try { cur = localStorage.getItem(lsKey); } catch(_){}
-      if (!cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""') return true;
-    }
+    // v33.59: dieselbe Rechnung wie der Banner (_gsSnapshotFehlt), ohne die
+    // abgelehnten Domaenen.
+    var abg = _gsRestoreAbgelehnt();
+    return _gsSnapshotFehlt(st, false).some(function(f){ return abg.indexOf(f.key) < 0; });
   } catch(e){ console.warn('[gsSnapshot] loseCheck', e && e.message); }
   return false;
 }
@@ -87567,7 +87631,7 @@ async function gsSnapshotCreate(trigger){
     var _autoTrig = (trigger === 'auto_periodic' || trigger === 'auto_daily');
     if (_autoTrig && await _gsSnapshotWouldLoseData()) {
       console.warn('[gsSnapshot] auto-Snapshot angehalten — lokal fehlen Daten, die im letzten Backup noch waren.');
-      try { if (typeof _gsShowRestoreBanner === 'function') _gsShowRestoreBanner(); } catch(_){}
+      try { gsSnapshotAutoWiederherstellen(); } catch(_){}   // v33.59: still zurueckholen statt fragen
       return null;
     }
     var r = await sbFetch('/rest/v1/rpc/fn_user_snapshot_create', {
@@ -87611,6 +87675,7 @@ function _gsRestoreKey(lsKey, snapVal){
   }
   var cur = null; try { cur = localStorage.getItem(lsKey); } catch(_){}
   var curEmpty = !cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""';
+  if (curEmpty && (window._gsRestoreOhne || []).indexOf(lsKey) >= 0) return;   // v33.59: bewusst geleert
   if (!curEmpty) {
     // local hat Daten → bei id-Arrays mergen (local gewinnt), sonst local behalten
     try {
@@ -87659,15 +87724,27 @@ function _gsApplyStateBlob(b){
     }
   } catch(_){}
 }
-async function gsSnapshotRestore(){
+// v33.59: opts.still  — keine Meldung (der automatische Weg sagt selbst EINEN Satz)
+//         opts.st     — ein schon geholter Snapshot (spart die zweite Anfrage)
+//         opts.ohne   — Schluessel, die lokal LEER bleiben sollen (bewusst geleert)
+async function gsSnapshotRestore(opts){
+  opts = opts || {};
+  var _sag = function(t, typ, ms){ if (!opts.still && typeof gsToast === 'function') gsToast(t, typ, ms); };
   try {
     if (typeof sbFetch !== 'function') return false;
-    var r = await sbFetch('/rest/v1/rpc/fn_user_snapshot_latest', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
-    });
-    var st = (r && !r.error) ? r.data : null;
-    if (!st || typeof st !== 'object') { if (typeof gsToast==='function') gsToast('Kein Backup gefunden.','warning'); return false; }
+    var st = (opts.st && typeof opts.st === 'object') ? opts.st : null;
+    if (!st) {
+      var r = await sbFetch('/rest/v1/rpc/fn_user_snapshot_latest', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
+      });
+      st = (r && !r.error) ? r.data : null;
+    }
+    if (!st || typeof st !== 'object') { _sag('Kein Backup gefunden.','warning'); return false; }
+    // v33.62 (CLAUDE.md §3.6): das Backup gehoert der Person, die es angefordert hat — hat sich waehrend des
+    // Wartens jemand abgemeldet oder das Konto gewechselt, wird nichts geschrieben.
+    if (opts.wer && _gsPerson() !== opts.wer) return false;
     window._gsRestoreStats = { written: 0, failed: 0 };   // v30.98
+    window._gsRestoreOhne = Array.isArray(opts.ohne) ? opts.ohne : [];
     _gsRestoreKey('ps_myplants', st.plants);
     _gsRestoreKey('gs_gartentagebuch', st.diary);
     _gsRestoreKey('gs_ernte_log', st.ernte);
@@ -87703,6 +87780,7 @@ async function gsSnapshotRestore(){
     try {
       [['gs_recipes', st.user_recipes], ['gs_remedies', st.user_remedies]].forEach(function(pair){
         var arr = pair[1]; if (!Array.isArray(arr) || !arr.length) return;
+        if ((window._gsRestoreOhne || []).indexOf(pair[0]) >= 0 && _gsLokalLeer(pair[0])) return;   // v33.59: bewusst geleert
         var cur = []; try { cur = JSON.parse(localStorage.getItem(pair[0])||'[]'); } catch(_){}
         if (!Array.isArray(cur)) cur = [];
         var seen = {}; cur.forEach(function(r){ if (r && r.id) seen[r.id] = 1; });
@@ -87720,91 +87798,119 @@ async function gsSnapshotRestore(){
     // v30.97: Spur neu setzen — sonst blockiert der Verdraengungs-Schutz die
     // automatischen Snapshots dauerhaft, obwohl die Daten wieder da sind.
     try { _gsSnapshotMarkHad(); } catch(_){}
+    window._gsRestoreOhne = [];
     // v30.98: ehrlich melden, was tatsaechlich ankam.
     var _st = window._gsRestoreStats || { written:0, failed:0 };
     if (_st.failed > 0 && _st.written === 0) {
-      if (typeof gsToast === 'function') {
-        gsToast('⚠️ Wiederherstellung fehlgeschlagen — der Gerätespeicher ist voll. '
-              + 'Bitte Platz schaffen und es erneut versuchen. Dein Backup bleibt erhalten.', 'error', 9000);
-      }
+      _sag('⚠️ Wiederherstellung fehlgeschlagen — der Gerätespeicher ist voll. '
+         + 'Bitte Platz schaffen und es erneut versuchen. Dein Backup bleibt erhalten.', 'error', 9000);
       return false;
     }
     if (_st.failed > 0) {
-      if (typeof gsToast === 'function') {
+      if (!opts.still && typeof gsToast === 'function') {
         gsToast(_gsSatz('⚠️ Teilweise wiederhergestellt ({1} von {2}) — der Gerätespeicher ist voll. Nach dem Aufräumen bitte nochmal wiederherstellen.', _st.written, (_st.written + _st.failed)), 'warning', 9000);
       }
       return false;
     }
-    if (typeof gsToast === 'function') gsToast('✅ Daten wiederhergestellt!','success', 4000);
+    _sag('✅ Daten wiederhergestellt!','success', 4000);
     return true;
-  } catch(e){ console.warn('[gsSnapshot] restore', e && e.message); if (typeof gsToast==='function') gsToast('Wiederherstellung fehlgeschlagen.','error'); return false; }
+  } catch(e){ window._gsRestoreOhne = []; console.warn('[gsSnapshot] restore', e && e.message); _sag('Wiederherstellung fehlgeschlagen.','error'); return false; }
 }
 window.gsSnapshotRestore = gsSnapshotRestore;
 
-function _gsShowRestoreBanner(){
+// v33.59: KEINE FRAGE MEHR. Fehlt auf diesem Geraet etwas, das im Cloud-Backup
+// liegt, holt die App es von selbst zurueck — still, mit EINEM Satz danach.
+// Es gibt keinen Banner und keinen Dialog beim Start.
+//
+// Warum das gefahrlos ist: gsSnapshotRestore schreibt nur in LEERE Bereiche
+// und fuehrt id-Listen mit Vorrang fuer lokal zusammen — es ueberschreibt nie.
+//
+// Die eine Unterscheidung, die dafuer noetig ist: VERLOREN oder GELEERT?
+//   · Die Spur gs_snapshot_had sagt, welche Bereiche beim letzten Backup auf
+//     DIESEM Geraet Inhalt hatten. Steht ein Bereich dort und ist jetzt leer,
+//     hat ihn jemand hier geleert (der Speicher ist ja noch da) — das ist eine
+//     Entscheidung. Er wird NICHT zurueckgeholt und haelt die automatischen
+//     Backups nicht an (gs_restore_abgelehnt).
+//   · Fehlt die Spur (Browserdaten geloescht, neues Geraet, neu angemeldet),
+//     ist es ein Verlust — dann wird zurueckgeholt.
+//
+// Die Geschichte dazu: bis v33.58 fragte ein Banner bei JEDEM Start, weil nur
+// die lokale Seite geprueft wurde („ist irgendeiner der zwoelf Bereiche
+// leer?" — der Normalzustand) und das × nirgends gemerkt war.
+//
+// Kosten: die Liste (klein) je Start; der ganze Snapshot wird nur geholt, wenn
+// es einen NEUEN gibt oder sich die lokalen Luecken geaendert haben
+// (gs_restore_geprueft merkt Snapshot-Id, Luecken-Signatur, Ergebnis und ob
+// schon versucht wurde — ein Versuch je Stand, keine Schleife bei vollem Speicher).
+// Rueckgabe: immer ein Zustand mit Grund — { geholt:[{key,name}], grund }.
+async function gsSnapshotAutoWiederherstellen(){
+  function _stand(geholt, grund){ var z = { geholt: geholt || [], grund: grund }; window._gsRestoreStand = z; return z; }
   try {
-    if (document.getElementById('gs-restore-banner')) return;
-    var b = document.createElement('div');
-    b.id = 'gs-restore-banner';
-    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#2e7d32,#388e3c);color:#fff;border-radius:var(--r-lg);padding:12px 14px;box-shadow:var(--elev-3);display:flex;gap:12px;align-items:center;font-family:inherit;';
-    b.innerHTML =
-      '<div style="font-size:var(--fs-2xl);flex-shrink:0;">💾</div>' +
-      '<div style="flex:1;min-width:0;font-size:var(--fs-md);line-height:1.35;">' +
-        '<b>Daten wiederherstellen?</b><br><span style="opacity:.9;font-size:var(--fs-sm);">Wir haben ein Cloud-Backup deiner Pflanzen, Pläne &amp; Funde gefunden.</span>' +
-      '</div>' +
-      '<button id="gs-restore-btn" style="background:#fff;color:#2e7d32;border:none;border-radius:var(--r-sm);padding:8px 14px;font-weight:800;font-size:var(--fs-sm);cursor:pointer;font-family:inherit;flex-shrink:0;">Wiederherstellen</button>' +
-      '<button id="gs-restore-x" aria-label="Schließen" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:var(--r-sm);width:30px;height:30px;font-size:var(--fs-lg);cursor:pointer;flex-shrink:0;font-family:inherit;">×</button>';
-    document.body.appendChild(b);
-    document.getElementById('gs-restore-btn').onclick = function(){
-      var btn = document.getElementById('gs-restore-btn');
-      if (btn) { btn.textContent = 'Lädt…'; btn.disabled = true; }
-      gsSnapshotRestore().then(function(){ try { b.remove(); } catch(_){} });
-    };
-    document.getElementById('gs-restore-x').onclick = function(){ try { b.remove(); } catch(_){} };
-  } catch(e){ console.warn('[gsSnapshot] banner', e && e.message); }
-}
-// Beim Boot: eingeloggt + lokaler User-Content leer + Cloud-Snapshot vorhanden → Banner.
-// Ist lokal eine snapshot-exklusive Domaene leer? Dann lohnt ein Restore, egal
-// wie voll der Rest aussieht.
-function _gsSnapshotHasExclusiveGap(){
-  try {
-    for (var i = 0; i < _GS_SNAPSHOT_ONLY.length; i++) {
-      var k = _GS_SNAPSHOT_ONLY[i][0];
-      var cur = null; try { cur = localStorage.getItem(k); } catch(_){}
-      if (!cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""') return true;
-    }
-  } catch(_){}
-  return false;
-}
-window._gsSnapshotHasExclusiveGap = _gsSnapshotHasExclusiveGap;
-
-async function gsSnapshotMaybeOfferRestore(){
-  try {
-    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return;
-    if (!gsStore.get('gs_sb_uid', null)) return;
-    // v30.97 FIX: Die alte Bedingung war `if (_gsSnapshotHasContent(local)) return;`
-    // — und damit fuer JEDEN Nutzer mit Cloud-Daten eine geschlossene Tuer:
-    // _gsSnapshotHasContent prueft genau die 10 Domaenen (plants, diary, ernte,
-    // achievements, markers, scan_history …), die der Login-Pull 2,7 Sekunden
-    // FRUEHER (t=1800ms, hier t=4500ms) wieder befuellt. Nach einem
-    // Speicher-Wipe war der Banner also nie zu sehen — und der Banner-Knopf war
-    // die EINZIGE Aufrufstelle von gsSnapshotRestore(). Alles, was nur im
-    // Snapshot lebt (eigene Rezepte/Heilmittel, Bodenprofil, Kaeufe/Gebote,
-    // Bewertungen, Scan-Korrekturen, Giess-Erinnerungs-Prefs), war damit
-    // faktisch unerreichbar — obwohl es vollstaendig in user_state_snapshots lag.
-    // Verschaerfend: die Aufbewahrung behaelt nur 6 Snapshots plus den je
-    // neuesten pro Typ, und alle ~3 h entsteht ein neuer (dann leerer) — der
-    // gute Snapshot wurde also binnen Stunden verdraengt.
-    // Jetzt entscheidet die Frage „fehlt etwas, das NUR im Snapshot steht?".
-    var local = gsSnapshotBuildState();
-    if (_gsSnapshotHasContent(local) && !_gsSnapshotHasExclusiveGap()) return;
-    // Cloud-Snapshot vorhanden?
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return _stand([], 'nicht angemeldet');
+    if (!gsStore.get('gs_sb_uid', null)) return _stand([], 'nicht angemeldet');
+    if (window._gsRestoreLaeuft) return _stand([], 'läuft bereits');
+    // v33.62: nach JEDEM await fragen, ob noch DIESELBE Person angemeldet ist (_gsPerson, CLAUDE.md §3.6).
+    var wer = _gsPerson();
+    function _weg(){ return _gsPerson() !== wer; }
+    var ohneInhalt = !_gsSnapshotHasContent(gsSnapshotBuildState());
+    var luecken = _gsRestoreLuecken(ohneInhalt);
+    if (!luecken.length) return _stand([], 'auf diesem Gerät fehlt nichts');
     var r = await sbFetch('/rest/v1/rpc/fn_user_snapshots_list', {
       method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
     });
-    var rows = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
-    if (rows.length > 0) _gsShowRestoreBanner();
-  } catch(e){ console.warn('[gsSnapshot] maybeOffer', e && e.message); }
+    if (_weg()) return _stand([], 'andere Person angemeldet');
+    if (!r || r.error) return _stand([], 'die Backup-Liste war nicht erreichbar');
+    var rows = Array.isArray(r.data) ? r.data : [];
+    if (!rows.length) return _stand([], 'es gibt kein Backup');
+    var neuId = String(rows[0] && rows[0].id != null ? rows[0].id : (rows[0] && rows[0].taken_at) || '');
+    var sig = luecken.join(',');
+    var memo = null; try { memo = JSON.parse(localStorage.getItem('gs_restore_geprueft') || 'null'); } catch(_){}
+    var gleich = !!(memo && neuId && memo.id === neuId && memo.luecken === sig && Array.isArray(memo.fehlt));
+    var fehlt, st = null;
+    if (gleich) {
+      fehlt = memo.fehlt;
+    } else {
+      var l = await sbFetch('/rest/v1/rpc/fn_user_snapshot_latest', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
+      });
+      if (_weg()) return _stand([], 'andere Person angemeldet');
+      if (!l || l.error || !l.data || typeof l.data !== 'object') return _stand([], 'das Backup war nicht lesbar');
+      st = l.data;
+      fehlt = _gsSnapshotFehlt(st, ohneInhalt);
+      try { localStorage.setItem('gs_restore_geprueft', JSON.stringify({ id: neuId, luecken: sig, fehlt: fehlt, versucht: false })); } catch(_){}
+    }
+    if (!fehlt.length) return _stand([], 'das Backup enthält nichts, was hier fehlt');
+    // Verloren oder geleert?
+    var abg = _gsRestoreAbgelehnt();
+    var had = {}; try { had = JSON.parse(localStorage.getItem('gs_snapshot_had') || '{}') || {}; } catch(_){ had = {}; }
+    var neuGeleert = false;
+    fehlt.forEach(function(f){ if (had[f.key] && abg.indexOf(f.key) < 0) { abg.push(f.key); neuGeleert = true; } });
+    if (neuGeleert) { try { localStorage.setItem('gs_restore_abgelehnt', JSON.stringify(abg)); } catch(_){} }
+    var offen = fehlt.filter(function(f){ return abg.indexOf(f.key) < 0; });
+    if (!offen.length) return _stand([], 'hier bewusst geleert — bleibt leer');
+    if (gleich && memo.versucht) return _stand([], 'für diesen Stand schon versucht');
+    window._gsRestoreLaeuft = true;
+    try { await gsSnapshotRestore({ still: true, st: st, ohne: abg, wer: wer }); }
+    finally { window._gsRestoreLaeuft = false; }
+    if (_weg()) return _stand([], 'andere Person angemeldet');   // nichts mehr merken, nichts mehr melden
+    var rest = offen.filter(function(f){ return _gsLokalLeer(f.key); });
+    var geholt = offen.filter(function(f){ return !_gsLokalLeer(f.key); });
+    try {
+      localStorage.setItem('gs_restore_geprueft', JSON.stringify({
+        id: neuId, luecken: _gsRestoreLuecken(!_gsSnapshotHasContent(gsSnapshotBuildState())).join(','),
+        fehlt: fehlt.filter(function(f){ return _gsLokalLeer(f.key); }), versucht: true }));
+    } catch(_){}
+    if (geholt.length && typeof gsToast === 'function') {
+      var namen = geholt.map(function(f){ return f.name; });
+      var was = namen.slice(0, 3).join(', ');
+      gsToast(namen.length > 3
+        ? _gsSatz('💾 Aus deinem Cloud-Backup ergänzt: {1} und {2} weitere.', was, namen.length - 3)
+        : _gsSatz('💾 Aus deinem Cloud-Backup ergänzt: {1}.', was), 'success', 5000);
+    }
+    return _stand(geholt, geholt.length
+      ? (rest.length ? 'teilweise zurückgeholt — der Rest liess sich nicht schreiben' : 'aus dem Backup zurückgeholt')
+      : 'liess sich nicht schreiben');
+  } catch(e){ window._gsRestoreLaeuft = false; console.warn('[gsSnapshot] autoRestore', e && e.message); return _stand([], 'Fehler bei der Prüfung'); }
 }
 
 // v30.97: Manueller Restore aus den Einstellungen. gsSnapshotRestore() hatte
@@ -87830,11 +87936,14 @@ async function gsSnapshotRestoreManual(){
     }
     if (!ok) return;
     if (typeof gsToast === 'function') gsToast('💾 Backup wird geladen…','info');
+    // v33.59: wer selbst wiederherstellt, will ALLES zurueck — auch Bereiche,
+    // die hier einmal geleert wurden.
+    try { localStorage.removeItem('gs_restore_abgelehnt'); localStorage.removeItem('gs_restore_geprueft'); } catch(_){}
     await gsSnapshotRestore();
   } catch(e){ console.warn('[gsSnapshot] manual', e && e.message); }
 }
 window.gsSnapshotRestoreManual = gsSnapshotRestoreManual;
-window.gsSnapshotMaybeOfferRestore = gsSnapshotMaybeOfferRestore;
+window.gsSnapshotAutoWiederherstellen = gsSnapshotAutoWiederherstellen;
 
 // Sync-Status-Text für Settings („Zuletzt synchronisiert vor X Min")
 function gsSyncStatusText(){
@@ -88066,7 +88175,7 @@ try {
     setTimeout(function(){
       try { _gsSnapshotSetupAutoSync(); } catch(_){}
       try { _gsSetupConstantSync(); } catch(_){} // v29.27: konstanter 2-Wege-Sync (Fokus + 2-Min-Pull)
-      try { gsSnapshotMaybeOfferRestore(); } catch(_){}
+      try { gsSnapshotAutoWiederherstellen(); } catch(_){}
       try { _gsUpdateSyncStatusEl(); } catch(_){}
       try { if (typeof _gsBattleMaybeOfferResume === 'function') _gsBattleMaybeOfferResume(); } catch(_){}
       try { if (typeof gsRenderKeyStatus === 'function') gsRenderKeyStatus(); } catch(_){}
