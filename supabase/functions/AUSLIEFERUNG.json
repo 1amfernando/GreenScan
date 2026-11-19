@@ -1,6 +1,6 @@
 {
-  "_": "Auslieferungsstand der Edge-Functions (v33.59, Austausch-Runde offen-x2): EINE Liste je Verzeichnis. zustand: live = laeuft, nichts auszuliefern · ausliefern = geaendert, ohne Voraussetzung · erst_nach = erst nach der Migration in „nach\" · nicht = nicht ausliefern (grund). live_version: gelesen am 10.11.2026 (list_edge_functions), fuer die sieben am 10./11.11. neu ausgelieferten (ai-proxy, plant-doctor-diagnose, plan-iterate, garden-scan-analyze, pest-identify, mushroom-identify, key-health-check) am 11.11.2026 03:28 UTC nachgelesen; null = nie ausgeliefert. edge_check 60_spalten haelt die Liste gegen die Verzeichnisse und verlangt fuer live/ausliefern/erst_nach den Spalten-Scan. Reihenfolge und Secrets: docs/FUER-FERNANDO.md §30b/§30d.",
-  "stand": "2026-11-11",
+  "_": "Auslieferungsstand der Edge-Functions (v33.59, Austausch-Runde offen-x2): EINE Liste je Verzeichnis. zustand: live = laeuft, nichts auszuliefern · ausliefern = geaendert, ohne Voraussetzung · erst_nach = erst nach der Migration in „nach\" · nicht = nicht ausliefern (grund). live_version: gelesen am 10.11.2026 (list_edge_functions), fuer die sieben am 10./11.11. neu ausgelieferten (ai-proxy, plant-doctor-diagnose, plan-iterate, garden-scan-analyze, pest-identify, mushroom-identify, key-health-check) am 11.11.2026 03:28 UTC nachgelesen; null = nie ausgeliefert. edge_check 60_spalten haelt die Liste gegen die Verzeichnisse und verlangt fuer live/ausliefern/erst_nach den Spalten-Scan. Reihenfolge und Secrets: docs/FUER-FERNANDO.md §30b/§30d. bedingung (v33.63): eine Voraussetzung, die keine Migration ist und die ein MENSCH erfuellt — vorher nicht ausliefern.",
+  "stand": "2026-11-19",
   "functions": {
     "admin-seed-species": {
       "zustand": "live",
@@ -9,7 +9,7 @@
     },
     "ai-proxy": {
       "zustand": "live",
-      "grund": "Code von v33.59 (Commit 57a7acf) live seit 16.11.2026 — nachgesehen 19.11.2026 (get_edge_function, nur lesend); vorher: Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503",
+      "grund": "Code von v33.59 (Commit 57a7acf) live seit 16.11.2026 — nachgesehen 19.11.2026 (get_edge_function, nur lesend): Tor vor dem Proxy: Tageskontingent je Plan (KI_GRENZEN) VOR dem Aufruf reserviert, Nutzer per Token, Eingabegrenzen (kiProxyEingabe), Modell nur aus der Kette — ohne die Migration antwortet er allen mit 503",
       "live_version": "v4"
     },
     "book-ingest": {
@@ -140,8 +140,9 @@
     },
     "stripe-admin-extend-webhook": {
       "zustand": "ausliefern",
-      "grund": "Admin-Geheimnis konstantzeitig, abonniert charge.refunded",
-      "live_version": "v3"
+      "grund": "Admin-Geheimnis konstantzeitig; abonniert seit v33.63 alle Ereignisse aus STRIPE_EREIGNISSE (u.a. charge.refunded, checkout.session.async_payment_succeeded) — erst NACH dem vereinten stripe-webhook rufen",
+      "live_version": "v3",
+      "bedingung": "erst nach der Modus-Pruefung durch Fernando (FUER-FERNANDO §30 Schritt 0: Live oder Test, Webhook-Endpunkt, Preise) — vorher nicht ausliefern"
     },
     "stripe-bootstrap": {
       "zustand": "ausliefern",
@@ -150,8 +151,9 @@
     },
     "stripe-checkout": {
       "zustand": "ausliefern",
-      "grund": "Rueckkehr nur auf eigene Adressen, Gratistage und Startangebot am Server",
-      "live_version": "v8"
+      "grund": "v33.63 vereint (main + PR #329): kein automatic_payment_methods (Stripe lehnte jeden Kauf mit 400 ab — gefolgert, nicht gemessen), nur bekannte Checkout-Parameter, kein zweites Abo neben einem laufenden/neben Lifetime, Rueckkehr nur auf eigene Adressen, Startangebot und Gratistage am Server, Fehler als Kennung",
+      "live_version": "v8",
+      "bedingung": "erst nach der Modus-Pruefung durch Fernando (FUER-FERNANDO §30 Schritt 0: Live oder Test, Webhook-Endpunkt, Preise) — vorher nicht ausliefern"
     },
     "stripe-complete-setup": {
       "zustand": "live",
@@ -180,8 +182,9 @@
     },
     "stripe-portal": {
       "zustand": "ausliefern",
-      "grund": "Rueckkehr nur auf eigene Adressen",
-      "live_version": "v5"
+      "grund": "v33.63 vereint: Kunde ueber kundeFinden, Kuendigen nur auf ein echtes laufendes Abo (nie lifetime_<uuid>), Fortsetzen ohne Plan-Wechsel-Seite, Rueckkehr nur auf eigene Adressen, Fehler als Kennung",
+      "live_version": "v5",
+      "bedingung": "erst nach der Modus-Pruefung durch Fernando (FUER-FERNANDO §30 Schritt 0: Live oder Test, Webhook-Endpunkt, Preise) — vorher nicht ausliefern"
     },
     "stripe-restructure-pro-only": {
       "zustand": "live",
@@ -195,8 +198,9 @@
     },
     "stripe-webhook": {
       "zustand": "ausliefern",
-      "grund": "Erstattung/Rueckbuchung entziehen eine Lifetime, keine Verifikation per Zahlung, der 500-Fehler der Einbettung behoben; ein Abo-/Rechnungsereignis fuer ein geloeschtes Konto endet mit 200 und einer Zeile in system_events statt drei Tagen 500",
-      "live_version": "v12"
+      "grund": "v33.63 vereint: Erstattung/Rueckbuchung entziehen eine Lifetime (Erstattung gibt den Launch-Platz frei), keine Verifikation per Zahlung, unbekannter Preis 500 bis er im Katalog steht, Zeitraum und Rechnung in beiden API-Formen, async_payment_succeeded, Lifetime beendet ein laufendes Abo zum Periodenende, processed=true, Modus-Satz; Abo-Ereignis eines geloeschten Kontos 200 + system_events",
+      "live_version": "v12",
+      "bedingung": "erst nach der Modus-Pruefung durch Fernando (FUER-FERNANDO §30 Schritt 0: Live oder Test, Webhook-Endpunkt, Preise) — vorher nicht ausliefern"
     },
     "weather-alert-checker": {
       "zustand": "ausliefern",

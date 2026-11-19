@@ -1,28 +1,37 @@
 // Stripe Checkout Session creator
-// v8 (2026-06-14): automatic_payment_methods statt expliziter Liste — eine im Dashboard NICHT aktivierte
-//   Methode bricht den Checkout nicht mehr ab; aktivierte Methoden (Karte, TWINT für CHF, …) erscheinen
-//   automatisch ohne Code-Änderung. Früher: payment_method_types ['card','twint'] → wenn TWINT nicht
-//   aktiviert war, schlug der GANZE CHF-Checkout fehl. payment_method_collection='always' für Abos
-//   (Karte auch während Trial hinterlegen → nahtlose Verlängerung).
-// v6 (2026-05-13): Trial-Cap max 7 Tage. v5: trial_days. v4: Schema-Fix interval/is_launch_offer.
-// v33.59 (Sicherheitspruefung 10.11.2026): die Rechnung liegt in ../_shared/zahlung_regeln.mjs
-//   (Pruefstand scripts/edge/10_stripe.js) — Rueckkehr-Adressen nur eigene Urspruenge, Preis nur
-//   aus dem AKTIVEN Katalog, Launch-Deckel entscheidet der Server (das Flag des Clients ist nur ein
-//   Wunsch), Kunden-Id aus stripe_subscriptions (stripe_customers gibt es live nicht), Gratisphase
-//   nur bei beantworteter Frage, Fehler als Kennung statt Rohtext.
+// v10 (v33.63, 19.11.2026): EINE Fassung aus main (v33.59) und PR #329 (Auftrag P-C2). Ablauf von
+//   #329, Regeln und Rand von main — beides in ../_shared/zahlung_regeln.mjs, gemessen von
+//   scripts/stripe_check.js und scripts/edge/10_stripe.js:
+//   • KEIN `automatic_payment_methods` mehr — den Parameter gibt es an Checkout nicht (er gehoert
+//     zu PaymentIntents); Stripe lehnt ihn mit 400 `parameter_unknown` ab. Seit v8 (14.06.2026)
+//     endete damit sehr wahrscheinlich JEDER Kauf mit 500 (gefolgert aus der API-Referenz, nicht
+//     gegen Stripe gemessen). Die Parameter baut `checkoutParameter`, nur Namen aus
+//     CHECKOUT_PARAMETER; ein fremder Name wird vor dem Aufruf abgewiesen.
+//   • Was das Konto schon HAT, entscheidet der Server (`checkoutPlan`): kein zweites Abo neben
+//     einem laufenden, nichts neben Lifetime. Ob ein Abo wirklich laeuft, sagt Stripe.
+//   • Kennt Stripe den gemerkten Kunden nicht (geloescht, oder aus dem anderen Modus): suchen,
+//     sonst EIN neuer — einmal, nicht oefter.
+//   • Die Stripe-Seite in der Sprache der App (de · fr · it · en, sonst 'auto').
+//   Von main bleiben: exakte Versionen, Fehler als KENNUNG (fehlerCode, nie Rohtext), Launch-Deckel
+//   am PREIS mit Service-Role gezaehlt, Rueckkehr nur auf die eigenen Urspruenge (popup=1 bleibt).
+// v8 (2026-06-14): automatic_payment_methods (falscher Parameter, s.o.). v6: Probezeit hoechstens 7 Tage.
+// v33.59 (Sicherheitspruefung 10.11.2026): Rechnung in ../_shared/zahlung_regeln.mjs.
 import "jsr:@supabase/functions-js@2.119.0/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17.7.0";
 import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
-import { rueckkehrAdresse, preisErlaubt, preisIntervall, istLaunchPreis, launchDeckel, launchAngebot, gratisTage, kundenId, fehlerCode } from "../_shared/zahlung_regeln.mjs";
+import {
+  ABO_LAEUFT, checkoutParameter, checkoutParameterFremd, checkoutPlan, fehlerCode, hatLifetime, istLaunchPreis, kundeFinden,
+  launchAngebot, launchDeckel, laufendeAboIds, preisErlaubt, preisIntervall, rueckkehrAdresse, stripeKenntNicht,
+} from "../_shared/zahlung_regeln.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
 const APP_URL = "https://green-scan.ch";
-const MAX_TRIAL_DAYS = 7;
-const DEFAULT_TRIAL_DAYS = 7;
+const antwort = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+// Eine Kennung (W3) — in `error` fuer die App bis v33.62 (_gsZahlungFehler), in `grund` fuer die neue.
+const nein = (status: number, kennung: string) => antwort(status, { error: kennung, grund: kennung });
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -30,111 +39,115 @@ Deno.serve(async (req) => {
 
   try {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) {
-      return new Response(JSON.stringify({ error: "Stripe not configured. Set STRIPE_SECRET_KEY." }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    if (!stripeKey) return nein(503, "zahlung_nicht_eingerichtet");
 
-    const { price_id, success_url, cancel_url, trial_days } = await req.json();
-    if (!price_id) return new Response(JSON.stringify({ error: "price_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-    const authHeader = req.headers.get("Authorization") ?? "";
+    // Zuerst: wer fragt? Ohne Anmeldung wird nichts gelesen und nichts angelegt.
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
     const { data: { user }, error: authErr } = await userClient.auth.getUser();
-    if (authErr || !user) return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (authErr || !user) return nein(401, "nicht_angemeldet");
 
-    const admin = createClient(supabaseUrl, svcKey);
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") return nein(400, "anfrage_ungueltig");
+    // Aus der Anfrage wird GENAU das gelesen: welches Angebot, wohin zurueck, wie lange probieren, in
+    // welcher Sprache. Betrag, Waehrung, Modus, Kunde, Nutzer und `claim_launch_offer` nie.
+    const { price_id, success_url, cancel_url, trial_days, locale } = body as Record<string, unknown>;
+    if (typeof price_id !== "string" || !price_id) return nein(400, "unbekannter_preis");
+
+    const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const stripe = new Stripe(stripeKey, { apiVersion: "2024-12-18.acacia" });
-    const antwort = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    // v33.59: nur ein Preis aus dem AKTIVEN Katalog (vorher: jede price_id, unbekannt → still Monatsabo).
+    // Nur ein Preis aus dem AKTIVEN Katalog.
     const { data: priceRow, error: priceErr } = await admin
       .from("stripe_prices")
       .select("id, active, recurring, metadata, currency")
       .eq("id", price_id)
       .eq("active", true)
       .maybeSingle();
-    if (priceErr) { console.error("[stripe-checkout] stripe_prices", priceErr.message); return antwort(503, { error: "katalog_nicht_lesbar" }); }
-    const priceRec = preisErlaubt(String(price_id), priceRow);
-    const interval = preisIntervall(priceRec);
-    if (!priceRec || !interval) return antwort(400, { error: "unbekannter_preis" });
-    const mode = interval === "lifetime" ? "payment" : "subscription";
+    if (priceErr) { console.error("[stripe-checkout] stripe_prices", priceErr.message); return nein(503, "katalog_nicht_lesbar"); }
+    const preis = preisErlaubt(price_id, priceRow);
+    if (!preis || !preisIntervall(preis)) return nein(400, "unbekannter_preis");
 
-    // v33.59: Launch-Angebot entscheidet der SERVER am Preis — gezaehlt mit Service-Role.
-    // (launch_offer_available() lieferte ein jsonb-OBJEKT, also immer „wahr", und lief ohne
-    // auth.uid() — der Deckel galt nie.)
-    const isLaunchOffer = istLaunchPreis(priceRec);
-    if (isLaunchOffer) {
+    // Launch-Angebot: der SERVER entscheidet am PREIS — gezaehlt mit Service-Role.
+    let launch = { erlaubt: true, launch: false, grund: "kein_launch_preis" };
+    if (istLaunchPreis(preis)) {
       const { count: vergeben, error: cntErr } = await admin.from("launch_offer_usage").select("user_id", { count: "exact", head: true });
       const { data: eigene, error: ownErr } = await admin.from("launch_offer_usage").select("user_id").eq("user_id", user.id).limit(1);
       if (cntErr || ownErr) console.error("[stripe-checkout] launch_offer_usage", (cntErr || ownErr)?.message);
-      const lo = launchAngebot({
+      launch = launchAngebot({
         preisIstLaunch: true,
         beansprucht: ownErr ? null : (eigene ?? []).length > 0,
         vergeben: cntErr ? null : vergeben,
-        deckel: launchDeckel(priceRec),
+        deckel: launchDeckel(preis),
       });
-      if (!lo.erlaubt) return antwort(410, { error: "launch_" + lo.grund });
     }
 
-    // v33.59: Kunden-Id aus den eigenen Abo-Zeilen (stripe_customers existiert live nicht —
-    // jeder Aufruf legte einen neuen Stripe-Kunden an). Dieselbe Abfrage beantwortet die Gratisphase.
-    const { data: prevSubs, error: subsErr } = await admin
-      .from("stripe_subscriptions")
-      .select("id, stripe_customer_id, customer_id")
-      .eq("user_id", user.id)
-      .limit(20);
-    if (subsErr) console.error("[stripe-checkout] stripe_subscriptions", subsErr.message);
-    let customerId = kundenId(prevSubs ?? []);
-    if (!customerId) {
-      const customer = await stripe.customers.create({ email: user.email ?? undefined, metadata: { supabase_user_id: user.id } });
-      customerId = customer.id;
+    // Der Kunde und die eigenen Zeilen (stripe_customers gibt es live nicht). Ein Nein der
+    // Datenbank wirft (500): ob schon ein Abo laeuft, waere sonst geraten.
+    const kunde = await kundeFinden({ admin, stripe, userId: user.id });
+
+    // Laeuft schon ein Abo? Die eigenen Zeilen nennen Kandidaten — ob es WIRKLICH laeuft, sagt Stripe.
+    let aboLaeuft = false;
+    if (preisIntervall(preis) !== "lifetime") {
+      for (const id of laufendeAboIds(kunde.zeilen)) {
+        try {
+          const sub = await stripe.subscriptions.retrieve(id);
+          if (ABO_LAEUFT.indexOf(sub.status) >= 0) { aboLaeuft = true; break; }
+        } catch (err) {
+          if (!stripeKenntNicht(err, "subscription")) throw err;   // nicht erreichbar ist nicht „laeuft nicht"
+        }
+      }
     }
 
-    // v6: Trial-Logic — first-sub-only, Cap auf MAX_TRIAL_DAYS (7); v33.59: Abfragefehler → keine Gratisphase
-    const safeTrialDays = mode === "subscription"
-      ? gratisTage({ wunsch: trial_days, fruehereAbos: subsErr ? null : (prevSubs ?? []), abfrageFehler: subsErr, max: MAX_TRIAL_DAYS, vorgabe: DEFAULT_TRIAL_DAYS })
-      : 0;
+    const plan = checkoutPlan({
+      preisZeile: preis, launch, lifetime: hatLifetime(kunde.zeilen), aboLaeuft,
+      wunschProbeTage: trial_days, fruehereAbos: kunde.zeilen, abfrageFehler: null,
+    });
+    if (!plan.ok) return nein(plan.status, plan.grund);
 
-    const sessionParams: Stripe.Checkout.SessionCreateParams = {
-      customer: customerId,
-      mode,
-      line_items: [{ price: price_id, quantity: 1 }],
-      success_url: rueckkehrAdresse(success_url, `${APP_URL}/?billing=success&session_id={CHECKOUT_SESSION_ID}`),
-      cancel_url: rueckkehrAdresse(cancel_url, `${APP_URL}/?billing=cancel`),
-      subscription_data: mode === "subscription"
-        ? {
-            metadata: { supabase_user_id: user.id },
-            ...(safeTrialDays > 0 ? { trial_period_days: safeTrialDays } : {}),
-          }
-        : undefined,
-      metadata: { supabase_user_id: user.id, claim_launch_offer: isLaunchOffer ? "1" : "0" },
-      allow_promotion_codes: true,
-      locale: "de",
-      // v8: Stripe zeigt automatisch alle im Dashboard aktivierten + passenden Methoden (Karte immer,
-      // TWINT bei CHF sobald aktiviert, SEPA bei EUR, …). Eine inaktive Methode bricht den Checkout NICHT ab.
-      automatic_payment_methods: { enabled: true },
+    let kundeId = kunde.kundeId;
+    const neuerKunde = async () => (await stripe.customers.create({ email: user.email ?? undefined, metadata: { supabase_user_id: user.id } })).id;
+    if (!kundeId) {
+      if (kunde.sucheFehler) console.warn("[stripe-checkout] Kunde bei Stripe nicht feststellbar — ein neuer wird angelegt");
+      kundeId = await neuerKunde();
+    }
+
+    const erfolgUrl = rueckkehrAdresse(success_url, `${APP_URL}/?billing=success&session_id={CHECKOUT_SESSION_ID}`);
+    const abbruchUrl = rueckkehrAdresse(cancel_url, `${APP_URL}/?billing=cancel`);
+    const parameter = (k: string) => checkoutParameter({
+      kundeId: k, preisId: preis.id, modus: plan.modus, probeTage: plan.probeTage, userId: user.id, launch: plan.launch,
+      erfolgUrl, abbruchUrl, sprache: locale,
+    });
+    const sitzung = (k: string) => {
+      const p = parameter(k);
+      const fremd = checkoutParameterFremd(p);
+      if (fremd.length) throw new Error("Checkout-Parameter, die Stripe nicht kennt: " + fremd.join(", "));
+      return stripe.checkout.sessions.create(p as Stripe.Checkout.SessionCreateParams);
     };
-    // Abos: Zahlungsmethode auch bei Gratis-Trial hinterlegen → nahtlose Verlängerung nach Trial-Ende.
-    if (mode === "subscription") {
-      sessionParams.payment_method_collection = "always";
+
+    let session;
+    try {
+      session = await sitzung(kundeId);
+    } catch (err) {
+      // Stripe kennt den GEMERKTEN Kunden nicht — suchen, sonst einen neuen anlegen. Einmal.
+      if (!kunde.kundeId || !stripeKenntNicht(err, "customer")) throw err;
+      const zweit = await kundeFinden({ admin, stripe, userId: user.id, ohneGemerkte: true });
+      kundeId = zweit.kundeId && zweit.kundeId !== kunde.kundeId ? zweit.kundeId : await neuerKunde();
+      console.warn("[stripe-checkout] Stripe kennt den gemerkten Kunden " + kunde.kundeId + " nicht — weiter mit " + kundeId);
+      session = await sitzung(kundeId);
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams);
-
-    return new Response(JSON.stringify({
+    return antwort(200, {
       url: session.url,
       session_id: session.id,
-      mode,
-      payment_methods: "automatic",
-      trial_days: safeTrialDays,
-    }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      mode: plan.modus,
+      payment_methods: "dashboard",
+      trial_days: plan.probeTage,
+    });
   } catch (e) {
-    // v33.59: Rohtext nur ins Protokoll — er nannte Preis-Ids und den Stripe-Modus.
+    // Rohtext nur ins Protokoll — er nennt Preis-Ids und den Stripe-Modus.
     console.error("[stripe-checkout]", (e as any)?.message ?? e);
     const f = fehlerCode(e, "checkout_failed");
-    return new Response(JSON.stringify({ error: f.error }), { status: f.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return nein(f.status, f.error);
   }
 });

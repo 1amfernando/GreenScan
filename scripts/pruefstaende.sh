@@ -85,6 +85,10 @@ run risiko       node scripts/risiko_check.js
 #                ohne Postgres „nicht pruefbar", Exit 2 — nie gruen)
 run sicherheit   node scripts/sicherheit_check.js
 run edge         node scripts/edge_check.js
+# v33.63 (P-C2): der Zahlungsweg Ende zu Ende — die ECHTEN Handler von stripe-checkout, -portal, -webhook
+# gegen eine gestellte Welt (Stripe, supabase-js, Sicht v_user_entitlements), dazu eine SQL-Hälfte im
+# lokalen Postgres (ohne es „nicht pruefbar", Exit 2). Aus PR #329, auf zahlung_regeln.mjs umgestellt.
+run stripe       node scripts/stripe_check.js
 run rls          node scripts/rls_check.js
 # Das Brett, an dem sich die KI-Sitzungen austauschen (docs/austausch/README.md):
 # stimmt, was eine Sitzung der naechsten hinterlaesst? Braucht nur Node und git.

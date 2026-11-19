@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-19 · **Branch**: `main` · **Version**: `v33.62` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-19 · **Branch**: `main` · **Version**: `v33.63` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
 
 ---
 
@@ -12,12 +12,12 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
-### 2026-11-19 (jk) - v33.6x (Nummer folgt am Kopf der Reihe): Pilz-Scanner — die KI kannte 19 Giftpilze nicht, und ein tödlicher Pilz ohne Farbangabe stand als „Vorsicht" da
+### 2026-11-19 (jl) - v33.6x (Nummer folgt am Kopf der Reihe): Pilz-Scanner — die KI kannte 19 Giftpilze nicht, und ein tödlicher Pilz ohne Farbangabe stand als „Vorsicht" da
 
 **Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"). Anlass: Brett
 `2026-11-11-2714` — der Pilz-Scanner, der Bildschirm mit dem höchsten Einsatz der App, hatte keinen
 einzigen Prüfstand-Fall. Die Nummer ist ein Platzhalter (`v33.6x`): v33.62 ist mit #330 vergeben, v33.63
-beansprucht #331; vergeben wird am Kopf der Merge-Reihe.
+mit #331 (STATUS (jk)); vergeben wird am Kopf der Merge-Reihe.
 
 **Gemessen** (Live-Datenbank und Live-Function nur lesend, 19.11.2026):
 
@@ -65,6 +65,75 @@ nach dem Tor — je rot). Auf diesem Stand: scan 119/0, edge 80/0, robust 33/0, 
 **Nicht geprüft:** ob das Modell mit allen 276 Arten besser bestimmt (von hier antwortet kein Modell — geprüft ist, welche Liste es bekommt); die Mehrkosten je Scan (rund 2 Rappen geschätzt aus 258'000 statt 190'000 Zeichen); die Darstellung auf einem Telefon
 
 
+### 2026-11-19 (jk) - v33.63: Der Zahlungsweg in EINER Fassung (Auftrag P-C2)
+
+**Auftrag (Head-Sitzung „main", 19.11.2026):** aus PR #329 (`claude/zahlungsweg-nachgemessen-011L7G`)
+NUR den Zahlungsweg herauslösen und mit `main` zu EINER Fassung vereinen — Grundlage der Bericht
+P-C (Analyse beider Fassungen, Widersprüche W1–W11). #329 wurde nicht gemergt (61 Konfliktblöcke,
+andere Themen); die Dateien sind gezielt geholt.
+
+**Was woher stammt.**
+- **Das eine Modul** bleibt `supabase/functions/_shared/zahlung_regeln.mjs`. Aus #329s
+  `stripe_regeln.mjs` sind hineingekommen: `dbMuss`/`dbNein`, `STRIPE_EREIGNISSE`/`ereignisWirkung`,
+  `idVon`/`istUuid`/`nutzerAusMetadaten`, `aboZeitraum`/`aboPreisId`/`aboEndetVonSelbst`/`aboZeile`/
+  `aboIdAusRechnung`, `checkoutPlan` (der Launch-Teil über `launchAngebot` von main, Kennungen statt
+  Text), `CHECKOUT_PARAMETER`/`checkoutParameterFremd`/`checkoutParameter`, `stripeSprache`,
+  `kundeFinden`, `ABO_LAEUFT`/`laufendeAboIds`/`hatLifetime`/`portalZiel`, `datumSchweiz`/
+  `probeEndeMitteilung`, `stripeKenntNicht`/`stripeLehntAb`/`schluesselModus`/`modusPasst`.
+  Nicht übernommen: `signaturPruefen` (W9), `istNutzerWeg` (eine Regel: `kontoFehlt`),
+  `erstattungWirkung` (W8), `launchStand`/`probeTage` (main: Zähler mit Service-Role, `gratisTage`),
+  die zweite `rueckkehrAdresse`/`preisIntervall` (W10). `stripe_regeln.mjs` gibt es nicht.
+- **`stripe-checkout`**: Ablauf von #329 (Kunde finden, „läuft schon ein Abo?" bei Stripe gefragt,
+  `checkoutPlan`, Kunden-Rückfall bei „No such customer", `checkoutParameter`, Sprache), Rand von main.
+  **Kein `automatic_payment_methods` mehr** — v8 schickte ihn an Checkout, wo es ihn nicht gibt.
+- **`stripe-portal`**: Ablauf von #329 (`kundeFinden`, `portalZiel`, Rückfall aufs gewöhnliche
+  Portal, 404 `kunde_unbekannt`), Rand von main (Kennungen, eigene Ursprünge).
+- **`stripe-webhook`**: Gerüst von main (pruefe/warne, `kontoFehlt` + `system_events`,
+  Reihenfolge über `gs_stripe_stand`, constructEventAsync), dazu aus #329: `aboZeile` (Zeitraum in
+  beiden API-Formen), `aboIdAusRechnung`, `checkout.session.async_payment_succeeded`, ein Abo-Abschluss
+  zieht das Abo sofort nach, `abosBeenden` (Lifetime beendet ein laufendes Abo zum Periodenende),
+  Launch-Platz frei bei voller Erstattung, `processed = true`, `modusPasst`, `probeEndeMitteilung`,
+  Nutzer über die Kunden-Metadaten, Vermerk in `stripe_webhook_events.error`, Experten-Gebühr ohne
+  passende Zeile wird vermerkt, Webhook-Geheimnis aus `app_settings` wird nach einem Wechsel neu gelesen.
+- **`stripe-admin-extend-webhook`** abonniert aus `STRIPE_EREIGNISSE` (alles ausser „nichts").
+- **Client** (`index.html`): `GS_LAUNCH_PLAETZE`, `GS_ZAHLUNG_FEHLER` um elf Kennungen erweitert,
+  `_gsCheckoutKeinFehler` (schon da / ausverkauft ist kein Fehler), `_gsPortalKennung`, `locale` an
+  Checkout und Portal. `_gsBillingPruefen`, `BroadcastChannel('gs-billing')`, `popup=1` nur mit Fenster
+  und das Nicht-Lesen von `gs_sb_url` bleiben, wie sie auf main stehen.
+
+**W1–W11, je eine Zeile.**
+- **W1** Experten-Zahlung: main — nur die Gebühr, nie `verified` (`expertenZahlungFelder`).
+- **W2** Rückbuchung: main — entzieht eine eindeutig zugeordnete Lifetime (Bestätigung durch Fernando offen, §30f).
+- **W3** Fehler nach aussen: main — Kennungen (`fehlerCode`, `{error, grund}`), nie Stripe-Rohtext.
+- **W4** Rückkehr-Ursprünge: main — nur green-scan.ch und greenscan-app.pages.dev (+ Vorschauen); kein www, Netlify, localhost.
+- **W5** Versionen: main — exakt (`stripe@17.7.0`, `supabase-js@2.119.0`).
+- **W6** Unbekannter Preis: main — 500, Stripe wiederholt; neu mit dem Satz aus #329 in `stripe_webhook_events.error`.
+- **W7** Launch zählen: main — am PREIS (Webhook) bzw. mit Service-Role im Zähler (Checkout).
+- **W8** Erstattung zuordnen: main — nur eindeutig über den PaymentIntent; dazu aus #329 die Freigabe des Launch-Platzes.
+- **W9** Signatur: main — `constructEventAsync`. Nicht nachweislich falsch; gemessen an einer Attrappe, die selbst mit node:crypto rechnet (`stripe_check` RAND „Signatur", Fremdmassstab mit `GS_STRIPE_PAKET`).
+- **W10** Gleichnamige Funktionen: main-Signaturen (`rueckkehrAdresse` → Text, `preisIntervall` month/year/lifetime).
+- **W11** Ereignisliste: EINE — `STRIPE_EREIGNISSE`, auch für `stripe-admin-extend-webhook`.
+
+**Prüfstände.** Neu `stripe_check` (aus #329, auf `zahlung_regeln.mjs` umgestellt, in
+`pruefstaende.sh`): 51 Fälle, 0 rot — RECHNUNG, RAND (die echten drei Handler), SQL (Teil A von
+`20261110_sicherheit_konto_speicher.sql` statt der nicht übernommenen
+`20261111_launch_offer_usage_nur_server.sql`), QUELLTEXT. Wo #329 etwas anderes erwartete als main,
+misst der Fall jetzt die Regel von main (W1, W6, W7, Fund 4, Kennungen). `edge_check` 76 → 78:
+die Stripe-Attrappe (`scripts/edge/_zahlung_stripe.mjs`) lehnt einen unbekannten Checkout-Parameter
+mit 400 `parameter_unknown` ab — mit einer EIGENEN Liste, nicht der des Moduls —, zwei neue Fälle
+(Parameter, „was das Konto schon hat"). **Gegenprobe gefahren:** `stripe-checkout` vom Stand v33.62
+eingesetzt → `edge_check` 9 rot (alle am `automatic_payment_methods`), `stripe_check` 12 rot;
+wiederhergestellt, md5 gleich. `60_spalten` verlangt für die vier Stripe-Functions die Bedingung
+„Modus-Prüfung" in `AUSLIEFERUNG.json`.
+
+**Stripe: Live oder Test?** Der Kopf von STATUS sagte „Live-Mode seit v26.40". Im Repo ist das nicht
+belegt: der Sammeleintrag v26.38–v26.42 und die drei folgenden führen den Umstieg selbst als offen,
+`stripe_webhook_events` hatte nie eine Zeile, `app_settings.stripe_publishable_key` ist ein
+`pk_test_` (den niemand liest). Gekennzeichnet als „nicht belegt"; die Anleitung für Fernando steht in
+FUER-FERNANDO §30i (Schritt 0 vor jeder Stripe-Auslieferung).
+
+**Offen:** brett:2026-11-16-adb3 (Lifetime ohne Konto) — dazu zwei Einträge, die nur auf anderen Branches liegen (hier nicht geerntet): Befund `2026-11-11-4e38` (die Zusammenführung ist hiermit getan, die Auslieferung wartet auf die Modus-Prüfung) und Frage `2026-11-11-7f36` (Datumsschranke in `v_user_entitlements`)
+**Nicht geprüft:** Stripe selbst — ob es `automatic_payment_methods` an Checkout wirklich ablehnt und ob es die neuen Aufrufe annimmt (kein Netz dorthin, nur aus der API-Referenz gefolgert); Live- oder Testmodus; ob `constructEventAsync` in Deno ohne ausdrücklichen SubtleCrypto-Provider läuft; nichts ist ausgeliefert oder angewandt; `GS_STRIPE_PAKET` (Fremdmassstab mit Stripes echter Bibliothek) nicht gefahren — kein Paket in dieser Umgebung.
 ### 2026-11-19 (jj) - v33.62: Kein „Daten wiederherstellen?“ mehr beim Start — was fehlt, holt die App still von selbst (ersetzt #324)
 
 **Anlass:** Fernando, 10.11.2026 (Bildschirmfoto): „Das kommt die ganze Zeit" — und 11.11.2026: „Keine Lust, dass
@@ -405,6 +474,29 @@ Planer-Seite: eine Vorlage aus einem Plan von vorletztem Jahr landet in einem ve
 
 **Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-c72c, brett:2026-11-16-cd07, brett:2026-11-16-8234, brett:2026-11-16-397d, brett:2026-11-16-bb6f, brett:2026-11-16-8949, brett:2026-11-16-eb4b, brett:2026-11-16-34d2, brett:2026-11-16-09f5, brett:2026-11-16-89ee — Gratis-Zähler (Fernando), Wissen-Tab und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt), Rolle des Scan-Chats (an die Sitzung „KI-Modelle"), der falsche Fakt in der Datenbank (Fernando), das Wackeln von offline_check (g) und sein Hänger nach Fall 34 (Ursache eingegrenzt, Vorschlag für den Prüfstand), die Vorlage aus einem Plan von vorletztem Jahr (Planer-Seite), eine Korrektur fürs zweite Gerät (Idee, bewusst nicht gebaut), der Lärchen-Röhrling als „baum" (Daten), die 18 KI-Wege ausserhalb der vier Funktionen (Fehlerklasse „Antwort nach await“)
 **Nicht geprüft:** ob Open-Meteo `hourly` wirklich ab 00:00 liefert (Wissen über die API, von hier nicht erreichbar — `_gsWetterJetzt` sucht die laufende Stunde über die Zeitstempel und stimmt so oder so); die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando. `_gsSammelSicher` erkennt Gefahr an Wörtern in `warning`/`lookalike` und an Doppelgängern, die sich in der Liste nachschlagen lassen — eine Warnung ohne Gift-Wort und ohne nachschlagbaren Namen sähe es nicht (gemessen: alle Doppelgänger der Stufe ≥ 3 ohne Warnwort, zwei, werden gefangen); dass Pilze und Arten mit gefährlichem Doppelgänger nicht mehr unter „Jetzt sammeln“ stehen, ist eine Sicherheitsentscheidung dieser Sitzung, die Fernando umkehren kann. Nach der gegnerischen Prüfung nicht geprüft: ein echtes Abmelden auf einem Telefon (gemessen ist der Weg sbLogout/gsOnLogout mit gestelltem Server); ob eine Antwort, die nach dem Abmelden VERWORFEN wird, das Kontingent belastet hat (der Aufruf lief — ohne Abbruchsignal, Brett 8186, lässt sich das nicht verhindern); `_gsIstPilz` setzt voraus, dass ein Binomen mit der Gattung beginnt (bei 4'337 Einträgen gemessen: trifft ausserhalb der Pilze nur T039).
+
+### 2026-11-11 (ji) - kein Bump: das Agenten-Netz — die Rezeptur über dem Brett
+
+> **Kürzel 18.11.2026 von (je) auf (ji) umgestellt:** (je) gehört inzwischen der Sicherheitsreparatur v33.59 (#327, auf `main`); (jf) trägt der Zahlungsweg, (jg)/(jh) der Brett-Zweig. Der Text unten ist der vom 11.11.
+
+**Auftrag (Fernando, 11.11.2026):** je Funktion der App eine eigene Sitzung; alle sollen
+immer den neuesten Stand kennen; das Netz soll Verbesserungen selbständig angehen. Die App
+ist unverändert — deshalb kein Bump.
+
+**Was es jetzt gibt.** `docs/AGENTEN-NETZ.md` (die Rezeptur): fünf Zutaten (Brett ·
+Bereichs-Agenten · Koordinator · Prüfstände · Fernando), der Kreislauf in sechs Schritten
+mit je einem Auslöser (finden → zustellen → nehmen → bauen → einreihen → verteilen), die
+**Merge-Reihe** (eine Versionsnummer gehört dem PR an der Spitze), drei Stufen der
+Selbständigkeit und die Liste dessen, was auf keiner Stufe ohne Fernando geschieht.
+`ROADMAP.md` P2-5. Eine Koordinator-Sitzung läuft seit heute stündlich: sie liest `main`,
+begrüsst neue Sitzungen und verteilt jede Zusammenfassung.
+
+**Gemessen am ersten Tag:** zwei frische Branches tragen gleichzeitig `v33.59`
+(`ccr-5e705a36-jveaak`, `claude/restore-banner-nur-bei-bedarf`) — der Anlass für die
+Merge-Reihe. Beide Sitzungen sind benachrichtigt.
+
+**Offen:** nichts
+**Nicht geprüft:** ob die vier Zahlen aus `docs/AGENTEN-NETZ.md` §5 je erreicht werden — sie sind definiert, nicht gemessen; ob Stufe 2 und 3 gewollt sind (Fernandos Entscheidung); der Kreislauf ist bisher einmal durchlaufen (PR #325), nicht mit mehreren Bereichs-Agenten zugleich.
 
 
 ### 2026-11-11 (je) - v33.59: Was von anderen kommt, bleibt Text — und der Server prüft selbst nach
@@ -16282,11 +16374,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.62` (Client) · SW-Cache `gs-v33.62` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
-- **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
+- **Version:** `v33.63` (Client) · SW-Cache `gs-v33.63` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
 - **Frontend:** `index.html` **98'409 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **45** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 45** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (je). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **46** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 46** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (je). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -16306,7 +16398,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Migration `20260831_kosten_und_cron_wachhund_v30_95.sql`** | **Stand in keiner Liste offener Migrationen**, obwohl live nicht angewandt (gemessen 10.11.2026). Seit v33.59 mit Wächter: eingespielt nach `20261110_sicherheit_funktionen.sql` lässt sie deren `fn_log_ai_usage` stehen (vorher hätte sie die Sperre still zurückgedreht). `rls_check` `70_reihenfolge`, beide Reihenfolgen. | §30 · (je) |
 | **NVIDIA-Schlüssel beim Anbieter widerrufen** (`nvapi-Pr2M…usrB`) | Er steht in der git-Historie dieses öffentlichen Repos; entfernt ist er nur aus dem Stand. Ob er widerrufen wurde, ist nirgends belegt — die Historie umzuschreiben ersetzt den Widerruf nicht. | §30 · (je) |
 | ~~Vier ältere Migrationen~~ | **Erledigt — am 10.11.2026 21:15–21:18 UTC angewandt** (von der Sitzung der v33.57, nachgemessen 11.11.2026 in `schema_migrations`): `20260907_global_api_key_nur_proxy` · `20260831_rollen_leak_fix_v30_95` · `v31_36_mkt_views_auth_guard` · `20260924_admin_grants`. Damit sind auch die zwei „toten Admin-Knöpfe" aus v33.50 frei (`fn_assign_role`, `fn_set_global_api_key` für `authenticated` ausführbar; beide prüfen die Rolle selbst). | (jb), (je) |
-| **Zahlungsweg zweimal neu geschrieben — beim zweiten Merge zusammenführen** | Dieser Branch: `_shared/zahlung_regeln.mjs` + `edge_check` 10_stripe (seit der Gesamtprüfung mit `kontoFehlt` und einer Attrappe, die Fremdschlüssel kennt — beim Zusammenführen mitnehmen); `claude/zahlungsweg-nachgemessen-011L7G`: `stripe_regeln.mjs` + `stripe_check` (52 Fälle). Jede Fassung hat, was der anderen fehlt — dort u. a. kein zweites Abo neben einem laufenden oder neben Lifetime, `checkout.session.async_payment_succeeded`, eine gemerkte Kunden-Id, die Stripe nicht kennt (hier nachgezählt: 0 Treffer). Wer als Zweiter auf `main` kommt, führt zu EINEM Modul zusammen; beide Prüfstände müssen danach grün sein. Ob `stripe-checkout`, `stripe-webhook` und `stripe-portal` vorher ausgeliefert werden: Release-Zug und Fernando. | Befund `2026-11-11-4e38` (auf jenem Branch) · (je) |
+| **Stripe-Modus prüfen (Schritt 0), dann den vereinten Zahlungsweg ausliefern** | Seit v33.63 gibt es EINE Fassung (`_shared/zahlung_regeln.mjs`; `stripe_check` 51 Fälle und `edge_check` grün). `stripe-checkout`, `-portal`, `-webhook` und `-admin-extend-webhook` tragen in `AUSLIEFERUNG.json` die Bedingung „erst nach der Modus-Prüfung durch Fernando“: ob Schlüssel, Preise und Webhook-Endpunkt im Live- oder im Testmodus sind, sieht nur das Stripe-Dashboard. Live läuft weiter `stripe-checkout` v8 mit `automatic_payment_methods` — sehr wahrscheinlich scheitert dort jeder Kauf (gefolgert, nicht gemessen). | FUER-FERNANDO §30i · (jk) · Befund `2026-11-11-4e38` |
 | **Lifetime-Kauf für ein gelöschtes Konto** | `stripe-webhook` schliesst Abo- und Rechnungsereignisse eines gelöschten Kontos seit der Gesamtprüfung mit 200 ab (`kontoFehlt`); ein Lifetime-Kauf ohne Konto bleibt bewusst 500 — Geld ohne Gegenwert, von Hand erstatten. So lassen oder abschliessen und dem Admin melden? | brett:2026-11-16-adb3 · (je) |
 | **Budget von `plan-iterate`** | 8000 Ausgabe-Token gegen 10000/14000 beim Erzeuger; ein grösserer Plan wird bei jeder Iteration abgeschnitten (die App sagt es seit der Gesamtprüfung ehrlich). Erst nur lesend die Plangrössen und das Tempo eines echten Aufrufs messen. | brett:2026-11-16-cfcd · (je) |
 | **Drei Branches tragen v33.59 — die Reihenfolge steht auf dem Brett** | Die Sicherheitsreparatur (`ccr-5e705a36-jveaak`, PR #327), PR #324 (`claude/restore-banner-nur-bei-bedarf`) und `ccr-dce5a17c-2xzhvi` tragen dieselbe Nummer. Die Antwort `2026-11-11-1d9f` (Sitzung `claude/leitstand-kw46`, liegt nur auf deren Branch) nennt als Fernandos Entscheidung: die Sicherheitsreparatur zuerst (behält v33.59), danach #324 als v33.60, dann `ccr-dce5a17c-2xzhvi` als v33.61 — und dass jene Sitzung den Merge und die Schritte aus §30b übernimmt. **Diese Sitzung hat das nur gelesen, nicht von Fernando gehört:** sie mergt nicht und wendet nichts an. Den PR für diesen Branch hat jene Sitzung angelegt (#327, 11.11.2026 14:42 UTC); was hier danach gepusht wird, nimmt er mit. Die Reihe nennt dort inzwischen fünf Plätze (v33.59 #327 · v33.60 #324 · v33.61 `ccr-dce5a17c-2xzhvi` · v33.62 #326 · v33.63 `claude/scan-fotos-signiert`), und `claude/zahlungsweg-nachgemessen-011L7G` trägt ebenfalls schon v33.60 (Frage `2026-11-11-23d2` auf jenem Branch). Ein Merge von `ccr-dce5a17c-2xzhvi` bricht ohne Nacharbeit das Lockfile (brett:2026-11-11-7a6c). Im Text kollidiert mit #324 nur der Kopf von `GS_RELEASES`. Dringlichkeit: der Branch der Reparatur beschreibt Lücken, die live offen sind, bis er gemergt und angewandt ist. | brett:2026-11-11-699a · (je) |
