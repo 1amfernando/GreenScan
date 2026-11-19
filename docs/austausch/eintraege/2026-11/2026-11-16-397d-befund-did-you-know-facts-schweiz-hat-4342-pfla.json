@@ -1,0 +1,21 @@
+{
+  "id": "2026-11-16-397d",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "09:31:45",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "did_you_know_facts: „Schweiz hat 4342 Pflanzenarten“ ist die alte Eintragszahl der App, keine Zahl über die Schweizer Flora",
+  "beleg": [
+    "Live nur lesend nachgelesen am 16.11.2026: did_you_know_facts, aktiv, kw = 1, Kategorie oekologie, Titel „Schweiz hat 4342 Pflanzenarten“, Text „Davon 663 gefährdet (Rote Liste). 30 % aller Arten leben in den Alpen. …“.",
+    "4'342 war die Zahl der Einträge in data/plants.v1.js bis v32.94 (CLAUDE.md §7.1: „an sieben Stellen stand 4'342 Arten“); heute sind es 4'337 Einträge aus 3'136 Arten, und die App zählt auch Pilze, Moose, Flechten und Algen — nutzersicht_check E9 hält „Arten“ und „Einträge“ in der App auseinander, die Datenbanktexte sieht er nicht.",
+    "Bis zum Commit mit diesem Eintrag stand der Fakt unter den ersten 30 nach id und erschien in JEDER Woche in „Wusstest du?“; seither nur in Kalenderwoche 1 (der Wochenfilter gilt jetzt, scan_check HF1)."
+  ],
+  "vorschlag": "Die Zeile in der Datenbank berichtigen oder abschalten (is_active = false) — das ist eine Datenänderung und damit Fernandos Handgriff; die Zahl „663 gefährdet“ und „30 % in den Alpen“ dabei an einer Quelle prüfen (Info Flora, Rote Liste). Von hier aus wird nichts geschrieben.",
+  "stichworte": [
+    "inhalt",
+    "wusstest-du",
+    "zahl-und-wort",
+    "datenbank"
+  ]
+}
