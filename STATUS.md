@@ -12,6 +12,62 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-19 (jo) - v33.6x (Nummer folgt am Kopf der Reihe): Scanner 4 — einen laufenden Scan abbrechen; ein neuer ersetzt den alten; keine erfundenen Meldungen über der Kamera
+
+**Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"; Arbeitsliste
+`docs/HAUPTFUNKTIONEN.md`, Scanner 4). Gebaut auf main v33.64 (`eaf9ee1`). `v33.6x` ist ein Platzhalter —
+die Nummer vergibt die Head-Sitzung am Kopf der Merge-Reihe (laut Koordinator als nächste frei: v33.67).
+
+**Gemessen** (lokal, `analyzeImage` mit gestellter, langsamer KI, Stand v33.64):
+
+- **Kein Weg hinaus.** Solange die KI rechnet (60 s Zeitlimit, eine Wiederholung, bis zu vier Modelle), waren
+  auf der Wartefläche nur Glocke und Hauptmenü antippbar. Der Zurück-Knopf (`gsZurueck` → `tab`) führte zur
+  Startseite, der Scan lief weiter: seine Antwort wurde in den verborgenen Scanner gezeichnet und in Verlauf
+  und Cloud gespeichert.
+- **Zwei Scans in einer Wartefläche.** Ein zweiter Scan über einen laufenden: beide Sekundenzähler schrieben in
+  dieselbe Zeile (aufgezeichnet: „0 s · 5 s · 1 s · 6 s · 2 s"), die spätere Antwort des ersten legte sich über
+  das Ergebnis des zweiten („Antwort nach 7 s" über „Antwort nach 2 s"), und beide kamen in den Verlauf.
+- **Erfundene Meldungen über der Kamera.** Der Auslöser startete `gsStartScanStatus`: fünf Meldungen
+  („🔍 Analysiere Struktur…" bis „🍃 Fast fertig…"), alle 0,9 s die nächste, gestoppt nur von einem
+  erfolgreichen Ergebnis. Während des Scans lagen sie unter der Wartefläche; nach einem Fehler und „zurück zur
+  Kamera" wechselten sie endlos über dem Sucher (sechs Wechsel in 5,4 s, während nichts geschah) — dieselben
+  erfundenen Schritte, die v31.79 aus der Wartefläche genommen hat.
+
+**Behoben:**
+
+- **„Abbrechen"** auf der Wartefläche (`gsScanAbbrechen`, `.gs-scan-abbruch`: 44 px, unten klebend — auf
+  320×568 stand er sonst unter dem Bildrand; Text aus `btn_cancel_generic`): zurück zur Kamera
+  (`gsResetScanner`), Zähler, Animation und Scan-Linie stehen; der Satz danach sagt, ob das Foto schon zur KI
+  unterwegs war („dieser Versuch kann für heute zählen") oder nichts geschickt wurde. Abgebrochen wird die
+  FOLGE, nicht der Aufruf — `callVisionAI` kennt kein Abbruchsignal (Brett-Idee 8186; `callAI` /
+  `callVisionAI` bleiben unangetastet, Absprache mit der Sitzung „KI-Modelle").
+- **Eine Nummer je Scan** (`_gsScanNr`; `_gilt()` nach jedem `await` in `analyzeImage` — Schlüssel nachladen,
+  Bildqualität, Farben, KI-Antwort, Fehler): eine Antwort zählt nur, solange ihr Scan der laufende ist und
+  dieselbe Person angemeldet ist (§3.6). Ein neuer Scan löst den laufenden ab (`_gsScanLaufLoesen`: dessen
+  Zähler und Animation stehen). Abgebrochen vor der KI: sie wird nicht gefragt, die Kamera bleibt an.
+- **`gsStartScanStatus` und die fünf Meldungen sind weg**; den Statusbalken setzt `analyzeImage` selbst.
+- **Bewusst nicht geändert:** der Zurück-Knopf während eines Scans — wer weggeht, findet das Ergebnis beim
+  Zurückkommen; wer abbrechen will, tippt „Abbrechen".
+- **Doku:** CLAUDE.md §3.6 und `docs/memory/02-regeln.md` 5b (eine Antwort gehört auch dem VORGANG, für den
+  gefragt wurde); `docs/HAUPTFUNKTIONEN.md` — Scanner 4 ✅, ein Stand, was in den vier Funktionen noch offen
+  ist, und bei der Suche die Haken an 2, 3, 4, 6, 7 und 9 (der Kopf nannte sie seit v33.61 als geliefert, die
+  Punkte selbst trugen keinen).
+
+**Prüfstände:** `scan_check` AB1–AB4 — Knopf frei und ≥ 44 px, späte Antwort weder gezeichnet noch gespeichert,
+später Fehler ohne Karte, abgebrochen vor der KI ohne Anfrage und mit laufender Kamera, ein Zähler je
+Wartefläche in beiden Reihenfolgen der Antworten, über den echten Auslöser keine erfundene Meldung. Gegen main
+alle vier rot, mit genau den gemessenen Zahlen. Gegenproben je Schutzzeile, jede am richtigen Fall rot: ohne
+Prüfung nach der Farbmessung AB2 („die KI wurde nach dem Abbrechen noch gefragt · die Kamera wurde
+ausgeschaltet" — und AB3, weil der Zähler des abgebrochenen Scans im nächsten weiterschreibt); ohne Prüfung im
+`catch` AB1 („ein Fehler NACH dem Abbrechen legt die Fehlerkarte über die Kamera"); ohne Prüfung nach der
+KI-Antwort AB1, AB3, AB4; ohne Ablösen des laufenden Scans AB3 („0 · 2 · 1 · 3 · 2 s"); ohne das Abschalten der
+Scan-Linie AB4. **Der erste Bau von AB2 hing** gegen die kaputte Fassung, statt rot zu melden: er wartete auf
+einen Scan, der nie endet. Jedes Warten auf einen Scan hat jetzt eine Frist (`fertig`, 3 s) — ein Fall muss auch
+dann melden, wenn die Funktion dahinter hängt.
+
+**Offen:** brett:2026-11-16-8186 — ein echtes Abbruchsignal in `callAI` / `callVisionAI` (Sitzung „KI-Modelle"); dann spart „Abbrechen" auch das Kontingent, der Knopf bleibt derselbe. Versionsnummer `v33.6x` am Kopf der Reihe.
+**Nicht geprüft:** ein echtes Telefon; ob eine abgebrochene Anfrage beim Anbieter tatsächlich zählt (von hier antwortet kein KI-Dienst — der Satz sagt deshalb „kann zählen"); der Pilz-Scanner (eigener Weg, `gsMushroomRunScan`) hat weiter kein Abbrechen
+
 ### 2026-11-19 (jl) - v33.64: Pilz-Scanner — die KI kannte 19 Giftpilze nicht, und ein tödlicher Pilz ohne Farbangabe stand als „Vorsicht" da
 
 **Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"). Anlass: Brett

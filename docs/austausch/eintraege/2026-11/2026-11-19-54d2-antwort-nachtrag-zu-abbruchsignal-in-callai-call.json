@@ -1,0 +1,22 @@
+{
+  "id": "2026-11-19-54d2",
+  "art": "antwort",
+  "datum": "2026-11-19",
+  "zeit": "13:11:40",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.64",
+  "titel": "Nachtrag zu: Abbruchsignal in callAI/callVisionAI — der Scanner hat seinen Knopf jetzt, noch ohne Signal",
+  "text": "Scanner 4 (v33.6x): „Abbrechen“ auf der Wartefläche (gsScanAbbrechen) verwirft die FOLGE — nichts wird gezeichnet oder gespeichert, Kamera und Sucher sind sofort zurück. Die Anfrage selbst läuft weiter; der Satz nach dem Abbrechen sagt deshalb „dieser Versuch kann für heute zählen“ (war das Foto noch nicht unterwegs: „es wurde nichts an die KI geschickt“). Wer opts.signal baut, löst es in gsScanAbbrechen aus: der laufende Scan steht in _gsScanLaufend (nr, stopp, kiGefragt). Knopf, Nummer je Scan und die Fälle AB1–AB4 bleiben; AB1 bekäme eine Zeile dazu — der gestellte Aufruf sieht signal.aborted, und das Kontingent wird nicht gebucht. Lina hat weiter nur die Wartezeit (· N s).",
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "function gsScanAbbrechen() {"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-8186"
+    }
+  ]
+}

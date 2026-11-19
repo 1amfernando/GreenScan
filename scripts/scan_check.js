@@ -4222,6 +4222,263 @@ const FAELLE = [
       return { ok: true, info: '429 → „Zu viele Pilz-Scans …" · 401 → Sitzung · Satz des KI-Tors bleibt · 502 ohne JSON → Satz · abgemeldet: nichts gezeichnet · Gegenprobe: angemeldet gezeichnet' };
     },
   },
+
+  // ── Hauptfunktionen · Scanner 4 (19.11.2026): einen laufenden Scan abbrechen. Gemessen auf v33.64: auf der
+  // Wartefläche waren nur Glocke und Hauptmenü antippbar; ein zweiter Scan bekam den Zähler und die spätere
+  // Antwort des ersten; nach einem Fehler liefen über der Kamera fünf erfundene Meldungen. Abgebrochen wird
+  // die FOLGE, nicht der Aufruf (callVisionAI kennt kein Abbruchsignal) — gemessen wird deshalb, was danach
+  // gezeichnet und gespeichert wird.
+  {
+    name: 'AB1 · Abbrechen, während die KI rechnet: der Knopf ist da und frei, zurück zur Kamera — die späte Antwort wird weder gezeigt noch gespeichert, ein später Fehler legt keine Karte über die Kamera',
+    lauf: async () => {
+      if (typeof analyzeImage !== 'function') return { ok: false, warum: 'analyzeImage fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const bis = async (pr) => { for (let i = 0; i < 80; i++) { if (pr()) return true; await warte(50); } return false; };
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);   // ein haengender Scan meldet sich als Befund, nicht als Haenger
+      const f = [], toasts = [];
+      const e = { ai: window.callVisionAI, pc: window.gsScanPersistToCloud, qo: window.gsQueueOffline, cfg: window.getApiConfig,
+        cam: window.stopCamera, init: window.initScanner, hi: window.gsAddToScanHistory, to: window.gsToast };
+      let gespeichert = 0, verlauf = 0, kiGefragt = 0, loese = null, wirf = null;
+      const sr = () => document.getElementById('scan-result');
+      const offen = () => !!(sr() && sr().style.display !== 'none');
+      const bild = () => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+        g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160); g.fillStyle = '#3f9142'; g.beginPath(); g.ellipse(80, 74, 50, 30, -0.5, 0, Math.PI * 2); g.fill();
+        return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
+      const antwort = (n) => JSON.stringify({ name: n, latin: 'Bellis perennis', confidence: 91, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      try {
+        window.getApiConfig = () => ({ key: 'k' });
+        window.stopCamera = () => {}; window.initScanner = () => {};
+        window.gsAddToScanHistory = () => { verlauf++; };
+        window.gsScanPersistToCloud = () => { gespeichert++; return Promise.resolve(true); };
+        window.gsQueueOffline = async () => { gespeichert++; };
+        window.gsToast = (m) => { toasts.push(String(m)); };
+        window.callVisionAI = () => { kiGefragt++; return new Promise((res, rej) => { loese = res; wirf = rej; }); };
+        if (typeof switchTab === 'function') switchTab('scanner');
+        await warte(300);
+        // 1 · Abbrechen, während die KI rechnet
+        const lauf = analyzeImage(bild(), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => kiGefragt === 1))) return { ok: false, warum: 'die KI wurde nie gefragt — der Fall misst nichts' };
+        await warte(450);   // die Eintritts-Animation der Wartefläche (v32.32): erst danach vermessen
+        const k = sr() && sr().querySelector('.gs-scan-abbruch');
+        if (!k) return { ok: false, warum: 'auf der Wartefläche gibt es keinen Knopf „Abbrechen" (antippbar sind nur Glocke und Hauptmenü)' };
+        const r = k.getBoundingClientRect();
+        const oben = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        if (!(oben === k || k.contains(oben))) f.push('der Knopf ist verdeckt (oben liegt ' + (oben ? (oben.id || oben.className || oben.tagName) : 'nichts') + ')');
+        if (r.height < 44) f.push('der Knopf ist nur ' + Math.round(r.height) + ' px hoch');
+        if (!/Abbrechen/.test(k.textContent)) f.push('der Knopf sagt „' + k.textContent.trim() + '"');
+        k.click();
+        await warte(100);
+        if (offen()) f.push('nach dem Abbrechen steht die Wartefläche noch da');
+        if (!toasts.some((t) => /zur KI unterwegs/.test(t))) f.push('kein Satz, dass das Foto schon unterwegs war und zählen kann (Meldungen: ' + JSON.stringify(toasts) + ')');
+        loese(antwort('SPAET-ABGEBROCHEN')); await fertig(lauf); await warte(200);
+        if (sr() && /SPAET-ABGEBROCHEN/.test(sr().innerHTML)) f.push('die späte Antwort wird nach dem Abbrechen gezeichnet');
+        if (offen()) f.push('die späte Antwort öffnet das Ergebnis wieder über der Kamera');
+        if (_lastScanResult && _lastScanResult.name === 'SPAET-ABGEBROCHEN') f.push('die späte Antwort steht als letztes Ergebnis da');
+        if (verlauf) f.push('die späte Antwort steht im Verlauf (' + verlauf + '×)');
+        if (gespeichert) f.push('die späte Antwort wird gespeichert (' + gespeichert + '×)');
+        // 2 · Abbrechen, und die KI scheitert danach: keine Fehlerkarte über der Kamera
+        const lauf2 = analyzeImage(bild(), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => kiGefragt === 2))) return { ok: false, warum: 'der zweite Scan hat die KI nie gefragt' + (f.length ? ' · ' + f.join(' · ') : '') };
+        const k2 = sr() && sr().querySelector('.gs-scan-abbruch');
+        if (!k2) return { ok: false, warum: 'beim zweiten Scan fehlt der Knopf' };
+        k2.click(); await warte(50);
+        wirf(new Error('Zeitüberschreitung')); await fertig(lauf2); await warte(200);
+        if (offen() || /fehlgeschlagen/.test((sr() && sr().innerText) || '')) f.push('ein Fehler NACH dem Abbrechen legt die Fehlerkarte über die Kamera');
+        // 3 · Gegenprobe: ohne Abbrechen wird gezeichnet und gespeichert — sonst misst der Fall nur stille Attrappen
+        const lauf3 = analyzeImage(bild(), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => kiGefragt === 3))) return { ok: false, warum: 'der dritte Scan hat die KI nie gefragt' };
+        loese(antwort('OHNE-ABBRUCH')); await fertig(lauf3); await warte(200);
+        if (!(sr() && /OHNE-ABBRUCH/.test(sr().innerHTML))) f.push('Gegenprobe: ohne Abbrechen wird das Ergebnis nicht gezeichnet — der Fall misst nichts');
+        if (!verlauf) f.push('Gegenprobe: ohne Abbrechen kommt nichts in den Verlauf');
+      } finally {
+        window.callVisionAI = e.ai; window.gsScanPersistToCloud = e.pc; window.gsQueueOffline = e.qo; window.getApiConfig = e.cfg;
+        window.stopCamera = e.cam; window.initScanner = e.init; window.gsAddToScanHistory = e.hi; window.gsToast = e.to;
+        const s = sr(); if (s) { s.style.display = 'none'; s.innerHTML = ''; }
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Knopf frei, ≥ 44 px · zurück zur Kamera · Satz „schon unterwegs" · späte Antwort: nicht gezeichnet, nicht im Verlauf, nicht gespeichert · später Fehler: keine Karte · Gegenprobe ohne Abbrechen: gezeichnet und im Verlauf' };
+    },
+  },
+  {
+    name: 'AB2 · Abbrechen, bevor die KI gefragt wurde: sie wird nicht mehr gefragt, die Kamera bleibt an, und der Satz sagt, dass nichts unterwegs war',
+    lauf: async () => {
+      if (typeof analyzeImage !== 'function') return { ok: false, warum: 'analyzeImage fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const bis = async (pr) => { for (let i = 0; i < 80; i++) { if (pr()) return true; await warte(50); } return false; };
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);   // ein haengender Scan meldet sich als Befund, nicht als Haenger
+      const f = [], toasts = [];
+      const e = { ai: window.callVisionAI, cfg: window.getApiConfig, cam: window.stopCamera, init: window.initScanner, fa: window.gsBildFarbenVonB64, to: window.gsToast };
+      let kiGefragt = 0, kameraAus = 0, farben = null;
+      const sr = () => document.getElementById('scan-result');
+      const bild = () => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+        g.fillStyle = '#3f9142'; g.fillRect(0, 0, 160, 160); return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
+      try {
+        window.getApiConfig = () => ({ key: 'k' });
+        window.initScanner = () => {};
+        window.stopCamera = () => { kameraAus++; };
+        window.gsToast = (m) => { toasts.push(String(m)); };
+        // Die Farbmessung hält den Scan VOR der KI an — genau dort wird abgebrochen.
+        window.gsBildFarbenVonB64 = () => new Promise((res) => { farben = res; });
+        window.callVisionAI = () => { kiGefragt++; return new Promise(() => {}); };
+        if (typeof switchTab === 'function') switchTab('scanner');
+        await warte(200);
+        const lauf = analyzeImage(bild(), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => !!farben))) return { ok: false, warum: 'die Farbmessung lief nie — der Fall stellt den Zustand vor der KI nicht her' };
+        const k = sr() && sr().querySelector('.gs-scan-abbruch');
+        if (!k) return { ok: false, warum: 'auf der Wartefläche gibt es keinen Knopf „Abbrechen"' };
+        k.click(); await warte(50);
+        farben({ messbar: false, liste: [] }); await fertig(lauf); await warte(100);
+        if (kiGefragt) f.push('die KI wurde nach dem Abbrechen noch gefragt (' + kiGefragt + '×)');
+        if (kameraAus) f.push('die Kamera wurde nach dem Abbrechen ausgeschaltet (' + kameraAus + '×)');
+        if (!toasts.some((t) => /nichts an die KI/.test(t))) f.push('kein Satz, dass nichts geschickt wurde (Meldungen: ' + JSON.stringify(toasts) + ')');
+        // Gegenprobe: ohne Abbrechen fragt derselbe Weg die KI und schaltet die Kamera aus
+        farben = null;
+        analyzeImage(bild(), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => !!farben))) return { ok: false, warum: 'Gegenprobe: die Farbmessung lief nie' };
+        farben({ messbar: false, liste: [] });
+        if (!(await bis(() => kiGefragt === 1))) f.push('Gegenprobe: ohne Abbrechen wird die KI nicht gefragt — der Fall misst nichts');
+        if (!kameraAus) f.push('Gegenprobe: ohne Abbrechen bleibt die Kamera an');
+        const k2 = sr() && sr().querySelector('.gs-scan-abbruch');   // die Gegenprobe wartet ewig — aufräumen
+        if (k2) k2.click();
+      } finally {
+        window.callVisionAI = e.ai; window.getApiConfig = e.cfg; window.stopCamera = e.cam; window.initScanner = e.init;
+        window.gsBildFarbenVonB64 = e.fa; window.gsToast = e.to;
+        const s = sr(); if (s) { s.style.display = 'none'; s.innerHTML = ''; }
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'abgebrochen vor der KI: 0 Anfragen, Kamera bleibt an, Satz „nichts geschickt" · Gegenprobe: ohne Abbrechen 1 Anfrage, Kamera aus' };
+    },
+  },
+  {
+    name: 'AB3 · Ein neuer Scan ersetzt den laufenden: nur sein Zähler läuft, nur seine Antwort steht da und im Verlauf — in beiden Reihenfolgen der Antworten',
+    lauf: async () => {
+      if (typeof analyzeImage !== 'function') return { ok: false, warum: 'analyzeImage fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const bis = async (pr) => { for (let i = 0; i < 80; i++) { if (pr()) return true; await warte(50); } return false; };
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);   // ein haengender Scan meldet sich als Befund, nicht als Haenger
+      const f = [], verlauf = [], loeser = [], ki = [];
+      const e = { ai: window.callVisionAI, pc: window.gsScanPersistToCloud, cfg: window.getApiConfig, cam: window.stopCamera, init: window.initScanner,
+        hi: window.gsAddToScanHistory, sch: window.gsSchritt };
+      const sr = () => document.getElementById('scan-result');
+      const bild = (farbe) => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+        g.fillStyle = farbe; g.fillRect(0, 0, 160, 160); g.fillStyle = '#1d5c22'; g.fillRect(40, 40, 80, 60); return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
+      const antwort = (n, l) => JSON.stringify({ name: n, latin: l, confidence: 91, edible: false, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      try {
+        window.getApiConfig = () => ({ key: 'k' });
+        window.stopCamera = () => {}; window.initScanner = () => {};
+        window.gsScanPersistToCloud = () => Promise.resolve(true);
+        window.gsAddToScanHistory = (r) => { verlauf.push(r && r.name); };
+        window.callVisionAI = () => new Promise((res) => { loeser.push(res); });
+        // jede Zeile, die in den KI-Schritt der Wartefläche geschrieben wird
+        window.gsSchritt = function (id, z, erg) { if (id === 'ki') ki.push(String(erg)); return e.sch.apply(this, arguments); };
+        if (typeof switchTab === 'function') switchTab('scanner');
+        await warte(200);
+        // Reihenfolge 1 · A rechnet, B ersetzt A; B antwortet zuerst, dann A
+        const a = analyzeImage(bild('#3f9142'), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => loeser.length === 1))) return { ok: false, warum: 'Scan A hat die KI nie gefragt' };
+        await warte(1300);                              // A's Zähler hat geschrieben („1 s")
+        const b = analyzeImage(bild('#8d6e63'), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => loeser.length === 2))) return { ok: false, warum: 'Scan B hat die KI nie gefragt' };
+        const ab = ki.lastIndexOf('0 s');
+        await warte(2300);                              // B schreibt „1 s", „2 s" — ein zweiter Zähler schriebe dazwischen
+        const zahlen = ki.slice(ab).filter((x) => /^\d+ s$/.test(x)).map((x) => parseInt(x, 10));
+        for (let i = 1; i < zahlen.length; i++) if (zahlen[i] < zahlen[i - 1]) { f.push('zwei Zähler schreiben in dieselbe Wartefläche: ' + zahlen.join(' · ') + ' s'); break; }
+        if (zahlen.length < 2) f.push('der Zähler des neuen Scans läuft nicht (' + JSON.stringify(ki.slice(ab)) + ')');
+        loeser[1](antwort('ERSATZ-B', 'Bellis perennis')); await fertig(b); await warte(200);
+        loeser[0](antwort('ALT-A', 'Taraxacum officinale')); await fertig(a); await warte(200);
+        if (!/ERSATZ-B/.test(sr().innerHTML)) f.push('das Ergebnis des neuen Scans steht nicht da');
+        if (/ALT-A/.test(sr().innerHTML)) f.push('die spätere Antwort des ersetzten Scans legt sich über das neuere Ergebnis');
+        const antworten = ki.filter((x) => /^Antwort nach/.test(x));
+        if (antworten.length !== 1) f.push('„Antwort nach …" steht ' + antworten.length + '× in der Wartefläche: ' + antworten.join(' · '));
+        // Reihenfolge 2 · A rechnet, B ersetzt A; A antwortet zuerst — B rechnet weiter, dann B
+        const a2 = analyzeImage(bild('#3f9142'), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => loeser.length === 3))) return { ok: false, warum: 'Scan A2 hat die KI nie gefragt' + (f.length ? ' · ' + f.join(' · ') : '') };
+        const b2 = analyzeImage(bild('#8d6e63'), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => loeser.length === 4))) return { ok: false, warum: 'Scan B2 hat die KI nie gefragt' };
+        loeser[2](antwort('ALT-A2', 'Taraxacum officinale')); await fertig(a2); await warte(200);
+        if (/ALT-A2/.test(sr().innerHTML)) f.push('die Antwort des ersetzten Scans wird gezeichnet, während der neue noch rechnet');
+        if (!sr().querySelector('#schritt-ki')) f.push('die Wartefläche des neuen Scans ist weg, obwohl er noch rechnet');
+        loeser[3](antwort('ERSATZ-B2', 'Bellis perennis')); await fertig(b2); await warte(200);
+        if (!/ERSATZ-B2/.test(sr().innerHTML)) f.push('das Ergebnis des neuen Scans fehlt, nachdem der ersetzte zuerst antwortete');
+        const alt = verlauf.filter((n) => /^ALT-/.test(n));
+        if (alt.length) f.push('der ersetzte Scan steht im Verlauf: ' + alt.join(', '));
+        if (!verlauf.includes('ERSATZ-B') || !verlauf.includes('ERSATZ-B2')) f.push('Gegenprobe: der neue Scan fehlt im Verlauf (' + verlauf.join(', ') + ') — der Fall misst nichts');
+      } finally {
+        window.callVisionAI = e.ai; window.gsScanPersistToCloud = e.pc; window.getApiConfig = e.cfg; window.stopCamera = e.cam; window.initScanner = e.init;
+        window.gsAddToScanHistory = e.hi; window.gsSchritt = e.sch;
+        const s = sr(); if (s) { s.style.display = 'none'; s.innerHTML = ''; }
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'ein Zähler je Wartefläche · B vor A: B steht da · A vor B: A nicht gezeichnet, B rechnet weiter und steht da · Verlauf nur B' };
+    },
+  },
+  {
+    name: 'AB4 · Über den Auslöser: nach einem Fehler und nach dem Abbrechen wechseln über der Kamera keine erfundenen Meldungen („Prüfe Merkmale…"), und die Scan-Linie steht still',
+    lauf: async () => {
+      if (typeof shutterAndScan !== 'function' || typeof gsResetScanner !== 'function') return { ok: false, warum: 'shutterAndScan oder gsResetScanner fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const bis = async (pr) => { for (let i = 0; i < 80; i++) { if (pr()) return true; await warte(50); } return false; };
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);   // ein haengender Scan meldet sich als Befund, nicht als Haenger
+      const f = [];
+      const e = { ai: window.callVisionAI, cfg: window.getApiConfig, cam: window.stopCamera, init: window.initScanner, wv: window._gsWaitForVideoReady,
+        gf: window._gsGrabFrame, qc: window.gsScannerQualityCheck, pc: window.gsScanPersistToCloud, hi: window.gsAddToScanHistory, ms: window._gsMultiShots,
+        zs: window.gsQualitaetZuSchlecht };
+      const video = document.getElementById('video');
+      let kiGefragt = 0, loese = null, wirf = null;
+      const sr = () => document.getElementById('scan-result');
+      const MELDUNG = /Analysiere Struktur|Vergleiche mit Datenbank|Prüfe Merkmale|Berechne Konfidenz|Fast fertig/;
+      const status = () => ((document.getElementById('scan-status') || {}).textContent || '').trim();
+      const bild = () => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+        g.fillStyle = '#3f9142'; g.fillRect(0, 0, 160, 160); return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
+      try {
+        if (!video || !document.getElementById('scan-status')) return { ok: false, warum: 'Video oder Statusbalken fehlt' };
+        // ein Sucher, der läuft: srcObject wahr, ohne echten Stream (wie kamera_check)
+        Object.defineProperty(video, 'srcObject', { configurable: true, get: () => ({ attrappe: true }), set: () => {} });
+        window._gsWaitForVideoReady = async () => true;
+        window._gsGrabFrame = () => bild();
+        window.gsScannerQualityCheck = () => ({ ok: true, warnings: [], quality: 80 });
+        window.getApiConfig = () => ({ key: 'k' });
+        window.stopCamera = () => {}; window.initScanner = () => {};
+        window.gsScanPersistToCloud = () => Promise.resolve(true); window.gsAddToScanHistory = () => {};
+        window.callVisionAI = () => { kiGefragt++; return new Promise((res, rej) => { loese = res; wirf = rej; }); };
+        window._gsMultiShots = [];   // gesammelte Fotos lenken den Auslöser in die Sammlung statt in den Scan
+        window.gsQualitaetZuSchlecht = () => false;   // die Rückfrage bei unscharfen Fotos ist hier nicht die Frage
+        if (typeof switchTab === 'function') switchTab('scanner');
+        await warte(200);
+        // 1 · Auslösen, die KI scheitert, zurück zur Kamera
+        const lauf = shutterAndScan();
+        if (!(await bis(() => kiGefragt === 1))) return { ok: false, warum: 'der Auslöser hat die KI nie gefragt — der Fall misst nichts' };
+        wirf(new Error('Zeitüberschreitung')); await fertig(lauf); await warte(100);
+        if (!/fehlgeschlagen/.test((sr() && sr().innerText) || '')) return { ok: false, warum: 'die Fehlerkarte erscheint nicht — der Fall stellt den Fehler nicht her' };
+        gsResetScanner();
+        const s1 = []; for (let i = 0; i < 3; i++) { await warte(700); s1.push(status()); }
+        if (s1.some((t) => MELDUNG.test(t))) f.push('nach einem Fehler wechseln über der Kamera erfundene Meldungen: ' + s1.join(' → '));
+        // 2 · Auslösen, Abbrechen, während die KI rechnet
+        const lauf2 = shutterAndScan();
+        if (!(await bis(() => kiGefragt === 2))) return { ok: false, warum: 'der zweite Auslöser hat die KI nie gefragt' + (f.length ? ' · ' + f.join(' · ') : '') };
+        const k = sr() && sr().querySelector('.gs-scan-abbruch');
+        if (!k) f.push('auf der Wartefläche gibt es keinen Knopf „Abbrechen"');
+        else {
+          k.click(); await warte(50);
+          const wrap = document.querySelector('.scan-wrap');
+          if (wrap && wrap.classList.contains('scanning')) f.push('nach dem Abbrechen läuft die Scan-Linie weiter, als würde gescannt');
+          const s2 = []; for (let i = 0; i < 3; i++) { await warte(700); s2.push(status()); }
+          if (s2.some((t) => MELDUNG.test(t))) f.push('nach dem Abbrechen wechseln über der Kamera erfundene Meldungen: ' + s2.join(' → '));
+        }
+        loese(JSON.stringify({ name: 'NACH-ABBRUCH', latin: 'Bellis perennis', confidence: 90, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }));
+        await fertig(lauf2); await warte(150);
+        if (k && sr() && /NACH-ABBRUCH/.test(sr().innerHTML)) f.push('über den Auslöser wird die späte Antwort nach dem Abbrechen gezeichnet');
+      } finally {
+        try { delete video.srcObject; } catch (_) {}
+        window.callVisionAI = e.ai; window.getApiConfig = e.cfg; window.stopCamera = e.cam; window.initScanner = e.init; window._gsWaitForVideoReady = e.wv;
+        window._gsGrabFrame = e.gf; window.gsScannerQualityCheck = e.qc; window.gsScanPersistToCloud = e.pc; window.gsAddToScanHistory = e.hi;
+        window._gsMultiShots = e.ms; window.gsQualitaetZuSchlecht = e.zs;
+        const s = sr(); if (s) { s.style.display = 'none'; s.innerHTML = ''; }
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'nach Fehler und nach Abbrechen: keine erfundene Meldung in 2,1 s · Scan-Linie aus · späte Antwort über den Auslöser nicht gezeichnet' };
+    },
+  },
 ];
 
 (async () => {
