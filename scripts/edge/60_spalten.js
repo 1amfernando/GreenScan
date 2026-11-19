@@ -35,7 +35,6 @@ const BEKANNT = {
 // dieselbe Liste wie in 10_stripe (BEWUSST): beide Schreibvorgaenge laufen durch warne(), der
 // Fehler wird protokolliert und nichts haengt daran. Steht der Eintrag nicht mehr im Code → rot.
 const BEWUSST_SPALTEN = {
-  'stripe-webhook': { 'stripe_subscriptions.trial_will_end_notified_at': 'warne() — Markierung, an der nichts haengt', 'profiles.stripe_email': 'warne() — Abgleich der E-Mail, Spalte gibt es live nicht' },
 };
 const FILTER = new Set(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike', 'is', 'in', 'contains', 'containedBy', 'order', 'not']);
 const SCHREIB = new Set(['insert', 'update', 'upsert']);
@@ -348,6 +347,9 @@ function auslieferungPruefen(doc, verz, migr, ergebnis) {
     if (e.zustand === 'erst_nach' ? !(e.nach && migr.has(e.nach)) : e.nach !== undefined) rot.push(d + ': nach=' + JSON.stringify(e.nach) + (e.zustand === 'erst_nach' ? ' ist keine Migration im Repo' : ' nur bei erst_nach'));
     if (e.zustand === 'nicht' && e.live_version) rot.push(d + ': laeuft live (' + e.live_version + '), steht aber auf „nicht"');
     if (e.zustand === 'live' && !e.live_version) rot.push(d + ': „live" ohne live_version');
+    if (e.bedingung !== undefined && (typeof e.bedingung !== 'string' || e.bedingung.length < 20)) rot.push(d + ': bedingung ohne Satz');
+    // v33.63 (P-C2): der vereinte Zahlungsweg geht erst nach Fernandos Modus-Pruefung raus — die Datei sagt es.
+    if (['stripe-checkout', 'stripe-portal', 'stripe-webhook', 'stripe-admin-extend-webhook'].indexOf(d) >= 0 && e.zustand !== 'live' && !/Modus-Pruefung/.test(String(e.bedingung || ''))) rot.push(d + ': ohne die Bedingung „Modus-Pruefung durch Fernando"');
     if (e.zustand === 'nicht') continue;
     if (BEKANNT[d]) { rot.push(d + ': steht auf „' + e.zustand + '", ist aber bekannt kaputt (' + BEKANNT[d].split(' — ')[0] + ')'); continue; }
     const r = ergebnis[d];
