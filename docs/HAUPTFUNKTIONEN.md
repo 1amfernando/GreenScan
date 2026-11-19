@@ -16,6 +16,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
 | v33.61 (16.11.) | Suche 1–8, 10 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 7, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 8, 10 · Home 1, 1b, 2, 5, 6, 7 — Einzelheiten in STATUS (je) |
 | v33.64 (19.11.) | Scanner 11 — Pilz-Scanner: alle Register-Arten ans Modell (Server, braucht die Auslieferung), Schwelle wie am Server, rote Kopfzeile auch ohne Farbe, Kandidaten mit Namen und Warnung, Fehler als Satz, keine Antwort nach dem Abmelden |
+| v33.67 (19.11.) | Scanner 4 — „Abbrechen" auf der Wartefläche (die späte Antwort wird weder gezeigt noch gespeichert), ein neuer Scan ersetzt den laufenden (ein Zähler, eine Antwort), keine erfundenen Meldungen mehr über der Kamera |
 
 ## Offen — Scanner
 
@@ -26,8 +27,18 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    übernimmt `diagnostic_features` und `next_photo_hint`.
 3. ✅ v33.61 (Karte, Verlauf und Artvorschläge im Feld) — **Eine Korrektur ändert nichts Sichtbares.** `gsSubmitScanMistake` sendet nur; Ergebnis
    und Verlauf behalten den falschen Namen. Freitext ohne Artvorschlag.
-4. **Kein Abbrechen während des Scans.** Nur ein Sekundenzähler; `callVisionAI` hat 60 s
-   Timeout und eine Wiederholung.
+4. ✅ v33.67 (`scan_check` AB1–AB4) — **Kein Abbrechen während des Scans.** Nur ein Sekundenzähler; `callVisionAI` hat 60 s
+   Timeout und eine Wiederholung. Gemessen 19.11.: auf der Wartefläche waren nur Glocke und
+   Hauptmenü antippbar; der Zurück-Knopf führte zur Startseite, und die Antwort wurde trotzdem
+   gezeichnet und gespeichert. Dazu zwei Fehler derselben Form: ein zweiter Scan bekam den
+   Zähler des ersten in seine Wartefläche („0 · 5 · 1 · 6 · 2 s") und dessen spätere Antwort
+   über sein Ergebnis; und der Auslöser startete fünf erfundene Meldungen („🧬 Prüfe
+   Merkmale…"), die nach einem Fehler endlos über der Kamera wechselten. Jetzt: „Abbrechen"
+   führt zur Kamera, jeder Scan hat eine Nummer (`_gsScanNr`), nach jedem `await` gilt nur
+   der laufende; die erfundenen Meldungen sind weg. Abgebrochen wird die Folge, nicht der
+   Aufruf — ein echtes Signal in `callVisionAI` bleibt Brett-Idee 2026-11-16-8186 (der Satz
+   nach dem Abbrechen sagt, dass der Versuch zählen kann). Der Zurück-Knopf bleibt, was er
+   war: wer weggeht, findet das Ergebnis beim Zurückkommen.
 5. ✅ v33.61 — **Fehlermeldungen in Technikersprache** in `analyzeImage` (Rohantwort bei kaputtem JSON,
    `gsTestApiKey()`, Modellname; `errMsg` roh statt über `_gsFehlerText`). „In 60s retry"
    ohne Countdown.
@@ -88,19 +99,19 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 1. ✅ v33.61 (dazu: die Kategorie-Einträge im Menü warfen einen Fehler; das ✕ im Suchfeld nahm
    den Filter weg und liess den Knopf markiert) — **Filter und Suchtext schliessen sich aus.** `gsFilter` löscht `searchText`; es gibt nur
    `currentFilter` — „Pilz + giftig" geht nicht.
-2. **Tippfehler-Suche ist schwach** (`getFiltered`, `_gsLeven`): läuft nur bei 0 Treffern,
+2. ✅ v33.61 (SU1) — **Tippfehler-Suche ist schwach** (`getFiltered`, `_gsLeven`): läuft nur bei 0 Treffern,
    vergleicht den ganzen Namen (nicht die „/"-Teile, nicht das Binomen), bricht bei mehr als
    2 Zeichen Längenunterschied ab.
-3. **Synonyme nur bei exakter Eingabe** (`GS_SYNONYMS`, 20 Einträge).
-4. **Mehrere Wörter werden als ein Stück gesucht;** keine Mindestlänge.
+3. ✅ v33.61 (SU2) — **Synonyme nur bei exakter Eingabe** (`GS_SYNONYMS`, 20 Einträge).
+4. ✅ v33.61 — **Mehrere Wörter werden als ein Stück gesucht;** keine Mindestlänge.
 5. ✅ v33.61 (dazu: der Giftrand war auf Seite 2 einen Pixel breit) — **„Mehr laden" baut die Karte anders** als die erste Seite (`loadMoreList`: ohne
    Hervorhebung, eigener Rand-Stil) — doppelter Kartencode.
-6. **Hervorhebung ohne Umlaut-Faltung:** „barlauch" findet Bärlauch, markiert nichts.
-7. **Statuszeile zeigt den internen Filterschlüssel** („· geschuetzt"); der Leerzustand bietet
+6. ✅ v33.61 (SU3) — **Hervorhebung ohne Umlaut-Faltung:** „barlauch" findet Bärlauch, markiert nichts.
+7. ✅ v33.61 — **Statuszeile zeigt den internen Filterschlüssel** („· geschuetzt"); der Leerzustand bietet
    weder „Filter zurücksetzen" noch „Meintest du …".
 8. ✅ v33.61 (dazu: keine Giftangabe an den Arten; `scan_check` SU7) — **Menü-Suche** (`searchMenu`): je Tastendruck 51 × `DB.filter`, Ergebnis verworfen
    (`dbMatch`); der Artenteil ist eine zweite Suchlogik ohne Umlaute und Ranking.
-9. Tote Reste: `_origGetFiltered`, `_gsSearchDebounce`; `getFiltered` setzt nebenbei
+9. ✅ v33.61 (die toten Reste) — Tote Reste: `_origGetFiltered`, `_gsSearchDebounce`; `getFiltered` setzt nebenbei
    `_listPage = 1`.
 10. ✅ v33.61 (Rangfolge SU8; Umlaute SU3, Synonyme SU2, Tippfehler SU1, `loadMoreList` SU6, Menü SU7) — Kein Prüffall für Ranking, Umlaute, Synonyme, Tippfehler, `loadMoreList`.
 
@@ -168,3 +179,10 @@ Brett `c699`. Wer hier einen Fall baut, misst mit eigenem Massstab und realistis
 Scanner 1–3 und Lina 1–3 zuerst (jemand verliert Arbeit oder liest etwas Falsches), dann
 Suche 1–4, dann Home. Ausgeliefert wird einzeln: jede Auslieferung ändert `GS_VERSION`,
 `GS_RELEASES` und `sw.js`.
+
+**Stand 19.11.2026 (nach Scanner 4):** in den vier Funktionen ist nur noch offen, was nicht
+an dieser Sitzung hängt — Scanner 9 (der Abo-Zähler fürs Scannen, eine Entscheidung über
+Pläne und Zahlung: Brett 2e3a), der Pilz-Eintrag im Scan-Verlauf (Scanner 11, erst nach der
+Datenseite: Brett a24a) und Home 3 (der Fehler liegt im Wissen-Tab: Brett 4d79). Ein echtes
+Abbrechen der KI-Anfrage (statt ihre Folge zu verwerfen) braucht ein Signal in `callAI` /
+`callVisionAI` — Brett-Idee 8186, bei der Sitzung „KI-Modelle".

@@ -699,6 +699,14 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   `gsOnLogout` (Lina, letztes Scan-Ergebnis, Foto, Scan-Chat). Prüfstände:
   `sensor_check` L10, `scan_check` SC3 — beide mit Antwort VOR und NACH der Anmeldung
   der nächsten Person.
+  **Und sie gehört dem VORGANG, für den gefragt wurde** (v33.67, Scanner 4). Wer einen
+  laufenden Vorgang abbrechen lässt oder einen neuen über den alten startet, gibt jedem
+  eine Nummer und prüft sie nach jedem `await` (`analyzeImage`: `_gsScanNr`, `_gilt()`;
+  der Knopf `gsScanAbbrechen`). Vorher schrieben zwei Scans ihren Sekundenzähler in
+  dieselbe Wartefläche, und die spätere Antwort legte sich über die neuere. Abgebrochen
+  wird die FOLGE, nicht der Aufruf — `callVisionAI` kennt kein Abbruchsignal (Brett-Idee
+  `2026-11-16-8186`); die Anfrage läuft weiter und kann zählen, und der Satz nach dem
+  Abbrechen sagt das. `scan_check` AB1–AB4.
 
 ### 3.7 · revDSG (Schweizer Datenschutz)
 - Analytics ist **Opt-In** (Consent-Banner beim ersten Launch). Niemals

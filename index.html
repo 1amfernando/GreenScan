@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.66.20261119">
+<meta name="app-version" content="33.67.20261119">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -5852,6 +5852,15 @@ window._gsArtenFehlstart = function () {
 .gs-se-lu{bottom:8px;left:8px;border-right:none;border-top:none;border-radius:0 0 0 4px;}
 .gs-se-ru{bottom:8px;right:8px;border-left:none;border-top:none;border-radius:0 0 4px 0;}
 .gs-scanzahl{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);padding:3px 10px;border-radius:999px;background:rgba(0,0,0,.62);color:#fff;font-size:var(--fs-xs);font-weight:800;letter-spacing:.3px;}
+/* Hauptfunktionen · Scanner 4 — der Weg hinaus, solange die KI rechnet.
+   Zweitrangig neben dem, was gerade läuft, aber ganz da: 44 px hoch, Schrift
+   und Rand aus den Merkmalen, die in beiden Modi mitkippen. Und unten klebend:
+   auf 320×568 stand er bei 578 px, also unter dem Bildrand (gemessen). */
+.gs-scan-abbruch{margin:16px 0 4px;width:min(86vw,320px);min-height:44px;padding:10px 14px;border-radius:var(--r-md);
+  background:var(--card);color:var(--text2);border:1.5px solid var(--border);font-size:var(--fs-md);font-weight:800;
+  cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;
+  position:sticky;bottom:12px;z-index:1;box-shadow:var(--elev-2);}
+.gs-scan-abbruch:focus-visible{outline:3px solid var(--g-main);outline-offset:2px;}
 /* v32.08 — Die Schrittliste. Jede Zeile ein Schritt, der wirklich
    stattfindet; rechts sein gemessenes Ergebnis. */
 .gs-schritte{list-style:none;margin:14px 0 0;padding:0;width:min(86vw,320px);}
@@ -21058,31 +21067,16 @@ function gsClearSearch() {
 }
 
 // ══ SCANNER STATUS MESSAGES ═════════════════════════════════
-var _scanStatusMessages = [
-  '🔍 Analysiere Struktur…',
-  '🌿 Vergleiche mit Datenbank…',
-  '🧬 Prüfe Merkmale…',
-  '📊 Berechne Konfidenz…',
-  '🍃 Fast fertig…',
-];
-var _scanStatusInterval = null;
-
-function gsStartScanStatus() {
-  var el = document.getElementById('scan-status');
-  if (!el) return;
-  var i = 0;
-  el.style.transition = 'opacity .2s';
-  _scanStatusInterval = setInterval(function() {
-    el.style.opacity = '0';
-    setTimeout(function() {
-      if (el) { el.textContent = _scanStatusMessages[i % _scanStatusMessages.length]; el.style.opacity = '1'; }
-      i++;
-    }, 200);
-  }, 900);
-}
+// Hauptfunktionen · Scanner 4 (19.11.2026): hier stand `gsStartScanStatus` —
+// fünf Meldungen („🔍 Analysiere Struktur…", „🧬 Prüfe Merkmale…", „🍃 Fast
+// fertig…"), alle 0,9 s die nächste, gestartet vom Auslöser und gestoppt NUR
+// von einem erfolgreichen Ergebnis. Während des Scans lag der Balken unter der
+// Wartefläche, war also nie zu sehen. Nach einem Fehler oder einem Abbruch
+// lief er dafür über der Kamera weiter — gemessen: sechs Wechsel in 5,4 s,
+// während nichts geschah. Dieselben erfundenen Schritte, die v31.79 aus der
+// Wartefläche genommen hat; was der Scan wirklich tut, steht dort.
 
 function gsStopScanStatus() {
-  if (_scanStatusInterval) { clearInterval(_scanStatusInterval); _scanStatusInterval = null; }
   var el = document.getElementById('scan-status');
   if (el) { el.textContent = 'Kamera auf Pflanze/Pilz richten und scannen'; el.style.opacity = '1'; }
 }
@@ -34381,8 +34375,8 @@ async function shutterAndScan(){
     if (wrap) wrap.classList.remove('scanning');
     return;
   }
-  // Sonst direkt analysieren mit nur diesem einen Bild
-  if(typeof gsStartScanStatus==='function') gsStartScanStatus();
+  // Sonst direkt analysieren mit nur diesem einen Bild — den Statusbalken
+  // setzt analyzeImage selbst („🔬 Art wird bestimmt …"; Scanner 4).
   var hint = '';
   if (q && typeof q.quality === 'number') {
     hint = 'Bildqualität: ' + q.quality + '/100' + (q.warnings.length?' ('+q.warnings.join(', ')+')':'');
@@ -35170,11 +35164,56 @@ function gsSchritt(id, zustand, ergebnis, farben) {
 }
 window.gsSchritt = gsSchritt;
 
+// ── Hauptfunktionen · Scanner 4: einen laufenden Scan abbrechen ───────────
+//
+// Gemessen am 19.11.2026 (v33.64): solange die KI rechnet — eine Minute, mit
+// Wiederholung und Modellwechsel länger —, waren auf der Wartefläche nur
+// Glocke und Hauptmenü antippbar. Der Zurück-Knopf führte zur Startseite, und
+// der Scan lief dort weiter: seine Antwort wurde in den verborgenen Scanner
+// gezeichnet und in Verlauf und Cloud gespeichert.
+//
+// Abgebrochen wird nicht der Aufruf — callVisionAI kennt kein Abbruchsignal
+// (Brett-Idee 2026-11-16-8186) —, sondern seine FOLGE. Jeder Scan trägt eine
+// Nummer; was nach einem `await` ankommt, gilt nur, solange es noch der
+// laufende Scan ist — dieselbe Regel wie `_gsPerson` (CLAUDE.md §3.6). Ein
+// neuer Scan ersetzt einen laufenden auf demselben Weg: vorher schrieben
+// beide Sekundenzähler in dieselbe Zeile (gemessen: „0 s · 5 s · 1 s · 6 s ·
+// 2 s"), die spätere Antwort legte sich über die neuere („Antwort nach 7 s"),
+// und beide kamen in den Verlauf. Der Zurück-Knopf bleibt, was er war: wer
+// weggeht, findet das Ergebnis beim Zurückkommen — wer abbrechen will, tippt
+// „Abbrechen".
+var _gsScanNr = 0;           // zählt jeden Scan; Abbrechen zählt eins weiter
+var _gsScanLaufend = null;   // { nr, stopp(), kiGefragt() } — solange die Wartefläche steht
+function _gsScanLaufLoesen() {
+  var l = _gsScanLaufend;
+  _gsScanLaufend = null;
+  if (l) { try { l.stopp(); } catch (_) {} }
+  return l;
+}
+function gsScanAbbrechen() {
+  var l = _gsScanLaufLoesen();
+  if (!l) return false;
+  _gsScanNr++;                                   // die Antwort dieses Scans gilt nicht mehr
+  try { var w = document.querySelector('.scan-wrap'); if (w) w.classList.remove('scanning'); } catch (_) {}
+  try { if (typeof gsResetScanner === 'function') gsResetScanner(); } catch (_) {}
+  try {
+    if (l.kiGefragt()) gsToast('Abgebrochen. Das Foto war schon zur KI unterwegs — dieser Versuch kann für heute zählen.', 'info', 5000);
+    else gsToast('Abgebrochen — es wurde nichts an die KI geschickt.', 'info');
+  } catch (_) {}
+  return true;
+}
+window.gsScanAbbrechen = gsScanAbbrechen;
+
 async function analyzeImage(b64, mt, organContext, extraImages, opts){
   opts = opts || {};
   // Wer scannt? Eine Antwort, die nach einem Kontowechsel ankommt (Abmelden während die KI bis zu 60 s
   // rechnet), wird weder gezeigt noch gespeichert — sie gehört der Person, die fotografiert hat.
   var _scanWer = (typeof _gsPerson === 'function') ? _gsPerson() : null;
+  // Scanner 4: und nur, solange es noch DIESER Scan ist — ein neuer ersetzt den laufenden, „Abbrechen"
+  // zählt eins weiter. `_gilt()` steht nach jedem await.
+  var _nr = ++_gsScanNr;
+  _gsScanLaufLoesen();
+  var _gilt = function () { return _nr === _gsScanNr && (typeof _gsPerson !== 'function' || _gsPerson() === _scanWer); };
   try { _gsScanWarteStopp(); } catch(_){}   // ein wartender „In einer Minute nochmal" gilt nicht mehr
   // v30.74: Low-Confidence-Re-Scan — der Nutzer hat „Weiteres Foto hinzufügen" getippt; das vorige Bild wird als
   // Multi-Shot mit dem neuen kombiniert (höhere Genauigkeit). Eine Stelle → greift für Kamera UND Galerie.
@@ -35215,6 +35254,7 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   if (!_kiDa) {
     try { if (typeof gsPullGlobalApiKey === 'function') await gsPullGlobalApiKey(); } catch(_){}
     _kiDa = gsKiVerfuegbar();
+    if (!_gilt()) return;   // Scanner 4: inzwischen ein neuer Scan oder eine andere Person
   }
   if(!_kiDa){
     // v23.72: Klares UI-Feedback statt stummem Dialog-Pop
@@ -35269,6 +35309,7 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   // ehrlich auf einer duennen Grundlage, statt auf einer ungemessenen.
   var _qual = null;
   try { _qual = await gsQualitaetMehrere(b64, mt, extraImages); } catch (_) { _qual = null; }
+  if (!_gilt()) return;   // Scanner 4: inzwischen ein neuer Scan oder eine andere Person
   if (!opts.trotzdem) {
     if (gsQualitaetZuSchlecht(_qual)) {
       try { window._gsQualB64 = b64; window._gsQualMt = mt; window._gsQualCtx = organContext || ''; window._gsQualExtra = (Array.isArray(extraImages) && extraImages.length) ? extraImages : null; } catch (_) {}
@@ -35325,6 +35366,10 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   }
   function scanFertig() {
     if (_scanWarte) { clearInterval(_scanWarte); _scanWarte = null; }
+    // Scanner 4: ist dieser Scan abgebrochen oder ersetzt, gehören Wartefläche
+    // und Animation schon dem nächsten (gestoppt hat sie _gsScanLaufLoesen).
+    if (_nr !== _gsScanNr) return;
+    if (_gsScanLaufend && _gsScanLaufend.nr === _nr) _gsScanLaufend = null;
     // v32.11: NICHT sofort abwuergen. Die Treffer-Phase laeuft ~0,6 s aus —
     // das ist der Moment, den man sehen soll. Sie hoert danach von selbst
     // auf zu zeichnen; der Stopper ist nur die Rettungsleine.
@@ -35348,6 +35393,7 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   // nichts. Die Merkmale, die die KI wirklich gesehen hat, erscheinen
   // nachher auf der Karte.
   var _vorschau = b64 ? ('data:' + (mt || 'image/jpeg') + ';base64,' + b64) : '';
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
   // v32.08: das Gitter liegt als Leinwand ueber dem Foto und wird aus dem
   // Foto selbst gerechnet (siehe _gsScanKanten). Der alte CSS-Streifen ist
   // raus — er lag ueber der Pflanze, ohne sie zu kennen.
@@ -35365,12 +35411,25 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
       : '<div class="spin">🔍</div>') +
     _gsSchritteHtml() +
     (shotCount>1 ? '<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px;">Multi-Shot: '+shotCount+' Fotos werden kombiniert → höhere Genauigkeit</p>' : '') +
+    // Scanner 4: der Weg hinaus, solange die KI rechnet — zurück zur Kamera, die späte Antwort zählt nicht.
+    '<button type="button" class="gs-scan-abbruch" onclick="gsScanAbbrechen()"><span aria-hidden="true">✕</span> ' + _t('btn_cancel_generic', 'Abbrechen') + '</button>' +
     '</div>';
   // Die Animation starten, sobald das Bild da ist. Der Rueckgabewert haelt sie an.
   try {
     var _host = document.getElementById('gs-scanfoto');
     if (_host && typeof _gsScanAnimation === 'function') window._gsScanAniStop = _gsScanAnimation(_host);
   } catch (_) {}
+  // Scanner 4: ab jetzt lässt sich dieser Scan abbrechen. `stopp` hält Zähler und Animation an;
+  // `kiGefragt` sagt dem Abbrechen, ob das Foto schon zur KI unterwegs war.
+  _gsScanLaufend = {
+    nr: _nr,
+    kiGefragt: function () { return _kiStart > 0; },
+    stopp: function () {
+      if (_scanWarte) { clearInterval(_scanWarte); _scanWarte = null; }
+      var s = window._gsScanAniStop;
+      if (s) { window._gsScanAniStop = null; try { s(); } catch (_) {} }
+    }
+  };
   // v23.87: Status klar zeigen während Analyse (kein Auto-Hide)
   if (typeof gsScanStatusShow === 'function') gsScanStatusShow('🔬 Art wird bestimmt …', 0);
   else document.getElementById('scan-status').textContent = '🔬 Art wird bestimmt …';
@@ -35407,6 +35466,9 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   try {
     if (b64 && typeof gsBildFarbenVonB64 === 'function') _farben = await gsBildFarbenVonB64(b64, mt);
   } catch (_) { _farben = null; }
+  // Scanner 4: abgebrochen, bevor die KI gefragt wurde — dann wird sie auch nicht gefragt, und die
+  // Kamera, die das Abbrechen eben wieder gestartet hat, bleibt an (stopCamera steht weiter unten).
+  if (!_gilt()) return;
   scanSchritt('farbe',
     (_farben && _farben.messbar && _farben.liste.length)
       ? _farben.liste.slice(0, 3).map(function (f) { return f.name + ' ' + f.anteil + ' %'; }).join(' · ')
@@ -35449,12 +35511,14 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
     scanWarten('ki');
     const text = await callVisionAI(b64, mt, prompt, extraImages, { systemPrompt: SCAN_SYSTEM_PROMPT, quotaFeature: 'scan', maxTokens: 900 }); // v30.47: Scan-JSON braucht ~400-600 Tok → 900 reicht, kürzere Generierung
     var _kiSek = Math.max(1, Math.round((Date.now() - _kiStart) / 1000));
+    // Scanner 4 + §3.6: abgebrochen, von einem neuen Scan ersetzt oder eine andere Person —
+    // dann wird nichts gezeichnet und nichts gespeichert (Verlauf, Cloud, „Zu meinen Pflanzen").
+    if (!_gilt()) { scanFertig(); return; }
     // v32.11: Treffer — das Netz zieht sich zusammen. Erst DANACH wird die
     // Karte gebaut, damit man den Moment sieht.
     gsScanPhase('treffer');
     scanFertig();
     scanSchritt('ki', 'Antwort nach ' + _kiSek + ' s');
-    if (typeof _gsPerson === 'function' && _gsPerson() !== _scanWer) return;   // siehe oben: nicht mehr dieselbe Person
     if(!text) throw new Error('Keine Antwort von der KI erhalten.');
     // v23.68: Robuster JSON-Extractor — behandelt Markdown-Fences, Prose-Einleitung,
     // nested Objects (balanced-brace-Matching statt greedy Regex), trailing Text,
@@ -35495,6 +35559,9 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
     showScanResult(res);
   }catch(err){
     scanFertig();
+    // Scanner 4: auch ein Fehler gehört dem Scan, der noch läuft — nach dem Abbrechen
+    // legte sich die Fehlerkarte sonst eine Minute später über die Kamera.
+    if (!_gilt()) return;
     var errMsg = (err && err.message) || 'Unbekannter Fehler';
     // v30.24: Offline → sofortige, ruhige Offline-Karte statt rotem Fehler (Scanner braucht Netz für die KI)
     if (err && err.code === 'offline') {
@@ -79157,6 +79224,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.67', date: '19.11.2026',
+      headline: 'Einen laufenden Scan abbrechen — und ein neuer Scan ersetzt den alten',
+      summary: 'Scanner 4 (Hauptfunktionen). Gemessen am 19.11.2026: solange die KI rechnet, waren auf der Wartefläche nur Glocke und Menü antippbar; wer zurückging, bekam die Antwort trotzdem gezeichnet und gespeichert, und zwei Scans schrieben in dieselbe Fläche. Jetzt trägt jeder Scan eine Nummer (_gsScanNr); was nach einem await ankommt, gilt nur, solange es noch der laufende Scan derselben Person ist (_gilt). „Abbrechen“ (gsScanAbbrechen) führt zurück zur Kamera; abgebrochen wird die Folge, nicht der Aufruf an die KI. gsStartScanStatus mit seinen fünf erfundenen Meldungen ist entfernt. Prüfstand: scan_check AB1–AB4.',
+      user_summary: 'Du kannst einen Scan jetzt abbrechen, während er läuft. Startest du einen neuen, zählt nur noch der neue.',
+      user_items: [
+        {emoji:'✕', bold:'Abbrechen:', text:' auf der Wartefläche steht ein Knopf, der dich zurück zur Kamera bringt. Das Ergebnis des abgebrochenen Scans wird weder gezeigt noch gespeichert.'},
+        {emoji:'🔁', bold:'Ein Scan zur Zeit:', text:' ein neuer Scan ersetzt den laufenden — die ältere Antwort legt sich nicht mehr über die neuere.'},
+        {emoji:'ℹ️', bold:'Ehrlich zum Kontingent:', text:' war das Foto schon zur KI unterwegs, sagt dir die App, dass dieser Versuch für heute zählen kann.'}
+      ],
+  },
+  {
     v: 'v33.66', date: '19.11.2026',
       headline: 'Neu eingetragene Pflanzen gehen nicht mehr verloren und stehen sofort überall da',
       summary: 'Auftrag P-F: Pflanzen und Gärten werden beim Anmelden EINZELN zusammengeführt (je Eintrag mit Änderungsstempel, gelöschte Einträge als Löschmarken) statt als ganze Liste ersetzt; das Abhaken, das ein zweites Gerät noch nicht gesendet hatte, überschreibt keine neue Pflanze mehr und eine gelöschte kommt nicht zurück. Beim Speichern wird erst gesichert, dann gemeldet: bei vollem Speicher wird die Pflanze, die Pflanzung oder das Abhaken zurückgenommen und ein Satz gesagt. Eine neue Pflanzung zieht Kopfzahlen, Tagesplan und Zähler sofort mit; eine Änderung während eines laufenden Sicherns geht nicht mehr verloren, und beim Schliessen gehen alle drei Pakete gleichzeitig hinaus.',
@@ -79548,26 +79626,6 @@ window.GS_RELEASES = [
         {emoji:'📍', bold:'Selten, aber genau der richtige Fehler:', text:' mit geladener Liste ist der Zustand nicht erreichbar — S1 liefert immer ok oder warn (an sieben Ergebnisformen gemessen, darunter „gar nichts erkannt"). Er gehört dem Fehler auf dem GERÄT, den kein Prüfstand vor der Auslieferung sieht.'},
         {emoji:'🧪', bold:'scan_check P1 und P2:', text:' P1 rechnet die Stufe, P2 liest die GERENDERTE Überschrift (Regel aus v31.90). Beide mit Gegenrichtung „mit Liste unverändert"; zwei Gegenproben, einzeln rot (vierter Zustand ausgebaut → 2 rot, Überschrift wieder fest → 1 rot).'}
       ],
-    },
-  {
-    v: 'v33.46', date: '16.09.2026',
-      headline: 'Ein Sync, der klemmt, sagt es — dort, wo du bist',
-      summary: 'Ein unvollständiger Cloud-Abgleich landete bis hierher in der Browser-Konsole und sonst nirgends. Die Statuszeile in den Einstellungen sagte zwar das Richtige, stand aber in den Einstellungen — und kannte keinen Unterschied zwischen „seit einer Minute offen" und „seit drei Tagen offen". gsSyncStand() ist jetzt EINE Rechnung mit vier Zuständen, und ab 24 Stunden steht sie auf der Startseite.',
-      user_summary: 'Wenn deine Änderungen länger als einen Tag nicht in die Cloud kommen, obwohl du angemeldet und online bist, sagt es dir die Startseite — mit einem Knopf, der es sofort versucht. Bist du schlicht offline, passiert nichts: dafür ist die Warteschlange da.',
-      user_items: [
-        {emoji:'⚠️', bold:'Auf der Startseite:', text:' „3 Änderungen sind seit über 24 Stunden nicht gesichert" — mit „Jetzt sichern" daneben.'},
-        {emoji:'📶', bold:'Offline ist kein Fehler:', text:' ohne Verbindung oder abgemeldet warten die Änderungen einfach, und die App sagt nichts. Gemeldet wird nur, was klemmt, obwohl es gehen müsste.'},
-        {emoji:'✅', bold:'Die Antwort kommt nach dem Versuch:', text:' „Gesichert." erst, wenn es wirklich durch ist — sonst steht da, wie viel noch offen ist.'},
-        {emoji:'⚠️', bold:'Warnungen sehen wieder aus wie Warnungen:', text:' 77 Meldungen in der App standen mit einem Blatt-Symbol auf neutralem Grund, statt orange mit Warnzeichen. Das lag an einer Schreibweise im Code und ist an einer Stelle behoben.'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'gsSyncStand():', text:' vier Zustände — ok · unterwegs · klemmt · nicht_bekannt MIT GRUND. „Klemmt" verlangt alle drei Teile: es ist etwas offen UND die App könnte senden (angemeldet und online) UND die letzte vollständige Übertragung ist älter als GS_SYNC_KLEMMT_H (24 h) oder es gab nie eine. Zwei Anzeigen, eine Rechnung: der Tagesplan und die Statuszeile in den Einstellungen lesen dieselbe Funktion.'},
-        {emoji:'🔇', bold:'Ein Fehler, den nur die Konsole sieht, ist kein gemeldeter Fehler:', text:' dieselbe Klasse wie der wegdestrukturierte Fehler im daily-push-checker (v33.41), Prefer: return=minimal beim Quiz (v32.65) und die dreizehn Admin-Sektionen (v33.42).'},
-        {emoji:'🔕', bold:'Kein Alarm im Normalzustand:', text:' wer offline ist, klemmt nicht — genau dafür gibt es die Warteschlange. Eine Warnung, die bei jedem Flugmodus aufleuchtet, ist die Zahl, die man zu ignorieren lernt (v32.21).'},
-        {emoji:'📊', bold:'sync_stuck im Vokabular:', text:' zwei Zahlen (stunden, offen), nie welche Daten und nie wohin; stunden ist −1, wenn noch nie vollständig übertragen wurde. Einmal je Tag über gs_sync_klemmt_tag (in GS_USER_KEYS, geht mit dem Konto) — ein Ereignis bei jedem Rendern wäre Rauschen, kein Signal.'},
-        {emoji:'🧪', bold:'sync_check 7 → 10 Fälle:', text:' klemmt · unterwegs · offline klemmt NICHT · die Tages-Sperre. Vier Gegenproben, jede einzeln rot: Funktion umbenannt (3 rot), „lange" fest auf true (2 rot), der canPush-Zweig ausgehängt (1 rot), das Tagesgedächtnis entfernt (1 rot).'},
-        {emoji:'⚠️', bold:'Toast-Typ normiert (Nebenfund, beim Nachlesen der eigenen Zeile):', text:' gezählt über alle Aufrufe — error 142 · info 110 · success 96 · warn 77 · warning 55. „warn" ist die EINZIGE Schreibweise, die weder die Icon-Tabelle noch das CSS kennt (.gs-toast.warning ist orange, .gs-toast.warn gibt es nicht): 77 Warnungen trugen 🌿 auf neutralem Grund. EIN Tor in _gsToastShowNow statt 77 Pflaster (wie v32.16, v32.33); robust_check B5b misst Symbol UND Fläche, plus die Gegenrichtung.'}
-      ],
     }
 ];
 
@@ -79779,7 +79837,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.66';
+var GS_VERSION = 'v33.67';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
