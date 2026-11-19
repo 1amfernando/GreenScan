@@ -1943,6 +1943,36 @@ in CLAUDE.md). Nach Merge und Auslieferung bitte:
   aus 30b sollte dann zuerst wieder heraus, sonst trifft die alte App auf den neuen
   Bild-Wächter.
 
+## 31 · Pilz-Scanner: die KI kennt live nur 200 von 276 Pilzarten (v33.6x)
+
+**Was live ist** (nur lesend nachgesehen am 19.11.2026): `mushroom-identify` v5 lädt den Code
+von v33.59 (Commit `57a7acf`, ausgeliefert am 16.11.). Er gibt dem Modell das Pilz-Register mit
+`.limit(200)` nach Slug mit — 76 der 276 Arten fehlen, **19 davon giftig**: Satansröhrling,
+Tiger-Ritterling, Grünling, Käppchenmorchel, beide Kartoffelboviste, sechs weitere Ritterlinge,
+vier Täublinge … (alles ab „pluteus_salicinus"). Das Modell darf nur eine Art aus seiner Liste
+nennen; eine giftige, die es nicht kennt, kann es nicht nennen — es nennt die ähnlichste, die es
+kennt, und das ist oft der essbare Doppelgänger (Käppchenmorchel → Morchel).
+
+**Was im Repo behoben ist:** alle Arten gehen ans Modell (`_shared/pilz_wissen.mjs`, neu); muss
+je gekürzt werden, fallen zuerst Speisepilze, nie eine giftige. Ohne Register antwortet die
+Function mit 503, bevor ein Kontingent gebucht wird. Die Kandidaten kommen mit Namen und
+Essbarkeit zurück. Kosten: rund 258'000 statt 190'000 Zeichen Wissen je Scan, mit dem schnellen
+Modell grob 2 Rappen mehr pro Scan (geschätzt, nicht gemessen).
+
+**Was du tun musst — nach dem Merge:** `mushroom-identify` neu ausliefern, wie v5: die eine Zeile
+`import "https://raw.githubusercontent.com/1amfernando/GreenScan/<commit>/supabase/functions/mushroom-identify/index.ts";`
+mit dem Merge-Commit von `main` — der Commit enthält dann auch `_shared/pilz_wissen.mjs`, das die
+Function relativ lädt. Oder `supabase functions deploy mushroom-identify` aus dem Repo. Keine
+Migration, kein neues Secret. Die App funktioniert mit der alten und der neuen Function (sie liest
+`alternative_arten`, wenn es sie gibt, sonst die Slugs).
+
+**Zum Prüfen danach:** ein Scan eines Fotos, das sicher kein Pilz ist, muss „unsicher" sagen; in
+den Logs der Function darf „Wissensbasis gekuerzt" nicht auftauchen.
+
+**Dabei gesehen, nicht angefasst:** `AUSLIEFERUNG.json` führte die sechs KI-Functions von v33.59
+noch als „erst_nach" der Kontingent-Migration, obwohl mindestens `mushroom-identify` seit dem
+16.11. so live läuft. Nachgezogen ist nur dieser eine Eintrag.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

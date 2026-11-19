@@ -4076,6 +4076,152 @@ const FAELLE = [
     },
   },
 
+  // ── v33.6x Pilz-Scanner (Brett 2026-11-11-2714): der Bildschirm mit dem höchsten Einsatz hatte keinen
+  // einzigen Fall. Gerendert wird die ECHTE gsMushroomRenderResult mit Antworten in der Form der Function
+  // (mushroom-identify), gemessen am Text des Bildschirms — nicht am Objekt.
+  {
+    name: 'PZ1 · Pilz tödlich: rotes Vollbild mit 145, Kopfzeile TÖDLICH, Notruf und Verwechslungs-Warnung — auch OHNE safety_color',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt — der Fall misst nichts' };
+      const weg = () => { const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove(); box.innerHTML = ''; };
+      const antwort = (farbe) => ({
+        matched_slug: 'amanita_phalloides', confidence: 92, reasoning: 'Grünlicher Hut, weisse Lamellen, Knolle mit Scheide.',
+        mushroom: { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', family: 'Amanitaceae', edibility: 'toedlich', symptoms_if_toxic: 'Nach 6–24 h Brechdurchfall, danach Leberversagen.', emergency_action: 'Sofort Tox-Info anrufen.' },
+        edibility: 'toedlich', safety_color: farbe, safety_advice: 'Tödlich giftig.',
+        lookalikes: [{ edible_slug: 'russula_virescens', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', edible_common_name: 'Grasgrüner Täubling', visual_differences: 'Täublinge haben keine Knolle.' }],
+        vapko_required: true, vapko_kontrollstelle: 'Pilzkontrolle Zürich', vapko_phone: '044 000 00 00',
+      });
+      const klagen = [];
+      for (const farbe of ['red', null]) {
+        weg();
+        await gsMushroomRenderResult(antwort(farbe));
+        const ov = document.getElementById('gs-mushroom-danger');
+        const t = box.textContent || '';
+        const kopf = (box.querySelector('div > div') || {}).textContent || '';
+        const was = 'safety_color ' + JSON.stringify(farbe) + ': ';
+        if (!ov) klagen.push(was + 'kein rotes Vollbild');
+        else {
+          if (!/TÖDLICH GIFTIG/.test(ov.textContent)) klagen.push(was + 'Vollbild ohne „TÖDLICH GIFTIG"');
+          if (!ov.querySelector('a[href="tel:145"]')) klagen.push(was + 'Vollbild ohne Anruf 145');
+        }
+        if (!/TÖDLICH/.test(kopf)) klagen.push(was + 'Kopfzeile „' + kopf.slice(0, 50) + '" statt TÖDLICH');
+        if (/Vorsicht|Speisepilz/.test(kopf)) klagen.push(was + 'Kopfzeile verharmlost: „' + kopf.slice(0, 50) + '"');
+        if (!box.querySelector('a[href="tel:145"]')) klagen.push(was + 'kein Notruf 145 auf der Karte');
+        if (!/VERWECHSLUNGS-RISIKO/.test(t) || !/LEBENSGEFAHR/.test(t)) klagen.push(was + 'Verwechslungs-Warnung fehlt');
+        if (!/ersetzt KEINE offizielle Pilzkontrolle/.test(t)) klagen.push(was + 'Hinweis „ersetzt keine Pilzkontrolle" fehlt');
+      }
+      weg();
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'rot und ohne safety_color: Vollbild „TÖDLICH GIFTIG" + tel:145 · Kopfzeile TÖDLICH · Notruf · Lebensgefahr-Verwechsler · VAPKO-Hinweis' };
+    },
+  },
+  {
+    name: 'PZ2 · Pilz unsicher: unter der Schwelle des Servers (70 %) „NICHT essen" statt einer Essbarkeit — Kandidaten mit Namen, ein tödlicher mit Warnung, nie ein roher Slug',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const weg = () => { const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove(); box.innerHTML = ''; };
+      const klagen = [];
+      // a · kein Treffer, Kandidaten in der neuen Form (alternative_arten, Essbarkeit aus dem Register)
+      weg();
+      await gsMushroomRenderResult({ matched_slug: null, confidence: 40, mushroom: null, reasoning: 'Merkmale nicht eindeutig.', alternatives: ['amanita_phalloides', 'boletus_edulis'],
+        alternative_arten: [{ slug: 'amanita_phalloides', name: 'Grüner Knollenblätterpilz', edibility: 'toedlich' }, { slug: 'boletus_edulis', name: 'Steinpilz', edibility: 'speisepilz' }], vapko_required: true });
+      let t = box.textContent || '';
+      if (!/UNSICHERE Identifikation/.test(t) || !/NICHT essen/.test(t)) klagen.push('a: „unsicher / NICHT essen" fehlt');
+      if (!/Grüner Knollenblätterpilz\s*☠️\s*TÖDLICH/.test(t)) klagen.push('a: der tödliche Kandidat trägt keine Warnung („' + (t.match(/Möglicher Kandidat:[^\n]*/) || [''])[0].slice(0, 90) + '")');
+      if (/Steinpilz\s*[☠⚠]/.test(t)) klagen.push('a: der Speisepilz trägt eine Warnung');
+      if (/[a-z]+_[a-z]+/.test(t)) klagen.push('a: roher Slug auf dem Bildschirm (' + t.match(/[a-z]+_[a-z]+/)[0] + ')');
+      if (document.getElementById('gs-mushroom-danger')) klagen.push('a: Vollbild ohne Treffer');
+      // b · ältere Function: nur Slugs → lesbare Namen, kein Unterstrich
+      weg();
+      await gsMushroomRenderResult({ matched_slug: null, confidence: 35, mushroom: null, alternatives: ['amanita_phalloides', 'roehrling_flockenstielig'], vapko_required: true });
+      t = box.textContent || '';
+      if (!/Amanita phalloides/.test(t) || !/Roehrling flockenstielig/.test(t)) klagen.push('b: Slugs nicht lesbar gemacht („' + (t.match(/Möglicher Kandidat:[^\n]*/) || [''])[0].slice(0, 90) + '")');
+      if (/_/.test(t)) klagen.push('b: Unterstrich auf dem Bildschirm');
+      // c · Treffer bei 65 %: der Server verlangt die Kontrolle — die Karte darf nicht „Speisepilz" sagen
+      weg();
+      await gsMushroomRenderResult({ matched_slug: 'boletus_edulis', confidence: 65, mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green', vapko_required: true });
+      t = box.textContent || '';
+      if (/Speisepilz/.test(t) && !/UNSICHERE/.test(t)) klagen.push('c: bei 65 % steht „Speisepilz" (der Server verlangt die Kontrolle unter 70 %)');
+      if (!/NICHT essen/.test(t)) klagen.push('c: bei 65 % fehlt „NICHT essen"');
+      // d · Gegenrichtung: 70 % ist eine Bestimmung — sonst wäre ein Scanner, der IMMER „unsicher" sagt, grün
+      weg();
+      await gsMushroomRenderResult({ matched_slug: 'boletus_edulis', confidence: 70, mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green', vapko_required: false });
+      t = box.textContent || '';
+      if (!/Speisepilz/.test(t) || /UNSICHERE/.test(t)) klagen.push('d: bei 70 % keine Bestimmung („' + t.slice(0, 60) + '")');
+      if (typeof GS_PILZ_SICHER_AB === 'undefined' || GS_PILZ_SICHER_AB !== 70) klagen.push('GS_PILZ_SICHER_AB ist ' + (typeof GS_PILZ_SICHER_AB === 'undefined' ? 'nicht definiert' : GS_PILZ_SICHER_AB));
+      weg();
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '40 %: NICHT essen, Kandidat „Grüner Knollenblätterpilz ☠️ TÖDLICH", Steinpilz ohne Warnung · alte Form: „Amanita phalloides" statt Slug · 65 %: unsicher · 70 %: Speisepilz' };
+    },
+  },
+  {
+    name: 'PZ3 · Pilz essbar: grüne Karte mit Zubereitung, kein Vollbild — und der Hinweis „ersetzt keine Pilzkontrolle" steht trotzdem da',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const o0 = document.getElementById('gs-mushroom-danger'); if (o0) o0.remove();
+      box.innerHTML = '';
+      await gsMushroomRenderResult({ matched_slug: 'boletus_edulis', confidence: 90, reasoning: 'Netz am Stiel, weisse Poren.', mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', family: 'Boletaceae', edibility: 'speisepilz', cooking_preparation: 'Braten oder trocknen.' },
+        edibility: 'speisepilz', safety_color: 'green', vapko_required: false, vapko_kontrollstelle: 'Pilzkontrolle Bern', lookalikes: [] });
+      const t = box.textContent || '', klagen = [];
+      const kopf = (box.querySelector('div > div') || {}).textContent || '';
+      if (!/Speisepilz/.test(kopf)) klagen.push('Kopfzeile „' + kopf.slice(0, 40) + '"');
+      if (document.getElementById('gs-mushroom-danger')) klagen.push('Vollbild bei einem Speisepilz');
+      if (!/Zubereitung/.test(t)) klagen.push('Zubereitung fehlt');
+      if (!/ersetzt KEINE offizielle Pilzkontrolle/.test(t)) klagen.push('Hinweis „ersetzt keine Pilzkontrolle" fehlt');
+      if (!/Pilzkontrolle Bern/.test(t)) klagen.push('Kontrollstelle fehlt');
+      box.innerHTML = '';
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Kopfzeile Speisepilz · kein Vollbild · Zubereitung · Kontrollstelle · Hinweis „ersetzt keine Pilzkontrolle"' };
+    },
+  },
+  {
+    name: 'PZ4 · Pilz-Scan: ein Fehler ist ein Satz (nie „rate_limited" oder „invalid token"), der feste Satz des Servers bleibt — und eine Antwort nach dem Abmelden kommt nicht auf den Bildschirm',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const s = { f: window._gsFetch, tok: window._gsFreshToken, toast: window.showProfileToast, li: window.sbIsLoggedIn, foto: window._gsMushroomPhotoB64 };
+      const toasts = [];
+      const klagen = [];
+      const tod = { matched_slug: 'amanita_phalloides', confidence: 92, mushroom: { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' }, edibility: 'toedlich', safety_color: 'red', vapko_required: true };
+      const lauf = async (status, body, waehrend) => {
+        toasts.length = 0; box.innerHTML = '';
+        const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove();
+        window._gsFetch = async () => { if (waehrend) waehrend(); return { ok: status >= 200 && status < 300, status, json: async () => { if (body === 'html') throw new SyntaxError('Unexpected token <'); return body; } }; };
+        await gsMushroomRunScan();
+        window.sbIsLoggedIn = s.li;
+        return toasts.filter(x => x.typ === 'error').map(x => x.text).join(' | ');
+      };
+      try {
+        window._gsFreshToken = async () => 'tok';
+        window.showProfileToast = (text, typ) => toasts.push({ text: String(text), typ });
+        window._gsMushroomPhotoB64 = 'data:image/jpeg;base64,AAAA';
+        if (!(typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) || !_gsPerson()) return { ok: false, warum: 'keine angemeldete Sitzung — der Fall misst nichts' };
+        let t = await lauf(429, { error: 'rate_limited', message: 'Zu viele Pilz-Scans in kurzer Zeit — bitte etwas später erneut.' });
+        if (!/Zu viele Pilz-Scans/.test(t) || /rate_limited/.test(t)) klagen.push('429: „' + t + '"');
+        t = await lauf(401, { error: 'invalid token' });
+        if (/invalid token/.test(t) || !/Sitzung/.test(t)) klagen.push('401: „' + t + '"');
+        t = await lauf(429, { error: 'Tageslimit für diese KI-Funktion erreicht. Morgen geht es weiter — oder mit einem Abo mehr.', code: 'quota_exceeded' });
+        if (!/Tageslimit für diese KI-Funktion erreicht/.test(t)) klagen.push('KI-Tor: der feste Satz fehlt („' + t + '")');
+        t = await lauf(502, 'html');
+        if (!t || /Unexpected token/.test(t)) klagen.push('502 ohne JSON: „' + t + '"');
+        // Abmelden WÄHREND der Bestimmung: die (tödliche) Antwort gehört der Person, die gefragt hat
+        t = await lauf(200, tod, () => { window.sbIsLoggedIn = () => false; });
+        if ((box.textContent || '').trim() || document.getElementById('gs-mushroom-danger')) klagen.push('nach dem Abmelden: die Antwort steht auf dem Bildschirm');
+        // Gegenprobe: ohne Abmelden kommt sie an — sonst wäre ein Lauf, der nie zeichnet, grün
+        t = await lauf(200, tod);
+        if (!document.getElementById('gs-mushroom-danger') || !/TÖDLICH/.test(box.textContent || '')) klagen.push('Gegenprobe: ohne Abmelden kommt die Antwort nicht an');
+      } finally {
+        window._gsFetch = s.f; window._gsFreshToken = s.tok; window.showProfileToast = s.toast; window.sbIsLoggedIn = s.li; window._gsMushroomPhotoB64 = s.foto;
+        const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove();
+        box.innerHTML = '';
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '429 → „Zu viele Pilz-Scans …" · 401 → Sitzung · Satz des KI-Tors bleibt · 502 ohne JSON → Satz · abgemeldet: nichts gezeichnet · Gegenprobe: angemeldet gezeichnet' };
+    },
+  },
 ];
 
 (async () => {

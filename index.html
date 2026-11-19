@@ -45181,6 +45181,48 @@ window.gsPestAddToDiary = gsPestAddToDiary;
 // VAPKO-Disclaimer ist Pflicht in jedem Result.
 // ═════════════════════════════════════════════════════════════════════
 
+// v33.6x (Pilz-Scanner, Brett 2026-11-11-2714): ab welcher Trefferquote ein Ergebnis als Bestimmung
+// gilt — DIESELBE Zahl wie am Server (PILZ_SICHER_AB in supabase/functions/_shared/pilz_wissen.mjs;
+// darunter verlangt er die VAPKO-Kontrolle). Bis v33.61 stand hier 60: zwischen 60 und 69 % zeigte die
+// Karte „✅ Speisepilz", waehrend der Server im selben Ergebnis die Kontrolle verlangte.
+// edge_check 80_pilz haelt beide Zahlen zusammen.
+var GS_PILZ_SICHER_AB = 70;
+window.GS_PILZ_SICHER_AB = GS_PILZ_SICHER_AB;
+function _gsPilzGefaehrlich(ed) { return ed === 'toedlich' || ed === 'giftig'; }
+// Ein Register-Slug lesbar: „amanita_phalloides" → „Amanita phalloides" — nur, wenn der Server keinen
+// Namen mitschickt (aeltere Fassung der Function). Nie ein roher Slug auf dem Bildschirm (v33.29).
+function _gsPilzSlugName(slug) {
+  var s = String(slug == null ? '' : slug).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+// Die Kandidaten im Zweig „unsicher": mit Namen, und ein giftiger oder toedlicher traegt seine Warnung.
+// Die Essbarkeit kommt aus dem Register (alternative_arten, seit v33.6x) — nicht aus der Artenliste der
+// App: bei Pilzen ist sie teils milder als das Register (gemessen 19.11.2026, Brett).
+function _gsPilzKandidatenHtml(j, ed, _t) {
+  var arten = (j && Array.isArray(j.alternative_arten))
+    ? j.alternative_arten.filter(function (a) { return a && typeof a.slug === 'string' && a.slug; })
+    : ((j && Array.isArray(j.alternatives)) ? j.alternatives.filter(function (x) { return typeof x === 'string' && x; }).map(function (x) { return { slug: x }; }) : []);
+  if (!arten.length) return '';
+  var teile = arten.slice(0, 3).map(function (a) {
+    var name = (typeof a.name === 'string' && a.name.trim()) ? a.name.trim() : _gsPilzSlugName(a.slug);
+    var warn = a.edibility === 'toedlich' ? ' <b style="color:var(--c-danger-d);">☠️ ' + _t('mush_deadly', 'TÖDLICH') + '</b>'
+      : a.edibility === 'giftig' ? ' <b style="color:var(--c-danger-d);">⚠️ ' + _t('tag_toxic', 'GIFTIG') + '</b>' : '';
+    return ed(name) + warn;
+  });
+  return '<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--muted);">' + _t('mush_possible_candidate', 'Möglicher Kandidat:') + ' ' + teile.join(', ') + '</div>';
+}
+// Ein Satz fuer einen Fehler des Pilz-Scanners — nie eine Kennung wie „rate_limited" oder „invalid
+// token". Das Tor des Servers (ki_tor.mjs) schickt feste Saetze mit Kennung ({error: <Satz>, code});
+// die stehen. Alles andere sagt der HTTP-Status (_gsFehlerText), nie der Rohtext.
+function _gsPilzFehlerSatz(j, status) {
+  var satz = function (x) { return (typeof x === 'string' && /\s/.test(x.trim())) ? x.trim().slice(0, 200) : ''; };
+  if (j && typeof j.code === 'string' && satz(j.error)) return satz(j.error);
+  if (j && satz(j.message)) return satz(j.message);
+  var s = (typeof _gsFehlerText === 'function') ? _gsFehlerText({ message: '', status: status || 0 }) : '';
+  return (s && s !== 'Unbekannter Fehler') ? s : 'Die Bestimmung hat nicht geklappt — bitte erneut versuchen.';
+}
+window._gsPilzFehlerSatz = _gsPilzFehlerSatz;
+
 function openMushroomModal() {
   window._gsMushroomPhotoB64 = null;
   var preview = document.getElementById('mushroom-photo-preview');
@@ -45235,6 +45277,9 @@ async function gsMushroomRunScan() {
 
   if (typeof showProfileToast === 'function') showProfileToast('🔬 KI analysiert (Sicherheit vor Präzision)…', 'info');
 
+  // v33.6x: eine Antwort gehoert der Person, die gefragt hat (CLAUDE.md §3.6) — wer sich waehrend
+  // der Bestimmung abmeldet oder das Konto wechselt, bekommt sie nicht auf den Bildschirm.
+  var wer = (typeof _gsPerson === 'function') ? _gsPerson() : null;
   try {
     // v29.01 WIRE-1: frischen Token holen (Auto-Refresh) — stale 1h-JWT führte zu 401 bis Reload.
     var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : ((window.gsStore && typeof gsStore.get === 'function') ? (gsStore.get('gs_sb_token', null) || '') : '');
@@ -45245,14 +45290,16 @@ async function gsMushroomRunScan() {
       headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ image_base64: photoB64, media_type: 'image/jpeg', habitat_hint: habitat, region_slug: regionSlug })
     }, 60000);
-    var j = await resp.json();
-    if (!resp.ok || j.error) {
-      if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + (j.error || 'Identifikation fehlgeschlagen'), 'error');
+    var j = await resp.json().catch(function(){ return null; });
+    if (typeof _gsPerson === 'function' && _gsPerson() !== wer) return;
+    if (!resp.ok || !j || j.error) {
+      if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + _gsPilzFehlerSatz(j, resp.status), 'error');
       return;
     }
     gsMushroomRenderResult(j);
-  } catch(_) {
-    if (typeof showProfileToast === 'function') showProfileToast('Netzwerk-Fehler — bitte erneut versuchen', 'error');
+  } catch(e) {
+    if (typeof _gsPerson === 'function' && _gsPerson() !== wer) return;
+    if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + ((typeof _gsFehlerText === 'function') ? _gsFehlerText(e) : 'Keine Verbindung zum Server — bitte erneut versuchen.'), 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🔍 Pilz identifizieren'; }
   }
@@ -45274,9 +45321,10 @@ async function gsMushroomRenderResult(j) {
   }
 
   // ============= "UNSICHER" Hint bei < 60% Confidence ohne Match =============
-  if (!m || !j.matched_slug || conf < 60) {
+  // v33.6x: dieselbe Schwelle wie der Server (GS_PILZ_SICHER_AB); die Kandidaten mit Namen und Warnung.
+  if (!m || !j.matched_slug || conf < GS_PILZ_SICHER_AB) {
     var reason = (j && j.reasoning) ? j.reasoning : '';
-    var alt = (j && Array.isArray(j.alternatives) && j.alternatives.length) ? '<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--muted);">' + _t('mush_possible_candidate','Möglicher Kandidat:') + ' ' + j.alternatives.map(ed).join(', ') + '</div>' : '';
+    var alt = _gsPilzKandidatenHtml(j, ed, _t);
     box.innerHTML =
       '<div style="margin-top:14px;padding:14px;background:var(--bg-yellow-soft);border:2px solid #fbc02d;border-radius:var(--r-md);color:#bf360c;">' +
         '<div style="font-size:var(--fs-md);font-weight:900;margin-bottom:6px;">⚠️ ' + _t('mush_uncertain_id','UNSICHERE Identifikation') + ' (' + _t('confidence','Confidence') + ' ' + conf + '%)</div>' +
@@ -45307,14 +45355,16 @@ async function gsMushroomRenderResult(j) {
 
   // ============= Match-Card =============
   // safety_color aus v_mushroom_safety: red/orange/yellow/green
-  var safety = String(j.safety_color || 'yellow');
+  // v33.6x: eine toedliche oder giftige Art traegt IMMER die rote Kopfzeile — ohne safety_color
+  // (Sicht ohne Zeile, aeltere Function) stand sonst „⚠️ Vorsicht" unter dem roten Vollbild.
+  var safety = _gsPilzGefaehrlich(m.edibility) ? 'red' : String(j.safety_color || 'yellow');
   var safetyMap = {
     red:    { bg:'#ffebee', border:'#c62828', col:'#b71c1c', lbl:'🚫 ' + (m.edibility === 'toedlich' ? _t('mush_deadly','TÖDLICH') : _t('tag_toxic','GIFTIG')), prom:true },
     orange: { bg:'#fff3e0', border:'#e65100', col:'#bf360c', lbl:_t('mush_cond_edible','⚠️ NUR JUNG / BEDINGT ESSBAR'), prom:true },
     yellow: { bg:'#fff8e1', border:'#fbc02d', col:'#bf360c', lbl:_t('mush_caution','⚠️ Vorsicht'), prom:false },
     green:  { bg:'#e8f5e9', border:'#2e7d32', col:'#1b5e20', lbl:_t('mush_edible','✅ Speisepilz'), prom:false }
   };
-  var sm = safetyMap[safety] || safetyMap.yellow;
+  var sm = _gsNachschlag(safetyMap, safety, null) || safetyMap.yellow;
 
   var html = '<div style="margin-top:14px;border-radius:var(--r-lg);overflow:hidden;border:2px solid ' + sm.border + ';background:var(--card);">';
   html += '<div style="background:' + sm.bg + ';color:' + sm.col + ';padding:11px 16px;font-size:var(--fs-md);font-weight:900;text-align:center;border-bottom:1px solid ' + sm.border + ';">' + sm.lbl + ' · ' + _t('confidence','Confidence') + ' ' + conf + '%</div>';
