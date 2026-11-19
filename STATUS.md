@@ -65,6 +65,15 @@ Scan-Linie AB4. **Der erste Bau von AB2 hing** gegen die kaputte Fassung, statt 
 einen Scan, der nie endet. Jedes Warten auf einen Scan hat jetzt eine Frist (`fertig`, 3 s) — ein Fall muss auch
 dann melden, wenn die Funktion dahinter hängt.
 
+**Und `scan_check` als Ganzes war nicht sauber** — gefunden, weil AB1 einzeln grün und in der vollen Suite rot war
+(alle Fälle laufen in EINER Seite): (1) vier ältere Fälle (`Ablauf · jedes Foto gemessen`, `Dritter Blick`, H5,
+H7) ersetzten acht Funktionen — darunter `gsResetScanner` durch `() => {}` — und gaben sie nie zurück; für jeden
+späteren Fall war das Zurücksetzen des Scanners tot. Jetzt merkt sich jeder, was er ersetzt, und gibt es im
+`finally` zurück (H7 hatte keins). (2) SB1 löst „Zu meinen Pflanzen" aus, das 350 ms später per `setTimeout` auf
+„Meine Pflanzen" wechselt — der Wechsel landete mitten im nächsten Fall, dessen Scanner dann ausgeblendet war
+(Knopf 0 px). SB1 wartet seinen Zeitgeber jetzt ab, bevor es `switchTab` zurückgibt. **Ein Fall, der eine Funktion
+ersetzt, gibt sie zurück; ein Fall, der einen Zeitgeber auslöst, wartet ihn ab.** Danach `scan_check` 131/0.
+
 **Offen:** brett:2026-11-16-8186 — ein echtes Abbruchsignal in `callAI` / `callVisionAI` (Sitzung „KI-Modelle"); dann spart „Abbrechen" auch das Kontingent, der Knopf bleibt derselbe. Versionsnummer `v33.6x` am Kopf der Reihe.
 **Nicht geprüft:** ein echtes Telefon; ob eine abgebrochene Anfrage beim Anbieter tatsächlich zählt (von hier antwortet kein KI-Dienst — der Satz sagt deshalb „kann zählen"); der Pilz-Scanner (eigener Weg, `gsMushroomRunScan`) hat weiter kein Abbrechen
 

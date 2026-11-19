@@ -708,6 +708,8 @@ const FAELLE = [
       if (!qS.messbar || gsQualitaetZuSchlecht(qS)) return { ok: false, warum: 'Prüfbild „scharf" ist selbst zu schlecht (Schärfe ' + qS.blur + ') — der Fall stellt den Zustand nicht her' };
       if (!qF.messbar || !gsQualitaetZuSchlecht(qF)) return { ok: false, warum: 'Prüfbild „flach" gilt als lesbar (Schärfe ' + qF.blur + ') — der Fall stellt den Zustand nicht her' };
       // Sperren und Netz stellen — geprüft wird der ABLAUF, nicht die KI.
+      // Was der Fall ersetzt, gibt er zurück — sonst bleibt z. B. gsResetScanner für jeden späteren Fall tot (gefunden 19.11.2026 an AB1).
+      const _vor = ['getApiConfig', 'stopCamera', 'gsResetScanner', '_gsScanDHash', '_gsScanCacheGet', '_gsScanCachePut', 'gsBuildScanContext', 'callVisionAI'].map((n) => [n, window[n]]);
       window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
       window._gsScanDHash = async () => 'hash-h2'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
       window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
@@ -748,7 +750,7 @@ const FAELLE = [
         const q2 = res && res._qual;
         if (!q2 || q2.fotos !== 2 || !q2.messbar) klagen.push('2: nach „Trotzdem" keine Messung über 2 Fotos: ' + JSON.stringify(q2 && { fotos: q2.fotos, messbar: q2.messbar }));
         if (!/Dünne Bildgrundlage/.test(karte())) klagen.push('2: nach „Trotzdem" fehlt der Vorbehalt „Dünne Bildgrundlage" — die Bestimmung stünde auf einer ungemessenen Grundlage');
-      } finally { window.showScanResult = alt; window._gsQualExtra = null; }
+      } finally { window.showScanResult = alt; window._gsQualExtra = null; _vor.forEach(([n, f]) => { window[n] = f; }); }
       if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
       return { ok: true, info: 'scharf+flach: 2/2 gemessen, bestes zählt (' + qS.quality + '), 1 unscharf genannt · flach+flach: Rückfrage ohne Aufruf, „Trotzdem" mit 2 Fotos und Vorbehalt' };
     },
@@ -761,6 +763,8 @@ const FAELLE = [
         for (let i = 0; i < 14; i++) { g.beginPath(); g.moveTo((seed * 7 + i * 11) % 160, 150); g.lineTo((seed * 13 + i * 9) % 160, 10); g.stroke(); }
         return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
       const b1 = bild(1), b2 = bild(2), b3 = bild(3), b4 = bild(4);
+      // Was der Fall ersetzt, gibt er zurück — sonst bleibt z. B. gsResetScanner für jeden späteren Fall tot (gefunden 19.11.2026 an AB1).
+      const _vor = ['getApiConfig', 'stopCamera', 'gsResetScanner', '_gsScanDHash', '_gsScanCacheGet', '_gsScanCachePut', 'gsBuildScanContext', 'callVisionAI'].map((n) => [n, window[n]]);
       window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
       window._gsScanDHash = async () => 'hash-h3'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
       window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
@@ -797,7 +801,7 @@ const FAELLE = [
         if (!pr4 || pr4.length !== 2) klagen.push('Re-Scan nach 3 Fotos trägt ' + (pr4 && pr4.length) + ' statt 2 (Deckel 3)');
         await analyzeImage(b4, 'image/jpeg');
         if (rufe[3] !== 3) klagen.push('Scan 4 mit ' + rufe[3] + ' Fotos statt 3 (Deckel)');
-      } finally { window._gsRescanMode = false; window._gsRescanPrior = null; window._gsRescanTs = 0; }
+      } finally { window._gsRescanMode = false; window._gsRescanPrior = null; window._gsRescanTs = 0; _vor.forEach(([n, f]) => { window[n] = f; }); }
       if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
       return { ok: true, info: 'Aufrufe mit ' + rufe.join('/') + ' Fotos · Knopf: Zweites → Drittes → Maximum-Satz' };
     },
@@ -4250,26 +4254,30 @@ const FAELLE = [
       const flach = (() => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d'); g.fillStyle = '#7a8a6a'; g.fillRect(0, 0, 160, 160); return c.toDataURL('image/jpeg', 0.9).split(',')[1]; })();
       const q = await gsBildQualitaetVonB64(flach, 'image/jpeg');
       if (!q.messbar || !gsQualitaetZuSchlecht(q)) return { ok: false, warum: 'Prüfbild gilt als lesbar — der Fall stellt den Zustand nicht her' };
-      window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
-      window._gsScanDHash = async () => 'hash-h7'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
-      window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
-      let rufe = 0, scheitern = true;
-      window.callVisionAI = async () => { rufe++; if (scheitern) throw new Error('Zeitüberschreitung'); return JSON.stringify({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }); };
-      const karte = () => (document.getElementById('scan-result').textContent || '').replace(/\s+/g, ' ');
-      window._gsLastScanPayload = null;
-      // Gegenrichtung zuerst: ohne „Trotzdem" → Rückfrage, kein Aufruf
-      await analyzeImage(flach, 'image/jpeg');
-      if (rufe !== 0 || !/schwer zu lesen/.test(karte())) return { ok: false, warum: 'ohne „Trotzdem" kam keine Rückfrage (' + rufe + ' KI-Aufrufe)' };
-      gsQualTrotzdem();
-      for (let i = 0; i < 80 && !/fehlgeschlagen/.test(karte()); i++) await new Promise(r => setTimeout(r, 50));
-      if (rufe < 1 || !/fehlgeschlagen/.test(karte())) return { ok: false, warum: 'der gestellte Fehlschlag kam nicht an (' + rufe + ' Aufrufe) — der Fall stellt den Zustand nicht her' };
-      const vorher = rufe; scheitern = false;
-      await _gsRetryLastScan();
-      const t = karte();
-      if (/schwer zu lesen/.test(t)) return { ok: false, warum: '„Nochmal versuchen" fragt wieder nach der Bildqualität — die Wahl „Trotzdem bestimmen" ging verloren' };
-      if (rufe !== vorher + 1) return { ok: false, warum: 'der erneute Versuch hat die KI ' + (rufe - vorher) + '× gerufen statt 1×' };
-      if (!/Bärlauch/.test(t)) return { ok: false, warum: 'nach dem erneuten Versuch steht kein Ergebnis da' };
-      return { ok: true, info: 'ohne Wahl: Rückfrage, 0 Aufrufe · Trotzdem → Fehlschlag → Nochmal: 1 Aufruf, Ergebnis ohne zweite Rückfrage' };
+      // Was der Fall ersetzt, gibt er zurück — sonst bleibt z. B. gsResetScanner für jeden späteren Fall tot (gefunden 19.11.2026 an AB1).
+      const _vor = ['getApiConfig', 'stopCamera', 'gsResetScanner', '_gsScanDHash', '_gsScanCacheGet', '_gsScanCachePut', 'gsBuildScanContext', 'callVisionAI'].map((n) => [n, window[n]]);
+      try {
+        window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
+        window._gsScanDHash = async () => 'hash-h7'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+        window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
+        let rufe = 0, scheitern = true;
+        window.callVisionAI = async () => { rufe++; if (scheitern) throw new Error('Zeitüberschreitung'); return JSON.stringify({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }); };
+        const karte = () => (document.getElementById('scan-result').textContent || '').replace(/\s+/g, ' ');
+        window._gsLastScanPayload = null;
+        // Gegenrichtung zuerst: ohne „Trotzdem" → Rückfrage, kein Aufruf
+        await analyzeImage(flach, 'image/jpeg');
+        if (rufe !== 0 || !/schwer zu lesen/.test(karte())) return { ok: false, warum: 'ohne „Trotzdem" kam keine Rückfrage (' + rufe + ' KI-Aufrufe)' };
+        gsQualTrotzdem();
+        for (let i = 0; i < 80 && !/fehlgeschlagen/.test(karte()); i++) await new Promise(r => setTimeout(r, 50));
+        if (rufe < 1 || !/fehlgeschlagen/.test(karte())) return { ok: false, warum: 'der gestellte Fehlschlag kam nicht an (' + rufe + ' Aufrufe) — der Fall stellt den Zustand nicht her' };
+        const vorher = rufe; scheitern = false;
+        await _gsRetryLastScan();
+        const t = karte();
+        if (/schwer zu lesen/.test(t)) return { ok: false, warum: '„Nochmal versuchen" fragt wieder nach der Bildqualität — die Wahl „Trotzdem bestimmen" ging verloren' };
+        if (rufe !== vorher + 1) return { ok: false, warum: 'der erneute Versuch hat die KI ' + (rufe - vorher) + '× gerufen statt 1×' };
+        if (!/Bärlauch/.test(t)) return { ok: false, warum: 'nach dem erneuten Versuch steht kein Ergebnis da' };
+        return { ok: true, info: 'ohne Wahl: Rückfrage, 0 Aufrufe · Trotzdem → Fehlschlag → Nochmal: 1 Aufruf, Ergebnis ohne zweite Rückfrage' };
+      } finally { _vor.forEach(([n, f]) => { window[n] = f; }); }
     },
   },
 
@@ -4277,6 +4285,8 @@ const FAELLE = [
     name: 'H5 · Fehlerkarte: ganze Sätze statt Rohtext, Modellname und Rohmeldung nur für Admins, eine kaputte Antwort ist kein Schlüsselfehler',
     lauf: async () => {
       const altA = window.gsIsAdmin, altL = window.sbIsLoggedIn;
+      // Was der Fall ersetzt, gibt er zurück — sonst bleibt z. B. gsResetScanner für jeden späteren Fall tot (gefunden 19.11.2026 an AB1).
+      const _vor = ['getApiConfig', 'stopCamera', 'gsResetScanner', '_gsScanDHash', '_gsScanCacheGet', '_gsScanCachePut', 'gsBuildScanContext', 'callVisionAI'].map((n) => [n, window[n]]);
       window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
       window._gsScanDHash = async () => null; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
       window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
@@ -4318,7 +4328,7 @@ const FAELLE = [
             } else if (!/Modell:/.test(t) || !/Meldung:/.test(t)) klagen.push(k + ' (Admin): die Rohmeldung fehlt');
           }
         }
-      } finally { window.gsIsAdmin = altA; window.sbIsLoggedIn = altL; }
+      } finally { window.gsIsAdmin = altA; window.sbIsLoggedIn = altL; _vor.forEach(([n, f]) => { window[n] = f; }); }
       // eine kaputte Antwort zeigt keinen Anmelde- oder Schluessel-Kasten
       window.gsIsAdmin = () => false; window.sbIsLoggedIn = () => true;
       window.callVisionAI = faelle.kaputt.ki;
@@ -4587,6 +4597,10 @@ const FAELLE = [
         else if (!/^data:image\//.test(String(neu.photo || ''))) klagen.push('die neue Pflanze hat kein Foto („' + String(neu.photo || '').slice(0, 20) + '")');
         else if (!blau(await mitte(neu.photo))) klagen.push('die neue Pflanze trägt nicht das Foto des zweiten Scans');
       } finally {
+        // gsAddScanToMyPlants wechselt 350 ms später auf „Meine Pflanzen" (setTimeout). Erst abwarten, dann die echte
+        // switchTab zurückgeben — sonst landet der Wechsel im NÄCHSTEN Fall (gefunden 19.11.2026: AB1 mass einen
+        // ausgeblendeten Scanner, der Knopf war 0 px hoch).
+        await warte(450);
         window.gsScanPersistToCloud = sichern.p; window.gsPickScanLocation = sichern.ort; window.sbIsLoggedIn = sichern.li; window.switchTab = sichern.st;
         try { myPlants.length = 0; JSON.parse(sichern.mp).forEach(x => myPlants.push(x)); savePlantsToStorage(); } catch (_) {}
         localStorage.setItem('gs_scan_history', '[]');
