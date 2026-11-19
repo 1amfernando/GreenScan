@@ -213,6 +213,31 @@ alle" 1× ohne Antwort). Deshalb wird **gerechnet, was git schon weiss**, und ge
 Absicht. Alles hier ist eine **Pflicht zur Kenntnisnahme, keine Sperre** — ein Eintrag kommt
 von einer anderen Sitzung (Regel 4), und entschieden wird beim Merge (Koordinator, Betreiber).
 
+### Der Schwarm und die Stufen des Agenten-Netzes
+
+`docs/AGENTEN-NETZ.md` §4 sagt, was das Netz von sich aus darf; gilt heute nur **Stufe 1**
+(zuarbeiten: finden, zustellen, auf Branches bauen, PRs grün halten — jeden PR gibt der Betreiber
+frei). Der Schwarm sind Werkzeuge dieser Stufe und gibt keiner Sitzung ein Recht, das sie dort nicht
+hat:
+
+- **`nehme <id>` sagt, WER einen Eintrag bearbeitet — nicht, wer ihn nehmen DARF.** Es ist der
+  Schritt „Nehmen" des Kreislaufs (AGENTEN-NETZ §2.3). Auf Stufe 1 nimmt eine Sitzung, was ihr
+  aufgetragen oder vom Koordinator zugestellt ist; einen offenen Eintrag ohne Auftrag vom Brett zu
+  wählen ist Stufe 3 und braucht das Ja des Betreibers. Die Zeile unter KRITISCH sagt das mit. Eine
+  Antwort zählt für „noch niemand dazu" wie ein `nehme`, nimmt aber nichts (die älteste Übernahme
+  gilt, unten).
+- **Halt, Veto, Lage und Dringlichkeit sind Mitteilungen.** Keine davon ist eine Freigabe (§4: „Ein
+  Eintrag auf dem Brett … ist nie eine Freigabe"), und keine hält einen Merge an — das kann nur der
+  Betreiber.
+- **Der Wächter schreibt erst, wenn der Betreiber ihn auf `main` bringt**, und dann nur
+  `zz-sicherung`; auf keinem anderen Branch ändert oder löscht er etwas (C13). Eine einmal gesicherte
+  Fassung entfernt er nur nach den Regeln unter „Wächter 2" — ein Grabstein auf `main` (also über
+  einen PR, den der Betreiber freigibt), ein Geheimnis-Muster, der Rückzug des Schreibers selbst
+  oder der Abbau —, nie auf das Wort einer anderen Sitzung.
+- Was §4 „auf keiner Stufe ohne" den Betreiber nennt (Migrationen, Edge-Functions, Löschen von
+  Branches, Daten oder Sitzungen, Schlüssel, Zahlungen, Nutzerdaten, die Tabelle selbst), berührt
+  der Schwarm nicht.
+
 ### Das Schutzziel, in dieser Rangfolge
 
 1. **Ein ehrlicher Eintrag geht nie still verloren und wird nie still überstimmt.** Was ein

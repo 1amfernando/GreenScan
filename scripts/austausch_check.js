@@ -394,8 +394,19 @@ const FAELLE = [
         const ohneBefehl = befehle.filter(w => w !== 'lesen' && t.indexOf('austausch.mjs ' + w) < 0 && !new RegExp('`' + w + '[` ]').test(t));
         if (ohneBefehl.length) f.push('docs/austausch/README.md nennt die Befehle nicht: ' + ohneBefehl.join(', '));
       }
+      // Zwei Dokumente, EIN Schritt (19.11.2026): docs/AGENTEN-NETZ.md §2.3 nannte fuer das Nehmen `antworte <id>` — eine
+      // Antwort nimmt im Schwarm nichts, eine zweite Sitzung konnte denselben Befund danach noch uebernehmen. Und was der
+      // Schwarm DARF, steht dort (§4, Stufen); die README muss dorthin zeigen.
+      let netz = '';
+      if (gibt('docs/AGENTEN-NETZ.md')) {
+        const m = lies('docs/AGENTEN-NETZ.md').match(/\*\*Nehmen\.\*\*[\s\S]*?(?=\n\d+\. \*\*|\n## |$)/);
+        if (!m) f.push('docs/AGENTEN-NETZ.md: der Schritt „**Nehmen.**" ist nicht zu finden — ohne ihn sagt das Netz nicht, wie ein Befund einen Besitzer bekommt');
+        else if (m[0].indexOf('`nehme <id>`') < 0) f.push('docs/AGENTEN-NETZ.md §2 „Nehmen" nennt `nehme <id>` nicht — dort steht ein anderer Weg als im Werkzeug, und eine Antwort nimmt im Schwarm nichts');
+        if (gibt('docs/austausch/README.md') && lies('docs/austausch/README.md').indexOf('docs/AGENTEN-NETZ.md') < 0) f.push('docs/austausch/README.md nennt docs/AGENTEN-NETZ.md nicht — was der Schwarm darf, steht dort (§4)');
+        netz = ' · AGENTEN-NETZ „Nehmen" = `nehme <id>`, README zeigt auf §4';
+      }
       if (f.length) return { ok: false, warum: f.join(' · ') };
-      return { ok: true, info: 'vier Einstiegsdateien nennen das Werkzeug · README deckt ' + Object.keys(A.ARTEN).length + ' Arten, ' + Object.keys(A.BEZUEGE).length + ' Bezuege, ' + A.ERGEBNISSE.length + ' Ergebnisse, ' + (A.FELDER.length - 1) + ' Felder' };
+      return { ok: true, info: 'vier Einstiegsdateien nennen das Werkzeug · README deckt ' + Object.keys(A.ARTEN).length + ' Arten, ' + Object.keys(A.BEZUEGE).length + ' Bezuege, ' + A.ERGEBNISSE.length + ' Ergebnisse, ' + (A.FELDER.length - 1) + ' Felder' + netz };
     },
   },
   {

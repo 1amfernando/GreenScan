@@ -20,7 +20,8 @@ und der STATUS-Eintrag am Ende traegt zwei feste Zeilen: `**Offen:**` (mit
 `brett:<id>` oder „nichts") und `**Nicht geprüft:**`. `holen` zeigt zuerst DICH
 BETREFFEND (fremder Halt auf deinen Dateien, Veto gegen deinen Eintrag, Antworten und
 Lieferungen auf deine Fragen, nicht Gepushtes — „dein" heisst: von dir geschrieben, nicht: liegt
-in deinem Arbeitsbaum); eine Aufgabe nimmst du mit `nehme <id>` und gibst sie mit
+in deinem Arbeitsbaum); eine Aufgabe nimmst du mit `nehme <id>` (auf Stufe 1 nur, was dir
+aufgetragen oder zugestellt ist — `docs/AGENTEN-NETZ.md` §4) und gibst sie mit
 `lage --phase fertig` frei, einen Halt setzt `halt` (Funktionsnamen oder Pfade — nie
 `STATUS.md` oder `index.html` als Ganzes), `naechste` holt selbst und endet unter einem fremden
 Bump-Halt mit Exit 1 (README „Der Schwarm"). Was eine Austausch-Runde schreibt, traegt als `von`

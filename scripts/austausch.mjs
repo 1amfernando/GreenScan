@@ -505,7 +505,7 @@ function schwarmBloecke(b, abl, sw, inArbeit) {
   const kritisch = b.eintraege.filter(e => offen(e) && e.dringlichkeit === 'kritisch' && !A.eintragPruefen(e, e._datei).length).sort((x, y) => A.ordnung(y).localeCompare(A.ordnung(x)));
   const dringend = b.eintraege.filter(e => offen(e) && e.dringlichkeit === 'dringend');
   if (kritisch.length || dringend.length) {
-    aus('\nKRITISCH (' + kritisch.length + ')' + (dringend.length ? ' · DRINGEND (' + dringend.length + ' — in den Listen unten zuerst, oder `--dringlichkeit dringend`)' : '') + ' — wer es aufnimmt: `nehme <id>`');
+    aus('\nKRITISCH (' + kritisch.length + ')' + (dringend.length ? ' · DRINGEND (' + dringend.length + ' — in den Listen unten zuerst, oder `--dringlichkeit dringend`)' : '') + ' — wer es aufnimmt (mit Auftrag; ohne ist Stufe 3, docs/AGENTEN-NETZ.md §4): `nehme <id>`');
     for (const e of kritisch.slice(0, o.alles ? 1e9 : 6)) { const n = (abl.rueck.get(e.id) || []).filter(r => r.von.art === 'antwort').length; aus('    ' + e.id + '  ' + knapp(e.titel, 100) + '   [' + arbeitsMarke(e, sw, inArbeit) + (n ? ' · ' + n + ' Antwort(en)' : '') + ']' + (e._quelle !== 'Arbeitsbaum' ? '   {' + nameSicher(e._quelle) + '}' : '')); }
     if (!o.alles && kritisch.length > 6) aus('    … +' + (kritisch.length - 6) + ' weitere — `--alles`');
   }

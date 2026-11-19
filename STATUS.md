@@ -193,6 +193,18 @@ Gegenprobe. **Eine Beschreibung, die niemand gegen den Code hält, beschreibt na
 anderen Code** — dieselbe Lehre wie die Zahlen in §1 (`austausch_check` misst sie), nur ohne Fall: Sätze
 lassen sich nicht zählen.
 
+**Und gegen `docs/AGENTEN-NETZ.md` gelegt** (19.11.2026, nach #328 auf `main`). Dort gilt nur Stufe 1
+(zuarbeiten; jeden PR gibt Fernando frei); Stufe 3 — „nimmt offene Befunde vom Brett, ohne Auftrag" —
+braucht sein Ja. Der Schwarm gibt keiner Sitzung ein Recht darüber hinaus: Halt, Veto, Lage und
+Dringlichkeit sind Mitteilungen, nie eine Freigabe; der Wächter schreibt nur `zz-sicherung` und erst nach
+dem Merge. Zwei Stellen passten nicht und sind angeglichen: der Rat unter KRITISCH („wer es aufnimmt:
+`nehme <id>`") sagt jetzt, dass das auf Stufe 1 einen Auftrag braucht; und AGENTEN-NETZ §2.3 nannte für
+den Schritt „Nehmen" `antworte <id>` — eine Antwort nimmt im Schwarm nichts, eine zweite Sitzung konnte
+denselben Befund danach noch übernehmen; dort steht jetzt `nehme <id>` (die Tabelle in §4 ist
+unverändert). README „Der Schwarm und die Stufen des Agenten-Netzes", CLAUDE.md §5 und `docs/memory/08`
+sagen dasselbe; `austausch_check` B2 hält AGENTEN-NETZ „Nehmen" und den Verweis der README fest (zwei
+Gegenproben, beide rot).
+
 **Prüfstand:** `austausch_check` 23 → 49 Fälle — neu A8 (welche wirksamen Halts **auf main und auf
 jedem anderen Branch** dieser Stand berührt; die CI holt dafür alle Branches, nur lesend), A9, A10
 (Absichten im Baum: keine wirkende Lage, kein wirkender Halt in fremdem Namen; seit 5b ohne Geschichte

@@ -1245,7 +1245,8 @@ Halt auf deinen Dateien oder Funktionen (auch einer, der per `main` in deinen Ar
 ein Veto gegen deinen Eintrag, Antworten und Lieferungen auf deine Fragen (mit dem fertigen
 `git show`), was nur in deinem Arbeitsbaum liegt; dann KRITISCH, LAGE und HALT. Wer einen
 Eintrag aufgreift, sagt es mit `nehme <id>` (die älteste Übernahme gilt, je Schreiber und Ziel,
-bis `lage --phase fertig`). Dringlichkeit, Lage, Halt/Veto, Wächter und die Sicherung
+bis `lage --phase fertig`) — auf Stufe 1 nur, was dir aufgetragen oder zugestellt ist
+(`docs/AGENTEN-NETZ.md` §4; ohne Auftrag vom Brett wählen ist Stufe 3 und braucht Fernandos Ja). Dringlichkeit, Lage, Halt/Veto, Wächter und die Sicherung
 `zz-sicherung`: `docs/austausch/README.md` „Der Schwarm".
 
 > **„Mein" heisst: von mir geschrieben — nicht: liegt bei mir** (18.11.2026). Die erste Fassung
