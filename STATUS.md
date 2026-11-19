@@ -12,7 +12,7 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
-### 2026-11-18 (jh) - kein Bump: der Schwarm — Dringlichkeit, Übernahme, Lage, Halt und Veto, Wächter und Sicherung, vier gegnerische Prüfungen
+### 2026-11-18 (jh) - kein Bump: der Schwarm — Dringlichkeit, Übernahme, Lage, Halt und Veto, Wächter und Sicherung, fünf gegnerische Prüfungen und drei Nachrunden
 
 **Auftrag (Fernando, 17.11.2026, gekürzt):** eine gemeinsame Wissensbasis über die Sitzungen
 hinaus; klare Protokolle — Dringlichkeit („Dringend", „Kritisch"), Aufgabenzuweisung („Agent sucht
@@ -36,7 +36,7 @@ ausser per Grabstein (`docs/austausch/zurueckgezogen.json`). **Wächter 2**: die
 **`zz-sicherung`** (aus dem Nichts, ohne Geschichte) und wird ROT, wenn eine Fassung nur noch dort
 liegt oder die Sicherung selbst zurückgesetzt wurde. Ids haben jetzt acht Hexstellen.
 
-**Vier gegnerische Prüfungen vor dem Ausliefern** — die ersten zwei (je fünf Linsen mit Skeptiker, jede Linse in
+**Fünf gegnerische Prüfungen vor dem Ausliefern** (dazu drei Nachrunden, unten) — die ersten zwei (je fünf Linsen mit Skeptiker, jede Linse in
 einem eigenen Klon mit gebautem origin): **Runde 1 — 64 Funde, 41 vom Skeptiker nachgestellt,
 keiner widerlegt, 23 ohne Urteil** (die Prüfstand-Linse hatte keinen Skeptiker); **Runde 2 auf dem
 reparierten Stand — 71 Funde, alle 71 nachgestellt, keiner widerlegt.** Beide Male war die Fassung,
@@ -97,9 +97,44 @@ zu lesen (gegen „lokaler Name ≠ Upstream") hätte jede Sitzung, die mit `git
 origin/main` beginnt, „main" genannt. Identität bleibt der lokale Name; ein abweichender Upstream
 wird genannt.
 
-**Prüfstand:** `austausch_check` 23 → 39 Fälle — neu A8 (welche wirksamen Halts **auf main und auf
+**Runde 5 (auf 48a5ed2) — 56 Funde in sechs Linsen, 54 vom Skeptiker nachgestellt, zwei nicht.** Die
+schwersten trafen den Kern der Sicherung: **„strittig" war eine Waffe** — eine Kopie mit anderem `von` vor
+dem ersten Wächterlauf legte einen fremden Halt, Bump-Halt oder eine Lage dauerhaft lahm, und verschwand
+der Branch des Ehrlichen, beförderte der Wächter die Fälschung unter `eintraege/`; ein Grabstein auf einem
+neu angelegten Branch löschte die einzige Kopie ohne ALARM; im Teilabruf (`blob:none`, `tree:0`) war eine
+ehrlich berichtigte Lage „rückdatiert", und das Verzeichnis des Wächters kam nie an; ein `von` mit
+Zeilenumbruch schrieb ganze Blöcke in die Ausgabe jedes Lesers. Repariert in fünf Gruppen (Fassungen,
+Wächter, Lesen, Identität, Ausgabe) gegen sieben feste Entscheidungen, je mit Skeptiker (`c43c306`).
+
+**Und dann konvergierte es nicht.** Die Skeptiker der Reparatur fanden **23** neue Punkte (Runde 5b,
+`a93415d`), deren Skeptiker **14** (5c, `f3f894a`), deren Skeptiker **17** (5d, `e42bf8a`). Jede Runde
+riss kleinere Lücken, als sie schloss — und einige in genau der Klasse, die sie schliessen sollte: die
+gerechte Frist je Branch (5b) machte aus 25 ehrlichen Branches eine Klippe (`naechste` endete jedes Mal
+mit Exit 2, wo vorher EIN Abruf reichte); die strengere Rückzugs-Regel verlor einen ehrlichen Rückzug,
+sobald eine Kopie auf einem dritten Branch lag; die neue Auskunft „für die anderen wirkt er NICHT" stand
+auch unter einem abgelaufenen Halt. Konvergiert hat es erst mit einer **Rangfolge**, die vor Runde 5b
+feststand und an der jede Abwägung gemessen wurde: **(1)** ein ehrlicher Eintrag geht nie still verloren
+und wird nie still überstimmt; **(2)** was sich nicht rechnen lässt, heisst „nicht rechenbar" mit Grund
+und nimmt die sichere Richtung (ein Halt wirkt, eine Lage nimmt nichts, `naechste` endet nicht mit 0);
+**(3)** Fälschungen durch jemanden mit Push-Recht werden erkannt, wo es mit vertretbarem Aufwand geht —
+**verhindern kann sie nur ein Branch-Schutz** (brett:2026-11-18-70cdcf56). (1) geht vor (3). Ab 5c
+prüften die Skeptiker nur noch, ob jede Reparatur hält, ob sie etwas bricht, das vorher richtig lief, und
+ob sich ein Teil ausbauen lässt, ohne dass ein Fall rot wird (nach 5c: neun solche Teile). **5d war die
+letzte Runde:** alle 17 Punkte erledigt, je Gruppe ein Nachprüfer nur auf Erledigung und Rückschritte im
+eigenen Diff; die Nachprüfer fanden drei kleine Rückschritte der 5d (`holen` lud bei einem hängenden
+Abruf `index.html` nie nach; ein abgelaufener Halt bekam den falschen Grund und den Rat „schreib ihn
+neu"; „über main" als Weg für eine LAGE auf einem neu angelegten Branch heisst nach 6 h „rückdatiert") —
+behoben, je mit Teilfall und Gegenprobe. Was danach bleibt, steht als **benannte Grenze** mit Zahl in der
+README („Grenzen"), darunter: drei oder mehr hängende fremde Branches lassen ehrliche ältere Fassungen
+in der stillen Frist nicht ankommen (`holen` lädt sie nach); ein Strittig nach einer Berichtigung dauert
+bis zum nächsten Wächterlauf; ein Fälscher mit Schreibrecht auf `zz-sicherung` und eine Cache-Lücke des
+Wächters zusammen entfernen eine Kopie still.
+
+**Prüfstand:** `austausch_check` 23 → 49 Fälle — neu A8 (welche wirksamen Halts **auf main und auf
 jedem anderen Branch** dieser Stand berührt; die CI holt dafür alle Branches, nur lesend), A9, A10
-(Absichten im Baum: keine wirkende Lage, kein wirkender Halt in fremdem Namen), C11–C26. C13 und C25
+(Absichten im Baum: keine wirkende Lage, kein wirkender Halt in fremdem Namen; seit 5b ohne Geschichte
+„nicht prüfbar", nie still ok), C11–C36 (C27–C31 Runde 5, C32–C36 die Runden 5b–5d mit ihren
+Teilfällen). C13 und C25
 fahren den ECHTEN Schritt der Action wie auf GitHub (frischer flacher Klon, saubere Shell, Cache als
 Gedächtnis, ein `node`-Spion für den Token); C12, C14, C16, C19, C20, C24 und C26 fahren das Werkzeug
 als Prozess über gebaute Branches und ein gebautes origin, auch im Teilabruf (`blob:none`, `tree:0`,
@@ -107,11 +142,16 @@ als Prozess über gebaute Branches und ein gebautes origin, auch im Teilabruf (`
 2'799** Funktionen von `index.html` mit einem echten JS-Parser (acorn) überein. **Gegenproben:** jede
 Reparatur zurückgebaut, der Fall muss rot werden — für Runde 4 allein **64 Gegenproben auf dem
 zusammengeführten Stand, 63 einzeln rot**; die eine, die grün blieb, baut eine Regel des Wächters
-zurück, die eine zweite mitschützt (zusammen zurückgebaut: C25 rot). Gefahren werden die
-Gegenproben in Kopien des Repos, nie im Arbeitsbaum (Prüfsumme vor und nach jeder).
+zurück, die eine zweite mitschützt (zusammen zurückgebaut: C25 rot). Runde 5: 100 Proben, 98 rot
+(zwei Wächter-Proben doppelt gesichert); 5b: 103, alle rot; 5c: 161 auf dem zusammengeführten Stand, 154
+rot, 7 vom Code der 5c abgelöst (je mit Nachfolgeprobe); 5d mit den drei Nachkorrekturen: 103, alle rot
+(7 davon an den Wortlaut nach 5d angepasst). Gefahren werden die Gegenproben in Kopien des Repos, nie im
+Arbeitsbaum (Prüfsumme vor und nach jeder). `austausch_check` braucht lokal jetzt rund 5½–6 min (vorher
+3 min 45 s), `pruefstaende.yml` hat dafür ein Zeitlimit von 60 min (brett:2026-11-18-cf93eedc) und einen
+zweiten Schritt „Geschichte für das Brett" (`--unshallow`, nur lesend), ohne den A10 „nicht prüfbar" sagt.
 
-**Offen:** brett:2026-11-18-70cdcf56
-**Nicht geprüft:** ein https-Remote (gemessen sind `file://` und `ext::`) und ein git ohne `GIT_NO_LAZY_FETCH` (es lädt einen fehlenden tieferen Baum still nach — README „Grenzen“); die Action selbst auf GitHub — sie läuft erst, wenn `brett-waechter.yml` auf `main` liegt; geprüft ist ihr Schritt gegen ein gebautes origin, nicht `actions/cache` (Cache-Schlüssel je Lauf, `restore-keys`) und nicht die Rechte eines echten `GITHUB_TOKEN`; ob GitHub einen nicht mehr erreichbaren Sicherungs-Commit über seine Kennung weiter ausliefert; der neue Schritt in `pruefstaende.yml` (alle Branches holen) läuft erst im nächsten PR; die volle Suite (geändert sind nur das Werkzeug des Bretts, sein Prüfstand, zwei Actions und Doku — gefahren: `austausch_check`, `robust_check`)
+**Offen:** brett:2026-11-18-70cdcf56, brett:2026-11-18-cf93eedc
+**Nicht geprüft:** die beiden neuen CI-Schritte auf GitHub („Geschichte für das Brett" mit `--unshallow` und zz-sicherung ohne Filter; gemessen nur gegen einen Nachbau, im PR eines Forks gar nicht) und die Laufzeit von `austausch_check` dort; Windows/CRLF-Checkouts; ein https-Remote (gemessen sind `file://` und `ext::`) und ein git ohne `GIT_NO_LAZY_FETCH` (es lädt einen fehlenden tieferen Baum still nach — README „Grenzen“); die Action selbst auf GitHub — sie läuft erst, wenn `brett-waechter.yml` auf `main` liegt; geprüft ist ihr Schritt gegen ein gebautes origin, nicht `actions/cache` (Cache-Schlüssel je Lauf, `restore-keys`) und nicht die Rechte eines echten `GITHUB_TOKEN`; ob GitHub einen nicht mehr erreichbaren Sicherungs-Commit über seine Kennung weiter ausliefert; der neue Schritt in `pruefstaende.yml` (alle Branches holen) läuft erst im nächsten PR; die volle Suite (geändert sind nur das Werkzeug des Bretts, sein Prüfstand, zwei Actions und Doku — gefahren: `austausch_check`, `robust_check`)
 
 ### 2026-11-16 (jg) - kein Bump: das Brett sagt, welche Version und welches Kürzel noch frei sind
 
@@ -16067,7 +16107,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Budget von `plan-iterate`** | 8000 Ausgabe-Token gegen 10000/14000 beim Erzeuger; ein grösserer Plan wird bei jeder Iteration abgeschnitten (die App sagt es seit der Gesamtprüfung ehrlich). Erst nur lesend die Plangrössen und das Tempo eines echten Aufrufs messen. | brett:2026-11-16-cfcd · (je) |
 | **Drei Branches tragen v33.59 — die Reihenfolge steht auf dem Brett** | Die Sicherheitsreparatur (`ccr-5e705a36-jveaak`, PR #327), PR #324 (`claude/restore-banner-nur-bei-bedarf`) und `ccr-dce5a17c-2xzhvi` tragen dieselbe Nummer. Die Antwort `2026-11-11-1d9f` (Sitzung `claude/leitstand-kw46`, liegt nur auf deren Branch) nennt als Fernandos Entscheidung: die Sicherheitsreparatur zuerst (behält v33.59), danach #324 als v33.60, dann `ccr-dce5a17c-2xzhvi` als v33.61 — und dass jene Sitzung den Merge und die Schritte aus §30b übernimmt. **Diese Sitzung hat das nur gelesen, nicht von Fernando gehört:** sie mergt nicht und wendet nichts an. Den PR für diesen Branch hat jene Sitzung angelegt (#327, 11.11.2026 14:42 UTC); was hier danach gepusht wird, nimmt er mit. Die Reihe nennt dort inzwischen fünf Plätze (v33.59 #327 · v33.60 #324 · v33.61 `ccr-dce5a17c-2xzhvi` · v33.62 #326 · v33.63 `claude/scan-fotos-signiert`), und `claude/zahlungsweg-nachgemessen-011L7G` trägt ebenfalls schon v33.60 (Frage `2026-11-11-23d2` auf jenem Branch). Ein Merge von `ccr-dce5a17c-2xzhvi` bricht ohne Nacharbeit das Lockfile (brett:2026-11-11-7a6c). Im Text kollidiert mit #324 nur der Kopf von `GS_RELEASES`. Dringlichkeit: der Branch der Reparatur beschreibt Lücken, die live offen sind, bis er gemergt und angewandt ist. | brett:2026-11-11-699a · (je) |
 | **Eine geplante Routine ohne Repo-Zugang ans Repo und ans Brett anschliessen?** | Sie schreibt ihre Übergaben ausserhalb des Repos — ein zweiter Wissenskanal, den keine Sitzung hier sieht. Welche Aufgabe es ist und was ihr fehlt, ging direkt an Fernando (nicht in dieses öffentliche Repo). Im Auftrag der Aufgabe bräuchte es `node scripts/austausch.mjs holen` am Anfang und Einträge am Ende. Nicht verändert. | brett:2026-11-11-669d · (jd) |
-| **Den Brett-Wächter einschalten** (`.github/workflows/brett-waechter.yml`) | Er läuft erst, wenn er auf `main` liegt; er schreibt NUR auf `zz-sicherung` und wird rot, wenn eine Fassung eines Eintrags nur noch dort liegt oder die Sicherung zurückgesetzt wurde. Zu entscheiden: der Merge, eine Branch-Regel für `zz-sicherung` (ohne sie merkt der Wächter ein Löschen, verhindert es aber nicht) und wer einen roten Lauf liest. brett:2026-11-18-70cdcf56 | (jh) |
+| **Den Brett-Wächter einschalten** (`.github/workflows/brett-waechter.yml`) | Er läuft erst, wenn er auf `main` liegt; er schreibt NUR auf `zz-sicherung` und wird rot, wenn eine Fassung eines Eintrags nur noch dort liegt oder die Sicherung zurückgesetzt wurde. Zu entscheiden: der Merge, eine Branch-Regel für `zz-sicherung` (ohne sie merkt der Wächter ein Löschen, verhindert es aber nicht), ob auch die Sitzungs-Branches geschützt werden (das Schutzziel des Schwarms erkennt Fälschungen durch Push-Berechtigte nur, verhindern kann sie nur ein Branch-Schutz — README „Grenzen") und wer einen roten Lauf liest. brett:2026-11-18-70cdcf56 | (jh) |
 | **Dürfen die 123 Branches `claude/lucid-cerf-*` gelöscht werden, sobald sie gesichtet sind?** | Nie gemergt, ohne PR (07.06.–23.09.2026); `weekly-cleanup.yml` erfasst sie nicht. Sie tragen Reparaturen, von denen niemand weiss, ob `main` sie hat. Löschen ist nicht umkehrbar. | brett:2026-11-11-90db · (jd) |
 | **„Teilen → GreenScan" in der APK auf einem Telefon ansehen** (v33.56) | Hier läuft kein Android. `apk_check` fährt die Rechnung (`Geteilt.java`), die Filter im gebauten Paket und die Seite gegen ein echtes Fach in Java — nicht das Teilen-Menü eines Telefons, nicht, ob eine Galerie oder Cloud-App `ClipData` oder nur `EXTRA_STREAM` schickt, und nicht, ob das Schliessen eines hängenden Stroms den Lesevorgang auf einem Gerät weckt. | `docs/FUER-FERNANDO.md` §28 · (ja) |
 | **„Teilen → GreenScan" auf einem Telefon ansehen** (v33.55) | Hier läuft kein Android, und green-scan.ch ist nicht erreichbar. `offline_check` fährt den echten multipart-POST durch den echten Worker — nicht das Teilen-Menü eines Telefons, nicht, wann Chrome die geänderte `manifest.json` in die installierte App übernimmt (am schnellsten: neu installieren), und nicht, was Cloudflare/Netlify auf `POST /teilen` antworten (der Prüfserver wendet die `_redirects`-Regel an wie der Hoster; ob beide eine 303-Regel auch für POST anwenden, ist von hier aus nicht nachgeprüft). | `docs/FUER-FERNANDO.md` §27 · (iz) |
