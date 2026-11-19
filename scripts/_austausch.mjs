@@ -719,7 +719,8 @@ export function objekteNachladen(wurzel, oids, opts) {
 // Reihenfolge der Refs; danach traegt jede in `rest`, was noch fehlt, und in `ende`, wie ihr letzter Abruf endete
 // ('ok' · 'frist' · 'fehler'). `fristEnde`: ms seit 1970 — kein Abruf laeuft darueber hinaus.
 //  1. EIN Abruf fuer alle, mit hoechstens der HAELFTE der verbleibenden Frist. Das ist der Normalfall (gemessen: 26 ehrliche
-//     Branches, 0,8 s je Abruf — ein Abruf, alle aelteren Fassungen da). Die Haelfte bleibt fuer den Fall, dass er haengt.
+//     Branches, 0,8 s je Abruf — ein Abruf, alle aelteren Fassungen da). Die Haelfte bleibt fuer den Fall, dass er haengt. Laesst
+//     sich nichts teilen (ein Branch, ein Objekt), bekommt er den ganzen Rest (R5d-L2, unten).
 //  2. Nur wenn er an der FRIST scheitert, wird halbierend geteilt: ueber die Branches, bei einem einzigen Branch ueber seine
 //     Objekte. Haengt EIN fremder Branch, kostet er log N Runden statt N Latenzen; jede Haelfte ohne ihn kommt in einem Abruf an.
 //     Ein Abruf, den der Server ABLEHNT (fehler), wird nicht geteilt und nicht wiederholt (wie vorher; die Antwort ist dann
@@ -728,10 +729,16 @@ export function objekteNachladen(wurzel, oids, opts) {
 //  offenen Teile plus zwei je Halbierungsstufe des groessten (len + 2·⌈log2 Umfang⌉). Gemessen (18.11.2026, 12 ehrliche Branches
 //  mit berichtigter Lage, ein fremder, dessen aeltere Fassung haengt, 0,3 s je Abruf, Standardfrist): so kamen alle zwoelf (der
 //  knappste ehrliche Teil bekam 0,88 s und brauchte 0,38 s; fuenf Abrufe trafen den haengenden: 1 + ⌈log2 13⌉). Bekam jeder Teil
-//  stattdessen die Haelfte des Rests, blieben dem letzten ehrlichen 81 ms, und seine aeltere Fassung kam nicht. Haengen MEHRERE
+//  stattdessen die Haelfte des Rests, blieben dem letzten ehrlichen 81 ms, und seine aeltere Fassung kam nicht. Die ZWEI je Stufe
+//  sind ein Rand, kein gemessener Wert (Gegenpruefung 5c, Skeptiker R5d-L3): gerechnet in einem Modell (ein ehrlicher Abruf dauert a,
+//  ein haengender verbraucht seine Frist; gesucht ist der Rest nach dem ersten Abruf fuer alle, mit dem alle ehrlichen kommen)
+//  braucht die Welt von C33 T10 mit Faktor 1 und 2 gleich viel (10,8 a); erst bei mehr Branches (26 mit je zwei Objekten: 14,1 a
+//  statt 17,2 a; 100: 18,8 a statt 25,1 a) oder zwei haengenden (11,7 a statt 17,0 a) traegt er. Kein Fall haelt ihn: ein Prozess-Fall
+//  muesste die Frist in dieses Fenster legen, und in Sekunden verschiebt es sich mit a, also mit der Last der Maschine (README,
+//  Grenzen). Haengen MEHRERE
 //  Teile, reicht die Rechnung nicht fuer alle — was nicht kommt, ist „nicht rechenbar" (ein Halt wirkt, eine Lage nimmt nichts),
 //  nie still falsch.
-function aeltereNachladen(wurzel, remote, gruppen, fristEnde, frist) {
+function aeltereNachladen(wurzel, remote, gruppen, fristEnde, frist, nachher) {
   const uebrig = () => fristEnde - Date.now();
   // Ein Teil ist eine Liste von {x, oid}; sein Umfang die Zahl seiner Branches, bei einem einzigen Branch die seiner Objekte.
   const teil = (gs) => gs.flatMap(x => x.rest.map(oid => ({ x, oid })));
@@ -758,8 +765,16 @@ function aeltereNachladen(wurzel, remote, gruppen, fristEnde, frist) {
   };
   const alle = teil(gruppen.filter(x => x.rest.length));
   if (!alle.length) return;
-  if (Math.floor(uebrig() / 2) < 1) { for (const x of gruppen) if (x.rest.length) x.ende = 'frist'; return; }
-  if (abruf(alle, Date.now() + uebrig() / 2) !== 'frist') return;
+  // Gegenpruefung 5c, Skeptiker (R5d-L2): laesst sich `alle` NICHT teilen (genau ein Branch mit genau einem Objekt), schuetzt die
+  // Haelfte niemandes Frist — sie blieb ungenutzt. Gemessen (Skeptiker, l1.cjs: ein Branch mit berichtigter Lage, 5,8 s je Abruf,
+  // Standardfrist): nach 16,0 s „Nicht entscheidbar", rund 4 s der stillen Frist ungenutzt; mit dem ganzen Rest (wie vor 5c)
+  // „schon uebernommen". Dann bekommt der eine Abruf den ganzen Rest — aber nur, wenn DANACH nichts mehr kommt (`nachher`
+  // falsch: `nehme`, `naechste`). Nachpruefung 5d (lesen): bei `holen` kommen danach index.html und sw.js von main
+  // (opts.aenderung); hing dort genau dieser eine Abruf, kamen sie nie, und der Rat „holen laedt es nach" fuehrte im Kreis
+  // (gemessen, aend.cjs: f3f894a 4 Abrufe, index.html kommt; mit dem ganzen Rest auch bei `holen` 3 Abrufe, „kamen nicht").
+  const anteil = umfang(alle) > 1 || nachher ? 2 : 1;
+  if (Math.floor(uebrig() / anteil) < 1) { for (const x of gruppen) if (x.rest.length) x.ende = 'frist'; return; }
+  if (abruf(alle, Date.now() + uebrig() / anteil) !== 'frist') return;
   const schlange = halbiere(frisch(alle));
   while (schlange.length) {
     const t = frisch(schlange.shift());
@@ -798,10 +813,27 @@ function aeltereNachladen(wurzel, remote, gruppen, fristEnde, frist) {
 // die Dateien fuer die Nummern (R5c-L1: danach blieb ihnen keine Zeit).
 // opts.bis: die Gesamtfrist des Befehls — jeder Abruf hier bekommt hoechstens den Rest (R5-lesen-8). `grund` sagt, warum
 // etwas nicht kam: 'frist' (Frist abgelaufen) oder 'fehler' (der Abruf scheiterte — der Server gab die Objekte nicht).
+// `sicherung` (Gegenpruefung 5c, Skeptiker R5d-Le4): null, oder — wenn das Verzeichnis des Waechters hier nicht verwendbar ist —
+// { status, grund, noetig, geholt, fehlt, baum } fuer die Fassungen unter fassungen/ in zz-sicherung (siehe unten).
 const BRETT_DIR = path.posix.dirname(ORDNER);
+// Warum das Verzeichnis des Waechters hier NICHT verwendbar ist, als ein Satz fuer den Rat (Gegenpruefung 5c, Skeptiker R5d-Le4).
+// verzeichnisLesen nennt bei 'ungueltig' nur „kein gueltiges JSON oder Stand in der Zukunft" — eine Uhr ist aber etwas anderes als
+// eine kaputte Datei, und nur die Uhr sagt, wo man nachsieht. Liest ohne Nachladen.
+function verzeichnisUnbrauchbar(wurzel, vs, jetzt) {
+  if (vs.status === 'ohne') return REMOTE + '/' + SICHERUNG_ZWEIG + ' traegt kein Verzeichnis (' + VERZEICHNIS + ') — ein Waechter aus der Zeit davor?';
+  if (vs.status !== 'ungueltig') return vs.grund || ('Verzeichnis: ' + vs.status);
+  const ls = git(wurzel, ['ls-tree', '-z', 'refs/remotes/' + REMOTE + '/' + SICHERUNG_ZWEIG, '--', VERZEICHNIS], { ohneNachladen: true });
+  const m = (ls || '').match(/^\d+ blob ([0-9a-f]{40,64})\t/), roh = m ? git(wurzel, ['cat-file', 'blob', m[1]], { ohneNachladen: true }) : null;
+  let j = null; try { j = JSON.parse(roh); } catch (_) {}
+  if (!j || typeof j !== 'object' || Array.isArray(j)) return 'das Verzeichnis des Waechters ist kein gueltiges JSON-Objekt';
+  const stand = Date.parse(String(j.stand || ''));
+  if (isNaN(stand)) return 'das Verzeichnis des Waechters traegt keinen lesbaren Stand';
+  if (stand > jetzt + VORLAUF_MS) return 'Verzeichnis ungueltig: sein Stand (' + new Date(stand).toISOString().replace(/\.\d{3}Z$/, 'Z') + ') liegt ' + Math.round((stand - jetzt) / 60000) + ' min in der Zukunft — geht die Uhr des Waechters vor (oder deine nach)?';
+  return vs.grund || 'das Verzeichnis des Waechters ist ungueltig';
+}
 export function eintraegeNachladen(wurzel, opts) {
   opts = opts || {};
-  const aus = { teilabruf: false, noetig: 0, geholt: 0, fehlt: [], ok: true, aeltere: { noetig: 0, geholt: 0, fehlt: [], refs: [] }, geschichte: [], verzeichnis: null, aenderung: null, grund: null };
+  const aus = { teilabruf: false, noetig: 0, geholt: 0, fehlt: [], ok: true, aeltere: { noetig: 0, geholt: 0, fehlt: [], refs: [] }, geschichte: [], verzeichnis: null, sicherung: null, aenderung: null, grund: null };
   const NL = { ohneNachladen: true };
   for (const remote of promisorRemotes(wurzel)) {
     aus.teilabruf = true;
@@ -846,6 +878,28 @@ export function eintraegeNachladen(wurzel, opts) {
     aus.geholt += ohneVerz(spitzen.fehlen).length - ohneVerz(spitzen.rest).length;
     aus.fehlt.push(...ohneVerz(spitzen.rest));
     if (verzBlob) aus.verzeichnis = spitzen.rest.indexOf(verzBlob) >= 0 ? 'fehlt' : (spitzen.fehlen.indexOf(verzBlob) >= 0 ? 'geholt' : 'da');
+    // Gegenpruefung 5c, Skeptiker (R5d-Le4): ist das Verzeichnis des Waechters hier NICHT verwendbar (ungueltig — etwa ein Stand in der
+    // Zukunft —, ohne, oder nach diesem Abruf weiter unlesbar), liest brettLesen die Fassungen unter fassungen/ in zz-sicherung selbst
+    // (R5c-Le4, F5). Ihre Blobs lud niemand nach: im Teilabruf blieben sie ungelesen, `naechste` war bei JEDEM Lauf „nicht rechenbar",
+    // und sein Rat „Mit Netz noch einmal: naechste" ein Kreis (gemessen, Skeptiker u1: Exit 2, wo der Stand vor 5c 0 sagte). Jetzt EIN
+    // Abruf fuer die fehlenden, nach Spitzen und Verzeichnis, in der Gesamtfrist; `sicherung` sagt, warum er noetig war, und was danach
+    // noch fehlt. Geholt werden ALLE fehlenden unter fassungen/, nicht nur die ids ohne Datei auf einem Branch: welche brettLesen braucht,
+    // haengt an dessen Lesen (eine unlesbare Datei auf einem Branch zaehlt dort nicht) — die Obermenge ist die sichere Richtung, und sie
+    // ist klein (gemessen C33 T8: 900 Eintraege, zz-sicherung 903 Dateien / 484 KB).
+    if (remote === REMOTE) {
+      const vs = verzeichnisLesen(wurzel, Date.now(), { status: true });
+      if (vs.status === 'ungueltig' || vs.status === 'unlesbar' || vs.status === 'ohne') {
+        const ls = git(wurzel, ['ls-tree', '-r', '-z', 'refs/remotes/' + remote + '/' + SICHERUNG_ZWEIG, '--', FASSUNGEN + '/'], NL), fb = new Set();
+        for (const z of (ls || '').split('\0')) {
+          const m = z.match(/^\d+ blob ([0-9a-f]{40,64})\t(.+)$/); if (!m) continue;
+          const t = m[2].slice(FASSUNGEN.length + 1).split('/');
+          if (t.length === 2 && ID_FORM.test(t[0])) fb.add(m[1]);
+        }
+        const s = holeFehlende([...fb]);
+        aus.sicherung = { status: vs.status, grund: verzeichnisUnbrauchbar(wurzel, vs, Date.now()), noetig: s.fehlen.length, geholt: s.fehlen.length - s.rest.length, fehlt: s.rest, baum: ls == null };
+        if (ls == null) aus.ok = false;
+      }
+    }
     // Was der Befehl selbst braucht, VOR den aelteren Fassungen (Gegenpruefung 5c, Skeptiker R5c-L1): bei `naechste` die Dateien
     // fuer die Nummern. Vorher kamen sie danach — gemessen mit 20 ehrlich berichtigten Halts und 0,8 s je Abruf kamen die aelteren
     // Fassungen gerade noch, fuer die Nummern blieb nichts (Exit 2: „20 Datei(en) … STATUS.md"); und gegen einen haengenden
@@ -888,7 +942,7 @@ export function eintraegeNachladen(wurzel, opts) {
     const fristEnde = opts.bis > 0 ? opts.bis : Date.now() + (opts.frist > 0 ? opts.frist : NACHLADE_FRIST_MS);
     const offenJe = [...aeltereJe].map(([ref, s]) => ({ ref, fehlen: [...s], rest: null, ende: null }));
     { const da = blobsDa(wurzel, offenJe.flatMap(x => x.fehlen)); for (const x of offenJe) { x.fehlen = x.fehlen.filter(b => !da.has(b)); x.rest = x.fehlen.slice(); } }
-    aeltereNachladen(wurzel, remote, offenJe.filter(x => x.fehlen.length), fristEnde, opts.frist);
+    aeltereNachladen(wurzel, remote, offenJe.filter(x => x.fehlen.length), fristEnde, opts.frist, !!(opts.aenderung && remote === REMOTE));
     for (const x of offenJe) {
       aus.aeltere.noetig += x.fehlen.length; aus.aeltere.geholt += x.fehlen.length - x.rest.length; aus.aeltere.fehlt.push(...x.rest);
       if (x.rest.length) {
@@ -1483,7 +1537,19 @@ export function brettLesen(wurzel, opts) {
       // auch wenn es DIESELBE Fassung ist wie die eigene. Vorher setzte nur `a.gilt !== gilt` diese Zeile: wer seinen
       // zurueckgezogenen Halt byte-gleich auf seinem neu angelegten Branch wieder hinlegte, sah „Wirkt jetzt: ja" und nichts sonst,
       // waehrend `naechste` der anderen den Bump freigab (still ueberstimmt). Jetzt: `wirktNicht`, mit Grund und dem Weg.
-      if (a.gilt && a.nichtZuhause && (gilt.e.art === 'halt' || gilt.e.art === 'lage')) aus.giltAndere.set(id, { quelle: a.gilt !== gilt ? [...a.gilt.quellen].filter(q => q !== 'Arbeitsbaum')[0] || null : null, grund: a.nichtZuhause + ' wurde neu angelegt, nachdem er verschwunden war, und der Waechter kannte diesen Eintrag schon vorher (gesichert oder zurueckgezogen) — dort ist er nicht der des Schreibers', neuAngelegt: a.nichtZuhause, wirktNicht: true });
+      // Gegenpruefung 5c, Skeptiker (R5d-Le2, G1): nur, wenn der Eintrag fuer seinen Schreiber JETZT wirkt (dieselbe Pruefung wie
+      // `wirksam`, eine Lage ausserdem nicht „fertig"). Vorher stand auch fuer einen ABGELAUFENEN Halt „du siehst deine Fassung wirksam
+      // … Wieder in Kraft: neu schreiben (neue id)" — eine falsche Aussage und ein Anstoss, einen ausgelaufenen Halt neu zu setzen.
+      // Wirkt er nicht mehr, faellt die Zeile in den Weg davor zurueck (wie vor 5c: nur eine ANDERE Fassung fuer die anderen wird genannt).
+      const wirktJetzt = wirksam(gilt.e, opts.jetzt == null ? Date.now() : opts.jetzt).ok && !(gilt.e.art === 'lage' && gilt.e.phase === 'fertig');
+      const grundNeu = a.nichtZuhause ? a.nichtZuhause + ' wurde neu angelegt, nachdem er verschwunden war, und der Waechter kannte diesen Eintrag schon vorher (gesichert oder zurueckgezogen) — dort ist er nicht der des Schreibers' : null;
+      if (a.gilt && a.nichtZuhause && (gilt.e.art === 'halt' || gilt.e.art === 'lage') && wirktJetzt) aus.giltAndere.set(id, { quelle: a.gilt !== gilt ? [...a.gilt.quellen].filter(q => q !== 'Arbeitsbaum')[0] || null : null, grund: grundNeu, neuAngelegt: a.nichtZuhause, wirktNicht: true });
+      // Nachpruefung 5d (leser): wirkt der eigene Halt bzw. die eigene Lage NICHT mehr (abgelaufen, fertig), und gilt fuer die anderen
+      // eine ANDERE Fassung (die gesicherte), fiel die Zeile vorher in den allgemeinen Zweig — mit dem falschen Grund „nach einem Umzug
+      // oder mit anderem `von`" und dem Rat „schreib ihn neu (neue id)" fuer einen ausgelaufenen Eintrag (gemessen, s1v.mjs). Jetzt der
+      // richtige Grund und `eigenWirktNicht`: das Werkzeug nennt die Zeile nur, wenn die Fassung der anderen noch wirkt, und raet nichts
+      // Neues an. Gilt fuer die anderen dieselbe Fassung, bleibt es bei G1 (keine Zeile).
+      else if (a.gilt && a.nichtZuhause && (gilt.e.art === 'halt' || gilt.e.art === 'lage')) { if (a.gilt !== gilt) aus.giltAndere.set(id, { quelle: [...a.gilt.quellen].filter(q => q !== 'Arbeitsbaum')[0] || null, grund: grundNeu, neuAngelegt: a.nichtZuhause, eigenWirktNicht: true, andereWirkt: wirksam(a.gilt.e, opts.jetzt == null ? Date.now() : opts.jetzt).ok && !(a.gilt.e.art === 'lage' && a.gilt.e.phase === 'fertig') }); }
       // `neuAngelegt` (D2): der Grund ist ein neu angelegter Branch — das Werkzeug gibt dann den passenden Rat (nicht „umziehen").
       else if (a.gilt && a.gilt !== gilt) aus.giltAndere.set(id, { quelle: [...a.gilt.quellen].filter(q => q !== 'Arbeitsbaum')[0] || null, grund: a.hinweis || null, neuAngelegt: a.neuAngelegt || null });
       else if (!a.gilt && !a.keine) aus.giltAndere.set(id, { quelle: null, grund: a.grund });
@@ -1608,6 +1674,8 @@ export function brettLesen(wurzel, opts) {
       const gleiche = (jeId.get(e.id) || []).filter(x => e.art === 'halt' ? x.von === e.von : anspruchVerz(x) === a0);
       const heimG = mitHeim ? gleiche.filter(x => x.heimErst != null) : [];
       if (q.some(istMainRef)) {
+        // `_rueckQuelle` ist hier nur Auskunft (Diagnose): A10 ueberspringt Eintraege auf main, und sonst liest das Feld niemand —
+        // die Wirkung traegt `_rueckGrenze` (Gegenpruefung 5c, Skeptiker R5d-I1: die Zeile zu streichen aenderte keinen Fall).
         if (heimG.length && heimG.every(x => x.heimNichtVor != null)) { setze(e, '_rueckGrenze', Math.min(...heimG.map(x => x.heimNichtVor))); setze(e, '_rueckQuelle', 'heim'); setze(e, '_ankunftWoher', { rueck: 'Waechter', vor: null }); }
         continue;
       }
@@ -1654,7 +1722,10 @@ export function brettLesen(wurzel, opts) {
       // sein Stand, und git rechnete mit) und 'stand' (nur sein Stand: „bei diesem Lauf war er noch nicht da", OHNE git — flacher
       // Klon, aeltere Fassung im Teilabruf nicht da, keine Geschichte). D4: kennt das Verzeichnis den Anspruch zu Hause nicht, soll
       // git mitzaehlen; ein 'stand' nennt A10 deshalb „nicht pruefbar" statt still ok. Und vordatiert misst nur, wer `_vorGrenze` hat.
-      if (rueck != null) setze(e, '_rueckQuelle', woherR === 'git' ? 'git' : heimBekannt ? 'heim' : (mitHeim ? !heimG.length : !gleiche.length) ? (G != null ? 'stand+git' : 'stand') : 'alt');
+      // 'stand-neu' (Gegenpruefung 5c, Skeptiker R5d-I2, G4): nur sein Stand, und git zaehlt hier ABSICHTLICH nicht — der Branch
+      // wurde neu angelegt, nachdem der Waechter diese id kannte (E6, istZuhause). Dort hilft weder `holen` noch `--unshallow`, und
+      // zu Hause sieht das Verzeichnis diesen Anspruch nie; A10 nennt diesen Grund eigens (vorher hiess er „Teilabruf … holen").
+      if (rueck != null) setze(e, '_rueckQuelle', woherR === 'git' ? 'git' : heimBekannt ? 'heim' : (mitHeim ? !heimG.length : !gleiche.length) ? (G != null ? 'stand+git' : istZuhause(e.id, ref) ? 'stand' : 'stand-neu') : 'alt');
       if (vor != null) setze(e, '_vorGrenze', vor);
       setze(e, '_ankunftWoher', { rueck: woherR, vor: woherV });
       if (offen) { setze(e, '_ankunftOffen', offen); aus.ankunftOffen.push({ id: e.id, ref, art: e.art, grund: offen }); }

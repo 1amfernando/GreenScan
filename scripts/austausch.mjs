@@ -297,7 +297,13 @@ function dichBetreffend(b, abl, sw, aend) {
     // Gegenpruefung 5b, Skeptiker (R5c-Le3, F4): fuer die anderen gilt (dieselbe oder die gesicherte) Fassung, aber sie WIRKT nicht —
     // der Branch wurde neu angelegt, und der Waechter kannte die id schon vorher (D6). Vorher schwieg diese Zeile, wenn es dieselbe
     // Fassung war, und `zeige` sagte nur „Wirkt jetzt: ja".
-    if (ga.wirktNicht) zl = 'DEIN EINTRAG ' + id + ': du siehst deine Fassung wirksam, fuer die anderen wirkt ' + (mv && mv.e.art === 'lage' ? 'sie' : 'er') + ' NICHT' + (ga.quelle ? ' (es gilt die gesicherte {' + nameSicher(ga.quelle, 60) + '})' : '') + ' — ' + knapp(ga.grund, 240) + '. Wieder in Kraft: neu schreiben (neue id) — oder ueber main (PR)';
+    // Nachpruefung 5d (identitaet): „ueber main" fuer eine LAGE nicht — ihr Anspruch (mit bis) war zu Hause nie bekannt, auf main misst
+    // das Verzeichnis ihn erst ab dem naechsten Waechterlauf, und nach mehr als 6 h offenem PR heisst sie dort rueckdatiert (gemessen,
+    // d6main.mjs). Ein Halt hat den Anspruch [id, von] — den kannte der Waechter zu Hause schon.
+    if (ga.wirktNicht) zl = 'DEIN EINTRAG ' + id + ': du siehst deine Fassung wirksam, fuer die anderen wirkt ' + (mv && mv.e.art === 'lage' ? 'sie' : 'er') + ' NICHT' + (ga.quelle ? ' (es gilt die gesicherte {' + nameSicher(ga.quelle, 60) + '})' : '') + ' — ' + knapp(ga.grund, 240) + '. Wieder in Kraft: neu schreiben (neue id)' + (mv && mv.e.art === 'lage' ? '' : ' — oder ueber main (PR)');
+    // Nachpruefung 5d (leser): die eigene Fassung wirkt nicht mehr (abgelaufen, fertig), fuer die anderen gilt die gesicherte — eine Zeile
+    // nur, solange DIE noch wirkt, ohne Rat zum Neuschreiben.
+    else if (ga.eigenWirktNicht) { if (!ga.andereWirkt) continue; zl += 'die gesicherte {' + nameSicher(ga.quelle, 60) + '}, und sie wirkt noch — ' + knapp(ga.grund, 240) + '. Deine Fassung wirkt nicht mehr; soll auch die gesicherte nicht mehr gelten: mit einem Grabstein auf main zurueckziehen'; }
     else if (passt && !ga.quelle && kopien.length) zl += 'keine — strittig: eine Kopie mit anderem `von` (' + kopieVons.slice(0, 3).map(v => A.fremd(v, 60)).join(', ') + ') liegt auf ' + (kopieRefs.length ? kopieRefs.slice(0, 3).map(q => nameSicher(q, 60)).join(', ') + (kopieRefs.length > 3 ? ' … +' + (kopieRefs.length - 3) : '') : 'einem Branch, den git hier kennt') + ', und keine Fassung liegt auf main oder in der Sicherung. Dein `von` passt zu deinem Branch — nichts umschreiben (eine neue id koennte gleich wieder kopiert werden). Auf main gilt deine Fassung (PR); die Kopie melden: neu befund … (beide Fassungen: zeige ' + id + ')';
     else if (passt && !ga.quelle) zl += 'keine — ' + knapp(ga.grund, 200) + ' — nichts umschreiben' + (/Teilabruf/.test(String(ga.grund)) ? '; holen und nachladen: node scripts/austausch.mjs holen' : '') + ' (zeige ' + id + ')';
     // Gegenpruefung 5, Skeptiker (R5b-fassungen-2, D2): der Grund kommt auch MIT Quelle — vorher stand bei einem NEU ANGELEGTEN
@@ -718,8 +724,16 @@ function naechste() {
       // Gegenpruefung 5c (R5c-L1): an der FRIST gescheitert — zuerst `holen` (laengere Frist), erst danach das ganze Repo. Vorher
       // hiess es hier „noch einmal naechste" (dieselbe Frist: im Kreis) und dann sofort das ganze Repo.
       + (grundN === 'frist' ? (ratOben ? 'Was hilft, steht oben: erst `holen`, dann noch einmal `naechste`' : fristRat('naechste')) : 'Mit Netz noch einmal: node scripts/austausch.mjs naechste — scheitert es wieder: ' + OHNE_FILTER + ' (das ganze Repo)') + ')';
+  // Gegenpruefung 5c, Skeptiker (R5d-Le4): fehlen Fassungen aus der SICHERUNG (gebraucht, weil ihr Verzeichnis hier nicht verwendbar ist
+  // — A.eintraegeNachladen hat sie eben selbst nachzuladen versucht), sagt der Rat WARUM, und nie „noch einmal naechste": vorher lud sie
+  // niemand nach, und genau dieser Rat war ein Kreis (Skeptiker u1). An der Frist zuerst `holen` (laedt sie mit, laengere Frist); sonst
+  // das ganze Repo — dauerhaft hilft erst ein gueltiges Verzeichnis (der Grund sagt, woran es liegt, etwa an der Uhr des Waechters).
+  const si = stillNachgeladen && stillNachgeladen.sicherung, grundE = stillNachgeladen && stillNachgeladen.grund;
+  const sicherungWeg = () => '(Gebraucht werden die Fassungen in der Sicherung, weil ihr Verzeichnis hier nicht verwendbar ist — ' + knapp((si && si.grund) || b.verzeichnisGrund || ('Verzeichnis: ' + (b.verzeichnisStatus || 'nicht gelesen')), 240).replace(/([^.?!])$/, '$1.') + ' '
+    + (grundE === 'frist' ? (ratOben ? 'Was hilft, steht oben: erst `holen`, dann noch einmal `naechste`' : fristRat('naechste'))
+      : 'Der gezielte Abruf hat sie nicht gebracht' + (grundE ? ' (' + NACHLADE_GRUND[grundE] + ')' : '') + ' — was hilft: ' + OHNE_FILTER + ' (das ganze Repo)') + ')';
   if (m.grund) ende(2, 'Nicht rechenbar: ' + m.grund + '\n' + weg(!!(m.nachladbar && m.nachladbar.length)));
-  if (offen.length) ende(2, offen.map(x => 'Nicht rechenbar: ' + x).join('\n') + '\n' + (ung.fehlend.length ? weg(true) : '(Welche Fassung gilt, entscheidet erst eine Fassung auf main (Merge), ein Grabstein fuer die GANZE id auf main oder der Ablauf ihrer Frist — ein Grabstein je Fassung entscheidet nichts — die Fassungen: ' + (strittigBump.slice(0, 2).flatMap(s => ((b.fassungen && b.fassungen.get(s.id)) || []).flatMap(v => [...v.pfade].filter(([q]) => q !== 'Arbeitsbaum').slice(0, 1).map(([q, p]) => 'git show ' + shWort(q + ':' + p)))).slice(0, 4).join(' · ') || 'nur unter ' + A.FASSUNGEN + '/<id>/ auf origin/' + A.SICHERUNG_ZWEIG + ' (git ls-tree -r origin/' + A.SICHERUNG_ZWEIG + ' -- ' + A.FASSUNGEN + '/)') + '. Bis dahin keine neue Version.)') + '\nNichts geschrieben.');
+  if (offen.length) ende(2, offen.map(x => 'Nicht rechenbar: ' + x).join('\n') + '\n' + (ung.fehlend.length ? (geholt === true && ung.fehlend.some(x => x.sicherung) ? sicherungWeg() : weg(true)) : '(Welche Fassung gilt, entscheidet erst eine Fassung auf main (Merge), ein Grabstein fuer die GANZE id auf main oder der Ablauf ihrer Frist — ein Grabstein je Fassung entscheidet nichts — die Fassungen: ' + (strittigBump.slice(0, 2).flatMap(s => ((b.fassungen && b.fassungen.get(s.id)) || []).flatMap(v => [...v.pfade].filter(([q]) => q !== 'Arbeitsbaum').slice(0, 1).map(([q, p]) => 'git show ' + shWort(q + ':' + p)))).slice(0, 4).join(' · ') || 'nur unter ' + A.FASSUNGEN + '/<id>/ auf origin/' + A.SICHERUNG_ZWEIG + ' (git ls-tree -r origin/' + A.SICHERUNG_ZWEIG + ' -- ' + A.FASSUNGEN + '/)') + '. Bis dahin keine neue Version.)') + '\nNichts geschrieben.');
   markenBlock(m, true);
   aus('\nGerechnet aus main und den Branches, die git kennt (hoechstens 14 Tage alt' + (geholt ? ', eben geholt' : '') + ').\nNichts geschrieben.');
 }
@@ -753,7 +767,7 @@ function ganz(e, abl, sw) {
   const hier = !e._quelle || e._quelle === 'Arbeitsbaum';
   for (const x of A.ankerWirksam(e, abl.rueck)) { const t = A.messtext(x.datei, liesRel(x.datei)); aus('  Anker: ' + EIN(x.datei) + ' :: ' + EIN(x.text) + (hier ? (t == null ? '   ← DATEI FEHLT' : (t.indexOf(x.text) < 0 ? '   ← STEHT NICHT MEHR DA' : '')) : '')); }
   for (const x of A.zaehleWirksam(e, abl.rueck)) { const h = A.wieOft(A.messtext(x.datei, liesRel(x.datei)), x.text); aus('  Zaehlung: ' + EIN(x.datei) + ' :: ' + EIN(x.text) + '  → beim Eintrag ' + x.n + (hier ? ', heute ' + (h == null ? 'nicht lesbar' : h) + (h !== x.n ? '   ← BEWEGT' : '') : '')); }
-  for (const bz of A.alsListe(e.bezug)) { const ziel = abl.proId.get(bz.id); aus('  → ' + EIN(bz.art) + ' ' + EIN(bz.id) + (ziel ? '  ' + knapp(ziel.titel, 90) : (bz.ref ? '  (liegt auf ' + nameSicher(bz.ref) + ' — von hier aus nicht zu sehen: `holen`)' : '  (fehlt)')) + (ziel && bz.ref && ziel._quelle !== 'Arbeitsbaum' ? '   {' + EIN(ziel._quelle) + '}' : '')); }
+  for (const bz of A.alsListe(e.bezug)) { const ziel = abl.proId.get(bz.id); aus('  → ' + EIN(bz.art) + ' ' + EIN(bz.id) + (ziel ? '  ' + knapp(ziel.titel, 90) : (bz.ref ? '  (liegt auf ' + nameSicher(bz.ref) + ' — von hier aus nicht zu sehen: `holen`)' : '  (fehlt)')) + (ziel && bz.ref && ziel._quelle !== 'Arbeitsbaum' ? '   {' + nameSicher(ziel._quelle) + '}' : '')); }   // R5d-A2: Quelle streng (vorher EIN)
   for (const r of (abl.rueck.get(e.id) || [])) aus('  ← ' + r.art + ' von ' + r.von.id + '  ' + knapp(r.von.titel, 90) + '  [' + EIN(r.von.von) + ']');
 }
 // Eine STRITTIGE id (Gegenpruefung 5): keine Fassung gilt — `zeige` nennt den Grund und jede Fassung mit ihrer Quelle und
@@ -791,7 +805,8 @@ function wirktJetzt(e, sw) {
 function andereZeigen(b, e) {
   const ga = b.giltAndere && b.giltAndere.get(e.id); if (!ga) return;
   // R5c-Le3 (F4): dieselbe (oder die gesicherte) Fassung gilt fuer die anderen, wirkt aber nicht — das steht direkt unter „Wirkt jetzt".
-  if (ga.wirktNicht) { aus('  Fuer die anderen wirkt ' + (e.art === 'lage' ? 'sie' : 'er') + ' NICHT' + (ga.quelle ? ' (es gilt die gesicherte {' + nameSicher(ga.quelle) + '})' : '') + ' — ' + knapp(ga.grund, 240) + ' (wieder in Kraft: neue id oder ueber main)'); return; }
+  if (ga.wirktNicht) { aus('  Fuer die anderen wirkt ' + (e.art === 'lage' ? 'sie' : 'er') + ' NICHT' + (ga.quelle ? ' (es gilt die gesicherte {' + nameSicher(ga.quelle) + '})' : '') + ' — ' + knapp(ga.grund, 240) + (e.art === 'lage' ? ' (wieder in Kraft: neue id)' : ' (wieder in Kraft: neue id oder ueber main)')); return; }
+  if (ga.eigenWirktNicht) { aus('  Fuer die anderen gilt: die gesicherte Fassung {' + nameSicher(ga.quelle) + '}' + (ga.andereWirkt ? ', und sie wirkt noch' : ', auch sie wirkt nicht mehr') + ' — ' + knapp(ga.grund, 240)); return; }
   aus('  Fuer die anderen gilt: ' + (ga.quelle ? 'eine andere Fassung {' + nameSicher(ga.quelle) + '}' : 'keine (strittig)') + (ga.grund ? ' — ' + knapp(ga.grund, 240) : '') + (ga.neuAngelegt ? ' (deine Berichtigung zaehlt dort nicht — berichtigen ueber main oder mit neuer id)' : ''));
 }
 function zeige() { const b = brett(), abl = A.ableiten(b.eintraege), sw = schwarmVon(b); if (!o._.length) ende(2, 'Gebrauch: node scripts/austausch.mjs zeige <id>'); for (const k of o._) { const x = finde(b, k, { strittig: true }); if (x._strittig) strittigZeigen(b, x); else { ganz(x, abl, sw); andereZeigen(b, x); } } aus('\nNichts geschrieben.'); }
@@ -886,7 +901,8 @@ function schreiben(e, vonVorab) {
   if (!r.ok) { aus('\nNICHT geschrieben — ' + r.fehler.length + ' Grund/Gruende:'); r.fehler.forEach(f => aus('  !! ' + f.grund)); ende(1, '\nFelder und ein Beispiel: node scripts/austausch.mjs hilfe ' + e.art); }
   const g = r.geschrieben[0];
   aus('\nGeschrieben: ' + g.datei + '\n  ' + g.id + '  ' + g.titel);
-  r.auswaerts.forEach(m => aus('Bezug ueber die Branch-Grenze: ' + m.id + ' liegt nur auf ' + m.quelle + ' — der Bezug nennt den Branch (ref); der Eintrag selbst bleibt dort und kommt mit dessen Merge oder mit `ernten`.  ' + knapp(m.titel, 70)));
+  // Gegenpruefung 5c, Skeptiker (R5d-A2): der Branch ist ein NAME — streng wie in einspielen (vorher hier roh: claude/grü<ZWJ>n sah aus wie claude/grün).
+  r.auswaerts.forEach(m => aus('Bezug ueber die Branch-Grenze: ' + m.id + ' liegt nur auf ' + nameSicher(m.quelle) + ' — der Bezug nennt den Branch (ref); der Eintrag selbst bleibt dort und kommt mit dessen Merge oder mit `ernten`.  ' + knapp(m.titel, 70)));
   // Lesen ist ins Schreiben eingebaut: was wissen ANDERE an denselben Stichworten?
   const b2 = brett(), neuE = b2.eintraege.find(x => x.id === g.id);
   if (neuE) {
@@ -1031,7 +1047,11 @@ function nachladeSatz(n, still) {
   if (!n || !n.teilabruf) return '';
   const g = n.grund ? ' (' + (NACHLADE_GRUND[n.grund] || n.grund) + ')' : (n.ok ? '' : ' (Abruf gescheitert oder Frist abgelaufen)');
   const ae = n.aeltere || { fehlt: [] }, ge = n.geschichte || [], vz = n.verzeichnis, an = n.aenderung;
+  // Gegenpruefung 5c, Skeptiker (R5d-Le4): die Fassungen in der Sicherung, nachgeladen, weil ihr Verzeichnis hier nicht verwendbar ist
+  // (A.eintraegeNachladen, `sicherung`) — gesagt mit dem GRUND, damit niemand im Kreis `naechste` wiederholt.
+  const si = n.sicherung, sf = !!(si && (si.fehlt.length || si.baum));
   let s = (n.geholt ? ' ' + n.geholt + ' Eintragsdatei(en) nachgeladen (Teilabruf).' : '')
+    + (si && si.geholt ? ' ' + si.geholt + ' Fassung(en) aus der Sicherung nachgeladen (das Verzeichnis des Waechters ist hier nicht verwendbar: ' + knapp(si.grund, 240) + ').' : '')
     + (n.fehlt.length ? '\n!! ' + n.fehlt.length + ' Eintragsdatei(en) bzw. Baeume liessen sich NICHT nachladen' + g + ' — sie bleiben unlesbar: ' + n.fehlt.slice(0, 3).map(x => /^[0-9a-f]{40,64}$/.test(x) ? x.slice(0, 12) : knapp(x, 70)).join(', ') + (n.fehlt.length > 3 ? ' … +' + (n.fehlt.length - 3) : '') : '');
   // Gegenpruefung 5: was das Brett ausser den Spitzen braucht (aeltere Fassungen, Verzeichnis, Geschichte) — gesagt, wenn es fehlt.
   // Gegenpruefung 5b (R5b-lesen-0/-3): mit den Branches, deren aeltere Fassungen nicht kamen (je Branch ein eigener Abruf) — und jeder
@@ -1039,10 +1059,11 @@ function nachladeSatz(n, still) {
   const refsSatz = (l) => l.slice(0, 3).map(x => knapp(x, 60)).join(', ') + (l.length > 3 ? ' … +' + (l.length - 3) : '');
   if (ae.fehlt.length) s += '\n!! ' + ae.fehlt.length + ' aeltere Fassung(en) von Lagen und Halts kamen nicht' + g + ((ae.refs || []).length ? ' (auf ' + refsSatz(ae.refs) + ')' : '') + ' — seit wann sie auf dem Branch ihres Schreibers liegen, ist hier nicht rechenbar.';
   if (vz === 'fehlt') s += '\n!! Das Verzeichnis des Waechters (' + A.SICHERUNG_ZWEIG + ':' + A.VERZEICHNIS + ') kam nicht' + g + ' — ohne es ist die Ankunft von Lagen und Halts hier nicht rechenbar.';
+  if (sf) s += '\n!! ' + (si.baum ? 'Der Baum von ' + A.SICHERUNG_ZWEIG + ':' + A.FASSUNGEN + '/ liegt nicht vor' : si.fehlt.length + ' Fassung(en) in der Sicherung (' + A.SICHERUNG_ZWEIG + ':' + A.FASSUNGEN + '/) kamen nicht' + g) + ' — gebraucht, weil das Verzeichnis des Waechters hier nicht verwendbar ist (' + knapp(si.grund, 240) + '); ohne sie ist ein strittiger Halt, der nur in der Sicherung liegt, nicht rechenbar.';
   if (an && an.fehlt.length) s += '\n!! index.html bzw. sw.js von main oder der Abzweigstelle kamen nicht' + g + ' — ob ein Halt deine Aenderung beruehrt, ist nur unsicher rechenbar.';
   if (ge.length) s += '\n!! Die Geschichte von ' + ge.length + ' Branch(es) ist hier nicht lesbar (ein Klon ohne die Baeume aelterer Commits, --filter=tree:0): ' + refsSatz(ge) + ' — seit wann ihre Lagen und Halts dort liegen, ist nicht rechenbar (eine Lage nimmt dann nichts). Dauerhaft aendert das: ' + MIT_BAEUMEN;
-  if ((n.fehlt.length || ae.fehlt.length || vz === 'fehlt') && n.grund === 'fehler') s += '\n   Scheitert es wieder: ' + OHNE_FILTER + '   (holt alles ohne Filter — das ganze Repo)';
-  else if (still && (n.fehlt.length || ae.fehlt.length || vz === 'fehlt') && n.grund === 'frist') s += '\n   ' + fristRat(still);
+  if ((n.fehlt.length || ae.fehlt.length || vz === 'fehlt' || sf) && n.grund === 'fehler') s += '\n   Scheitert es wieder: ' + OHNE_FILTER + '   (holt alles ohne Filter — das ganze Repo)';
+  else if (still && (n.fehlt.length || ae.fehlt.length || vz === 'fehlt' || sf) && n.grund === 'frist') s += '\n   ' + fristRat(still);
   return s;
 }
 // Frist fuer das Holen (Gegenpruefung 3: `naechste` und `nehme` warteten, solange der Remote hing — 20 s bei
@@ -1226,7 +1247,9 @@ function nehme() {
   const geholt = holenStill();
   // holenStill hat die Eintraege nachgeladen (Teilabruf). Was sich nicht laden liess, wird VOR der Pruefung gesagt —
   // eine Uebernahme darin waere hier unsichtbar (Gegenpruefung 4: `nehme` schrieb still eine zweite).
-  { const s = nachladeSatz(stillNachgeladen, 'nehme <id>'); if (s.indexOf('!!') >= 0) aus(s.slice(s.indexOf('!!') - 1)); }
+  // Der Rat nennt DIESEN Befehl, kopierbar (Gegenpruefung 5c, Skeptiker R5d-L4): vorher „nehme <id>" — in der Shell ist `<id` eine
+  // Umleitung, `holen` lief, `nehme` scheiterte („id: No such file or directory"). Jetzt die Argumente, wie sie kamen, je Wort gequotet.
+  { const s = nachladeSatz(stillNachgeladen, ['nehme'].concat(argv).map(shWort).join(' ')); if (s.indexOf('!!') >= 0) aus(s.slice(s.indexOf('!!') - 1)); }
   // `von` EINMAL rechnen (vorher zweimal — die Upstream-Warnung stand doppelt da).
   const b = brett(), von = vonFuerAbsicht('lage');
   const f = uebernahmePruefen(b, o._.map(k => finde(b, k).id), von, !!o.auch);
@@ -1283,13 +1306,15 @@ function sichern() {
   if (r.unlesbarEntfernt.length) aus('- Unlesbare Datei(en) entfernt, ihr Branch besteht (vom Schreiber entfernt oder ersetzt): ' + r.unlesbarEntfernt.map(ul).join(', '));
   if (r.verworfen.length) aus('- **In der Sicherung verworfen** (kein gueltiger Eintrag unter einem Namen der Sicherung, oder ein Geheimnis — der neue Stand traegt sie nicht): ' + r.verworfen.slice(0, 20).map(v => (v.id || 'fremde Datei') + ' Blob ' + String(v.blob).slice(0, 8) + ' (' + v.grund + ')').join(', '));
   if (r.umgelegt.length) aus('- Umgelegt (einmal gesichert, also bleibt es): ' + r.umgelegt.map(x => (x.id || 'ohne id') + ' Blob ' + String(x.blob).slice(0, 8) + ' — ' + x.grund).join(', '));
-  if (r.uebersprungen.length) aus('- **Nicht gesichert**: ' + r.uebersprungen.map(x => x.id + ' {' + x.quelle + '} ' + x.grund).join(' · '));
+  if (r.uebersprungen.length) aus('- **Nicht gesichert**: ' + r.uebersprungen.map(x => x.id + ' {' + nameSicher(x.quelle) + '} ' + x.grund).join(' · '));   // R5d-A2: die Quelle streng
   if (r.entfernt.length) aus('- Entfernt (Grabstein): ' + r.entfernt.join(', '));
   if (r.vomSchreiber.length) aus('- Vom Schreiber zurueckgezogen (Grabstein auf seinem Branch; aus der Sicherung, sobald der Grabstein auf main liegt oder sein Branch weg ist): ' + r.vomSchreiber.map(x => x.id + ' {' + nameSicher(x.quelle) + '}').join(', '));
   if (r.zurueckgezogenWeg.length) aus('- Zurueckgezogen und sein Branch ist weg — aus der Sicherung genommen, nicht gerettet: ' + r.zurueckgezogenWeg.map(x => x.id + ' {' + nameSicher(x.quelle) + '}').join(', '));
   if (r.zurueckgezogenWieder && r.zurueckgezogenWieder.length) aus('- **Zurueckgezogen, aber wieder da** (der Schreiber hat sie zurueckgezogen, sein Branch ist weg oder neu angelegt — gesichert, solange sie auf einem Branch liegt; verschwindet sie, wird sie genommen, nicht gerettet): ' + r.zurueckgezogenWieder.map(x => x.id + ' {' + nameSicher(x.quelle) + '}').join(', '));
   if (r.abgelaufenWeg.length) aus('- Abgelaufene Lage/Halt nur noch hier (wirkt nicht mehr — kein Verlust; abgebaut nach ' + A.SICHERUNG_ABBAU_TAGE + ' Tagen): ' + ids(r.abgelaufenWeg).join(', '));
-  if (r.neuAngelegt.length) aus('- **Neu angelegt** (verschwand und kam wieder — fuer Eintraege, die schon vorher gesichert waren, ist er nicht mehr der Branch ihres Schreibers: seine Fassung gilt nicht als Berichtigung, sein Grabstein zieht nichts zurueck): ' + r.neuAngelegt.join(', '));
+  // Gegenpruefung 5c, Skeptiker (R5d-A2): ein Ref-Name ist ein NAME — streng (nameSicher), wie jede andere Quelle in diesem Bericht.
+  // Vorher roh: claude/grü<ZWJ>n stand hier wie claude/grün da (neben dem ü laesst die letzte Wand das ZWJ stehen).
+  if (r.neuAngelegt.length) aus('- **Neu angelegt** (verschwand und kam wieder — fuer Eintraege, die schon vorher gesichert waren, ist er nicht mehr der Branch ihres Schreibers: seine Fassung gilt nicht als Berichtigung, sein Grabstein zieht nichts zurueck): ' + r.neuAngelegt.map(q => nameSicher(q)).join(', '));
   if (r.bewahrt.length) aus('- Bewahrt ohne Gedaechtnis (gefunden, als der Waechter kein Gedaechtnis hatte — der Name belegt den Inhalt, nicht den Schreiber; nie unter eintraege/ befoerdert, bis dieselbe Fassung beim Schreiber oder auf main liegt): ' + r.bewahrt.map(x => (x.id || 'ohne id') + ' Blob ' + String(x.blob).slice(0, 8)).join(', '));
   if (r.abgebaut.length) aus('- Abgebaut (abgeloeste Fassung, Eintrag auf main, ' + A.SICHERUNG_ABBAU_TAGE + ' Tage auf keinem Branch): ' + ids(r.abgebaut).join(', '));
   if (r.zurueckgenommen.length) aus('- **Zurueckgenommen?** Auf dem Branch des Schreibers liegt jetzt eine AELTERE Fassung als die zuletzt gesicherte (Ruecknahme — oder ein Force-Push hat zurueckgesetzt); die neuere liegt nur noch hier, unter fassungen/ (in jedem Lauf genannt, nie abgebaut): ' + ids(r.zurueckgenommen).join(', '));
