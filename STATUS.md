@@ -60,7 +60,7 @@ beansprucht #331; vergeben wird am Kopf der Merge-Reihe.
 Sätzen), `edge_check` 80_pilz (4 Fälle; Gegenproben: alter Rand, Kürzung nach Slug, Prototypkette, Register
 nach dem Tor — je rot). Auf diesem Stand: scan 119/0, edge 80/0, robust 33/0, i18n, versprechen grün.
 
-**Offen:** brett:2026-11-19-a24a, brett:2026-11-11-2714 — Auslieferung `mushroom-identify` (FUER-FERNANDO §31, Fernando); Versionsnummer `v33.6x` am Kopf der Reihe; Verlaufseintrag für Pilze erst nach a24a
+**Offen:** brett:2026-11-19-a24a — Auslieferung `mushroom-identify` (FUER-FERNANDO §31, Fernando); Versionsnummer `v33.6x` am Kopf der Reihe; der Verlaufseintrag für Pilze (Befund 2026-11-11-2714, liegt auf dem Branch `claude/zahlungsweg-nachgemessen-011L7G`, beantwortet mit 1163) erst nach a24a
 **Nicht geprüft:** ob das Modell mit allen 276 Arten besser bestimmt (von hier antwortet kein Modell — geprüft ist, welche Liste es bekommt); die Mehrkosten je Scan (rund 2 Rappen geschätzt aus 258'000 statt 190'000 Zeichen); ob die übrigen fünf KI-Functions von v33.59 live sind (`AUSLIEFERUNG.json` nur für `mushroom-identify` nachgezogen); die Darstellung auf einem Telefon
 
 
