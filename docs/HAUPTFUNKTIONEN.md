@@ -127,9 +127,16 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 2. ✅ v33.61 (`scan_check` HW1, HW2; dazu: die Sturmwarnung las die Stunden 00–02 Uhr) — **Wetterkarte hat zwei Schreiber** (`loadHomeWeather`, `gsApplyWeatherToWidget`) mit
    eigenen Regeln für Frost und Regen statt `GS_WETTER_GRENZEN`; was dasteht, hängt davon ab,
    wer zuletzt lief. Kein Prüffall (`hw-*` kommt in `scripts/` nicht vor).
-3. **„Arten" zählt verschieden:** Lexikon zeigt `DB.length`, Home `gsArtenZahlen().arten`.
+3. ✅ v33.6x (`nutzersicht_check` E9 Teil 4) — **„Arten" zählt verschieden:** Lexikon zeigt `DB.length`, Home `gsArtenZahlen().arten`.
    Die Startseite zählt richtig; der Fehler liegt im Wissen-Tab → Brett `2026-11-16-4d79`
    (dort auch „Essbar" und „Giftig" mit eigenen Regeln).
+   **Behoben 19.11.:** Kopf-Chip und Kachel „Arten" zeigen 3'136 (vorher 4'337 Einträge), „Essbar"
+   1'062 wie Startkachel und Filter (vorher 1'130 — die 68 ungeprüften Einträge zählten mit),
+   „Giftig" 675 wie der Filter (vorher 598 — die 77 Einträge der Stufe 1 mit `toxic` fehlten:
+   Spitzmorchel roh, Stinktäubling, Gelbe Teichrose). „Giftig" ist jetzt EINE Funktion
+   (`gsIstGiftig`) für Filter und Kachel, und jede Kachel öffnet die Liste, die sie zählt — E9 tippt
+   sie an und vergleicht die Zahl mit den Treffern danach. Dabei: E9 las die Startkachel mitten in
+   ihrer Hochzähl-Animation, sobald er früh lief (3'129 … 3'134) — er wartet jetzt, bis die Zahl steht.
 4. ❎ nachgesehen 16.11.: kein Fehler — beide zählen dasselbe wie die Liste, die die Kachel öffnet (Verlauf + bestätigte Karten). **`stat-scans` hat zwei Schreiber;** Verdacht auf Doppelzählung. Fester Ersatzwert 4330.
 5. ✅ v33.61 (bestätigt: ohne Bauernregel eine leere Folie mit Punkt; `scan_check` HK1) — **Karten-Stapel** (`gsBuildWidgetStack`): `wisdom-card` immer eingeblendet (leer ohne
    Bauernregel?), dreht alle 8 s ohne Pause-Knopf, `gsRenderWochenrueckblick` doppelt gerufen
@@ -156,10 +163,10 @@ Brett `c699`. Wer hier einen Fall baut, misst mit eigenem Massstab und realistis
 
 ## Nebenfunde (nicht in den vier Funktionen)
 
-- Das Lexikon (Wissen) schreibt `DB.length` (4'337 Einträge) unter „Arten" — CLAUDE.md §1
-  verlangt `gsArtenZahlen()` (3'136 Arten). Gefunden 16.11.2026, nicht angefasst; gemessen und
-  aufs Brett gelegt als `2026-11-16-4d79` (auch der Kopf-Chip des Wissen-Tabs, „Essbar" und
-  „Giftig" mit eigenen Regeln).
+- ✅ v33.6x — Das Lexikon (Wissen) schreibt `DB.length` (4'337 Einträge) unter „Arten" — CLAUDE.md §1
+  verlangt `gsArtenZahlen()` (3'136 Arten). Gefunden 16.11.2026, gemessen und aufs Brett gelegt als
+  `2026-11-16-4d79` (auch der Kopf-Chip des Wissen-Tabs, „Essbar" und „Giftig" mit eigenen Regeln);
+  behoben 19.11. als Home 3.
 - Standort-Fenster ohne Standort: im Dunkelmodus 1,51:1 (fest heller Kasten, kippende Schrift)
   → Brett `2026-11-16-a082`.
 - Der Lärchen-Röhrling (T039, *Suillus grevillei*) steht als `baum` in der Artenliste, dieselbe Art
@@ -180,9 +187,9 @@ Scanner 1–3 und Lina 1–3 zuerst (jemand verliert Arbeit oder liest etwas Fal
 Suche 1–4, dann Home. Ausgeliefert wird einzeln: jede Auslieferung ändert `GS_VERSION`,
 `GS_RELEASES` und `sw.js`.
 
-**Stand 19.11.2026 (nach Scanner 4):** in den vier Funktionen ist nur noch offen, was nicht
+**Stand 19.11.2026 (nach Scanner 4 und Home 3):** in den vier Funktionen ist nur noch offen, was nicht
 an dieser Sitzung hängt — Scanner 9 (der Abo-Zähler fürs Scannen, eine Entscheidung über
-Pläne und Zahlung: Brett 2e3a), der Pilz-Eintrag im Scan-Verlauf (Scanner 11, erst nach der
-Datenseite: Brett a24a) und Home 3 (der Fehler liegt im Wissen-Tab: Brett 4d79). Ein echtes
+Pläne und Zahlung: Brett 2e3a) und der Pilz-Eintrag im Scan-Verlauf (Scanner 11, erst nach der
+Datenseite: Brett a24a). Home 3 ist behoben (Wissen-Tab, Brett 4d79). Ein echtes
 Abbrechen der KI-Anfrage (statt ihre Folge zu verwerfen) braucht ein Signal in `callAI` /
 `callVisionAI` — Brett-Idee 8186, bei der Sitzung „KI-Modelle".

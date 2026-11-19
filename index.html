@@ -18055,6 +18055,19 @@ function gsIstEssbar(sp) {
   return !!a.edible;
 }
 window.gsIstEssbar = gsIstEssbar;
+// Home 3 / Brett 4d79 (19.11.2026) — „Giftig" als EINE Frage, wie „Essbar" oben. Die Regel ist die
+// des Filters „☠️ Giftig" (seit v33.13, an der ART seit v33.61): `toxic` ODER Stufe 2 und mehr. Der
+// Zaehler im Lexikon fragte nur die Stufe und liess 77 Eintraege der Stufe 1 aus, die `toxic` tragen
+// (Spitzmorchel „roh giftig", Stinktaeubling, Gelbe Teichrose) — 598 auf der Kachel, 675 im Filter.
+// Ein ungepruefter Eintrag bleibt drin: eine Giftangabe ist eine Warnung, keine Zusage.
+// Nicht dieselbe Frage: die Plakette „Giftig" auf der Karte (ab Stufe 3, das Wort der TOX-Skala) und
+// die Sammlung „☠️ Giftige" (ab Stufe 4) — sie benennen eine STUFE, keine Liste.
+function gsIstGiftig(sp) {
+  if (!sp) return false;
+  var a = (typeof _gsArtAnzeige === 'function') ? (_gsArtAnzeige(sp) || sp) : sp;
+  return !!(a.toxic || a.tox >= 2);
+}
+window.gsIstGiftig = gsIstGiftig;
 
 // v32.92 — Die Sicherheitsangaben, die eine ANZEIGE zeigen darf.
 //
@@ -39438,7 +39451,7 @@ function _gsPassCat(sp){
   if(t==='essbar'||t==='giftig'||t==='ungiftig'){
     var a=(typeof _gsArtAnzeige==='function')?(_gsArtAnzeige(sp)||sp):sp;
     if(t==='essbar'   && !gsIstEssbar(sp)) return false;
-    if(t==='giftig'   && !(a.toxic||a.tox>=2)) return false;
+    if(t==='giftig'   && !gsIstGiftig(sp)) return false;   // dieselbe Regel wie der Zaehler im Lexikon (4d79)
     if(t==='ungiftig' && (sp._unverified||a.toxic||a.tox>0)) return false;
   }
   if(t==='geschuetzt' && !sp.protected) return false;
@@ -55783,8 +55796,10 @@ function gsRenderWissenHero() {
       moonStr = moon.phase;
     }
   } catch(e){}
-  // DB-Stats für den Hero
-  var dbTotal = (typeof DB !== 'undefined' && Array.isArray(DB)) ? DB.length : 0;
+  // DB-Stats für den Hero — Home 3 / Brett 4d79: neben „Arten" steht die Artenzahl (gsArtenZahlen,
+  // CLAUDE.md §1), nicht DB.length (4'337 Einträge); das Wort geht durch die Sprachschicht.
+  var dbTotal = (typeof gsArtenZahlen === 'function') ? gsArtenZahlen().arten : 0;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
   // Progress-Ring via conic-gradient
   var ringCol = pct >= 100 ? '#2e7d32' : pct >= 50 ? '#43a047' : 'var(--g-main)';
   var ringBg = 'conic-gradient(' + ringCol + ' 0deg ' + (pct*3.6) + 'deg, rgba(46,125,50,.12) ' + (pct*3.6) + 'deg 360deg)';
@@ -55806,7 +55821,7 @@ function gsRenderWissenHero() {
              Zeile. Die Chips selbst bleiben einzeilig (nowrap, unten). */
             + '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">'+season.ico+' '+season.n+'</span>'
             + (moonStr ? '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">🌙 '+moonStr+'</span>' : '')
-            + (dbTotal ? '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">🌿 '+dbTotal.toLocaleString(gsLocale())+' Arten</span>' : '')
+            + (dbTotal ? '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">🌿 '+dbTotal.toLocaleString(gsLocale())+' '+_t('unit_species','Arten')+'</span>' : '')
           + '</div>'
         + '</div>'
         // Progress ring
@@ -55888,21 +55903,30 @@ function gsWissenSearch(q) {
 function renderLexikon() {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   // DB-Live-Stats als Intro-Bar
-  var dbTotal = (typeof DB !== 'undefined' && Array.isArray(DB)) ? DB.length : 0;
-  // v32.96: der Zaehler „Giftig" fragte `tox === 2 || tox === 3` und liess damit
-  // die 131 Eintraege mit Stufe 4 und 5 aus — genau die stark giftigen und die
-  // toedlichen. Die Untergrenze war Absicht („gering" zaehlt nicht mit), die
-  // Obergrenze war keine. Und beide Zahlen gehen durch _gsArtAnzeige, damit der
-  // Zaehler dasselbe sagt wie die Karte, die Liste und die Sammlung (v32.91-95).
-  var _art = function (s) { return (typeof _gsArtAnzeige === 'function') ? _gsArtAnzeige(s) : s; };
-  var edibleCount = gsWissenDBCount(function(s){ return s && _art(s).edible === true; });
-  var toxicCount  = gsWissenDBCount(function(s){ return s && (_art(s).tox|0) >= 2; });
-  var medCount    = gsWissenDBCount(function(s){ return s && s.medicinal === true; });
+  // v32.96: der Zaehler „Giftig" fragte `tox === 2 || tox === 3` und liess damit die 131 Eintraege
+  // mit Stufe 4 und 5 aus. Seither gehen die Zahlen durch die Art (_gsArtAnzeige, v32.91-95).
+  // Home 3 / Brett 4d79 (19.11.2026): und jetzt durch DIESELBEN Fragen wie die Startseite und die
+  // Suchfilter. Gemessen standen hier 4'337 „Arten" (DB.length — das sind die Eintraege; die
+  // Startseite sagt 3'136), 1'130 „Essbar" (die 68 ungeprueften Eintraege zaehlten mit; Startkachel
+  // und Filter: 1'062) und 598 „Giftig" (die 77 Eintraege der Stufe 1 mit `toxic` fehlten; der Filter:
+  // 675). Jede Kachel oeffnet die Liste, die sie zaehlt — die Zahl auf der Kachel ist die Zahl der
+  // Treffer danach (nutzersicht_check E9). Keine eigene Rolle, kein tabindex: das setzt
+  // gsTastaturNachruesten, und nur dann loest Enter aus (data-tast="auf").
+  var _zahl = function (x) { return Number(x || 0).toLocaleString(gsLocale()); };
+  var artenCount  = (typeof gsArtenZahlen === 'function') ? gsArtenZahlen().arten : 0;
+  var edibleCount = gsWissenDBCount(gsIstEssbar);
+  var toxicCount  = gsWissenDBCount(gsIstGiftig);
+  var medCount    = gsWissenDBCount(function (s) { return !!(s && s.medicinal); });   // wie der Filter „Heilpflanze"
+  var _kachel = function (zahl, wort, rand, farbe, ziel) {
+    return '<div onclick="' + ziel + '" style="cursor:pointer;background:var(--card);border-radius:var(--r-md);padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid ' + rand + ';">'
+      + '<div style="font-size:var(--fs-xl);font-weight:800;color:' + farbe + ';">' + _zahl(zahl) + '</div>'
+      + '<div style="font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + wort + '</div></div>';
+  };
   var lexStats = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;">'
-    + '<div style="background:var(--card);border-radius:var(--r-md);padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid var(--g-main);"><div style="font-size:var(--fs-xl);font-weight:800;color:var(--g-dark);">'+dbTotal+'</div><div style="font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + _t('unit_species','Arten') + '</div></div>'
-    + '<div style="background:var(--card);border-radius:var(--r-md);padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid #43a047;"><div style="font-size:var(--fs-xl);font-weight:800;color:var(--c-success);">'+edibleCount+'</div><div style="font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + _t('tag_edible','Essbar') + '</div></div>'
-    + '<div style="background:var(--card);border-radius:var(--r-md);padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid #c62828;"><div style="font-size:var(--fs-xl);font-weight:800;color:var(--c-danger);">'+toxicCount+'</div><div style="font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + _t('badge_giftig','Giftig') + '</div></div>'
-    + '<div style="background:var(--card);border-radius:var(--r-md);padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid #8e24aa;"><div style="font-size:var(--fs-xl);font-weight:800;color:#6a1b9a;">'+medCount+'</div><div style="font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + _t('lexikon_med','Heilkraft') + '</div></div>'
+    + _kachel(artenCount,  _t('unit_species','Arten'),  'var(--g-main)', 'var(--g-dark)',    "gsSucheMitFilter('')")
+    + _kachel(edibleCount, _t('tag_edible','Essbar'),   '#43a047',       'var(--c-success)', "gsZeigeEigenschaft('essbar')")
+    + _kachel(toxicCount,  _t('badge_giftig','Giftig'), '#c62828',       'var(--c-danger)',  "gsZeigeEigenschaft('giftig')")
+    + _kachel(medCount,    _t('lexikon_med','Heilkraft'), '#8e24aa',     '#6a1b9a',          "gsZeigeEigenschaft('heilpflanze')")
     + '</div>';
   var terms = [
     {t:'pH-Wert',     d:'Sauer-Basen-Skala 0-14. 7 = neutral. Die meisten Pflanzen lieben 6-7 (leicht sauer bis neutral). Heidelbeeren: 4-5. Rhabarber: 6-7.'},

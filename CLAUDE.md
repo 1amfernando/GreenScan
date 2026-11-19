@@ -3629,6 +3629,19 @@ App eine reine Bilderkennung schlagen kann: **nicht im Sehen, im Pruefen.**
 > EIGENEN Massstab (`!!sp.edible`), nicht mit `gsIstEssbar`**: ein Fall, der
 > die zu pruefende Funktion ruft, faellt gegen einen alten Stand nur mit
 > „is not defined" durch und hat die falsche Zahl nie gesehen.
+>
+> **Und „giftig" als LISTE hat seit v33.6x ebenso EINE Frage: `gsIstGiftig(sp)`**
+> (Home 3, Brett 4d79) — die Regel des Filters „☠️ Giftig" (`toxic` ODER Stufe
+> ≥ 2, an der Art). Das Lexikon im Wissen-Tab zaehlte mit eigenen Regeln:
+> „4'337 Arten" (`DB.length`), „Essbar" 1'130 neben 1'062 auf der Startseite
+> (die 68 ungeprueften Eintraege zaehlten mit) und „Giftig" 598 neben 675 im
+> Filter (die 77 Eintraege der Stufe 1 mit `toxic` fehlten — Spitzmorchel roh,
+> Stinktaeubling, Gelbe Teichrose). Seither oeffnet jede Kachel die Liste, die
+> sie zaehlt, und `nutzersicht_check` E9 tippt sie an und vergleicht die Zahl
+> mit den Treffern danach. **Nicht dieselbe Frage** und bewusst nicht
+> umgestellt: die Plakette „Giftig" auf der Karte (ab Stufe 3 — das Wort der
+> TOX-Skala) und die Sammlung „☠️ Giftige" (ab Stufe 4); sie benennen eine
+> STUFE, keine Liste.
 
 **Seit v32.43 haelt `scan_check` auch die DUBLETTEN-REGEL fest.** Die
 Artenliste fuehrt 657 Arten mehrfach (gleiches Binomen nach `_gsNormLat`),

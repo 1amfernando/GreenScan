@@ -12,6 +12,37 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-19 (jq) - v33.6x (Nummer folgt am Kopf der Reihe): Wissen-Tab — dieselben Zahlen wie Startseite und Filter, und jede Kachel öffnet ihre Liste
+
+**Auftrag:** Hauptfunktionen, Home 3 (`docs/HAUPTFUNKTIONEN.md`; eigener Befund `2026-11-16-4d79` vom 16.11.) — Fernando,
+„Entscheide selber". Gebaut auf diesem Branch über (jp), main v33.67 (`0485b2d`). Kommt mit dem Pilz-Paket in EINE Auslieferung,
+`v33.6x` ist ein Platzhalter.
+
+**Gemessen** (die geladene App, 16.11. und nachgemessen 19.11.): der Kopf des Wissen-Tabs („🌿 4'337 Arten") und die
+Lexikon-Kachel „Arten" zeigten `DB.length` — das sind die Einträge, die Startseite sagt 3'136 Arten. „Essbar" 1'130, Startkachel
+und Filter 1'062: die 68 ungeprüften Einträge zählten mit. „Giftig" 598, der Filter „☠️ Giftig" 675: es fehlten die 77 Einträge
+der Stufe 1, die `toxic` tragen — Spitzmorchel („roh giftig"), Stinktäubling, Gelbe Teichrose, Huflattich, Johanniskraut,
+Schwefelporling „alt giftig". „Heilkraft" 967 stimmte. Die Kacheln öffneten nichts.
+
+**Behoben:** `gsIstGiftig(sp)` neben `gsIstEssbar` — die Regel des Filters (`toxic` ODER Stufe ≥ 2, an der Art), jetzt EINE
+Funktion für den Filter (`_gsPassCat`) und die Kachel. Die Kacheln zählen über `gsArtenZahlen` / `gsIstEssbar` /
+`gsIstGiftig` / die Regel des Heilpflanzen-Filters, und jede öffnet die Liste, die sie zählt (`gsZeigeEigenschaft`; „Arten" die
+ganze Liste) — Tastatur über `gsTastaturNachruesten`, keine eigene Rolle (sonst löst Enter nicht aus). Der Kopf-Chip nimmt
+`gsArtenZahlen` und `_t('unit_species')`. **Bewusst nicht umgestellt:** die Plakette „Giftig" auf der Karte (ab Stufe 3, das
+Wort der TOX-Skala), die Sammlung „☠️ Giftige" (ab Stufe 4) und der Wissens-Hub der Bibliothek (zählt `tox > 0` über die
+Buch-Zeilen des Servers — eine andere Liste, von hier ohne Netz nicht messbar). Doku: CLAUDE.md (Kasten „essbar" in §7.1),
+`docs/memory/03-daten-eigner.md`, `docs/HAUPTFUNKTIONEN.md` (Home 3, Nebenfund).
+
+**Prüfstände:** `nutzersicht_check` E9 Teil 4 — öffnet das Lexikon über seinen Knopf, liest Chip und Kacheln, tippt jede an und
+vergleicht ihre Zahl mit den Treffern der Liste danach und mit der Startkachel. Gegen den alten Stand rot; sechs Gegenproben
+einzeln rot, je mit der richtigen Meldung (Chip · Kachel „Arten" · Essbar · Giftig · Kacheln ohne Ziel · Filter mit eigener
+Regel). **Dabei gefunden:** E9 war nur grün, weil andere Fälle vor ihm Zeit verbrauchten — allein gefahren las er die Startkachel
+mitten in ihrer Hochzähl-Animation (3'129 … 3'134 statt 3'136). Er liest jetzt, wenn die Zahl steht.
+Auf diesem Stand (main v33.67 + Pilz-Paket + dieses Paket): nutzersicht 12/0 · austausch 17/0 · robust 33/0 · i18n · a11y · touch · wiring · render grün; contrast, data und scan liefen beim Commit noch (Nachtrag folgt).
+
+**Offen:** nichts — brett:2026-11-16-4d79 ist mit diesem Paket geschlossen.
+**Nicht geprüft:** ein echtes Telefon; die Kacheln in einer anderen App-Sprache (Wörter über `_t`, Zahlen über `gsLocale` — nicht gefahren).
+
 ### 2026-11-19 (jp) - v33.6x (Nummer folgt am Kopf der Reihe): Pilz-Scanner — ein Ergebnis gehört zu seinem Foto
 
 **Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"); Nachtrag zu Scanner 11
