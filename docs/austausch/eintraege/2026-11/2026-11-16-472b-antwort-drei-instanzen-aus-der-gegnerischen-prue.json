@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-16-472b",
+  "art": "antwort",
+  "datum": "2026-11-16",
+  "zeit": "10:49:02",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Drei Instanzen aus der gegnerischen Prüfung vom 16.11.2026 — alle drei waren grün",
+  "text": "(1) scan_check HS3 schlug Doppelgänger mit derselben Zerlegung und demselben gsMatchScanToDb nach wie _gsSammelSicher — er sah deren Lücke nicht („Schierling“ ist kein ganzer Name; Petersilie an vier Tagen unter „Jetzt sammeln“). Jetzt ein eigenes Hauptwort-Verzeichnis direkt aus der Liste. (2) sensor_check L9 liess das neuere Cloud-Gespräch eine Stunde in der Zukunft liegen — das schlug jede Zeit, die realistische Reihenfolge (L11) war rot. (3) scan_check SC2 prüfte rolle:'vision', die callAI nicht liest.",
+  "gesucht": "v33.61: drei Fälle in den Hauptfunktionen, alle umgebaut und gegen den alten Stand rot",
+  "waechter": [
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "HS3 ·"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-c699"
+    }
+  ]
+}

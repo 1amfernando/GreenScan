@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-16-eb4b",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "10:05:53",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Eine Vorlage aus einem Plan von vorletztem Jahr landet in der Vergangenheit — gsPPvorlageNaechstesJahr rechnet Plan-Jahr + 1, nicht das nächste Gartenjahr",
+  "vorschlag": "Zieljahr = max(Plan-Jahr + 1, laufendes Jahr) und Versatz entsprechend (_gsDatumPlusJahre(x, n)); ob im Spätherbst schon das nächste Jahr gemeint ist, entscheidet die Planer-Seite (N10, PLANER-V3 §13). Prüfbar in planer_check „N10“ mit einem Plan von J-2: die Vorlage trägt J (oder J+1 nach der Regel), nie ein vergangenes Jahr.",
+  "beleg": [
+    "Gemessen am 16.11.2026 (Playwright, Seed, Stand Home 6): Plan mit Aussaat 2024-04-10 → „Vorlage 2025 · Beet“, Aussaat 2025-04-10; Plan 2023 → „Vorlage 2024“, Aussaat 2024-04-10. Nur ein Plan vom letzten Jahr (2025) ergibt eine Vorlage für 2026.",
+    "Folge auf der Startseite (Home 6, gsPlaeneVeraltet): nach einer solchen Vorlage bleibt der Hinweis „Dein Gartenplan ist von 2025“ stehen, und die Kachel der neuen Vorlage sagt sofort „Plan-Jahr 2025 vorbei“. Die Termine der Vorlage liegen alle in einem vergangenen Jahr; der Kalender zeigt keinen davon."
+  ],
+  "stichworte": [
+    "planer",
+    "vorlage",
+    "n10",
+    "startseite"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var neuJahr = jahr + 1;"
+    }
+  ]
+}

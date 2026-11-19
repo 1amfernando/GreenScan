@@ -1,0 +1,27 @@
+{
+  "id": "2026-11-16-bb6f",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "09:29:20",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "offline_check (g) „Gleiche Version, neuer Worker\" war in CI wieder einmal rot — 20 s Wartefrist reichten unter Last nicht (dritter bekannter Fall)",
+  "beleg": [
+    "CI-Lauf 43832080340 (PR #326, Commit 7891b1d, 16.11.2026 08:47 UTC): „Fragen geprueft: 41 · davon rot: 1 — Gleiche Version, neuer Worker: umschalten ohne Reload (die HTML ist schon neu) → angewandtOhneReload false · waiting danach true · Navigationen +0\". Der Commit änderte nur showScanResult/gsAddScanToMyPlants (Scan-Foto), nichts am Worker.",
+    "Dieselbe Prüfung grün in den Läufen davor (fb6b171, 7b035e1, 4e9120c) und danach (3b24a87, 27575e4) auf demselben Branch, und lokal in jedem vollen Lauf dieser Sitzung.",
+    "Der Kommentar über der Wartefrist (offline_check.js, Fall g) sagt, dass die Frist schon zweimal unter Last zu kurz war und deshalb auf 40 × 500 ms steht — dies ist der dritte Fall."
+  ],
+  "vorschlag": "Im roten Fall mitschreiben, wie lange _gsUpdateBeiRueckkehr bis angewandtOhneReload brauchte und in welchem Schritt es stand (Version holen 2 × 3 s, sichern bis 2,5 s, SKIP_WAITING) — dann ist sichtbar, ob die Frist oder die Rechnung hängt. Erst danach die Frist ändern; eine längere Frist ohne Messung verschiebt das Wackeln nur.",
+  "stichworte": [
+    "offline_check",
+    "service-worker",
+    "ci",
+    "wackeln"
+  ],
+  "anker": [
+    {
+      "datei": "scripts/offline_check.js",
+      "text": "melde('Gleiche Version, neuer Worker: umschalten ohne Reload (die HTML ist schon neu)'"
+    }
+  ]
+}

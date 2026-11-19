@@ -4,13 +4,303 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-11 · **Branch**: `main` · **Version**: `v33.59` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-16 · **Branch**: `main` · **Version**: `v33.61` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-11-16 (je) - v33.61: Suche, Scanner und Lina — „Essbar“ gilt überall gleich, Tippfehler werden verziehen, nichts geht mehr verloren
+
+**Auftrag (Fernando, 11.11.2026):** eine Sitzung nur für die vier Hauptfunktionen — Home,
+Scanner, Suche, Lina — mit eigenen Untersitzungen je Funktion. Arbeitsliste und Stand:
+`docs/HAUPTFUNKTIONEN.md`. Die zwei Untersitzungen (Scanner, Lina) stoppten am 11.11. um
+11:57 am Ausgabenlimit des Modells und liefen am 16.11. auf einem anderen Modell weiter;
+ihre Branches (`claude/hauptfunktionen-scanner`, `claude/hauptfunktionen-lina`) sind hier
+gemergt. Diese Sitzung hatte Lina und Scanner parallel ebenfalls gebaut — weil sie das
+Weiterlaufen erst nach dem Bau bemerkte (der Sitzungsstatus stand noch auf „fehlgeschlagen").
+Ihre eigene Lina-Fassung ist zurückgenommen (Revert im Verlauf), die Scanner-Fassung nie
+gepusht; übernommen ist jeweils die der Untersitzung, die einen Prüffall mehr hatte und
+Artvorschläge sowie die Fehlerkarte mitbrachte. Beide Untersitzungen sind archiviert.
+
+**Gemessen und behoben** (Zahlen aus den Prüfständen am Stand dieses Commits):
+
+- **Filter fragten den Eintrag, nicht die Art.** `_gsPassCat` las `sp.edible`/`sp.toxic` roh
+  und kannte `_unverified` nicht. 167 Einträge standen unter „Essbar", deren Karte in
+  derselben Liste kein „Essbar" trug; 1'476 unter „Ungiftig", die meisten davon die
+  ungeprüften Einlese-Einträge (v31.90) ohne Giftangabe. `gsIstEssbar` und `_gsPassCat`
+  gehen jetzt durch `_gsArtAnzeige`; ungeprüft ist weder essbar noch ungiftig. Die
+  Startkachel „Essbar" zählt damit 1'062 statt 1'228.
+- **`_gsArtAnzeige` machte 14 Einträge essbarer, als sie selbst sagen** (brett fcaf): `edible`
+  bewegt sich nur noch zur vorsichtigen Seite.
+- **Menü „Giftige / Essbare Pflanzen / Heilpflanzen"** tippte das Wort in die Volltextsuche —
+  „giftig" traf 222 essbare Arten. Jetzt `gsZeigeEigenschaft(wert)`.
+- **Trefferliste:** `sp.name`/`sp.lat` standen roh im HTML, auch Community-Namen; `gsHighlight`
+  escapte nicht. Jetzt escaped, und die Markierung sucht am rohen Text (kein zerrissenes `&amp;`).
+- **Notfall-Erkennung ohne Spanisch** (brett df0b): 0 von 8 Sätzen.
+- **Scan-Chat ohne Linas Schutz:** jetzt `_gsNotfallStufe` (vor der Frage „ist die KI da?") und
+  `_gsLinaSicherheit`; `**fett**` wird dargestellt.
+- **Suche:** Vertipper finden ihre Art auch neben einem Volltext-Treffer (gegen Namens-Segmente
+  und Binomen, Wortanfang); mehrere Wörter einzeln; Synonym ab vier Zeichen Wortanfang;
+  Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter wie sein Knopf
+  (`_gsFilterLabel`), „Ohne Filter suchen" (`gsSucheOhneFilter`) behält das Suchwort.
+- **Suche 1 — Kategorie, Eigenschaft und Suchwort gelten zusammen.** Es gab EINEN Filterwert:
+  „Pilze" und „Giftig" standen beide markiert da, gefiltert wurde nach dem zuletzt getippten
+  (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im
+  Suchfeld nahm den Filter weg und liess seinen Knopf markiert (4'337 Treffer unter „Bäume");
+  die fünf Kategorie-Einträge im Menü riefen `setFilter(kat, null)` und starben an
+  `null.classList`, bevor die Liste neu gezeichnet war. Jetzt `currentFilter` = Kategorie,
+  `currentProp` = Eigenschaft, die Knöpfe kommen aus dem Zustand (`_gsSucheKnoepfe`, mit
+  `aria-pressed`, aufgerufen in `renderList`), ein Einstieg von aussen (Startkachel, Menü)
+  beginnt sauber (`gsSucheMitFilter`), das ✕ räumt nur das Wort.
+- **Suche 5 — „Mehr laden" baut die Karten wie Seite 1.** `loadMoreList` hatte eigenen
+  Kartencode: ohne Markierung des Suchworts (80 von 80 Karten der zweiten Seite), mit `sp.id` roh
+  in einem `onclick`-String, mit `border-left-color` statt `border-left:3px solid` — der Giftrand
+  war auf Seite 2 einen Pixel breit — und einem eigenen Knopf-Stil. Jetzt `_gsArtKarteHtml` und
+  `_gsMehrLadenHtml` für beide Seiten.
+- **Lina** (Untersitzung, e5c0b1e): `_gsLinaAuszeichnung` (fett statt Sternchen); der Entwurf
+  übersteht den Neuaufbau; antwortet die KI bei Netz nicht oder leer, steht darunter, was die
+  App-Liste ohne KI weiss (`_gsLinaErsatz`), und „Erneut senden" (`gsLinaNochmal`) — die
+  Frage geht nicht doppelt in `coach_messages`; lesende Werkzeuge sind ein Knopf
+  (`GS_LINA_LESE_TOOLS`, `gsLinaAktionTun`) statt Lina nach 140 ms zu schliessen;
+  `propose_reminder` schrieb für eine Garten-Pflanzung nichts und meldete „eingerichtet"
+  (jetzt über `_gsPflanzeFinden`, mit Rückgabewert); die Rückfrage nennt eine Dublette.
+- **Lina 4 — frühere Gespräche.** `gsOpenLina` lud nur das neueste Gespräch (`limit=1`); nach
+  „＋ Neu" war das bisherige in der App nicht mehr erreichbar, obwohl es in `coach_conversations`
+  lag. Jetzt „🕘 Verlauf" im Lina-Kopf: die letzten 20 (`gsLinaGespraeche`, vier Zustände —
+  lädt · leer · Fehler · Liste), antippen lädt eines über denselben Lader wie beim Öffnen
+  (`_gsLinaLadeGespraech`, neueste hundert, umgedreht). Titel als Text, die Kennung im Attribut.
+- **Lina 8 — die Aktionszeile.** `[[GS_ACTION]]{…}` galt nur, wenn das JSON das Ende der Antwort
+  war (`\{[\s\S]*\}\s*$`): mit einem Satz dahinter oder unvollständigem JSON stand die Zeile roh
+  in Linas Antwort. Jetzt `_gsLinaAktionLesen`: die Marke wo immer sie steht, das JSON an seinen
+  Klammern gezählt (Zeichenketten ausgenommen), Text davor und danach bleibt; eine kaputte
+  Aktion wird gesagt („nicht angekommen"), statt still nichts zu tun.
+- **Scanner** (Untersitzung, 23d9b04 · 7ab9bfd): „Alternative wählen" legte nach 10 Sekunden
+  einen zweiten Scan an (Verlauf UND Cloud, der falsche blieb), hob die Sicherheit der
+  gewählten Art auf 60 % und zeigte Merkmale und Urteile der verworfenen Art. Jetzt zeichnet
+  `showScanResult(r, {erneut:true})` dieselbe Aufnahme neu (kein Verlauf, kein Upload, keine
+  Zählung), `_gsScanVerlaufAendern` benennt den Eintrag um und merkt sich `ki_name`, die Karte
+  sagt „Von dir gewählt". Eine Korrektur gilt auf Karte und Verlauf, das Feld schlägt Arten vor
+  (`gsKorrekturVorschlag`). Die Fehlerkarte spricht in Sätzen (`_gsScanFehlerArt`), Rohtext
+  und Modell nur für Admins, „In einer Minute nochmal" mit Countdown; `_gsRetryLastScan`
+  behält „Trotzdem bestimmen".
+- **Scan-Verlauf rechnete anders als die Ergebniskarte** (Scanner 6). Liste, Detail und
+  Galerie-Detail fanden die Art per Namensvergleich (`DB.find(name === …)`): 189 deutsche Namen
+  stehen für mehrere Arten, „In Datenbank öffnen" nahm den ersten Eintrag der Datei — in 73
+  Fällen eine harmlosere Art als die gescannte, in 11 mit übersehener Giftstufe (Storchschnabel /
+  Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail
+  (`openScanHistoryDetail`) zeigte „Essbar" und die Giftstufe aus dem GESPEICHERTEN Scan — ein
+  alter Eintrag „Herbstzeitlose, essbar" stand als „🥗 Essbar" da (Liste: Stufe 5). Das Wort zur
+  Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher" statt „Möglich"). Jetzt
+  `_gsVerlaufArt` (= `gsMatchScanToDb`), die Sicherheit über `_gsArtAnzeige`/`gsIstEssbar`,
+  `_gsKonfidenzStufe` für Karte, Verlauf, Galerie und Galerie-Detail; der Kopf zählt Arten nach
+  dem Binomen; ein Scan ohne Treffer verspricht keinen „automatisch eingereichten" Vorschlag
+  mehr (gesendet wird er nur ab 60 %, angemeldet und online, und gelesen hat die Antwort niemand).
+- **Scanner 10 — das Scan-Foto.** Vorschau im Verlauf (64 px) und Foto für „Zu meinen Pflanzen"
+  (480 px) wurden aus dem LAUFENDEN Video gezeichnet — aber `analyzeImage` stoppt die Kamera,
+  sobald die Analyse beginnt (v23.71): bei der Ergebniskarte war `srcObject` immer `null`, die
+  Vorschau leer und jede aus einem Scan angelegte Pflanze ohne Foto. Jetzt `_gsScanBildAus` aus
+  dem analysierten Bild (`_gsLastScanB64`, dasselbe, das die Karte zeigt), quadratisch
+  zugeschnitten statt gestaucht; der Verlauf bekommt die Vorschau per Kennung nachgetragen,
+  `_lastScanThumb` trägt bis dahin nichts (nie das Foto des vorigen Scans), und „Zu meinen
+  Pflanzen" wartet darauf.
+- **Suche 8 — die Suche im Menü.** `searchMenu` hatte einen eigenen Artenteil: `includes` auf
+  Name, Binomen und Familie — „barlauch", „bärlauhc" und „loewenzahn" fanden im Menü keine Art,
+  die ersten fünf standen in Dateireihenfolge, und keine Zeile trug eine Giftangabe (gemessen:
+  „schierling" zeigte Wasserschierling und Gefleckten Schierling ohne „Giftig", den
+  Wasser-Schierling mit dem Symbol seines Eintrags ⚪). Dazu filterte sie je Tastendruck für jeden
+  der 51 Menüeinträge die ganze Artenliste (52 Durchläufe, gezählt) und warf das Ergebnis weg
+  (`dbMatch: []`). Jetzt ist die Rangfolge der Artensuche EINE Rechnung (`_gsSucheRang`, aus
+  `getFiltered` herausgelöst — die Suche ruft sie mit ihren Filtern, das Menü ohne; den Merker der
+  Statuszeile schreibt nur `getFiltered`), die Zeilen tragen die Angabe der Art (`_gsArtAnzeige`)
+  und öffnen über `data-sid`. 0 Durchläufe über die Artenliste je Tastendruck.
+- **Suche 10 — die Rangfolge hat einen Fall.** Bis hier prüfte nur SU1 „exakter Name zuerst". SU8
+  liest die Felder aus dem Suchindex der App und hält für zehn Wörter die Klassen gegeneinander
+  (Name genau → Namens-/Segmentanfang → im Namen → im Binomen → in der Familie → im Text). Zwei
+  Gegenproben rot (Name unter Text; Familie unter Text) — die zweite erst, nachdem gemessen war,
+  welches Wort Familie UND bei anderen Einträgen nur den Text trifft: nur „solanaceae" (16 / 1).
+  Ohne dieses Wort blieb „Familie unter Text" grün. Kein App-Code geändert.
+- **Lina 4 (Rest) — das Gespräch ohne Cloud.** `gsOpenLina` leerte bei jedem Öffnen den Verlauf und
+  fragte nur die Cloud: offline stand Lina danach leer da, und ein Gespräch, das „nur lokal geführt"
+  wurde (die Konversation liess sich nicht anlegen — so sagt es der Hinweis), war beim nächsten
+  Öffnen weg; an seiner Stelle erschien ein ÄLTERES aus der Cloud. Jetzt der Spiegel
+  `gs_lina_verlauf` (in `GS_USER_KEYS`): `gsLinaRender` schreibt ihn — jede sichtbare Änderung geht
+  dort durch —, nur Rolle und Text, höchstens 40; ein leeres Gespräch löscht ihn. Beim Öffnen gewinnt
+  das neuere: die Cloud, wenn ihr letztes Gespräch jünger ist (`updated_at`), sonst der Spiegel.
+  `sensor_check` räumt den Spiegel vor jedem Fall, damit kein Fall das Gespräch des vorigen sieht.
+- **Lina 2 (Rest) — die Wartezeit.** „Lina denkt nach…" stand nach 2 und nach 90 Sekunden gleich da
+  (45 s Zeitlimit, bis zu zwei Wiederholungen). Jetzt „· N s" ab 3 s, gezählt mit
+  `performance.now` (eine gestellte Uhr hält es nicht an), EIN Zähler (`_gsLinaUhr`), im `finally`
+  abgeräumt. Ein echtes Abbrechen braucht ein Abbruchsignal in `callAI` — das Gebiet der Sitzung
+  „KI-Modelle", deshalb als Idee aufs Brett (`2026-11-16-8186`); ein blosses Verwerfen der späteren
+  Antwort hätte das Kontingent trotzdem belastet.
+- **Lina 7 — die Vorschläge.** `GS_LINA_VORSCHLAEGE` stand fest: „Welche Pflanzen blühen im
+  April?" in jedem Monat, nichts zu fälligen Aufgaben oder zum letzten Scan. Und gemessen: die
+  Schlüssel `ai_sug_1`–`5` standen in keiner Tabelle — `keyBundle` entsteht aus `[data-i18n]` im
+  Dokument und aus `GS_I18N_JS_STRINGS`; die data-i18n-Knöpfe gab es nur auf dem alten
+  Chat-Bildschirm, und der ist seit v33.31 weg. Seitdem standen Linas Vorschläge in jeder Sprache
+  deutsch, ohne dass `i18n_check` es sehen konnte (berechneter Schlüssel `_t(v[0], …)`). Jetzt
+  `gsLinaVorschlaege()`: heute Fälliges (`gsGetDueTasks`, beide Listen), der letzte Scan der
+  letzten 14 Tage (`_gsScanZeit`), der laufende Monat (`gsMonate`, App-Sprache), dann die festen,
+  die zum Monat passen (Bärlauch März–Mai, Steinpilz Juli–Oktober); höchstens fünf. Die festen
+  stehen in `GS_I18N_JS_STRINGS`, und `i18n_check` führt `GS_LINA_VORSCHLAEGE` als Datenliste.
+- **Scanner 8 — der Chat zum Scan.** `openScanChat` leerte das Gespräch bei JEDEM Öffnen: wer
+  zur Ergebniskarte zurückging und wieder fragte, stand vor einem leeren Chat, und die KI bekam
+  die erste Frage nicht mehr mit. Der System-Prompt verlangte fest Deutsch; der erste Satz nannte
+  die Trefferquote „Sicherheit: 85 %" (bei einer Giftpflanze liest sich das wie eine
+  Sicherheitsangabe), und aus der Artenliste geöffnet behauptete er „soeben identifiziert (100 %)".
+  Jetzt gehört das Gespräch zu einem Scan (`_gsScanChatSchluessel`: eine nicht aufzählbare
+  Kennung am Ergebnis — `gsCurrentScanId` taugt nicht, sie vergibt nach 10 s eine neue), die
+  Sprache kommt aus `_gsKiSprache` (dieselbe Regel, die jetzt auch `gsLinaContext` ruft), der erste
+  Satz nennt das Wort aus `_gsKonfidenzStufe`, und „🌿 Mit Lina weiterreden" (`gsScanChatZuLina`)
+  öffnet Lina mit Art und letzter Frage im Feld — ohne selbst zu senden (eine Anfrage, die die
+  Person nicht ausgelöst hat, kostete ihr Kontingent). Der Knopf im KI-Steckbrief hiess „Lina zu
+  dieser Art fragen" und öffnete den Scan-Chat; er heisst jetzt „KI zu dieser Art fragen". Dass
+  der Chat „nur bei einem Treffer in der Artenliste" erscheine (Arbeitsliste): nachgesehen —
+  seit v30.73 auch ohne Treffer.
+  Ein eigener Commit gab dem Chat `opts.rolle = 'vision'` mit (für den Rollen-Wähler `_gsWaehleRolle`
+  auf dem Branch der Sitzung „KI-Modelle", nicht gemergt). Die gegnerische Prüfung hat recht
+  behalten: `callAI` liest `rolle` auf diesem Branch nirgends — ein Feld, das niemand liest
+  (CLAUDE.md §3.4, die `brain`-Klasse), und SC2 war grün, ohne dass sich etwas änderte. Option und
+  Prüfung sind wieder heraus; wer den Rollen-Wähler einführt, gibt dem Scan-Chat die Rolle mit und
+  prüft sie dort (Brett `2026-11-16-8234`, Nachtrag).
+- **Startseite:** der Saison-Tipp suchte den Monatsnamen im Saisontext — „April–Juni" fehlte
+  im Mai (195 statt 325 essbare Arten), auf Französisch traf nichts. Jetzt `_gsInSaison`
+  über `gsSaisonMonate`.
+- **Startseite — der Saison-Tipp stand nie auf dem Bildschirm (Home 1b).** Beim Bau von Home 5
+  gefunden: `gsInitSmartSeasonTip` hatte in der App **keinen Aufrufer** (im flachen Klon bis v33.13
+  zurück nachgesehen) — HS1 und E2 riefen sie direkt, und drei Sitzungen (v32.86, v33.08, Home 1
+  dieser Sitzung) haben eine Rechnung verbessert, die niemand sah. Auf der Startseite gemessen
+  (`page.clock`, ohne Netz): `initHomeBoard` schrieb aus `SEASON_DATA` — am 10.03. „Paprika" (eine
+  Voranzucht) unter „Jetzt sammeln", im Herbst Pilze wie der Hallimasch; online überschrieb
+  `gsLoadSupabaseDailyContent` die Karte 300 ms später mit `v_today_tip` — live nachgelesen (nur
+  lesend): die Sicht liefert einen zufälligen aktiven Eintrag aus `did_you_know_facts` (32
+  Tierfakten, „Alpen-Milch-Stern duftlos aber giftig" …). Das Antippen öffnete die Saisonansicht.
+  Jetzt EIN Schreiber (`initHomeBoard` → `gsInitSmartSeasonTip`), der Server-Block ist weg, das
+  Antippen öffnet die Art, die dasteht, und die Nachlade-Kette ohne Artenliste ist gedeckelt (eine
+  zur Zeit, 40 Versuche — `initHomeBoard` läuft bei jedem Tab-Wechsel). **Und beim Verdrahten
+  gemessen, was die nie gesehene Rechnung empfohlen hätte:** an 158 von 372 Tagen einen Pilz, an
+  104 Tagen eine Art mit giftigem oder tödlichem Doppelgänger (Samtfussrübling — Gifthäubling).
+  `_gsSammelSicher`: kein Pilz (die haben ihre eigene Karte), keine Warnung oder Verwechslung mit
+  Gift-Wort (Art und Eintrag), kein Doppelgänger, den die Liste als giftig führt (Stufe ≥ 3,
+  über `gsMatchScanToDb` nachgeschlagen — „Echter Lerchensporn" trägt kein Warnwort). Der Tag
+  wählt den Startpunkt, es gilt die erste sichere Art; der Vorrat ist nie leer (Dezember: 8).
+- **Startseite — die Wetterkarte (Home 2).** Zwei Ladewege schrieben dieselbe Karte:
+  `loadHomeWeather` (Start, alle zwei Stunden) „Bedeckt · Ort" mit `WEATHER_CODE_MAP` und „1°C",
+  `gsApplyWeatherToWidget` (Zwischenspeicher) einen Gartentipp an Stelle von Text und Ort, mit
+  `WMO_ICONS`, „1 °C" und eigener Frostregel — was dastand, hing davon ab, wer zuletzt lief. Die
+  Sturmwarnung „in den nächsten 1-2h" las `hourly[0..2]`: Open-Meteo zählt ab Mitternacht, also
+  00 bis 02 Uhr — gemessen: ein Gewitter um 00 Uhr meldete sich um 8 Uhr, samt Push-Meldung; eines
+  um 9 Uhr gar nicht. Jetzt `_gsWetterJetzt` (beide Formate) → `_gsHomeWetterZeigen` (ein
+  Renderer) → `_gsHomeWetterWarnung` (Unwetter aus den Stunden ab jetzt, Frost/Hitze/Wind aus
+  `GS_WETTER_GRENZEN` für heute und morgen). Entfernt: `checkStormWarning`, die zweite
+  Symboltabelle, und `updateGardenWeatherTip`, das in `.hero p` schrieb — ein Element, das es
+  seit v31.16 nicht gibt (mit einer dritten Frostregel, < 4 °C).
+- **Startseite — „Wusstest du?" (Home 7).** `gsLoadSupabaseDailyContent` lud
+  `did_you_know_facts?…&order=id.asc&limit=30`: live nur lesend nachgezählt, von 192 aktiven
+  erschienen nur die ersten 30, und 10 davon tragen eine Kalenderwoche (`kw`) — sie standen in
+  jeder Woche da; escaped wurde nur „<". Jetzt `kw` mitgelesen, `or=(kw.is.null,kw.eq.<Woche>)`,
+  bis 200, und derselbe Filter noch einmal in der App (die Antwort ist fremde Eingabe); die Woche
+  ist die ISO-Woche (`_gsIsoWoche`, wie `EXTRACT(week …)` in `v_today_tip`) — `gsGetKW` zählt Tage
+  seit dem 1. Januar und lag heute eine Woche daneben (46 statt 47). Live: diese Woche 152
+  Fakten statt 30, 40 bleiben in ihrer Woche. Dabei gefunden: der Fakt „Schweiz hat 4342
+  Pflanzenarten" ist die alte Eintragszahl der App (Brett `2026-11-16-397d`, Datenänderung für
+  Fernando).
+- **Gegnerische Prüfung der Pakete 7891b1d..d030e40** (ein Unteragent, nur lesend und messend; jeder
+  Befund hier nachgemessen, bevor etwas geändert wurde). Sechs bestätigt, alle behoben, jeder mit einem
+  Fall, der gegen den Stand davor rot ist:
+  1. **Datenschutz — eine Antwort nach dem Abmelden.** `sbLogout` lädt nicht neu. Eine Lina-Antwort, die
+     danach ankam, öffnete Lina wieder (`gsLinaRender` → `_gsNlOpen`) und schrieb den Spiegel neu, den
+     `gsOnLogout` geräumt hatte — B sah das Gespräch von A samt `conv-A`. Beim Nachsuchen derselben Form
+     im Scanner: eine Scan-Antwort nach dem Abmelden wurde gezeigt und **unter dem Konto gespeichert, das
+     dann angemeldet war** (SC3 gegen den alten Stand: „gespeichert (1×)"). Jetzt `_gsPerson()` vor und
+     nach jedem `await` in `gsOpenLina`, `gsLinaSend`, `gsLinaGespraechOeffnen`, `analyzeImage`,
+     `sendScanChat`, `gsScanGegenprobe`, `gsAutoEnrichNewSpecies`; der Spiegel trägt die `uid` (fremd →
+     nie gelesen, ohne Anmeldung → nie geschrieben); `gsOnLogout` räumt Lina, letztes Scan-Ergebnis,
+     Foto, Scan-Chat und die Ergebniskarte. Fehlerklasse `2026-11-16-89ee` (18 weitere KI-Wege ausserhalb
+     der vier Funktionen genannt, nicht angefasst). CLAUDE.md §3.6 und `docs/memory/02-regeln.md` 5b.
+  2. **Linas Spiegel trug die Zeit des Zeichnens, nicht die des Inhalts.** Ab dem zweiten Öffnen gewann die
+     Kopie (40) gegen die Cloud (60 Nachrichten); ein offline geöffneter alter Spiegel verdrängte ein
+     neueres Gespräch eines anderen Geräts. Jetzt `ts` = Alter des Inhalts (`_gsLinaInhaltZeit`), und der
+     Spiegel gewinnt nur als dasselbe Gespräch wie das neueste der Cloud oder eines, das sie nicht hat. L9
+     Teil 3 lag „eine Stunde in der Zukunft" — jetzt die echte Zeit, L11 die realistischen Reihenfolgen.
+  3. **„Jetzt sammeln" empfahl Petersilie** (Doppelgänger laut Liste: „Schierling" — kein ganzer Name, also
+     von `gsMatchScanToDb` nicht gefunden) am 9.3., 4.4., 8.6. und 17.11. `_gsSammelSicher` fragt jetzt
+     auch `_gsArtenTreffer` (der eine Freitext-Leser, der dafür `cat` mitgibt); ein Pilz ist kein
+     Doppelgänger einer Pflanze (Estragon und Wermut bleiben). Beim eigenen Massstab gefunden: der
+     **Lärchen-Röhrling** (T039, ein Pilz als `baum` abgelegt) stand am 2.8. und 30.10. da —
+     `_gsIstPilz` erkennt ihn an der Gattung (aus der Liste, 145 Gattungen, keine Pflanze getroffen);
+     der Datensatz bleibt falsch (Brett `2026-11-16-09f5`). HS3 kopierte bis hier die Regel der App und
+     sah deshalb ihre Lücke nicht — jetzt ein eigenes Hauptwort-Verzeichnis (beim Bau: elf Fehlalarme
+     aus „roter", „weiss", „nieswurz" — gross geschriebene Hauptwörter, Klammern weg, Bindestrich ganz).
+  4. **Die Menü-Suche** gab die Eingabe ungetrimmt weiter („giersch " → Pfifferling vor Giersch,
+     „bärlauch " → Maiglöckchen auf Platz 3). Dazu der Verdacht der Prüfung: bei einem Menüwort zeigt sie
+     keine Arten mehr über Vertipper oder Beschreibung („wetter" → Fetter Gänsefuss) — nur bei einem
+     echten Menütreffer (ab 8 Punkten; „giersch wald" trifft das Tag „wald" nur umgekehrt).
+  5. **SC2 prüfte eine Option, die niemand liest** (`rolle: 'vision'`) — Option und Prüfung heraus,
+     Nachtrag `2026-11-16-b267` an 8234 (neuer Anker).
+  6. **Die Kartenreihe** stellte die zuletzt gezeigte Karte nur für Karte 1 wieder her (beim Bau gab es
+     zwei Folien). Jetzt ein Ziel, das wartet, bis es genug Folien gibt (höchstens 6 s, eine Berührung
+     hebt es auf); HK2 lädt dafür eine eigene Seite mit vorbelegtem `sessionStorage`.
+  Dazu zwei Verdachte: der Saison-Tipp füllt sich, wenn die Artenliste nach den 40 Nachversuchen kommt
+  (`gsArtenNachgeladen`, HS4); „Wusstest du?" lädt einmal je Tag (vorher ~150 Zeilen je Weg auf die
+  Startseite), und der Deckel heisst `GS_FAKTEN_MAX` — Schwelle `fakten` in `GS_FRISTEN`, Zeile in
+  `docs/RISIKEN.md` (HF1).
+- **Startseite — der Gartenplan aus dem letzten Jahr (Home 6, der offene Rest von N4).** Die
+  Kachel in „Meine Pläne" sagt seit v33.15 „Plan-Jahr … vorbei" — nur dort. Seit ein Plan seine
+  Termine in den Kalender legt (N8, v33.10), legt einer vom letzten Jahr keinen mehr hin, und
+  die Startseite sagte nicht, warum. Jetzt eine Zeile im Tagesplan (`_gsDayPlanPlanJahr`, in allen
+  drei Zweigen von `gsRenderDayPlan`), wenn ALLE Pläne mit Datum aus einem vergangenen Jahr sind
+  (`gsPlaeneVeraltet`); ein Plan ohne Datum zählt nicht — ausser er wurde DIESES Jahr angelegt,
+  dann hat die Person für dieses Jahr geplant. Antippen öffnet „Meine Pläne", ✕ blendet die Zeile
+  für dieses Jahr aus (`gs_planhinweis_aus` = Jahr, in `GS_USER_KEYS`). Dabei gemessen: drei
+  Stellen rechneten das Plan-Jahr je selbst mit `_gsKalTag(x.sow_date)`, und `new Date(null)` ist
+  der 1.1.1970 — eine Pflanze mit `"sow_date": null` (die KI-Antwort wird nicht bereinigt) machte
+  aus dem Plan einen Plan von 1970: Kachel „Plan-Jahr 1970 vorbei", Vorlage „Vorlage 1971".
+  Jetzt EINE Regel, `_gsPlanJahr`, mit dem Datumsleser des Planers (`_gsPD`); Kachel, 📅-Knopf,
+  `gsPPvorlageNaechstesJahr` und die Startseite rufen sie. `gsPlanEreignisse` (Kalender) bleibt
+  unberührt: dort fällt ein 1970-Datum ohnehin aus jedem Zeitraum.
+- **Startseite — die Kartenreihe (Home 5).** `gsBuildWidgetStack` drehte die Tageskarten alle 8 s
+  ohne Pause-Knopf (WCAG 2.2.2), auch während der Fokus in der Reihe stand, und zwang die
+  Bauernregel als „stabile Folie" sichtbar: ohne Daten (offline gemessen: `wisdom-card` leer)
+  drehte die Reihe auf eine leere Fläche, mit eigenem Punkt (5 Punkte für 4 Karten). Jetzt
+  `GS_WSTACK_KARTEN` (je Karte das Element mit dem Inhalt) und `_gsWStackSync` über einen
+  Beobachter je Karte: eine leere Karte ist keine Folie, Punkte werden ergänzt oder hinten
+  entfernt (nie neu gebaut — ein Punkt mit Fokus verlöre ihn), bei einer Karte gibt es weder
+  Punkte noch Knopf. Ein Pause-Knopf links der Punkte (`aria-pressed`, gemerkt in
+  `gs_wstack_still`, in `GS_KEEP_ON_LOGOUT`); keine Drehung bei Fokus in der Reihe oder
+  Mauszeiger darauf; EIN Intervall (`_gsWStackStarten` räumt das alte ab). Die Punkte stehen in
+  einem eigenen `role=tablist`, der Knopf daneben. „`gsRenderWochenrueckblick` doppelt gerufen"
+  (Arbeitsliste): nachgesehen — Tagesplan und erster Aufbau rendern dieselben Daten, kein Fehler.
+
+**Prüfstände:** `scan_check` D1j, F1, F2, SC1–SC3, SU1–SU8, HS1–HS4, HW1, HW2, HK1, HK2, HF1, HP1, SV1–SV3, SB1 (N1 um Spanisch, E1b an
+der Art) und von der Scanner-Untersitzung H1–H3d, H5, H5b, H7; `sensor_check` L1–L4 und T3
+(Lina-Untersitzung); `speicher_check` +2 (Linas Schreibwege bei vollem Speicher);
+`escape_check` +1 (A3b); `sensor_check` L5 (frühere Gespräche), L6 (Aktionszeile), L7 (Vorschläge), L8 (Wartezeit), L9 (Gespräch ohne Cloud), L10 (Abmelden während Lina antwortet), L11 (der Spiegel ist so alt wie sein Inhalt);
+`i18n_check` kennt `GS_LINA_VORSCHLAEGE` als Datenliste. Jeder neue
+Fall gegen den Stand davor gefahren: rot. Volle Suite auf
+3812572 und erneut auf 32b4c03 (in einem eigenen Arbeitsbaum, TZ=UTC, mit Postgres): je 42 Prüfstände,
+rot 0, nicht prüfbar 1 (`apk_check` ohne Android-Werkzeuge); im Kontrast nur die bekannte Stelle
+`2026-11-16-a082`. Die drei Pakete danach (Lina L8, L9; Home 6 mit HP1 — gegen 7032d35 rot, vier
+Gegenproben je rot) mit ihren Nachbar-Prüfständen. Nach der gegnerischen Prüfung: scan 113/0 (+HK2), sensor 65/0, robust 28/0,
+storage, risiko 4/0 (8 Fristen), admin 21/0, nutzersicht 9/0, escape 9/0, wiring, i18n, offline 41/0; jede Reparatur mit
+Gegenprobe (insgesamt 17, je rot).
+
+**Aufs Brett gelegt** (nicht in den vier Funktionen, deshalb nicht angefasst): der Wissen-Tab
+zählt mit eigenen Regeln (brett 4d79: „Arten" = 4'337 Einträge, „Essbar" 1'130 statt 1'062,
+„Giftig" 598 statt 675 wie der Filter); das Standort-Fenster hat im Dunkelmodus 1,51:1
+(brett a082, auf `main` identisch); das Garten-Frostbanner nennt ab übermorgen den Wochentag
+einen Tag zu spät und zählt Frost erst unter 2 °C (brett c72c). An die Sitzung „KI-Modelle":
+`_gsScanFehlerArt` hängt am Wortlaut von `_gsFriendlyApiError` (brett 4b7f zu cd07). An die
+Planer-Seite: eine Vorlage aus einem Plan von vorletztem Jahr landet in einem vergangenen Jahr
+(brett eb4b, gemessen beim Bau von Home 6).
+
+**Mit `main` zusammengeführt (16.11.2026, nach #327 / v33.59).** Für `fdb106e` lief keine CI mehr, weil #326 danach Konflikte hatte. 21 Konfliktstellen in fünf Dateien, je mit der strengeren Fassung oder mit beiden Seiten (Einzelheiten im Merge-Commit). Beim Lösen gefunden: die eigene Fassung der fcaf-Korrektur in `_gsArtAnzeige` übernahm `tox: v.tox` auch dann, wenn nur `edible` korrigiert wurde — sie konnte eine Giftstufe senken; jetzt gilt die Fassung aus main (Giftstufe max). Zwei Regeln aus v33.59 trafen Code dieses Branches: `WMO_ICONS[w.code]` in der Wetterkarte geht jetzt über `_gsNachschlag` (robust_check „Prototypkette“), und `_gsFilterLabel` baut keinen Selektor mehr aus dem Filterwert (sicherheit_check 92). Die Release-Liste stand bei 21 Einträgen; v33.40 ist ins Archiv gewandert. Den Befund `2026-11-16-a082` (Standort-Fenster) hat v33.59 behoben — geschlossen mit `e9a7`. Gepusht wird der Merge erst, wenn Fernando die Reihenfolge der offenen PRs festlegt (Bitte des Koordinators).
+
+**Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-c72c, brett:2026-11-16-cd07, brett:2026-11-16-8234, brett:2026-11-16-397d, brett:2026-11-16-bb6f, brett:2026-11-16-8949, brett:2026-11-16-eb4b, brett:2026-11-16-34d2, brett:2026-11-16-09f5, brett:2026-11-16-89ee — Gratis-Zähler (Fernando), Wissen-Tab und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt), Rolle des Scan-Chats (an die Sitzung „KI-Modelle"), der falsche Fakt in der Datenbank (Fernando), das Wackeln von offline_check (g) und sein Hänger nach Fall 34 (Ursache eingegrenzt, Vorschlag für den Prüfstand), die Vorlage aus einem Plan von vorletztem Jahr (Planer-Seite), eine Korrektur fürs zweite Gerät (Idee, bewusst nicht gebaut), der Lärchen-Röhrling als „baum" (Daten), die 18 KI-Wege ausserhalb der vier Funktionen (Fehlerklasse „Antwort nach await“)
+**Nicht geprüft:** ob Open-Meteo `hourly` wirklich ab 00:00 liefert (Wissen über die API, von hier nicht erreichbar — `_gsWetterJetzt` sucht die laufende Stunde über die Zeitstempel und stimmt so oder so); die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando. `_gsSammelSicher` erkennt Gefahr an Wörtern in `warning`/`lookalike` und an Doppelgängern, die sich in der Liste nachschlagen lassen — eine Warnung ohne Gift-Wort und ohne nachschlagbaren Namen sähe es nicht (gemessen: alle Doppelgänger der Stufe ≥ 3 ohne Warnwort, zwei, werden gefangen); dass Pilze und Arten mit gefährlichem Doppelgänger nicht mehr unter „Jetzt sammeln“ stehen, ist eine Sicherheitsentscheidung dieser Sitzung, die Fernando umkehren kann. Nach der gegnerischen Prüfung nicht geprüft: ein echtes Abmelden auf einem Telefon (gemessen ist der Weg sbLogout/gsOnLogout mit gestelltem Server); ob eine Antwort, die nach dem Abmelden VERWORFEN wird, das Kontingent belastet hat (der Aufruf lief — ohne Abbruchsignal, Brett 8186, lässt sich das nicht verhindern); `_gsIstPilz` setzt voraus, dass ein Binomen mit der Gattung beginnt (bei 4'337 Einträgen gemessen: trifft ausserhalb der Pilze nur T039).
 
 ### 2026-11-11 (ji) - kein Bump: das Agenten-Netz — die Rezeptur über dem Brett
 
@@ -15912,7 +16202,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.59` (Client) · SW-Cache `gs-v33.59` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.61` (Client) · SW-Cache `gs-v33.61` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **98'409 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.

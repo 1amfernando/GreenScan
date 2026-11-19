@@ -101,6 +101,9 @@ function aufrufe() {
     // supabase/functions/_shared/quiz_gen_regeln.mjs; dass beide dieselben
     // Kategorien kennen, prueft quiz_gen_check.
     { name: 'GS_QUIZ_KATEGORIEN', flach: true, endungen: [''], praefix: 'quiz_kat_' },
+    // v33.61: Linas feste Vorschlaege — `gsLinaVorschlaege` ruft `_t(v.key, v.de)`. Bis hier
+    // standen die Schluessel in keiner Tabelle, und niemand hat es gemerkt (sensor_check L7).
+    { name: 'GS_LINA_VORSCHLAEGE', feld: 'key', endungen: [''] },
   ];
   const listenLuecken = [];
   let listenSchluessel = 0;

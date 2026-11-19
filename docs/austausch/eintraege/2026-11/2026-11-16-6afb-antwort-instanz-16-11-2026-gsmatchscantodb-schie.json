@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-16-6afb",
+  "art": "antwort",
+  "datum": "2026-11-16",
+  "zeit": "10:49:05",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Instanz 16.11.2026: gsMatchScanToDb('Schierling') ist null — ein Umgangsname im Doppelgänger-Text ist kein ganzer Name",
+  "text": "_gsSammelSicher zerlegte den Doppelgänger-Text an , ; / und / oder und schlug jedes Stück mit gsMatchScanToDb nach (ganzer Name oder Segment). „Schierling“ trifft keinen Namen ganz — die Liste führt sieben Schierlinge mit Stufe 5 als „Gefleckter Schierling“, „Wasser-Schierling“ … Jetzt fragt die Regel zusätzlich den einen Freitext-Leser _gsArtenTreffer (letztes Wort ab 10 Zeichen, Familie).",
+  "gesucht": "v33.61: 592 sammelbare essbare Nicht-Pilze gegen _gsArtenTreffer gehalten — 6 Treffer, davon 3 echt (Petersilie ×2, Koriander) und 3 über einen Pilz (Beifuss-Ritterling), der jetzt nicht zählt",
+  "waechter": [
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "HS3 ·"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-a874"
+    }
+  ]
+}
