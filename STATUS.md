@@ -130,6 +130,19 @@ in der stillen Frist nicht ankommen (`holen` lädt sie nach); ein Strittig nach 
 bis zum nächsten Wächterlauf; ein Fälscher mit Schreibrecht auf `zz-sicherung` und eine Cache-Lücke des
 Wächters zusammen entfernen eine Kopie still.
 
+**Und die README wurde zweimal gegen den Code gelesen** (`docs/austausch/README.md`, von 582 auf rund
+1'570 Zeilen gewachsen, weil jede Regel ihren Grund und jede Grenze ihre Zahl trägt): die erste Prüfung
+(vier Prüfer, je ein Teil, jeder Satz gegen Modul, Werkzeug und Fall) fand **68** Sätze, die nicht
+stimmten; die zweite, auf dem berichtigten Text, noch **22** — darunter **zwei Fehler im Code**, die kein
+Fall kannte (`934ce68`): die Marke „auf <Quelle> als erledigt geschlossen (<wohin>)" druckte ein
+mehrzeiliges `wohin` eines fremden Branches roh, und darüber liess sich ein gefälschtes DICH BETREFFEND
+mit Befehl in die Ausgabe jedes Lesers schreiben (jetzt eine Zeile, Quelle streng, C36 Teil 0); und
+`naechste` riet, wenn schon das Holen in der stillen Frist ablief, „mit Netz noch einmal: naechste" —
+derselbe Befehl mit derselben Frist (jetzt erst `holen` mit der langen Frist, C33 T11c). Beide mit
+Gegenprobe. **Eine Beschreibung, die niemand gegen den Code hält, beschreibt nach einer Woche einen
+anderen Code** — dieselbe Lehre wie die Zahlen in §1 (`austausch_check` misst sie), nur ohne Fall: Sätze
+lassen sich nicht zählen.
+
 **Prüfstand:** `austausch_check` 23 → 49 Fälle — neu A8 (welche wirksamen Halts **auf main und auf
 jedem anderen Branch** dieser Stand berührt; die CI holt dafür alle Branches, nur lesend), A9, A10
 (Absichten im Baum: keine wirkende Lage, kein wirkender Halt in fremdem Namen; seit 5b ohne Geschichte
@@ -145,8 +158,8 @@ zusammengeführten Stand, 63 einzeln rot**; die eine, die grün blieb, baut eine
 zurück, die eine zweite mitschützt (zusammen zurückgebaut: C25 rot). Runde 5: 100 Proben, 98 rot
 (zwei Wächter-Proben doppelt gesichert); 5b: 103, alle rot; 5c: 161 auf dem zusammengeführten Stand, 154
 rot, 7 vom Code der 5c abgelöst (je mit Nachfolgeprobe); 5d mit den drei Nachkorrekturen: 103, alle rot
-(7 davon an den Wortlaut nach 5d angepasst). Gefahren werden die Gegenproben in Kopien des Repos, nie im
-Arbeitsbaum (Prüfsumme vor und nach jeder). `austausch_check` braucht lokal jetzt rund 5½–6 min (vorher
+(7 davon an den Wortlaut nach 5d angepasst); die zwei Fehler aus der README-Prüfung: 4, alle rot. Gefahren werden die Gegenproben in Kopien des Repos, nie im
+Arbeitsbaum (Prüfsumme vor und nach jeder). `austausch_check` braucht lokal jetzt rund 5½–7 min (vorher
 3 min 45 s), `pruefstaende.yml` hat dafür ein Zeitlimit von 60 min (brett:2026-11-18-cf93eedc) und einen
 zweiten Schritt „Geschichte für das Brett" (`--unshallow`, nur lesend), ohne den A10 „nicht prüfbar" sagt.
 
