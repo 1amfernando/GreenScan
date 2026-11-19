@@ -127,7 +127,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 2. ✅ v33.61 (`scan_check` HW1, HW2; dazu: die Sturmwarnung las die Stunden 00–02 Uhr) — **Wetterkarte hat zwei Schreiber** (`loadHomeWeather`, `gsApplyWeatherToWidget`) mit
    eigenen Regeln für Frost und Regen statt `GS_WETTER_GRENZEN`; was dasteht, hängt davon ab,
    wer zuletzt lief. Kein Prüffall (`hw-*` kommt in `scripts/` nicht vor).
-3. ✅ v33.6x (`nutzersicht_check` E9 Teil 4) — **„Arten" zählt verschieden:** Lexikon zeigt `DB.length`, Home `gsArtenZahlen().arten`.
+3. ✅ v33.6x (`nutzersicht_check` E9 Teil 4, `scan_check` D1g) — **„Arten" zählt verschieden:** Lexikon zeigt `DB.length`, Home `gsArtenZahlen().arten`.
    Die Startseite zählt richtig; der Fehler liegt im Wissen-Tab → Brett `2026-11-16-4d79`
    (dort auch „Essbar" und „Giftig" mit eigenen Regeln).
    **Behoben 19.11.:** Kopf-Chip und Kachel „Arten" zeigen 3'136 (vorher 4'337 Einträge), „Essbar"
@@ -137,6 +137,8 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    (`gsIstGiftig`) für Filter und Kachel, und jede Kachel öffnet die Liste, die sie zählt — E9 tippt
    sie an und vergleicht die Zahl mit den Treffern danach. Dabei: E9 las die Startkachel mitten in
    ihrer Hochzähl-Animation, sobald er früh lief (3'129 … 3'134) — er wartet jetzt, bis die Zahl steht.
+   Und `scan_check` D1g verlangte für dieselbe Kachel noch die alte Regel (598): zwei Fälle, zwei Regeln —
+   D1g rechnet jetzt die Regel des Filters mit eigenem Massstab nach.
 4. ❎ nachgesehen 16.11.: kein Fehler — beide zählen dasselbe wie die Liste, die die Kachel öffnet (Verlauf + bestätigte Karten). **`stat-scans` hat zwei Schreiber;** Verdacht auf Doppelzählung. Fester Ersatzwert 4330.
 5. ✅ v33.61 (bestätigt: ohne Bauernregel eine leere Folie mit Punkt; `scan_check` HK1) — **Karten-Stapel** (`gsBuildWidgetStack`): `wisdom-card` immer eingeblendet (leer ohne
    Bauernregel?), dreht alle 8 s ohne Pause-Knopf, `gsRenderWochenrueckblick` doppelt gerufen

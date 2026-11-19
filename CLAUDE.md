@@ -3638,7 +3638,9 @@ App eine reine Bilderkennung schlagen kann: **nicht im Sehen, im Pruefen.**
 > Filter (die 77 Eintraege der Stufe 1 mit `toxic` fehlten — Spitzmorchel roh,
 > Stinktaeubling, Gelbe Teichrose). Seither oeffnet jede Kachel die Liste, die
 > sie zaehlt, und `nutzersicht_check` E9 tippt sie an und vergleicht die Zahl
-> mit den Treffern danach. **Nicht dieselbe Frage** und bewusst nicht
+> mit den Treffern danach; `scan_check` D1g rechnet sie mit eigenem Massstab
+> nach. (D1g verlangte bis dahin die alte Lexikon-Regel — zwei Faelle, zwei
+> Regeln fuer eine Kachel, dieselbe Klasse wie E3/E9 in v33.08.) **Nicht dieselbe Frage** und bewusst nicht
 > umgestellt: die Plakette „Giftig" auf der Karte (ab Stufe 3 — das Wort der
 > TOX-Skala) und die Sammlung „☠️ Giftige" (ab Stufe 4); sie benennen eine
 > STUFE, keine Liste.

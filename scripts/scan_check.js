@@ -2423,12 +2423,22 @@ const FAELLE = [
     // Die Untergrenze war Absicht („gering" zaehlt nicht), die Obergrenze nicht:
     // 131 Eintraege mit Stufe 4 und 5 fehlten — genau die stark giftigen und die
     // toedlichen. Gemessen wird die GERENDERTE Zahl, nicht die Rechnung.
-    name: 'D1g · Die Lexikon-Zahl „Giftig" schliesst Stufe 4 und 5 ein',
+    // Home 3 / Brett 4d79 (19.11.2026): die Kachel zaehlt jetzt wie der Filter „☠️ Giftig", den sie
+    // oeffnet — Stufe 2 und mehr ODER `toxic`. Die Eintraege der Stufe 1, die `toxic` tragen
+    // (Spitzmorchel roh, Stinktaeubling, Gelbe Teichrose), zaehlen mit; Stufe 1 OHNE Giftangabe
+    // weiterhin nicht. Bis dahin verlangte dieser Fall „nur Stufe 2 und mehr" (598), waehrend
+    // nutzersicht_check E9 die Zahl des Filters verlangte (675) — zwei Faelle, zwei Regeln fuer
+    // dieselbe Kachel (dieselbe Klasse wie E3/E9, v33.08). Gerechnet wird weiter mit eigenem Massstab.
+    name: 'D1g · Die Lexikon-Zahl „Giftig" schliesst Stufe 4 und 5 ein — und zählt wie der Filter, den sie öffnet (Stufe ≥ 2 oder Giftangabe)',
     lauf: async () => {
       if (typeof renderLexikon !== 'function') return { ok: false, warum: 'renderLexikon fehlt' };
-      const erwartet = DB.filter(s => s && ((typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(s) : s).tox | 0) >= 2).length;
-      const toedlich = DB.filter(s => s && ((typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(s) : s).tox | 0) >= 4).length;
+      const A = (s) => (typeof _gsArtAnzeige === 'function' ? (_gsArtAnzeige(s) || s) : s);
+      const erwartet = DB.filter(s => { if (!s) return false; const a = A(s); return !!a.toxic || (a.tox | 0) >= 2; }).length;
+      const nurStufe = DB.filter(s => s && (A(s).tox | 0) >= 2).length;
+      const mitAngabe = erwartet - nurStufe;
+      const toedlich = DB.filter(s => s && (A(s).tox | 0) >= 4).length;
       if (!toedlich) return { ok: false, warum: 'keine Art mit Stufe 4+ in der Liste — der Fall misst nichts' };
+      if (!mitAngabe) return { ok: false, warum: 'kein Eintrag unter Stufe 2 mit Giftangabe — der Fall misst die Regel des Filters nicht' };
       // renderLexikon GIBT das HTML ZURUECK (es haengt es nicht ein) — der erste
       // Anlauf suchte im Dokument und traf eine fremde Plakette „Giftig"; er
       // waere gruen gewesen, sobald die Zahl zufaellig gepasst haette.
@@ -2439,11 +2449,13 @@ const FAELLE = [
       const eltern = kacheln[0].parentElement;
       const zahl = parseInt(((eltern && eltern.firstElementChild && eltern.firstElementChild.textContent) || '').replace(/\D/g, ''), 10);
       if (!zahl) return { ok: false, warum: 'keine Zahl neben „Giftig" gefunden' };
+      const alt = DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length;
       if (zahl !== erwartet) {
-        const alt = DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length;
-        return { ok: false, warum: 'Kachel zeigt ' + zahl + ', erwartet ' + erwartet + ' (alte Regel tox 2|3 waere ' + alt + ' — ' + toedlich + ' Eintraege mit Stufe 4+ fehlten)' };
+        return { ok: false, warum: 'Kachel zeigt ' + zahl + ', erwartet ' + erwartet
+          + (zahl === nurStufe ? ' — das ist „nur Stufe ≥ 2": die ' + mitAngabe + ' Einträge darunter mit Giftangabe fehlen, der Filter zeigt sie' : '')
+          + ' (alte Regel tox 2|3 waere ' + alt + ' — ' + toedlich + ' Eintraege mit Stufe 4+ fehlten)' };
       }
-      return { ok: true, info: 'Kachel „Giftig" zeigt ' + zahl + ' · davon ' + toedlich + ' mit Stufe 4 oder 5 (alte Regel tox 2|3: ' + DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length + ')' };
+      return { ok: true, info: 'Kachel „Giftig" zeigt ' + zahl + ' · davon ' + toedlich + ' mit Stufe 4 oder 5 und ' + mitAngabe + ' unter Stufe 2 mit Giftangabe (nur Stufe ≥ 2: ' + nurStufe + ' · alte Regel tox 2|3: ' + alt + ')' };
     },
   },
 

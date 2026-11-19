@@ -38,7 +38,8 @@ vergleicht ihre Zahl mit den Treffern der Liste danach und mit der Startkachel. 
 einzeln rot, je mit der richtigen Meldung (Chip · Kachel „Arten" · Essbar · Giftig · Kacheln ohne Ziel · Filter mit eigener
 Regel). **Dabei gefunden:** E9 war nur grün, weil andere Fälle vor ihm Zeit verbrauchten — allein gefahren las er die Startkachel
 mitten in ihrer Hochzähl-Animation (3'129 … 3'134 statt 3'136). Er liest jetzt, wenn die Zahl steht.
-Auf diesem Stand (main v33.67 + Pilz-Paket + dieses Paket): nutzersicht 12/0 · austausch 17/0 · robust 33/0 · i18n · a11y · touch · wiring · render grün; contrast, data und scan liefen beim Commit noch (Nachtrag folgt).
+**Und ein zweiter Fall mit der alten Regel:** `scan_check` D1g (v32.96) verlangte für dieselbe Kachel noch „nur Stufe ≥ 2“ (598) — während E9 die Zahl des Filters verlangt: zwei Fälle, zwei Regeln für eine Kachel (die Klasse aus E3/E9, v33.08). D1g rechnet jetzt mit eigenem Massstab die Regel des Filters nach und prüft weiter Stufe 4 und 5; Gegenprobe mit der alten Lexikon-Regel rot („das ist ‚nur Stufe ≥ 2‘: die 77 Einträge darunter mit Giftangabe fehlen“).
+Auf diesem Stand (main v33.67 + Pilz-Paket + dieses Paket): scan 133/0 · nutzersicht 12/0 · austausch 17/0 · robust 33/0 · contrast 0 unter AA (hell und dunkel) · render 0 verdächtig · i18n · a11y · touch · wiring · data grün.
 
 **Offen:** nichts — brett:2026-11-16-4d79 ist mit diesem Paket geschlossen.
 **Nicht geprüft:** ein echtes Telefon; die Kacheln in einer anderen App-Sprache (Wörter über `_t`, Zahlen über `gsLocale` — nicht gefahren).
