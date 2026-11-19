@@ -6,13 +6,12 @@ import Stripe from "npm:stripe@17.7.0";
 import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 // v33.59: das Admin-Geheimnis wird konstantzeitig verglichen (Hausregel _shared/auth_vergleich.mjs,
 // v32.72) — bis dahin `!==`. Ohne Kopfzeile keine Datenbank-Abfrage.
-import { adminGeheimnisOk } from "../_shared/zahlung_regeln.mjs";
+import { adminGeheimnisOk, STRIPE_EREIGNISSE } from "../_shared/zahlung_regeln.mjs";
 
-const REQUIRED_EVENTS = [
-  "account.updated",
-  "account.application.deauthorized",
-  "charge.refunded",   // v33.59: stripe-webhook entzieht eine Lifetime bei voller Erstattung
-];
+// v33.63 (W11): EINE Liste — die Ereignisse, die stripe-webhook behandelt (STRIPE_EREIGNISSE), ohne die
+// bewusst wirkungslosen. Bis v33.62 standen hier drei von Hand; checkout.session.async_payment_succeeded
+// (verzoegerte Zahlungsarten) fehlte. Ergaenzt wird nur, entfernt wird nichts.
+const REQUIRED_EVENTS = Object.keys(STRIPE_EREIGNISSE).filter((typ) => STRIPE_EREIGNISSE[typ].wirkung !== "nichts");
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });

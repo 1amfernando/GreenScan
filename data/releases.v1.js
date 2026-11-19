@@ -30,6 +30,22 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.42', date: '16.09.2026',
+      headline: 'Admin-Panel: was nicht geladen hat, sagt es — und lässt sich einzeln nachholen',
+      summary: 'Dreizehn von sechzehn Admin-Sektionen lasen den Fehler gar nicht: eine Ablehnung wurde zur leeren Liste, und auf dem Bildschirm stand ‚Keine offenen Meldungen‘. Sieben fragten nicht einmal, ob die Person Admin ist. Jetzt gibt es eine Liste, einen Weg und vier Zustände — dazu einen Überblick ganz oben und einen Aktualisieren-Knopf je Sektion.',
+      user_summary: 'Diese Auslieferung betrifft nur das Admin-Panel — für dich ändert sich nichts. Sie sorgt dafür, dass gemeldete Beiträge nicht liegen bleiben, weil eine Abfrage stillschweigend fehlgeschlagen ist.',
+      user_items: [
+        {emoji:'🛡️', text:'Meldungen an die Moderation gehen nicht mehr unbemerkt unter.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'Gemessen an v33.41:', text:' 13 von 16 Sektionen endeten auf catch(e) { return []; } — Ablehnung, 404, Netzfehler und ‚leer‘ sahen gleich aus. 7 von 16 hatten kein gsIsAdmin()-Tor und schickten ihre Anfrage trotzdem los.'},
+        {emoji:'📋', bold:'GS_ADM_SEKTIONEN + _gsAdmHole:', text:' eine Liste mit Titel, Pfad, Anzeige und Element je Sektion; ein Weg, der IMMER einen Umschlag {state, daten, grund} zurückgibt — daten · nicht_verfuegbar · fehler · kein_zugriff. Der Grund kommt aus _gsFehlerText, nie roh aus PostgREST.'},
+        {emoji:'🔄', bold:'gsAdmSektionNeu(schlüssel):', text:' eine Anfrage statt sechzehn. Der alte _gsAdminRefreshSection nahm Funktionsreferenzen (von aussen nicht adressierbar) und baute bei fehlendem Element das ganze Panel neu auf.'},
+        {emoji:'🔎', bold:'Überblick oben im Panel:', text:' ‚3 von 16 Sektionen konnten nicht geladen werden: Moderation · Hintergrund-Jobs · Gutscheine‘ mit ‚Nur diese erneut versuchen‘ — das sind dann drei Anfragen, nicht sechzehn.'},
+        {emoji:'🧪', bold:'scripts/admin_check.js (neu, 36. Prüfstand):', text:' sechs Fälle — Zugang, drei Zustände je Sektion, was auf dem Bildschirm steht, Einzel-Refresh, die Liste selbst, der Überblick. Alle sechs waren gegen v33.41 rot; jede Regel hat ihre eigene Gegenprobe.'}
+      ],
+    },
+  {
     v: 'v33.41', date: '16.09.2026',
     headline: 'Der Server kennt jetzt auch deine Beete — und zwei Migrationen, die gar nicht angewendet werden konnten',
     summary: 'Siebte und letzte Scheibe von KALENDER-V2. Drei Befunde, alle live gemessen: der Aufgaben-Push kannte nur „Meine Pflanzen" und nie eine Garten-Pflanzung; die saisonale Erinnerung filterte auf eine Spalte, die es gar nicht gibt (`priority`), und der Fehler wurde verschluckt — sie hat seit dem Bau keine einzige Zeile gehabt; und zwei Migrationen, die seit Tagen als „bereit" in der Liste standen, waeren beim Anwenden gescheitert, weil `CREATE OR REPLACE VIEW` Spalten nur anhaengen darf.',
