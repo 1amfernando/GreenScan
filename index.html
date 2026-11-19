@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.63.20261119">
+<meta name="app-version" content="33.64.20261119">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://api.anthropic.com">
@@ -45243,6 +45243,48 @@ window.gsPestAddToDiary = gsPestAddToDiary;
 // VAPKO-Disclaimer ist Pflicht in jedem Result.
 // ═════════════════════════════════════════════════════════════════════
 
+// v33.64 (Pilz-Scanner, Brett 2026-11-11-2714): ab welcher Trefferquote ein Ergebnis als Bestimmung
+// gilt — DIESELBE Zahl wie am Server (PILZ_SICHER_AB in supabase/functions/_shared/pilz_wissen.mjs;
+// darunter verlangt er die VAPKO-Kontrolle). Bis v33.61 stand hier 60: zwischen 60 und 69 % zeigte die
+// Karte „✅ Speisepilz", waehrend der Server im selben Ergebnis die Kontrolle verlangte.
+// edge_check 80_pilz haelt beide Zahlen zusammen.
+var GS_PILZ_SICHER_AB = 70;
+window.GS_PILZ_SICHER_AB = GS_PILZ_SICHER_AB;
+function _gsPilzGefaehrlich(ed) { return ed === 'toedlich' || ed === 'giftig'; }
+// Ein Register-Slug lesbar: „amanita_phalloides" → „Amanita phalloides" — nur, wenn der Server keinen
+// Namen mitschickt (aeltere Fassung der Function). Nie ein roher Slug auf dem Bildschirm (v33.29).
+function _gsPilzSlugName(slug) {
+  var s = String(slug == null ? '' : slug).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+// Die Kandidaten im Zweig „unsicher": mit Namen, und ein giftiger oder toedlicher traegt seine Warnung.
+// Die Essbarkeit kommt aus dem Register (alternative_arten, seit v33.64) — nicht aus der Artenliste der
+// App: bei Pilzen ist sie teils milder als das Register (gemessen 19.11.2026, Brett).
+function _gsPilzKandidatenHtml(j, ed, _t) {
+  var arten = (j && Array.isArray(j.alternative_arten))
+    ? j.alternative_arten.filter(function (a) { return a && typeof a.slug === 'string' && a.slug; })
+    : ((j && Array.isArray(j.alternatives)) ? j.alternatives.filter(function (x) { return typeof x === 'string' && x; }).map(function (x) { return { slug: x }; }) : []);
+  if (!arten.length) return '';
+  var teile = arten.slice(0, 3).map(function (a) {
+    var name = (typeof a.name === 'string' && a.name.trim()) ? a.name.trim() : _gsPilzSlugName(a.slug);
+    var warn = a.edibility === 'toedlich' ? ' <b style="color:var(--c-danger-d);">☠️ ' + _t('mush_deadly', 'TÖDLICH') + '</b>'
+      : a.edibility === 'giftig' ? ' <b style="color:var(--c-danger-d);">⚠️ ' + _t('tag_toxic', 'GIFTIG') + '</b>' : '';
+    return ed(name) + warn;
+  });
+  return '<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--muted);">' + _t('mush_possible_candidate', 'Möglicher Kandidat:') + ' ' + teile.join(', ') + '</div>';
+}
+// Ein Satz fuer einen Fehler des Pilz-Scanners — nie eine Kennung wie „rate_limited" oder „invalid
+// token". Das Tor des Servers (ki_tor.mjs) schickt feste Saetze mit Kennung ({error: <Satz>, code});
+// die stehen. Alles andere sagt der HTTP-Status (_gsFehlerText), nie der Rohtext.
+function _gsPilzFehlerSatz(j, status) {
+  var satz = function (x) { return (typeof x === 'string' && /\s/.test(x.trim())) ? x.trim().slice(0, 200) : ''; };
+  if (j && typeof j.code === 'string' && satz(j.error)) return satz(j.error);
+  if (j && satz(j.message)) return satz(j.message);
+  var s = (typeof _gsFehlerText === 'function') ? _gsFehlerText({ message: '', status: status || 0 }) : '';
+  return (s && s !== 'Unbekannter Fehler') ? s : 'Die Bestimmung hat nicht geklappt — bitte erneut versuchen.';
+}
+window._gsPilzFehlerSatz = _gsPilzFehlerSatz;
+
 function openMushroomModal() {
   window._gsMushroomPhotoB64 = null;
   var preview = document.getElementById('mushroom-photo-preview');
@@ -45297,6 +45339,9 @@ async function gsMushroomRunScan() {
 
   if (typeof showProfileToast === 'function') showProfileToast('🔬 KI analysiert (Sicherheit vor Präzision)…', 'info');
 
+  // v33.64: eine Antwort gehoert der Person, die gefragt hat (CLAUDE.md §3.6) — wer sich waehrend
+  // der Bestimmung abmeldet oder das Konto wechselt, bekommt sie nicht auf den Bildschirm.
+  var wer = (typeof _gsPerson === 'function') ? _gsPerson() : null;
   try {
     // v29.01 WIRE-1: frischen Token holen (Auto-Refresh) — stale 1h-JWT führte zu 401 bis Reload.
     var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : ((window.gsStore && typeof gsStore.get === 'function') ? (gsStore.get('gs_sb_token', null) || '') : '');
@@ -45307,14 +45352,16 @@ async function gsMushroomRunScan() {
       headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ image_base64: photoB64, media_type: 'image/jpeg', habitat_hint: habitat, region_slug: regionSlug })
     }, 60000);
-    var j = await resp.json();
-    if (!resp.ok || j.error) {
-      if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + (j.error || 'Identifikation fehlgeschlagen'), 'error');
+    var j = await resp.json().catch(function(){ return null; });
+    if (typeof _gsPerson === 'function' && _gsPerson() !== wer) return;
+    if (!resp.ok || !j || j.error) {
+      if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + _gsPilzFehlerSatz(j, resp.status), 'error');
       return;
     }
     gsMushroomRenderResult(j);
-  } catch(_) {
-    if (typeof showProfileToast === 'function') showProfileToast('Netzwerk-Fehler — bitte erneut versuchen', 'error');
+  } catch(e) {
+    if (typeof _gsPerson === 'function' && _gsPerson() !== wer) return;
+    if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + ((typeof _gsFehlerText === 'function') ? _gsFehlerText(e) : 'Keine Verbindung zum Server — bitte erneut versuchen.'), 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🔍 Pilz identifizieren'; }
   }
@@ -45336,9 +45383,10 @@ async function gsMushroomRenderResult(j) {
   }
 
   // ============= "UNSICHER" Hint bei < 60% Confidence ohne Match =============
-  if (!m || !j.matched_slug || conf < 60) {
+  // v33.64: dieselbe Schwelle wie der Server (GS_PILZ_SICHER_AB); die Kandidaten mit Namen und Warnung.
+  if (!m || !j.matched_slug || conf < GS_PILZ_SICHER_AB) {
     var reason = (j && j.reasoning) ? j.reasoning : '';
-    var alt = (j && Array.isArray(j.alternatives) && j.alternatives.length) ? '<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--muted);">' + _t('mush_possible_candidate','Möglicher Kandidat:') + ' ' + j.alternatives.map(ed).join(', ') + '</div>' : '';
+    var alt = _gsPilzKandidatenHtml(j, ed, _t);
     box.innerHTML =
       '<div style="margin-top:14px;padding:14px;background:var(--bg-yellow-soft);border:2px solid #fbc02d;border-radius:var(--r-md);color:#bf360c;">' +
         '<div style="font-size:var(--fs-md);font-weight:900;margin-bottom:6px;">⚠️ ' + _t('mush_uncertain_id','UNSICHERE Identifikation') + ' (' + _t('confidence','Confidence') + ' ' + conf + '%)</div>' +
@@ -45369,14 +45417,16 @@ async function gsMushroomRenderResult(j) {
 
   // ============= Match-Card =============
   // safety_color aus v_mushroom_safety: red/orange/yellow/green
-  var safety = String(j.safety_color || 'yellow');
+  // v33.64: eine toedliche oder giftige Art traegt IMMER die rote Kopfzeile — ohne safety_color
+  // (Sicht ohne Zeile, aeltere Function) stand sonst „⚠️ Vorsicht" unter dem roten Vollbild.
+  var safety = _gsPilzGefaehrlich(m.edibility) ? 'red' : String(j.safety_color || 'yellow');
   var safetyMap = {
     red:    { bg:'#ffebee', border:'#c62828', col:'#b71c1c', lbl:'🚫 ' + (m.edibility === 'toedlich' ? _t('mush_deadly','TÖDLICH') : _t('tag_toxic','GIFTIG')), prom:true },
     orange: { bg:'#fff3e0', border:'#e65100', col:'#bf360c', lbl:_t('mush_cond_edible','⚠️ NUR JUNG / BEDINGT ESSBAR'), prom:true },
     yellow: { bg:'#fff8e1', border:'#fbc02d', col:'#bf360c', lbl:_t('mush_caution','⚠️ Vorsicht'), prom:false },
     green:  { bg:'#e8f5e9', border:'#2e7d32', col:'#1b5e20', lbl:_t('mush_edible','✅ Speisepilz'), prom:false }
   };
-  var sm = safetyMap[safety] || safetyMap.yellow;
+  var sm = _gsNachschlag(safetyMap, safety, null) || safetyMap.yellow;
 
   var html = '<div style="margin-top:14px;border-radius:var(--r-lg);overflow:hidden;border:2px solid ' + sm.border + ';background:var(--card);">';
   html += '<div style="background:' + sm.bg + ';color:' + sm.col + ';padding:11px 16px;font-size:var(--fs-md);font-weight:900;text-align:center;border-bottom:1px solid ' + sm.border + ';">' + sm.lbl + ' · ' + _t('confidence','Confidence') + ' ' + conf + '%</div>';
@@ -78324,6 +78374,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.64', date: '19.11.2026',
+      headline: 'Pilz-Scanner: dieselbe Vorsicht wie der Server — und ein giftiger Kandidat trägt seine Warnung',
+      summary: 'Scanner 11 (Hauptfunktionen, Brett 2026-11-11-2714). Gemessen am 19.11.2026, nur lesend: die ausgelieferte mushroom-identify lädt 200 von 276 Arten des Registers — 76 fehlen dem Modell, 19 davon giftig. Im Repo behoben (supabase/functions/_shared/pilz_wissen.mjs: alle Arten, gekürzt würde zuerst die harmloseste Gruppe); live wirkt das erst, wenn Fernando die Function ausliefert (FUER-FERNANDO §31). In der App, sofort: die Schwelle für eine Bestimmung ist 70 wie am Server (GS_PILZ_SICHER_AB, vorher 60), eine tödliche oder giftige Art trägt immer die rote Kopfzeile, Kandidaten stehen mit Namen und Warnung da, ein Fehler ist ein Satz, und die Antwort gehört der Person, die gefragt hat. Prüfstände: scan_check PZ1–PZ4, edge_check 80_pilz.',
+      user_summary: 'Der Pilz-Scanner ist vorsichtiger: erst ab 70 % Sicherheit nennt er eine Art, und giftige Kandidaten sind klar markiert. Ein Pilz gehört vor dem Essen immer zur Pilzkontrolle (VAPKO).',
+      user_items: [
+        {emoji:'🍄', bold:'Vorsichtiger:', text:' unter 70 % Sicherheit steht „unsichere Identifikation“ statt einer Essbarkeit.'},
+        {emoji:'☠️', bold:'Giftige Kandidaten markiert:', text:' mögliche Arten stehen mit ihrem Namen da, und ein giftiger oder tödlicher trägt seine Warnung.'},
+        {emoji:'🚫', bold:'Rot bleibt rot:', text:' eine giftige oder tödliche Art zeigt immer die rote Kopfzeile.'},
+        {emoji:'💬', bold:'Verständliche Meldung:', text:' klappt die Bestimmung nicht, steht ein ganzer Satz da statt eines technischen Kürzels.'}
+      ],
+  },
+  {
     v: 'v33.63', date: '19.11.2026',
       headline: 'Der Zahlungsweg in EINER Fassung — und ein Kauf, der nicht mehr an einem falschen Parameter scheitern kann',
       summary: 'Auftrag P-C2: der Zahlungsweg aus PR #329 und der aus v33.59 zu EINER Fassung vereint. Das eine Modul ist supabase/functions/_shared/zahlung_regeln.mjs (ein zweites, stripe_regeln.mjs, gibt es nicht). Aus #329: stripe-checkout schickt kein automatic_payment_methods mehr an Checkout (den Parameter gibt es dort nicht — Stripe lehnt ihn mit 400 ab, gefolgert aus der API-Referenz, nicht gegen Stripe gemessen) und nur noch Namen aus CHECKOUT_PARAMETER; kein zweites Abo neben einem laufenden und nichts neben Lifetime (Stripe wird gefragt, ob das Abo läuft); ein unbekannter gemerkter Kunde wird gesucht statt mit 500 abzubrechen; checkout.session.async_payment_succeeded; Abo-Zeitraum und Rechnung in beiden API-Formen; ein Lifetime-Kauf beendet ein laufendes Abo zum Periodenende; die volle Erstattung gibt den Launch-Platz frei; processed=true; ein Live-Ereignis an einem Test-Schlüssel wird als Satz gemeldet; Portal: Kündigen nur auf ein echtes laufendes Abo, Fortsetzen ohne Plan-Wechsel-Seite. Von main bleiben: eine Zahlung setzt nie verified (W1), eine Rückbuchung entzieht Lifetime (W2), nach aussen nur Kennungen (W3), Rückkehr nur auf die eigenen Ursprünge (W4), exakte Versionen (W5), ein unbekannter Preis ist 500 (W6), Launch am Preis (W7), Entzug über den PaymentIntent (W8), constructEventAsync (W9). stripe-admin-extend-webhook abonniert aus STRIPE_EREIGNISSE. Neu in der Suite: stripe_check (51 Fälle); die Stripe-Attrappe von edge_check lehnt einen unbekannten Checkout-Parameter ab und ist am alten stripe-checkout rot. Nichts davon ist ausgeliefert: die Stripe-Functions warten auf Fernandos Modus-Prüfung (FUER-FERNANDO §30i).',
@@ -78721,24 +78783,7 @@ window.GS_RELEASES = [
         {emoji:'📘', bold:'docs/RISIKEN.md:', text:' vier Klassen — was an einem DATUM aufhört (Quiz-Vorrat ermüdet am 16.06.2027, Migration nicht angewandt), was mit der GRÖSSE aufhört, was von ANDEREN abhängt (pdf.js ist der einzige CDN-Rest), und was eine ENTSCHEIDUNG braucht statt Code.'},
         {emoji:'⚠️', bold:'Ein Messfehler von mir, festgehalten:', text:' mein erster Zähler las nur das ERSTE Zeichenketten-Literal eines Pfades und meldete device_readings als ‚ohne Deckel‘ — das limit= steht im zweiten. Gelesen wird jetzt der ganze erste Parameter von sbFetch(.'}
       ],
-    },
-  {
-    v: 'v33.43', date: '16.09.2026',
-      headline: 'Der Zurück-Knopf schliesst ein Fenster — nicht die ganze App',
-      summary: 'Erster Schritt zur Android-App: die App schrieb nichts in den Browser-Verlauf, also schloss der Android-Zurück-Knopf bei jedem offenen Fenster die ganze App. Jetzt gibt es EINE Zurück-Regel, an der Zurück-Taste und an Escape — und sie erreicht auch die acht Vollbild-Fenster (Tagesquiz, ‚Ueben‘, Lichtmesser), die Escape noch nie erreicht hat.',
-      user_summary: 'Escape (am Computer) und der Zurück-Knopf (am Handy) schliessen jetzt genau EIN Fenster — nicht zwei auf einmal, und nicht gleich die ganze App.',
-      user_items: [
-        {emoji:'↩️', text:'Zurück schliesst das oberste Fenster. Ist keines offen, geht es einen Tab zurück.'},
-        {emoji:'🧩', text:'Auch das Tagesquiz, ‚Ueben‘ und der Lichtmesser lassen sich so schliessen — vorher ging das nur über ihr eigenes X.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen an v33.42:', text:' null Treffer auf history.pushState, popstate und history.back in der ganzen Datei. In einer Android-Hülle (TWA) schliesst der Zurück-Knopf damit die App — rund vierzig Fenster, elf Tabs. Im Browser fällt das nicht auf, weil es den Knopf dort nicht gibt.'},
-        {emoji:'↩️', bold:'gsZurueck():', text:' die eine Regel. Nimmt die OBERSTE Schicht ab — über drei Familien hinweg (dynamische Dialoge, gestapelte Fenster, Vollbild-Fenster), danach den Tab. Escape und popstate rufen sie beide; ein Druck ist EINE Schicht (Escape schloss vorher zwei).'},
-        {emoji:'🧮', bold:'GS_VOLLBILD_OVERLAYS:', text:' acht Vollbild-Fenster laufen nicht über openModal und waren damit für Escape unsichtbar — Tagesquiz, Ueben, Rangliste, Scan-Verlauf, Wetter, Lichtmesser, Pro-Messung, Kalibrierung. Die Liste ist die Prüfung.'},
-        {emoji:'📱', bold:'gsLaeuftAlsApp():', text:' ein Prädikat statt zwei. Nur das des Install-Banners kannte die Android-Hülle (referrer android-app://); der Push-Weg und der Druck-Rückfall hängen jetzt an derselben Rechnung.'},
-        {emoji:'🧪', bold:'scripts/android_check.js (neu, 37. Prüfstand):', text:' neun Fragen, acht davon rot gegen v33.42. Drei meiner eigenen Fälle massen zuerst nichts — die Gegenproben haben es gezeigt; sie gehen jetzt den ECHTEN Weg (history.back → popstate) statt die Funktion direkt zu rufen. docs/ANDROID-APK.md nennt die Handgriffe und die Risiken.'}
-      ],
-    },
+    }
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -78949,7 +78994,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.63';
+var GS_VERSION = 'v33.64';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
