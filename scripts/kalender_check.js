@@ -112,6 +112,44 @@ const FAELLE = [
     },
   },
   {
+    // v33.60 · gemessen am 11.11.2026 (Befund IDEE-B „dritter Erledigt-Weg", nachgefahren): die
+    // Aufgaben-Knoepfe AUF der Pflanzenkarte („💧 Giessen ✓", bis zu vier je Karte) riefen
+    // `doneTask` — eine eigene, aeltere Fassung des Abhakens. Sie setzte `lastDone`, schrieb aber
+    // KEINEN Verlaufseintrag: im Pflanzentagebuch, im Gartentagebuch, im Kalender, im
+    // Wochenrueckblick („erledigt") und in Linas Kontext fehlte genau das, was auf der Karte
+    // abgehakt wurde. Der Fall darueber ruft gsQuickDone direkt und sah es deshalb nie — hier wird
+    // der ECHTE Knopf angetippt (v33.43: der Draht, nicht die Rechnung).
+    name: 'Abhaken auf der Pflanzenkarte · derselbe Weg wie überall: der Knopf an der Karte schreibt einen Verlaufseintrag, der Kalender zeigt ihn, die Woche zählt ihn — und nur einen',
+    lauf: async () => {
+      const heute = gsHeuteTag();
+      const klagen = [];
+      try { switchTab('garden'); } catch (_) {}
+      try { renderMyPlants(); } catch (_) {}
+      try { initPlantListDelegation(); } catch (_) {}
+      await new Promise(r => setTimeout(r, 300));
+      const knopf = document.querySelector('#mp-list [data-action="donetask"][data-pid="p2"][data-tkey="water"]');
+      if (!knopf) return { ok: false, warum: 'auf der Karte der Monstera (p2) steht kein Aufgaben-Knopf „Giessen" — Fall nicht hergestellt (' + document.querySelectorAll('#mp-list [data-action="donetask"]').length + ' Knöpfe insgesamt)' };
+      const p = myPlants.find(x => x.id === 'p2');
+      const lastVorher = p.tasks.water.lastDone;
+      const tbVorher = gsTagebuchAlle().length;
+      const wocheVorher = _gsKalWoche().erledigt;
+      knopf.click();
+      await new Promise(r => setTimeout(r, 250));
+      if (p.tasks.water.lastDone === lastVorher) return { ok: false, warum: 'der Knopf wurde angetippt, und lastDone ist unverändert — der Fall misst nichts' };
+      const alle = gsTagebuchAlle();
+      const neu = alle.filter(e => e.pflanze_id === 'p2' && e.datum === heute && e.quelle === 'regel');
+      if (!neu.length) klagen.push('abgehakt (lastDone gesetzt), aber KEIN Verlaufseintrag: gsTagebuchAlle ' + tbVorher + ' → ' + alle.length);
+      else if (alle.length !== tbVorher + 1) klagen.push('ein Abhaken, ' + (alle.length - tbVorher) + ' neue Einträge');
+      const ev = gsKalenderEreignisse(heute, heute).filter(e => e.art === 'tagebuch' && e.pflanze && e.pflanze.id === 'p2');
+      if (ev.length !== 1) klagen.push('der Kalender zeigt am heutigen Tag ' + ev.length + ' Tagebuch-Ereignisse für die Monstera statt 1');
+      const woche = _gsKalWoche().erledigt;
+      if (woche !== wocheVorher + 1) klagen.push('„erledigt" in der Woche: ' + wocheVorher + ' → ' + woche + ' statt +1');
+      if (!Array.isArray(p.diary) || !p.diary.some(d => d && d.action === 'water' && String(d.ts).slice(0, 10) === new Date().toISOString().slice(0, 10))) klagen.push('das Pflanzentagebuch der Monstera (p.diary) trägt den Eintrag nicht');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Knopf an der Karte angetippt → 1 Eintrag (' + neu[0].text + ') · Kalender 1 · Woche „erledigt" ' + wocheVorher + ' → ' + woche };
+    },
+  },
+  {
     name: 'Anzeige · das Monatsraster und die Tagesliste werden aus dem HTML gelesen',
     lauf: () => {
       gsKalenderOeffnen();
@@ -384,6 +422,68 @@ const FAELLE = [
           return { ok: true, info: 'nein → 2 bleiben fällig · ja → 0 fällig, beide Listen gespeichert, 2 Tagebuch-Einträge · die Frage nennt Basilikum und Zucchini (' + fragen + ' Rückfragen)' };
         });
       });
+    },
+  },
+  {
+    // v33.60 · gemessen am 11.11.2026: drei Wege haken ab (Faellig-Karte/Kalender → gsQuickDone,
+    // Pflanzenkarte → doneTask, „Alle erledigt ✓" → _gsDoneAllDueAusfuehren), und der EINE Leser
+    // (gsTagebuchAlle) erkannte „abgehakt" an genau EINEM Merker: `source === 'quick_done'`. „Alle
+    // erledigt" schreibt `done_all_due` — seine Eintraege galten damit als von Hand notiert: in der
+    // Woche standen sie unter „Notizen", nicht unter „erledigt". Dieselbe Klasse wie _gsScanZeit
+    // (v33.33): mehrere Schreiber, ein Leser — und der Leser kennt nur einen von ihnen.
+    // Dazu der Titel: beide Schreiber haengten ein englisches Arbeitswort an („Giessen (Quick)",
+    // „Giessen (Bulk)") — es stand so im Tagebuch und im Kalender.
+    name: 'Abhaken · drei Schreiber, ein Leser: „Alle erledigt ✓" zählt als ERLEDIGT (nicht als Notiz), jeder Eintrag ist einzeln löschbar, und keiner trägt „(Quick)" oder „(Bulk)" — auch keiner aus dem Bestand',
+    lauf: () => {
+      const jetzt = Date.now(), heute = gsHeuteTag();
+      const pl = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings : [];
+      const p1 = myPlants.find(x => x && x.id === 'p1'), z = pl.find(x => x && x.id === 'plant_seed_1');
+      if (!p1 || !z || !p1.tasks || !p1.tasks.water || !p1.tasks.fertilize || !z.tasks || !z.tasks.water) return { ok: false, warum: 'Probe-Pflanzen p1 (Giessen, Düngen) / plant_seed_1 (Giessen) fehlen' };
+      myPlants.concat(pl).forEach(p => Object.keys((p && p.tasks) || {}).forEach(k => { p.tasks[k].lastDone = new Date(jetzt).toISOString(); delete p.tasks[k].snoozedUntil; }));
+      // DREI faellig, zwei davon an DERSELBEN Pflanze — nur so zeigt sich, ob jeder Eintrag seine eigene Zeit hat
+      p1.tasks.water.lastDone = new Date(jetzt - 40 * 86400000).toISOString();
+      p1.tasks.fertilize.lastDone = new Date(jetzt - 40 * 86400000).toISOString();
+      z.tasks.water.lastDone = new Date(jetzt - 40 * 86400000).toISOString();
+      const faellig = gsGetDueTasks().filter(t => t.days <= 0);
+      if (faellig.length !== 3) return { ok: false, warum: faellig.length + ' fällig statt 3 — Fall nicht hergestellt' };
+      // ein Eintrag aus dem Bestand, wie ihn die App bis v33.59 schrieb
+      if (!Array.isArray(p1.diary)) p1.diary = [];
+      p1.diary.push({ ts: new Date(jetzt - 3 * 86400000 - 7777).toISOString(), action: 'dust', title: '🧹 Abstauben (Bulk)', source: 'done_all_due' });
+      const w0 = _gsKalWoche();
+      const n0 = gsTagebuchAlle().length, d0 = p1.diary.length;
+      _gsDoneAllDueAusfuehren(faellig);
+      const alle = gsTagebuchAlle();
+      const klagen = [];
+      if (alle.length !== n0 + 3) klagen.push((alle.length - n0) + ' neue Einträge für drei erledigte Aufgaben');
+      const eigene = alle.filter(e => (e.pflanze_id === 'p1' || e.pflanze_id === 'plant_seed_1') && e.datum === heute && (e.cat === 'water' || e.cat === 'fertilize'));
+      const hand = eigene.filter(e => e.quelle !== 'regel');
+      if (hand.length) klagen.push(hand.length + ' von ' + eigene.length + ' heutigen Abhak-Einträgen gelten als von Hand notiert (quelle ' + hand.map(e => e.quelle).join(', ') + ')');
+      const w1 = _gsKalWoche();
+      if (w1.erledigt !== w0.erledigt + 3) klagen.push('Woche „erledigt": ' + w0.erledigt + ' → ' + w1.erledigt + ' statt +3');
+      if (w1.notizen !== w0.notizen) klagen.push('Woche „Notizen": ' + w0.notizen + ' → ' + w1.notizen + ' — das Abhaken wurde als Notiz gezählt');
+      const bestand = alle.find(e => e.pflanze_id === 'p1' && e.cat === 'dust');
+      if (!bestand) klagen.push('der Bestands-Eintrag „Abstauben" fehlt in gsTagebuchAlle');
+      else if (bestand.quelle !== 'regel') klagen.push('der Bestands-Eintrag aus „Alle erledigt" gilt als von Hand notiert');
+      // jeder Eintrag einzeln: die zwei neuen an p1 haben verschiedene Zeiten (geloescht wird nach `ts`)
+      const neuP1 = p1.diary.slice(0, p1.diary.length - d0);
+      if (neuP1.length !== 2) klagen.push('p1 bekam ' + neuP1.length + ' neue Pflanzentagebuch-Einträge statt 2');
+      else if (String(neuP1[0].ts) === String(neuP1[1].ts)) klagen.push('zwei Einträge derselben Pflanze tragen dieselbe Zeit (' + neuP1[0].ts + ') — wer einen löscht, löscht beide, und beide haben dieselbe Id');
+      const ids = {}; let doppelt = 0; alle.forEach(e => { if (ids[e.id]) doppelt++; ids[e.id] = 1; });
+      if (doppelt && neuP1.length === 2 && String(neuP1[0].ts) !== String(neuP1[1].ts) && alle.filter(e => e.id === 'pd:p1:' + neuP1[0].ts).length > 1) klagen.push('zwei Einträge mit derselben Id trotz verschiedener Zeit');
+      const wort = alle.filter(e => /\((Quick|Bulk)\)/.test(e.text || ''));
+      if (wort.length) klagen.push(wort.length + ' Einträge zeigen ein Arbeitswort: „' + wort.slice(0, 3).map(e => e.text).join('" · „') + '"');
+      // …und so GERENDERT: Pflanzentagebuch und Kalender
+      try { openPlantDiary('p1'); } catch (_) {}
+      const pd = document.getElementById('plant-diary-modal');
+      const pdText = (pd && pd.textContent) || '';
+      if (!pd) klagen.push('das Pflanzentagebuch ging nicht auf');
+      else if (/\((Quick|Bulk)\)/.test(pdText)) klagen.push('das Pflanzentagebuch zeigt „(Quick)"/„(Bulk)"');
+      else if (!/Giessen/.test(pdText) || !/Abstauben/.test(pdText)) klagen.push('das Pflanzentagebuch zeigt die Einträge nicht (Giessen/Abstauben fehlt)');
+      try { if (pd) pd.remove(); } catch (_) {}
+      const kal = gsKalenderEreignisse(_gsKalTagPlus(heute, -7), heute).filter(e => e.art === 'tagebuch' && /\((Quick|Bulk)\)/.test(e.titel || ''));
+      if (kal.length) klagen.push(kal.length + ' Kalender-Ereignisse tragen das Arbeitswort („' + kal[0].titel + '")');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '3 Aufgaben über „Alle erledigt" → 3 Einträge, alle „regel", zwei an derselben Pflanze mit eigener Zeit · Woche erledigt ' + w0.erledigt + ' → ' + w1.erledigt + ', Notizen unverändert (' + w1.notizen + ') · kein „(Quick)"/„(Bulk)" in ' + alle.length + ' Einträgen, im Pflanzentagebuch und im Kalender' };
     },
   },
   {
@@ -858,6 +958,248 @@ const FAELLE = [
         if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
         return { ok: true, info: 'Basilikum ' + bas.length + ' · Zucchini ' + zuc.length + ' · Rüebli→Möhren ' + rue.length + ' · zwei Zucchini → eine Zeile, beide genannt · Monstera 0 · Heidelbeere (season) 0 · alle am 1., info, mit Kalender, Lagen und Verweis · Tagesliste zeigt Basilikum' };
       } finally { window.myPlants = mp0; }
+    },
+  },
+  {
+    // GARTEN (Befund IDEE-A, 11.11.2026) — die Saatgut-Leiste „Jetzt dran" (#gs-jetzt-dran,
+    // gsJetztDranRender) las den Aussaatkalender mit `getMonth() + 1` gegen Monatslisten, die
+    // ab 0 zaehlen: 108 von 468 Kultur×Monat-Paaren sagten etwas anderes als der Kalender —
+    // „Jetzt ins Beet: Tomaten, Gurken, Buschbohnen" im April. Und sie ordnete Namen SELBST zu
+    // (Praefix-Teilstring): „Rote Zwiebeln" bekam das Fenster der Roten Bete, „Rüebli" gar
+    // keines. Eine Frage, eine Rechnung: je Monat wird die Uhr GESTELLT, je Tuete wird die
+    // Leiste aus dem HTML gelesen und gegen den Kalender einer gleichnamigen Pflanze gehalten
+    // — und beide gegen den eigenen Massstab (GS_SAE_DB, ab 0 gelesen), damit „beide sagen
+    // nichts" nicht gruen ist.
+    name: 'Saatgut-Leiste L1 · „Jetzt dran" sagt in JEDEM Monat dasselbe wie der Kalender: 39 Kulturen × 12 Monate aus dem HTML, Schweizer Namen (Rüebli, Lauch, Randen), Sorten („Tomate Ochsenherz"), kein Fehlgriff per Teilstring, drei Tüten einer Kultur → eine Nennung, abgelaufen → nicht empfohlen',
+    aussen: async (p) => {
+      const MON = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+      const messen = (arg) => {
+        const host = document.getElementById('gs-jetzt-dran');
+        if (!host) return { fehler: '#gs-jetzt-dran gibt es nicht' };
+        const heute = gsHeuteTag(), j = new Date().getFullYear(), m = new Date().getMonth();
+        const von = _gsKalTag(new Date(j, m, 1)), bis = _gsKalTag(new Date(j, m + 1, 0));
+        const alt = { lager: localStorage.getItem('gs_seed_inventory'), wc: localStorage.getItem('gs_weather_cache'), mp: myPlants.slice(), pl: plantings.slice() };
+        try {
+          // Vorhersage OHNE Frost, relativ zur gestellten Uhr — der Frost hat seinen eigenen Fall (L2)
+          const tg = [], tmin = []; for (let i = 0; i < 7; i++) { tg.push(_gsKalTagPlus(heute, i)); tmin.push(8); }
+          localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now() - 3600000, data: { daily: { time: tg, temperature_2m_min: tmin } } }));
+          // was die Person LIEST: je Zeile der Leiste die genannten Kulturen
+          const leiste = (lager) => {
+            localStorage.setItem('gs_seed_inventory', JSON.stringify(lager));
+            gsJetztDranRender();
+            const r = { indoor: [], outdoor: [], abgelaufen: [] };
+            host.querySelectorAll('.gs-jd-z').forEach(z => {
+              const t = ((z.querySelector('.gs-jd-t') || z).textContent || '').trim(), kopf = t.split(':')[0];
+              const art = /vorziehen/i.test(kopf) ? 'indoor' : (/ins Beet/i.test(kopf) ? 'outdoor' : (/Abgelaufen/i.test(kopf) ? 'abgelaufen' : null));
+              if (!art) return;
+              t.slice(t.indexOf(':') + 1).split(' — ')[0].split(',').forEach(n => { n = n.trim(); if (n) r[art].push(n); });
+            });
+            return r;
+          };
+          // was der KALENDER fuer eine Pflanze dieses Namens in diesem Monat sagt
+          const kalender = (name) => {
+            myPlants.length = 0; plantings.length = 0;
+            myPlants.push({ id: 'pJD', name: name, tasks: {} });
+            const r = { indoor: [], outdoor: [] };
+            gsKalenderEreignisse(von, bis).forEach(e => {
+              if (e.art !== 'aussaat' || e.quelle !== 'kulturdaten' || !r[e.fenster]) return;
+              const mm = /^(.*) vorziehen \(drinnen\)$/.exec(e.titel) || /^(.*) säen \(draussen\)$/.exec(e.titel);
+              r[e.fenster].push(mm ? mm[1] : e.titel);
+            });
+            return r;
+          };
+          const sig = (r) => 'drinnen[' + r.indoor.slice().sort().join(',') + '] draussen[' + r.outdoor.slice().sort().join(',') + ']';
+          const paar = (saat, pflanze) => ({ n: saat, L: sig(leiste([{ name: saat, qty: '1', expires: null, ts: 1 }])), K: sig(kalender(pflanze)) });
+          const raus = { heute: heute, monat: m, kulturen: [], schweiz: [], fehlgriff: [], sorten: [], eigen: 0 };
+          GS_SAE_DB.forEach(k => {
+            const x = paar(k.n, k.n);
+            // der EIGENE Massstab: die Monatslisten zaehlen ab 0 (Januar = 0)
+            const soll = 'drinnen[' + ((k.indoor || []).indexOf(m) >= 0 ? k.n : '') + '] draussen[' + ((k.outdoor || []).indexOf(m) >= 0 ? k.n : '') + ']';
+            x.S = soll; raus.eigen += ((k.indoor || []).indexOf(m) >= 0 ? 1 : 0) + ((k.outdoor || []).indexOf(m) >= 0 ? 1 : 0);
+            raus.kulturen.push(x);
+          });
+          arg.schweiz.forEach(n => raus.schweiz.push(paar(n, n)));
+          arg.fehlgriff.forEach(n => raus.fehlgriff.push(paar(n, n)));
+          arg.sorten.forEach(s => raus.sorten.push(paar(s[0], s[1])));
+          if (arg.einzel) {
+            // drei Tueten EINER Kultur — und das Ablaufdatum in beide Richtungen
+            raus.gruppe = leiste([{ name: 'Tomate Ochsenherz' }, { name: 'Tomaten' }, { name: 'Tomate San Marzano' }]);
+            raus.abgelaufen = leiste([{ name: 'Tomaten', expires: _gsKalTagPlus(heute, -1) }]);
+            raus.haltbar = leiste([{ name: 'Tomaten', expires: _gsKalTagPlus(heute, 400) }]);
+          }
+          return raus;
+        } finally {
+          myPlants.length = 0; alt.mp.forEach(x => myPlants.push(x));
+          plantings.length = 0; alt.pl.forEach(x => plantings.push(x));
+          if (alt.lager == null) localStorage.removeItem('gs_seed_inventory'); else localStorage.setItem('gs_seed_inventory', alt.lager);
+          if (alt.wc == null) localStorage.removeItem('gs_weather_cache'); else localStorage.setItem('gs_weather_cache', alt.wc);
+          try { gsJetztDranRender(); } catch (_) {}
+        }
+      };
+      const arg = {
+        schweiz: ['Rüebli', 'Karotten', 'Lauch', 'Randen', 'Stielmangold'],
+        fehlgriff: ['Salatgurke', 'Rote Zwiebeln', 'Rote Melde', 'Knoblauchsrauke', 'Petersilienwurzel'],
+        sorten: [['Tomate Ochsenherz', 'Tomaten'], ['Rote Bete Ägyptische Plattrunde', 'Rote Bete'], ['Rüebli Nantaise', 'Möhren'], ['Buschbohne Maxi', 'Buschbohnen']],
+      };
+      const klagen = [];
+      const z = { kulturen: [0, 0, []], schweiz: [0, 0, []], fehlgriff: [0, 0, []], sorten: [0, 0, []] };
+      let eigen = 0, kalFalsch = 0, tage = [], einzel = null;
+      try {
+        for (let m = 0; m < 12; m++) {
+          await p.clock.setFixedTime(Date.UTC(2025, m, 15, 12));
+          const r = await p.evaluate(messen, Object.assign({ einzel: m === 1 }, arg));
+          if (r.fehler) return { ok: false, warum: r.fehler };
+          if (r.monat !== m) return { ok: false, warum: 'die Uhr liess sich nicht auf ' + MON[m] + ' stellen (Seite sagt Monat ' + r.monat + ', ' + r.heute + ')' };
+          tage.push(r.heute); eigen += r.eigen;
+          r.kulturen.forEach(x => { if (x.K !== x.S) kalFalsch++; });
+          Object.keys(z).forEach(g => r[g].forEach(x => { z[g][0]++; if (x.L !== x.K) { z[g][1]++; if (z[g][2].length < 3) z[g][2].push(MON[m] + ' „' + x.n + '": Leiste ' + x.L + ' · Kalender ' + x.K); } }));
+          if (r.gruppe) einzel = r;
+        }
+      } finally { await p.clock.setFixedTime(HEUTE_MS); }
+      if (z.kulturen[0] < 468) klagen.push('nur ' + z.kulturen[0] + ' Kultur×Monat-Paare gemessen (erwartet mindestens 39 × 12 = 468)');
+      if (eigen < 100) klagen.push('der eigene Massstab zaehlt nur ' + eigen + ' Fenster im Jahr — Grundlage fehlt');
+      if (kalFalsch) klagen.push('der KALENDER selbst weicht in ' + kalFalsch + ' Paaren von den Monatslisten ab (ab 0 gelesen)');
+      if (z.kulturen[1]) klagen.push(z.kulturen[1] + ' von ' + z.kulturen[0] + ' Kultur×Monat-Paaren: die Leiste sagt etwas anderes als der Kalender — z.B. ' + z.kulturen[2].join(' | '));
+      if (z.schweiz[1]) klagen.push('Schweizer Namen: ' + z.schweiz[1] + ' von ' + z.schweiz[0] + ' Paaren verschieden — z.B. ' + z.schweiz[2].join(' | '));
+      if (z.fehlgriff[1]) klagen.push('Fehlgriff per Teilstring: ' + z.fehlgriff[1] + ' von ' + z.fehlgriff[0] + ' Paaren — die Leiste nennt ein Fenster für einen Namen, den der Kalender keiner Kultur zuordnet, z.B. ' + z.fehlgriff[2].join(' | '));
+      if (z.sorten[1]) klagen.push('Sorten („Kultur Sorte"): ' + z.sorten[1] + ' von ' + z.sorten[0] + ' Paaren verschieden — z.B. ' + z.sorten[2].join(' | '));
+      if (!einzel) klagen.push('der Einzelteil (Februar) lief nicht');
+      else {
+        if (einzel.gruppe.indoor.join('|') !== 'Tomaten') klagen.push('drei Tomaten-Tüten im Februar → „Jetzt vorziehen" nennt [' + einzel.gruppe.indoor.join(', ') + '] statt einmal Tomaten');
+        if (einzel.abgelaufen.indoor.length || einzel.abgelaufen.outdoor.length) klagen.push('abgelaufenes Saatgut wird empfohlen: ' + JSON.stringify(einzel.abgelaufen));
+        if (einzel.abgelaufen.abgelaufen.join('|') !== 'Tomaten') klagen.push('abgelaufenes Saatgut steht nicht unter „Abgelaufen": ' + JSON.stringify(einzel.abgelaufen));
+        if (einzel.haltbar.indoor.join('|') !== 'Tomaten' || einzel.haltbar.abgelaufen.length) klagen.push('haltbares Saatgut (läuft in 400 Tagen ab) wird nicht empfohlen oder als abgelaufen geführt: ' + JSON.stringify(einzel.haltbar));
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: z.kulturen[0] + ' Kultur×Monat-Paare, 0 verschieden · ' + eigen + ' Fenster im Jahr, jedes genannt (Leiste = Kalender = Monatslisten ab 0) · Schweizer Namen ' + z.schweiz[0] + ' Paare · ' + z.fehlgriff[0] + ' Paare ohne Fehlgriff · Sorten ' + z.sorten[0] + ' Paare · drei Tüten → einmal „Tomaten" · abgelaufen nicht empfohlen · Uhr ' + tage[0] + ' … ' + tage[11] };
+    },
+  },
+  {
+    // „Jetzt ins Beet" bei angesagtem Frost waere derselbe Schaden auf anderem Weg. Die Leiste
+    // rechnet den Frost NICHT selbst: sie legt ihre Fenster dem Pruefwerk des Kalenders vor
+    // (R1, _gsKalPruefwerk — dieselbe Schwelle GS_WETTER_GRENZEN.frost, derselbe Satz). Drei
+    // Zustaende, und „Jetzt" steht nur bei „kein Frost in der Vorhersage".
+    name: 'Saatgut-Leiste L2 · Frost: die Leiste sagt denselben Satz wie R1 im Kalender — Frost in der Vorhersage → nicht „Jetzt ins Beet", ein Satz + „+2 weitere"; kein Frost → „Jetzt ins Beet"; ohne Vorhersage → „Nicht bekannt" mit Grund; die Schwelle kommt aus GS_WETTER_GRENZEN; „vorziehen" bleibt unberührt',
+    aussen: async (p) => {
+      const lauf = () => {
+        const host = document.getElementById('gs-jetzt-dran');
+        if (!host) return { ok: false, warum: '#gs-jetzt-dran gibt es nicht' };
+        const heute = gsHeuteTag(), mon = heute.slice(0, 7), m0 = +mon.slice(5, 7) - 1;
+        const von = mon + '-01', bis = _gsKalTag(new Date(+mon.slice(0, 4), m0 + 1, 0));
+        const alt = { lager: localStorage.getItem('gs_seed_inventory'), wc: localStorage.getItem('gs_weather_cache'), mp: myPlants.slice(), pl: plantings.slice() };
+        const klagen = [];
+        try {
+          const tom = GS_SAE_DB.find(k => k.n === 'Tomaten'), grk = GS_SAE_DB.find(k => k.n === 'Grünkohl');
+          if (!tom || tom.outdoor.indexOf(m0) < 0 || !grk || grk.indoor.indexOf(m0) < 0) return { ok: false, warum: 'Grundlage fehlt: im gestellten Monat (' + mon + ') haben Tomaten kein Fenster draussen oder Grünkohl keines drinnen' };
+          myPlants.length = 0; plantings.length = 0;
+          myPlants.push({ id: 'pJF', name: 'Tomaten', tasks: {} });
+          localStorage.setItem('gs_seed_inventory', JSON.stringify([{ name: 'Tomaten' }, { name: 'Grünkohl' }]));
+          const cache = (grad) => {   // grad: { tagIndex: Tiefstwert }, sonst 8 °C
+            const tg = [], tmin = []; for (let i = 0; i < 7; i++) { tg.push(_gsKalTagPlus(heute, i)); tmin.push(grad[i] != null ? grad[i] : 8); }
+            localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now() - 3600000, data: { daily: { time: tg, temperature_2m_min: tmin } } }));
+          };
+          const lies = () => {
+            gsJetztDranRender();
+            const r = { vor: '', beet: '' };
+            host.querySelectorAll('.gs-jd-z').forEach(z => {
+              const t = ((z.querySelector('.gs-jd-t') || z).textContent || '').trim(), kopf = t.split(':')[0];
+              if (/vorziehen/i.test(kopf)) r.vor = t; else if (/ins Beet/i.test(kopf)) r.beet = t;
+            });
+            return r;
+          };
+          const kal = () => {
+            const a = gsKalenderEreignisse(von, bis).find(e => e.art === 'aussaat' && e.quelle === 'kulturdaten' && e.fenster === 'outdoor' && /^Tomaten /.test(e.titel));
+            return a ? (a.hinweise || []).filter(h => h.regel === 'frost_aussaat') : null;
+          };
+          // (1) ein Frosttag: -1.5 °C uebermorgen
+          cache({ 2: -1.5 });
+          let h = kal(), z = lies();
+          if (!h || h.length !== 1 || h[0].zustand !== 'verletzt' || !/-1\.5/.test(h[0].text)) return { ok: false, warum: 'Grundlage fehlt: der Kalender selbst meldet den Frost nicht an „Tomaten säen (draussen)": ' + JSON.stringify(h) };
+          const satz = h[0].text;
+          if (!/Tomaten/.test(z.beet)) klagen.push('Frost: die Zeile „ins Beet" nennt Tomaten nicht: „' + z.beet + '"');
+          if (/Jetzt ins Beet/.test(z.beet)) klagen.push('Frost am ' + _gsKalDatumKurz(_gsKalTagPlus(heute, 2)) + ' in der Vorhersage, und die Leiste sagt „Jetzt ins Beet": „' + z.beet + '"');
+          if (z.beet.indexOf(satz) < 0) klagen.push('die Leiste sagt nicht den Satz des Kalenders („' + satz + '"): „' + z.beet + '"');
+          if (!/Jetzt vorziehen/.test(z.vor) || !/Grünkohl/.test(z.vor) || /Frost/.test(z.vor)) klagen.push('„vorziehen" (drinnen) ist vom Frost berührt oder fehlt: „' + z.vor + '"');
+          const bei1 = z.beet;
+          // (2) drei Frosttage: EIN Satz, der Rest gezaehlt
+          cache({ 1: -1.5, 2: -2, 3: 0.5 });
+          z = lies();
+          const nSatz = (z.beet.match(/Frost am/g) || []).length;
+          if (nSatz !== 1) klagen.push('drei Frosttage → ' + nSatz + ' Frost-Sätze in der Zeile statt einem: „' + z.beet + '"');
+          if (!/\+2 weitere/.test(z.beet)) klagen.push('drei Frosttage → kein „+2 weitere": „' + z.beet + '"');
+          // (3) kein Frost: jetzt
+          cache({});
+          h = kal(); z = lies();
+          if (!h || !h.length || h[0].zustand !== 'erfuellt') klagen.push('Grundlage: ohne Frost sagt der Kalender nicht „erfüllt": ' + JSON.stringify(h));
+          if (!/Jetzt ins Beet/.test(z.beet) || !/Tomaten/.test(z.beet) || /Frost|Nicht bekannt/.test(z.beet)) klagen.push('kein Frost in der Vorhersage → erwartet „Jetzt ins Beet: Tomaten …" ohne Frost-Satz, steht: „' + z.beet + '"');
+          const ohne = z.beet;
+          // (4) die Schwelle steht in EINER Tabelle: genau am Wert trifft sie, ein Zehntel darueber nicht
+          const g = GS_WETTER_GRENZEN.frost;
+          cache({ 3: g }); z = lies();
+          if (/Jetzt ins Beet/.test(z.beet) || !/Frost am/.test(z.beet)) klagen.push('Tiefstwert genau an der Schwelle (' + g + ' °C) → die Leiste meldet keinen Frost: „' + z.beet + '"');
+          cache({ 3: g + 0.1 }); z = lies();
+          if (!/Jetzt ins Beet/.test(z.beet) || /Frost am/.test(z.beet)) klagen.push('Tiefstwert ' + (g + 0.1) + ' °C (über der Schwelle) → die Leiste meldet Frost: „' + z.beet + '"');
+          // (5) ohne Vorhersage: nicht bekannt, mit Grund — nie „Jetzt", nie „kein Frost"
+          localStorage.removeItem('gs_weather_cache');
+          h = kal(); z = lies();
+          if (!h || !h.length || h[0].zustand !== 'nicht_pruefbar') klagen.push('Grundlage: ohne Vorhersage sagt der Kalender nicht „nicht prüfbar": ' + JSON.stringify(h));
+          if (!/Tomaten/.test(z.beet)) klagen.push('ohne Vorhersage fehlt die Zeile „ins Beet": „' + z.beet + '"');
+          if (/Jetzt ins Beet/.test(z.beet)) klagen.push('ohne Vorhersage sagt die Leiste „Jetzt ins Beet" — Stille ist kein „kein Frost": „' + z.beet + '"');
+          if (!/Nicht bekannt/.test(z.beet) || !/Wettervorhersage/.test(z.beet)) klagen.push('ohne Vorhersage fehlt „Nicht bekannt" mit Grund: „' + z.beet + '"');
+          if (/kein Frost/i.test(z.beet)) klagen.push('ohne Vorhersage behauptet die Leiste „kein Frost": „' + z.beet + '"');
+          if (/undefined|NaN|\[object Object\]/.test(bei1 + ohne + z.beet)) klagen.push('Platzhalter im Text der Leiste');
+          if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+          return { ok: true, info: 'Uhr ' + heute + ' · Frost −1.5 °C → „' + bei1 + '" · drei Frosttage → ein Satz „+2 weitere" · 8 °C → „' + ohne + '" · Schwelle ' + g + ' °C trifft, ' + (g + 0.1) + ' °C nicht · ohne Vorhersage → „' + z.beet + '" · vorziehen unberührt' };
+        } finally {
+          myPlants.length = 0; alt.mp.forEach(x => myPlants.push(x));
+          plantings.length = 0; alt.pl.forEach(x => plantings.push(x));
+          if (alt.lager == null) localStorage.removeItem('gs_seed_inventory'); else localStorage.setItem('gs_seed_inventory', alt.lager);
+          if (alt.wc == null) localStorage.removeItem('gs_weather_cache'); else localStorage.setItem('gs_weather_cache', alt.wc);
+          try { gsJetztDranRender(); } catch (_) {}
+        }
+      };
+      try {
+        await p.clock.setFixedTime(Date.UTC(2025, 4, 10, 12));   // 10. Mai: Tomaten dürfen laut Aussaatkalender ins Beet — vor den Eisheiligen
+        return await p.evaluate(lauf);
+      } finally { await p.clock.setFixedTime(HEUTE_MS); }
+    },
+  },
+  {
+    // Ein Geschwister derselben Falle (GARTEN, 11.11.2026): Wissen › Aussaatkalender markiert
+    // den laufenden Block mit „← Jetzt" — ueber eine Index-Tabelle, die nicht zu den acht
+    // Schluesseln passte: im Juli stand „Juni ← Jetzt", im August „Juli", im Oktober „Aug/Sep".
+    // Der eigene Massstab liest die Monate aus dem NAMEN des Blocks.
+    name: 'Wissen-Aussaatkalender · „← Jetzt" steht in jedem der zwölf Monate an genau dem Block, dessen Name den Monat nennt',
+    aussen: async (p) => {
+      const MON = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+      const lauf = () => {
+        const d = document.createElement('div'); d.innerHTML = renderAussaat();
+        const jetzt = [];
+        d.querySelectorAll('div').forEach(x => { const t = x.textContent || ''; if (!x.children.length && /←/.test(t)) jetzt.push(t.split('←')[0].trim()); });
+        return { keys: Object.keys(GARDEN_KNOWLEDGE.aussaatkalender.monate), jetzt: jetzt, monat: new Date().getMonth() };
+      };
+      // der eigene Massstab: „Jan/Feb" → 0,1 · „Okt–Dez" → 9,10,11 · „März" → 2
+      const WORT = { jan: 0, feb: 1, 'mär': 2, apr: 3, mai: 4, jun: 5, jul: 6, aug: 7, sep: 8, okt: 9, nov: 10, dez: 11 };
+      const monate = (key) => {
+        const teil = String(key).split(/[–-]/).map(s => s.trim());
+        const idx = (w) => WORT[w.toLowerCase().slice(0, 3)];
+        if (teil.length === 2 && idx(teil[0]) != null && idx(teil[1]) != null) { const r = []; for (let i = idx(teil[0]); i <= idx(teil[1]); i++) r.push(i); return r; }
+        return String(key).split('/').map(s => idx(s.trim())).filter(x => x != null);
+      };
+      const klagen = []; let falsch = 0, keys = null;
+      try {
+        for (let m = 0; m < 12; m++) {
+          await p.clock.setFixedTime(Date.UTC(2025, m, 15, 12));
+          const r = await p.evaluate(lauf);
+          if (r.monat !== m) return { ok: false, warum: 'die Uhr liess sich nicht auf ' + MON[m] + ' stellen' };
+          keys = r.keys;
+          const soll = r.keys.filter(k => monate(k).indexOf(m) >= 0);
+          if (soll.length !== 1) { klagen.push(MON[m] + ' gehört zu ' + soll.length + ' Blöcken (' + soll.join(', ') + ') — die Blöcke decken das Jahr nicht genau einmal'); continue; }
+          if (r.jetzt.length !== 1 || r.jetzt[0] !== soll[0]) { falsch++; klagen.push(MON[m] + ': „← Jetzt" steht an „' + (r.jetzt.join('", „') || '(keinem Block)') + '" statt an „' + soll[0] + '"'); }
+        }
+      } finally { await p.clock.setFixedTime(HEUTE_MS); }
+      if (klagen.length) return { ok: false, warum: (falsch ? falsch + ' von 12 Monaten falsch markiert — ' : '') + klagen.join(' · ') };
+      return { ok: true, info: '12 Monate, ' + keys.length + ' Blöcke (' + keys.join(' · ') + ') — der markierte Block nennt jeweils den laufenden Monat' };
     },
   },
   {
@@ -1602,6 +1944,89 @@ const FAELLE = [
     },
   },
   {
+    // v33.60 · gemessen am 11.11.2026 (Befund IDEE-B, nachgefahren): der Knopf „›" an JEDER
+    // Scan-Zeile rief `gsSearchSpecies` — eine Funktion, die es nicht gibt. `gsKalHin` prueft
+    // `typeof window[fn] === 'function'` und tut sonst NICHTS: kein Fehler, kein Fenster.
+    // N1 war dabei gruen — er fragt nur, ob `verweis.fn` gesetzt ist (eine Zeichenkette ist
+    // immer gesetzt). Hier zwei Richtungen: (a) JEDER Verweis, den die eine Funktion liefert,
+    // nennt eine Funktion, die es gibt; (b) der echte Knopf an der Scan-Zeile wird angetippt,
+    // und danach steht ein Fenster da. Ohne (b) waere ein gsKalHin, der gar nichts mehr ruft,
+    // ebenfalls gruen (v33.43: der Draht, nicht die Rechnung).
+    name: 'Drei Namen N5 · jeder Verweis im Kalender führt irgendwohin: die genannte Funktion gibt es, der Knopf „›" an einer Scan-Zeile öffnet den Scan-Verlauf — und der an einem Tagebuch-Eintrag einer GARTEN-Pflanzung öffnet ein Fenster, in dem der Eintrag steht',
+    lauf: async () => {
+      const heute = gsHeuteTag();
+      const altS = localStorage.getItem('gs_scan_history'), altF = localStorage.getItem('gs_kal_filter'), altM = localStorage.getItem('greenscan_markers');
+      const verlauf = document.getElementById('modal-scan-history-full');
+      const offen = () => !!(verlauf && getComputedStyle(verlauf).display !== 'none' && verlauf.getBoundingClientRect().height > 10);
+      try {
+        const klagen = [];
+        localStorage.setItem('gs_scan_history', JSON.stringify([{ name: 'Löwenzahn', lat: 'Taraxacum officinale', ts: Date.now(), confidence: 91 }]));
+        localStorage.setItem('greenscan_markers', JSON.stringify([{ id: 'mN5', lat: 47.3, lng: 8.5, name: 'Bärlauch', cat: 'plant', date: Date.now() - 864e5 }]));
+        localStorage.setItem('gs_kal_filter', JSON.stringify({ aus: [], garten: null }));
+        // (a) jede Quelle, die im Fenster etwas liefert: gibt es die Funktion?
+        const ev = gsKalenderEreignisse(_gsKalTagPlus(heute, -45), _gsKalTagPlus(heute, 45));
+        const mit = ev.filter(e => e && e.verweis && e.verweis.fn);
+        const arten = {}, fehlt = {};
+        mit.forEach(e => {
+          arten[e.art] = (arten[e.art] || 0) + 1;
+          if (typeof window[e.verweis.fn] !== 'function') fehlt[e.verweis.fn] = (fehlt[e.verweis.fn] || 0) + 1;
+        });
+        if (!arten.scan) klagen.push('kein Scan-Ereignis mit Verweis im Fenster — der Fall misst die Scan-Zeile nicht');
+        if (Object.keys(arten).length < 4) klagen.push('nur ' + Object.keys(arten).length + ' Ereignisarten mit Verweis (' + Object.keys(arten).join(', ') + ') — die Beispieldaten tragen den Fall nicht');
+        Object.keys(fehlt).forEach(fn => klagen.push('`' + fn + '` gibt es nicht — ' + fehlt[fn] + ' Ereignis' + (fehlt[fn] === 1 ? '' : 'se') + ' zeig' + (fehlt[fn] === 1 ? 't' : 'en') + ' ins Leere'));
+        // (b) der echte Knopf
+        if (offen()) { try { closeScanHistoryFull(); } catch (_) {} await new Promise(r => setTimeout(r, 350)); }
+        if (offen()) return { ok: false, warum: 'der Scan-Verlauf steht schon VOR dem Antippen offen — der Fall kann nichts zeigen' };
+        gsKalenderOeffnenAm(heute);
+        const mc = document.getElementById('modal-content');
+        const zeile = Array.from(mc.querySelectorAll('.gs-kal-hin')).map(b => ({ b, z: b.parentElement }))
+          .find(x => x.z && /Löwenzahn gescannt/.test(x.z.textContent || ''));
+        if (!zeile) klagen.push('im Kalender steht keine Zeile „Löwenzahn gescannt" mit einem Knopf „›"');
+        else {
+          zeile.b.click();
+          await new Promise(r => setTimeout(r, 450));
+          if (!offen()) klagen.push('der Knopf „›" an der Scan-Zeile wurde angetippt — und es steht kein Scan-Verlauf da (onclick: ' + (zeile.b.getAttribute('onclick') || '').replace(/^event\.stopPropagation\(\);/, '').slice(0, 70) + ')');
+          else if (!/Löwenzahn/.test(verlauf.textContent || '')) klagen.push('der Scan-Verlauf ist offen, nennt den angetippten Scan aber nicht');
+        }
+        // (c) ein Tagebuch-Eintrag einer GARTEN-Pflanzung. Die Funktion `openPlantDiary` GIBT es —
+        // sie sucht die Pflanze aber nur in „Meine Pflanzen" und kehrt fuer eine Pflanzung still um
+        // (gemessen am 11.11.2026: der Knopf an „Zucchini · Giessen" tat nichts). (a) sieht das nicht.
+        try { if (offen()) closeScanHistoryFull(); } catch (_) {}
+        await new Promise(r => setTimeout(r, 350));
+        const zPl = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.find(x => x && x.id === 'plant_seed_1') : null;
+        if (!zPl || !zPl.tasks || !zPl.tasks.water) klagen.push('die Garten-Pflanzung plant_seed_1 mit Giess-Aufgabe fehlt — Teil (c) misst nichts');
+        else {
+          gsQuickDone('plant_seed_1', 'water');
+          gsKalenderOeffnenAm(heute);
+          const mc2 = document.getElementById('modal-content');
+          const zz = Array.from(mc2.querySelectorAll('.gs-kal-hin')).map(b => ({ b, z: b.parentElement }))
+            .find(x => x.z && /Giessen/.test(x.z.textContent || '') && /Zucchini/.test(x.z.textContent || ''));
+          if (!zz) klagen.push('im Kalender steht keine Zeile „Giessen · Zucchini" mit einem Knopf „›"');
+          else {
+            const vorher = (mc2.textContent || '').length;
+            zz.b.click();
+            await new Promise(r => setTimeout(r, 450));
+            const dm = document.getElementById('detail-modal'), pdm = document.getElementById('plant-diary-modal');
+            const auf = (dm && dm.classList.contains('open')) ? (document.getElementById('modal-content').textContent || '') : (pdm ? (pdm.textContent || '') : '');
+            if (!auf) klagen.push('der Knopf „›" am Tagebuch-Eintrag der Garten-Pflanzung wurde angetippt — und kein Fenster steht da (onclick: ' + (zz.b.getAttribute('onclick') || '').replace(/^event\.stopPropagation\(\);/, '').slice(0, 60) + ')');
+            else if (/gs-kal-tag/.test((document.getElementById('modal-content') || {}).innerHTML || '')) klagen.push('nach dem Antippen steht weiter der Kalender da — der Knopf hat nichts geöffnet');
+            else if (!/Zucchini/.test(auf) || !/Giessen/.test(auf)) klagen.push('das geöffnete Fenster zeigt den Eintrag „Giessen · Zucchini" nicht');
+            if (pdm) { try { pdm.remove(); } catch (_) {} }
+          }
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: mit.length + ' Ereignisse mit Verweis in ' + Object.keys(arten).length + ' Arten (' + Object.keys(arten).join(', ') + '), jede Funktion vorhanden · „›" an der Scan-Zeile öffnet den Scan-Verlauf · „›" am Tagebuch-Eintrag der Garten-Pflanzung öffnet ein Fenster mit dem Eintrag' };
+      } finally {
+        try { if (offen()) closeScanHistoryFull(); } catch (_) {}
+        try { closeModal('detail-modal'); } catch (_) {}
+        if (altS == null) localStorage.removeItem('gs_scan_history'); else localStorage.setItem('gs_scan_history', altS);
+        if (altM == null) localStorage.removeItem('greenscan_markers'); else localStorage.setItem('greenscan_markers', altM);
+        if (altF == null) localStorage.removeItem('gs_kal_filter'); else localStorage.setItem('gs_kal_filter', altF);
+        await new Promise(r => setTimeout(r, 300));
+      }
+    },
+  },
+  {
     // v33.38 · KALENDER-V2 Scheibe 4b. „Mein Naturjahr" zaehlte vier Quellen
     // SELBST — und damit anders als der Kalender: die Kachel „Arten" kannte
     // keinen Jahresfilter (sie stand unter der Ueberschrift „Mein Naturjahr
@@ -1847,7 +2272,10 @@ const FAELLE = [
   let kaputt = 0;
   for (const f of FAELLE) {
     let r;
-    try { r = await p.evaluate(new Function('return (' + f.lauf.toString() + ')()')); }
+    // Ein Fall mit `aussen` laeuft in Node und bekommt die Seite: er darf die Uhr selbst
+    // stellen (zwoelf Monate) und stellt sie im finally auf HEUTE_MS zurueck. Alle anderen
+    // laufen wie bisher IN der Seite.
+    try { r = f.aussen ? await f.aussen(p) : await p.evaluate(new Function('return (' + f.lauf.toString() + ')()')); }
     catch (e) { r = { ok: false, warum: 'Ausnahme: ' + e.message.split('\n')[0] }; }
     if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
     else { kaputt++; console.log('  !!   ' + f.name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }

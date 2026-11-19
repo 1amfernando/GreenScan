@@ -192,7 +192,7 @@ module.exports = [
       const r = await seite.evaluate(([sp, fremd]) => {
         const box = document.getElementById('plant-diary-modal');
         if (!box) return { da: false };
-        const imgs = Array.from(box.querySelectorAll('img')).filter(i => (i.getAttribute('alt') || '') === 'Tagebuch-Foto');
+        const imgs = Array.from(box.querySelectorAll('img')).filter(i => /^(Tagebuch-Foto|Foto vergrössern)$/.test(i.getAttribute('alt') || '')   /* v33.65: seit v33.60 (#329) heisst das Vorschaubild „Foto vergrössern“ — es ist ein Bedienelement */);
         return { da: true, gut: imgs.filter(i => i.getAttribute('src') === sp + 'basilikum.jpg').length, alle: imgs.length, fremd: box.querySelectorAll(fremd).length, onerr: imgs.filter(i => i.hasAttribute('onerror')).length, text: box.textContent.indexOf('onerror="window.__pwned=1">') >= 0 };
       }, [SPEICHER, FREMD]);
       await seite.evaluate(() => {
