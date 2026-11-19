@@ -718,7 +718,9 @@ function naechste() {
   // gescheiterten Nachladen nicht noch einmal derselbe Befehl, sondern der Grund und der andere Weg — R5-werkzeug-4).
   const grundN = (nachMarken && nachMarken.grund) || (stillNachgeladen && stillNachgeladen.grund);
   const weg = (nachladbar) => geholt == null ? '(ohne --nur-lokal holt `naechste` selbst und laedt fehlende Dateien gezielt nach: node scripts/austausch.mjs naechste)'
-    : geholt === false ? '(Holen hat nicht geklappt — mit Netz noch einmal: node scripts/austausch.mjs naechste)'
+    // Zweite Pruefung der README (nach 5d, belegt): kam das HOLEN selbst nicht in der stillen Frist an, war der Rat derselbe Befehl
+    // mit derselben Frist — ein Kreis. An der Frist jetzt zuerst `holen` (laengere Frist); nur ein anderer Fehler heisst „noch einmal".
+    : geholt === false ? (stillBis != null && Date.now() >= stillBis - 200 ? '(Holen kam in der stillen Frist nicht an. ' + fristRat('naechste') + ')' : '(Holen hat nicht geklappt — mit Netz noch einmal: node scripts/austausch.mjs naechste)')
     : !nachladbar ? '(erst `node scripts/austausch.mjs holen`)'
     : '(Nachladen' + (nachMarken ? ' von ' + nachMarken.versucht + ' Objekt(en)' : '') + ' hat nicht alles gebracht' + (grundN ? ' — ' + NACHLADE_GRUND[grundN] : '') + '. '
       // Gegenpruefung 5c (R5c-L1): an der FRIST gescheitert — zuerst `holen` (laengere Frist), erst danach das ganze Repo. Vorher

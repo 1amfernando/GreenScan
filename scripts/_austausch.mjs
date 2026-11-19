@@ -2302,7 +2302,11 @@ export function anstoesse(eintraege, liesDatei) {
 // Marken an EINEM offenen Eintrag (kurz, fuer die Liste).
 export function marken(e, abl, quelltext) {
   const r = abl.rueck.get(e.id) || [], m = [], zs = abl.zustand.get(e.id);
-  if (zs && zs.anderswo) m.push('auf ' + (zs.anderswo._quelle || 'einem anderen Branch') + ' als erledigt geschlossen (' + (zs.anderswo.wohin || '?') + ') — in diesem Baum noch nicht');
+  // Zweite Pruefung der README (nach 5d, belegt): Quelle und `wohin` eines FREMDEN Abschlusses standen hier roh — `wohin` darf mehrzeilig
+  // sein (jedes --wohin eine Zeile), die Marke steht in einer Listenzeile, und die letzte Wand laesst Zeilenumbrueche stehen: ein fremder
+  // Branch schrieb so eigene Zeilen in die Ausgabe jedes Lesers („DICH BETREFFEND", eine GELIEFERT-Zeile mit Befehl). Jetzt eine Zeile:
+  // Umbrueche werden zu „ · ", der Rest geht durch fremd (die Quelle streng — sie ist ein Ref-Name).
+  if (zs && zs.anderswo) m.push('auf ' + (zs.anderswo._quelle ? fremd(zs.anderswo._quelle, 120, { streng: true }) : 'einem anderen Branch') + ' als erledigt geschlossen (' + (zs.anderswo.wohin ? fremd(String(zs.anderswo.wohin).split(/\r?\n/).map(x => x.trim()).filter(Boolean).join(' · '), 160) : '?') + ') — in diesem Baum noch nicht');
   if (e.art === 'frage') m.push('ohne Antwort' + (e.an === 'fernando' ? ' · an Fernando' : ''));
   // Ein eigener Nachtrag ist kein Echo: es zaehlt, was ein ANDERER schreibt — oder alles ausser einer Antwort.
   if (e.art === 'befund' && !r.some(x => x.von.art !== 'antwort' || x.von.von !== e.von)) m.push('noch niemand dazu');
