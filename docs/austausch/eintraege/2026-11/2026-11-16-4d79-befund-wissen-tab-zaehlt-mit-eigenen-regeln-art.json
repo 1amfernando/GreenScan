@@ -1,0 +1,37 @@
+{
+  "id": "2026-11-16-4d79",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "07:44:28",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Wissen-Tab zählt mit eigenen Regeln: „Arten“ ist DB.length (4'337 statt 3'136), „Essbar“ 1'130 statt 1'062 wie Startkachel und Filter, „Giftig“ 598 statt 675 wie der Filter",
+  "beleg": [
+    "Gemessen am 16.11.2026 auf claude/happy-thompson-24l4uu (3812572, PR #326), renderLexikon() in der geladenen App gerendert: die vier Lexikon-Kacheln zeigen 4337 „Arten“ · 1130 „Essbar“ · 598 „Giftig“ · 967 „Heilkraft“. gsArtenZahlen() sagt 4337 Einträge / 3136 Arten. Startkachel „Essbar“ und Filter „Essbar“ (gsIstEssbar) zählen 1062 — der Unterschied sind genau die 68 ungeprüften Einträge (_unverified), die das Lexikon mitzählt. Der Filter „Giftig“ (_gsPassCat: toxic oder tox ≥ 2, über _gsArtAnzeige) zählt 675, das Lexikon (tox ≥ 2) 598. Heilkraft stimmt (967 = Filter).",
+    "Dieselbe Klasse im Kopf des Wissen-Tabs: der Chip „🌿 N Arten“ zeigt ebenfalls DB.length. nutzersicht_check E9 sieht beide nicht — die Zahl steht nicht als Literal im Quelltext, und der Live-Teil liest nur splash-count, stat-total, settings-arten-count, settings-db-total und modal-about-arten."
+  ],
+  "vorschlag": "Arten: gsArtenZahlen().arten (CLAUDE.md §1). Essbar: DB.filter(gsIstEssbar) — das Prädikat der Startkachel und des Filters (v32.86). Giftig: entscheiden, ob „Giftig“ erst ab Stufe 2 zählt (Lexikon, v32.96 mit Absicht) oder auch die toxic-Einträge darunter (Filter seit v33.61), und dann EINE Funktion für beide. E9 um den Wissen-Tab erweitern (rendern, Kacheln lesen).",
+  "stichworte": [
+    "lexikon",
+    "wissen",
+    "arten-zahl",
+    "essbar",
+    "giftig"
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-df51"
+    }
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "+dbTotal.toLocaleString(gsLocale())+' Arten</span>'"
+    },
+    {
+      "datei": "index.html",
+      "text": "var edibleCount = gsWissenDBCount(function(s){ return s && _art(s).edible === true; });"
+    }
+  ]
+}

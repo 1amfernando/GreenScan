@@ -1058,7 +1058,6 @@ const FAELLE = [
         'CAT_COLORS_W[w.cat]': 'w aus GS_WISSEN, einer festen Liste im Code',
         'CAT_BG_W[w.cat]': 'w aus GS_WISSEN',
         'CAT_LABELS_W[w.cat]': 'w aus GS_WISSEN',
-        'WEATHER_CODE_MAP[c.weather_code]': 'Wettercode-ZAHL von Open-Meteo; Rueckfall 🌤️',
         'GS_WETTER_GRENZEN[a.k]': 'a aus einer festen Liste daneben',
         'GS_FARBE_HEX[f.name]': 'f aus der eigenen Farbmessung (gsBildFarben), Namen aus derselben Tabelle',
         'PFLANZ_BODEN_INFO[plant.name]': 'Offline-Chat, plant aus PLANT_DB im Code',

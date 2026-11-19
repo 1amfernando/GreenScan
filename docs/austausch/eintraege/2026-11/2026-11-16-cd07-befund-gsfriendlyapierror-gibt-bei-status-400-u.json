@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-16-cd07",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "07:14:53",
+  "von": "sitzung/claude/hauptfunktionen-scanner",
+  "stand": "v33.61",
+  "titel": "_gsFriendlyApiError gibt bei Status 400 und bei unbekanntem Status den englischen Anbietertext auf den Bildschirm — auch für callAI (Lina, Planer, Doktor)",
+  "vorschlag": "An der Quelle reparieren: _gsFriendlyApiError gibt nur noch eigene Sätze zurück und legt den Rohtext an das Error-Objekt (z.B. err.roh), statt ihn in den Satz zu kleben; danach _gsScanFehlerArt vereinfachen. Jeden callAI-Aufrufer bis zu seiner Anzeige verfolgen (CLAUDE.md §7.1, v32.88: kein Sweep).",
+  "beleg": [
+    "Gemessen am 16.11.2026 mit scan_check-Aufbau: _gsFriendlyApiError(400, 'messages.0.content.0.image.source.base64: image exceeds 5 MB maximum') ergibt '⚠️ Anfrage abgelehnt: messages.0.content…'; Status 404 nennt den Modellnamen; jeder andere Status gibt '⚠️ ' + Rohtext zurück. Im Scanner fängt das seit claude/hauptfunktionen-scanner _gsScanFehlerArt ab (scan_check H5). Die übrigen Aufrufer von callAI zeigen die Meldung weiter roh — nicht gemessen, welche davon sie anzeigen."
+  ],
+  "stichworte": [
+    "fehlertext",
+    "ki",
+    "callai",
+    "jargon"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "if (status === 400) return '⚠️ Anfrage abgelehnt: ' + (msg||'Ungültige Eingabe');"
+    }
+  ]
+}

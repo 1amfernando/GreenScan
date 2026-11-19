@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-16-a082",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "07:44:28",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Standort-Fenster ohne Standort: im Dunkelmodus helles Grün auf fest hellem Kasten — 1,51:1",
+  "beleg": [
+    "contrast_check am 16.11.2026 (volle Suite auf 3812572): „1.51:1 (soll 4.5) openLocationSettings DIV#loc-status rgb(165,214,167) auf rgb(240,247,238) — Noch kein Standort. GPS tippen oder Ort eingeben.“ openLocationSettings setzt background '#f0f7ee' (fest hell) und color 'var(--g-dark)' — das Merkmal kippt im Dunkelmodus auf #a5d6a7. Auf origin/main steht die Zeile identisch (git log -S: seit v33.13 oder früher); nicht aus PR #326. contrast_check endet trotzdem mit 0 — ein Bericht, kein Tor."
+  ],
+  "vorschlag": "Eine feste Fläche braucht eine feste Schrift (CLAUDE.md §7.1, Tabelle v32.25): color fest dunkel (z.B. '#1b5e20'), oder die Fläche aus einem Merkmal, das mitkippt. Danach contrast_check: „mit Befund: 0“.",
+  "stichworte": [
+    "kontrast",
+    "dunkelmodus",
+    "standort"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "stEl.style.background='#f0f7ee'; stEl.style.color='var(--g-dark)';"
+    }
+  ]
+}

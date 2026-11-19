@@ -37,6 +37,12 @@ Tagebuch in `CLAUDE.md`.
    `state`-Blob auf HIN- und RUECKWEG (`_gsBuildStateBlob` + `stateMap`) und
    `markDirty('state')` am Schreiber. *(storage_check, sync_check)*
 
+5b. **Eine Antwort nach einem `await` gehört der Person, die gefragt hat.**
+   `sbLogout` lädt nicht neu. Wer nach einem `await` zeichnet oder schreibt, merkt
+   sich vorher `_gsPerson()` und prüft danach, ob es noch dieselbe ist; was nur im
+   Arbeitsspeicher liegt und einer Person gehört, räumt `gsOnLogout`.
+   *(§3.6; sensor_check L10, scan_check SC3)*
+
 6. **Fremder Text ist Text, nie Code.** `escHtml(s)` fuer Text/Attribut,
    `_gsOcStr(s)` fuer Werte in `onclick="…"`, `gsSanitizeHtml(html)` fuer
    Fragmente mit erlaubter Auszeichnung, `_gsSafeUrl` / `_gsSafeLink` fuer
