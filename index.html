@@ -58560,7 +58560,7 @@ window._gsListeEinspielen = _gsListeEinspielen;
 //    (_buildStateBlob → data.geloescht, auch im Snapshot) und kommt beim Anmelden als VEREINIGUNG
 //    zurueck (_gsGeloeschtEinlesen), nie als Ersatz: ein zweites Geraet, das den state-Blob
 //    ganz ueberschreibt, nahm sonst die Marken des ersten mit.
-//  · EINE Rechnung (_gsMergeEintraege), die auch _gsMergeById (gsGardenSync) benutzt.
+//  · EINE Rechnung (_gsMergeEintraege) fuer den Anmelde-Abgleich. _gsMergeById (gsGardenSync.pullAll) rechnet noch daneben (lokal gewinnt, ohne Stempel und Marken) — offen, STATUS (jn).
 var GS_STEMPEL_LISTEN = ['ps_myplants', 'gs_gardens', 'gs_plantings'];
 var GS_GELOESCHT_TAGE = 90, GS_GELOESCHT_MAX = 300;
 function _gsGeloeschtBereinigen(o) {
