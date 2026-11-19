@@ -8,10 +8,9 @@
       "live_version": "v4"
     },
     "ai-proxy": {
-      "zustand": "erst_nach",
-      "nach": "20261110_sicherheit_ki_kontingent.sql",
-      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503",
-      "live_version": "v3"
+      "zustand": "live",
+      "grund": "Code von v33.59 (Commit 57a7acf) live seit 16.11.2026 — nachgesehen 19.11.2026 (get_edge_function, nur lesend); vorher: Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503",
+      "live_version": "v4"
     },
     "book-ingest": {
       "zustand": "live",
@@ -65,10 +64,9 @@
       "live_version": "v3"
     },
     "garden-scan-analyze": {
-      "zustand": "erst_nach",
-      "nach": "20261110_sicherheit_ki_kontingent.sql",
-      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503; der Satz beim Zeitablauf passt ungekuerzt in die Anzeige der App und raet nur bei einem Mehrjahresplan zum kuerzeren Horizont",
-      "live_version": "v11"
+      "zustand": "live",
+      "grund": "Code von v33.59 (Commit 57a7acf) live seit 16.11.2026 — nachgesehen 19.11.2026 (get_edge_function, nur lesend); vorher: Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503; der Satz beim Zeitablauf passt ungekuerzt in die Anzeige der App und raet nur bei einem Mehrjahresplan zum kuerzeren Horizont",
+      "live_version": "v12"
     },
     "i18n-translate": {
       "zustand": "ausliefern",
@@ -96,22 +94,19 @@
       "live_version": "v5"
     },
     "pest-identify": {
-      "zustand": "erst_nach",
-      "nach": "20261110_sicherheit_ki_kontingent.sql",
-      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503",
-      "live_version": "v4"
-    },
-    "plan-iterate": {
-      "zustand": "erst_nach",
-      "nach": "20261110_sicherheit_ki_kontingent.sql",
-      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503; eine abgeschnittene Antwort nennt den Umfang des Plans (nicht den Wunsch), der Plan geht kompakt an das Modell",
+      "zustand": "live",
+      "grund": "Code von v33.59 (Commit 57a7acf) live seit 16.11.2026 — nachgesehen 19.11.2026 (get_edge_function, nur lesend); vorher: Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503",
       "live_version": "v5"
     },
-    "plant-doctor-diagnose": {
-      "zustand": "erst_nach",
-      "nach": "20261110_sicherheit_ki_kontingent.sql",
-      "grund": "Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503; dazu der Krankheits-Kontext aus den Live-Spalten von plant_diseases",
+    "plan-iterate": {
+      "zustand": "live",
+      "grund": "Code von v33.59 (Commit 57a7acf) live seit 16.11.2026 — nachgesehen 19.11.2026 (get_edge_function, nur lesend); vorher: Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503; eine abgeschnittene Antwort nennt den Umfang des Plans (nicht den Wunsch), der Plan geht kompakt an das Modell",
       "live_version": "v6"
+    },
+    "plant-doctor-diagnose": {
+      "zustand": "live",
+      "grund": "Code von v33.59 (Commit 57a7acf) live seit 16.11.2026 — nachgesehen 19.11.2026 (get_edge_function, nur lesend); vorher: Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503; dazu der Krankheits-Kontext aus den Live-Spalten von plant_diseases",
+      "live_version": "v7"
     },
     "push-test": {
       "zustand": "nicht",

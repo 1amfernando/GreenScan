@@ -1969,9 +1969,11 @@ Migration, kein neues Secret. Die App funktioniert mit der alten und der neuen F
 **Zum Prüfen danach:** ein Scan eines Fotos, das sicher kein Pilz ist, muss „unsicher" sagen; in
 den Logs der Function darf „Wissensbasis gekuerzt" nicht auftauchen.
 
-**Dabei gesehen, nicht angefasst:** `AUSLIEFERUNG.json` führte die sechs KI-Functions von v33.59
-noch als „erst_nach" der Kontingent-Migration, obwohl mindestens `mushroom-identify` seit dem
-16.11. so live läuft. Nachgezogen ist nur dieser eine Eintrag.
+**Dabei nachgezogen:** `AUSLIEFERUNG.json` führte die sechs KI-Functions von v33.59 noch als
+„erst_nach" der Kontingent-Migration. Nachgesehen am 19.11.2026 (nur lesend, `get_edge_function`):
+alle sechs laufen seit dem 16.11. mit dem Code von `57a7acf` — `ai-proxy` v4, `plan-iterate` v6,
+`garden-scan-analyze` v12, `plant-doctor-diagnose` v7, `pest-identify` v5 stehen jetzt auf „live"
+(das Repo ist dort unverändert), `mushroom-identify` v5 auf „ausliefern" (dieses Paket).
 
 ## Und wenn etwas schiefgeht
 
