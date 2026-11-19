@@ -672,6 +672,9 @@ module.exports = [
         localStorage.setItem('gs_sync_queue', '[]');
         localStorage.setItem('gs_sync_dirty', JSON.stringify({ plants: Date.now() }));
         localStorage.removeItem('gs_sync_synced_at_plants');
+        // Gegenpruefung blob (19.11.2026): ein Blob geht erst hoch, wenn der Abgleich seine Zeile gelesen hat
+        // (gsCloudSync._flush) — im Pruefstand scheitert der Start-Abgleich (kein Netz). Der Zustand wird HERGESTELLT.
+        window._gsInitialSyncDone = true;
         T.halten = /user_plants/;
         const p = gsCloudSync.flushNow();
         if (!(await T.warteAuf(1))) return { fehlt: 'der keepalive-Push ging nie hinaus' };

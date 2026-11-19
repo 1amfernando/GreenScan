@@ -71335,6 +71335,37 @@ function _gsPP3DshowPlantInfo(p) {
     (p.note ? '<div style="margin-top:10px;padding:9px 11px;background:rgba(165,214,167,0.12);border-left:3px solid #a5d6a7;border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:var(--fs-sm);line-height:1.55;">💡 ' + esc(p.note) + '</div>' : '');
 }
 
+// ── Gegenpruefung der Gruppe tor (19.11.2026): EIN Blob, und er wird nur über GELESENES geschrieben ──
+//
+// user_gardens.data ist EIN Blob — Gaerten, Pflanzungen, Plaene, current, Tracks —, und ein POST mit
+// resolution=merge-duplicates ERSETZT ihn ganz. gsPPsavePlan und gsPPduplicatePlan lasen ihn zuerst und
+// nahmen bei JEDEM Fehler des Lesens (Netz, 5xx, 401, Kontowechsel — sbFetch wirft nie, §3.5) einen
+// LEEREN Blob an; der POST schrieb danach {plans:[…]}, und Gaerten, Pflanzungen und current der Cloud
+// waren weg. Die eine Lesart davor:
+//   'da'         eine Zeile mit einem Objekt — darüber darf geschrieben werden (data = dieser Blob)
+//   'leer'       0 Zeilen (oder eine Zeile ohne Blob): es gibt noch keinen — {plans:[…]} darf ihn anlegen
+//   'fehler'     kein Lesen (r.error, keine Liste, ein Blob, der kein Objekt ist) — NICHT schreiben
+//   'gewechselt' die Antwort gehoert dem vorigen Konto (_gsPersonGewechselt) — nichts schreiben, nichts sagen
+function _gsGartenBlobLesen(r) {
+  if (_gsPersonGewechselt(r)) return { zustand: 'gewechselt', data: null };
+  if (!r || r.error || !Array.isArray(r.data)) return { zustand: 'fehler', data: null };
+  var d = (r.data[0] && typeof r.data[0] === 'object') ? r.data[0].data : null;
+  if (d == null) return { zustand: 'leer', data: {} };
+  if (typeof d !== 'object' || Array.isArray(d)) return { zustand: 'fehler', data: null };
+  return { zustand: 'da', data: d };
+}
+// Der Plan (bzw. die Kopie) steht auf diesem Geraet, die Cloud hat ihn nicht bestaetigt. Vorgemerkt wird
+// der Garten-Bereich, damit der naechste Abgleich ihn hochlaedt — ohne die Marke ersetzt der naechste Pull
+// die lokale Planliste durch die der Cloud (_shouldOverwriteLocal), und der Plan waere wieder weg. Dieselbe
+// Marke setzt gsPPvorlageNaechstesJahr nach einem lokalen Plan. Die Saetze bleiben unter 120 Zeichen —
+// laengere sammelt gsI18nMeldungenAusQuelltext nicht, und sie stuenden in fr/it/en/es deutsch da.
+function _gsPlanNurLokal(kopie) {
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('garden'); } catch (_) {}
+  if (typeof showProfileToast !== 'function') return;
+  if (kopie) showProfileToast({ title: 'Plan nur auf diesem Gerät dupliziert', body: 'Die Kopie liegt auf diesem Gerät, aber noch nicht in der Cloud — die App versucht es beim nächsten Abgleich erneut.', kind: 'warning', duration: 6000 });
+  else showProfileToast({ title: '⚠️ Nur auf diesem Gerät', body: 'Der Plan liegt auf diesem Gerät, aber noch nicht in der Cloud — die App versucht es beim nächsten Abgleich erneut.', kind: 'warning', duration: 6000 });
+}
+
 // v23.81: Plan zu Supabase speichern (Garten als jsonb in user_gardens)
 async function gsPPsavePlan() {
   if (!_gsPP.plan) { showProfileToast && showProfileToast('Kein Plan vorhanden'); return; }
@@ -71395,14 +71426,24 @@ async function gsPPsavePlan() {
   }
 
   // Wenn eingeloggt: zusätzlich Cloud-Sync
+  // Gegenpruefung tor (19.11.2026): geschrieben wird nur über einen GELESENEN Blob (_gsGartenBlobLesen) —
+  // ein gescheitertes Lesen ersetzte bis dahin Gaerten, Pflanzungen und current der Cloud durch {plans:[…]}.
+  var _wer = _gsPersonJetzt(), _cloudVersucht = false;
   try {
     if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
       var uid = gsStore.get('gs_sb_uid', null);
       if (uid) {
+        _cloudVersucht = true;
         var existing = await sbFetch('/rest/v1/user_gardens?user_id=eq.' + uid + '&select=data&limit=1', {method:'GET'});
-        var rows = (existing && existing.data && Array.isArray(existing.data)) ? existing.data : [];
-        var data = (rows[0] && rows[0].data) ? rows[0].data : {};
-        if (!data.plans) data.plans = [];
+        var _blob = _gsGartenBlobLesen(existing);
+        if (_blob.zustand === 'gewechselt' || _gsPersonAnders(_wer)) return;   // Tor: gehoert dem vorigen Konto — keine Meldung fuer die naechste Person
+        if (_blob.zustand === 'fehler') {
+          console.warn('[gsPPsavePlan] Cloud-Blob nicht lesbar — nichts geschrieben:', existing && existing.error);
+          _gsPlanNurLokal(false);
+          return;
+        }
+        var data = _blob.data;
+        if (!Array.isArray(data.plans)) data.plans = [];
         data.plans.unshift(planEntry);
         while (data.plans.length > 30) data.plans.pop();
         var res = await sbFetch('/rest/v1/user_gardens?on_conflict=user_id', {  // v29.51 P0-SYNC-FIX: ohne on_conflict 409 bei wiederkehrenden Usern → Plan-Speichern schlug fehl
@@ -71410,7 +71451,8 @@ async function gsPPsavePlan() {
           headers: {'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
           body: JSON.stringify({user_id: uid, data: data, updated_at: new Date().toISOString()})
         });
-        if (!res.error) {
+        if (_gsPersonGewechselt(res) || _gsPersonAnders(_wer)) return;
+        if (res && !res.error) {
           try { if (typeof gsAgentScheduleNotifications === 'function') await gsAgentScheduleNotifications(_gsPP.plan); } catch(_){}
           // v24.00: Toast mit Action-Button "Anschauen"
           if (typeof showProfileToast === 'function') showProfileToast({
@@ -71421,13 +71463,20 @@ async function gsPPsavePlan() {
           });
           return;
         }
-        console.warn('[gsPPsavePlan] cloud-sync failed:', res.error);
+        console.warn('[gsPPsavePlan] cloud-sync failed:', res && res.error);
         // v29.18 BUG-3: eingeloggter User + Cloud-Fehler → ehrliche Meldung statt irreführendem
         // "(Login für Cloud-Sync)"-Fallback. Lokaler Save ist bereits erfolgt (kein Datenverlust).
-        if (typeof showProfileToast === 'function') { showProfileToast({title:'⚠️ Nur auf diesem Gerät', body:'Cloud-Sync fehlgeschlagen — Plan ist lokal gesichert, erneuter Versuch beim nächsten Sync', kind:'warning', duration:4500}); return; }
+        // 19.11.2026: „erneuter Versuch beim nächsten Sync" stimmte nicht — nichts merkte den Plan vor,
+        // und der naechste Pull ersetzte die lokale Planliste. _gsPlanNurLokal merkt ihn vor.
+        _gsPlanNurLokal(false);
+        return;
       }
     }
-  } catch(e) { console.warn('[gsPPsavePlan] cloud-sync exception:', e); }
+  } catch(e) {
+    console.warn('[gsPPsavePlan] cloud-sync exception:', e);
+    if (_gsPersonAnders(_wer)) return;                        // Tor: keine Meldung fuer die naechste Person
+    if (_cloudVersucht) { _gsPlanNurLokal(false); return; }   // angemeldet: nicht „Login für Cloud-Sync"
+  }
   // Fallback: nur lokal gespeichert
   if (typeof showProfileToast === 'function') showProfileToast({
     title:'✅ Plan gespeichert',
@@ -73795,7 +73844,11 @@ async function gsGardenScanWhatIfRun(){
     if (s.plan_id && typeof sbFetch === 'function'){
       var compact = { ts: Date.now(), climate_scenario: climate, simulation_mode: sim, constraints: c, yield_last_kg: _gsWhatIfNum(res.analysis || {}, 'yield') };
       var curR = await sbFetch('/rest/v1/garden_plans?id=eq.' + encodeURIComponent(s.plan_id) + '&select=what_if_runs', { method: 'GET' });
-      var arr = (curR && curR.data && curR.data[0] && Array.isArray(curR.data[0].what_if_runs)) ? curR.data[0].what_if_runs : [];
+      // Gegenpruefung blob (19.11.2026): what_if_runs ist EINE Spalte, und der PATCH ersetzt sie ganz. Nur ueber
+      // eine GELESENE Liste schreiben — ein Lesefehler (Netz, 5xx, Kontowechsel) oder ein verschwundener Plan
+      // ist keine leere Liste; bis hier ersetzte [neuer Lauf] die bis zu 20 frueheren (save_check „Was-Wenn").
+      if (!curR || curR.error || !Array.isArray(curR.data) || !curR.data[0]) throw new Error('what_if_runs nicht gelesen');
+      var arr = Array.isArray(curR.data[0].what_if_runs) ? curR.data[0].what_if_runs : [];
       arr.push(compact); if (arr.length > 20) arr = arr.slice(-20);
       await sbFetch('/rest/v1/garden_plans?id=eq.' + encodeURIComponent(s.plan_id), { method: 'PATCH', headers: { 'Prefer': 'return=minimal' }, body: JSON.stringify({ what_if_runs: arr }) });
     }
@@ -75719,6 +75772,10 @@ async function gsPPopenSavedPlans() {
   var saved = [];
   try { saved = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]'); } catch(_){}
   if (!Array.isArray(saved)) saved = [];
+  // 19.11.2026 (Geschwister zum Blob-Fund): `saved` ist die Liste der Person, die JETZT fragt. Wechselt das
+  // Konto waehrend der zwei Anfragen, schrieb das Mischen sie in den Speicher, der dann B gehoert, und das
+  // Fenster zeigte sie B. Nach einem Wechsel: nichts schreiben, kein Fenster (Tor, §3.6).
+  var _wer = _gsPersonJetzt();
 
   // Cloud-Merge wenn eingeloggt
   try {
@@ -75727,12 +75784,14 @@ async function gsPPopenSavedPlans() {
       if (uid) {
         // (a) user_gardens.data.plans[] — Hauptspeicher von gsPPsavePlan
         var ug = await sbFetch('/rest/v1/user_gardens?user_id=eq.' + uid + '&select=data&limit=1', {method:'GET'});
+        if (_gsPersonGewechselt(ug) || _gsPersonAnders(_wer)) return;   // Tor: kein Fenster, kein Schreiben fuer die naechste Person
         var ugRows = (ug && ug.data && Array.isArray(ug.data)) ? ug.data : [];
         var ugPlans = (ugRows[0] && ugRows[0].data && Array.isArray(ugRows[0].data.plans)) ? ugRows[0].data.plans : [];
         // (b) garden_plans Tabelle — KI-Planer-Pro + Balcony/Forest-Adopt.
         // v28.09 B-006: ECHTE Spalten (vorher plan_json/plan_intent = nicht-existent → 400).
         // ai_analysis → Render-Shape (summary/plants/bed/climateZone) mappen.
         var gp = await sbFetch('/rest/v1/garden_plans?user_id=eq.' + uid + '&select=id,title,ai_analysis,created_at&order=created_at.desc&limit=30', {method:'GET'});
+        if (_gsPersonGewechselt(gp) || _gsPersonAnders(_wer)) return;
         var gpRows = (gp && gp.data && Array.isArray(gp.data)) ? gp.data : [];
         var gpMapped = gpRows.map(function(r){
           // v28.40 FIX-7: gespeicherte Pläne beim Re-Open ebenfalls sanitisieren (alte Pläne mit
@@ -75775,6 +75834,7 @@ async function gsPPopenSavedPlans() {
       }
     }
   } catch(e) { console.warn('[gsPPopenSavedPlans] cloud-merge:', e); }
+  if (_gsPersonAnders(_wer)) return;
 
   var existing = document.getElementById('modal-saved-plans');
   if (existing) existing.remove();
@@ -75906,6 +75966,9 @@ async function gsPPdeletePlan(id) {
   // v32.69 (Audit B4): der Dialog verspricht „auf allen deinen Geräten entfernt" —
   // jede Server-Antwort wird angesehen, und die Meldung sagt, was wirklich gilt.
   var _cloud = null;   // null = kein Cloud-Weg (abgemeldet) · true = bestätigt · false = nicht bestätigt
+  // 19.11.2026: nach einem Kontowechsel weder Meldung noch Fenster fuer die naechste Person (Tor, §3.6).
+  // Geschrieben wird der Blob hier nur, wenn er GELESEN wurde und eine Planliste traegt — so war es schon.
+  var _wer = _gsPersonJetzt();
   try {
     if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
       var uid = gsStore.get('gs_sb_uid', null);
@@ -75915,10 +75978,12 @@ async function gsPPdeletePlan(id) {
         if (typeof id === 'string' && id.indexOf('gp_') === 0) {
           var realId = id.slice(3);
           var _rgp = await sbFetch('/rest/v1/garden_plans?id=eq.' + encodeURIComponent(realId) + '&user_id=eq.' + uid, {method:'DELETE'});
+          if (_gsPersonGewechselt(_rgp) || _gsPersonAnders(_wer)) return;
           if (!_gsSchreibOk(_rgp)) _cloud = false;
         }
         // (b) user_gardens.data.plans Array — Re-Pull, Filter, Re-Post
         var ug = await sbFetch('/rest/v1/user_gardens?user_id=eq.' + uid + '&select=data&limit=1', {method:'GET'});
+        if (_gsPersonGewechselt(ug) || _gsPersonAnders(_wer)) return;
         var ugRows = (ug && ug.data && Array.isArray(ug.data)) ? ug.data : [];
         if (ugRows[0] && ugRows[0].data && Array.isArray(ugRows[0].data.plans)) {
           var data = ugRows[0].data;
@@ -75928,11 +75993,13 @@ async function gsPPdeletePlan(id) {
             headers: {'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'},
             body: JSON.stringify({user_id: uid, data: data, updated_at: new Date().toISOString()})
           });
+          if (_gsPersonGewechselt(_rug) || _gsPersonAnders(_wer)) return;
           if (!_gsSchreibOk(_rug)) _cloud = false;
         } else if (ug && ug.error) { _cloud = false; }
       }
     }
   } catch(e) { console.warn('[gsPPdeletePlan] cloud-delete:', e); _cloud = false; }
+  if (_gsPersonAnders(_wer)) return;
   // v28.66 Block F.3: gelöschten Plan auch aus System-Sammlung „Garten-Pläne" räumen.
   try { if (typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch(_){}
   if (typeof showProfileToast === 'function') {
@@ -75957,6 +76024,7 @@ async function gsPPrenamePlan(id){
   try { var s = JSON.parse(localStorage.getItem('gs_garden_plans')||'[]'); s.forEach(function(p){ if(p&&p.id===id) p.title=name; }); localStorage.setItem('gs_garden_plans', JSON.stringify(s)); } catch(_){}
   // Cloud — v32.69 (Audit B4): jede Antwort wird angesehen, die Meldung sagt, was gilt.
   var _cloudR = null;   // null = abgemeldet · true = bestätigt · false = nicht bestätigt
+  var _wer = _gsPersonJetzt();   // 19.11.2026: nach einem Kontowechsel weder Meldung noch Fenster fuer die naechste Person
   try {
     if (typeof sbIsLoggedIn==='function' && sbIsLoggedIn() && typeof sbFetch==='function'){
       var uid = gsStore.get('gs_sb_uid', null);
@@ -75964,19 +76032,23 @@ async function gsPPrenamePlan(id){
         _cloudR = true;
         if (typeof id==='string' && id.indexOf('gp_')===0){
           var _rgp2 = await sbFetch('/rest/v1/garden_plans?id=eq.'+encodeURIComponent(id.slice(3))+'&user_id=eq.'+uid, {method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify({title:name})});
+          if (_gsPersonGewechselt(_rgp2) || _gsPersonAnders(_wer)) return;
           if (!_gsSchreibOk(_rgp2)) _cloudR = false;
         }
         var ug = await sbFetch('/rest/v1/user_gardens?user_id=eq.'+uid+'&select=data&limit=1', {method:'GET'});
+        if (_gsPersonGewechselt(ug) || _gsPersonAnders(_wer)) return;
         var ugRows=(ug&&ug.data&&Array.isArray(ug.data))?ug.data:[];
         if (ugRows[0] && ugRows[0].data && Array.isArray(ugRows[0].data.plans)){
           var data=ugRows[0].data; var hit=false;
           data.plans.forEach(function(p){ if(p&&p.id===id){ p.title=name; hit=true; } });
           if (hit) { var _rug2 = await sbFetch('/rest/v1/user_gardens?on_conflict=user_id', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'}, body: JSON.stringify({user_id:uid, data:data, updated_at:new Date().toISOString()})});
+            if (_gsPersonGewechselt(_rug2) || _gsPersonAnders(_wer)) return;
             if (!_gsSchreibOk(_rug2)) _cloudR = false; }
         } else if (ug && ug.error) { _cloudR = false; }
       }
     }
   } catch(e){ console.warn('[gsPPrenamePlan] cloud:', e); _cloudR = false; }
+  if (_gsPersonAnders(_wer)) return;
   try { if (typeof gsCollectionsAutoVacuumDebounced==='function') gsCollectionsAutoVacuumDebounced(); } catch(_){}
   if (typeof showProfileToast==='function') {
     if (_cloudR === true) showProfileToast('✏️ Plan umbenannt');
@@ -76071,12 +76143,18 @@ async function gsPPduplicatePlan(id){
   var newPlan = null;
   var uid = (typeof gsStore!=='undefined'&&gsStore.get) ? gsStore.get('gs_sb_uid', null) : null;
   var online = (typeof sbIsLoggedIn==='function' && sbIsLoggedIn() && typeof sbFetch==='function' && uid);
+  // 19.11.2026: wie gsPPsavePlan — der Blob wird nur über GELESENES geschrieben (_gsGartenBlobLesen),
+  // jede Antwort wird angesehen, und nach einem Kontowechsel geht die Kopie eines Plans von A weder in
+  // den Speicher, der jetzt B gehoert, noch an B als Meldung.
+  var _wer = _gsPersonJetzt();
+  var _cloudD = null;   // null = kein Cloud-Weg (abgemeldet) · true = bestaetigt · false = nicht bestaetigt
   // (a) Cloud garden_plans-Plan → echte neue Row (Cross-Device)
   try {
     if (online && cur.source==='garden_plans' && cur._proAnalysis){
       var ins = await sbFetch('/rest/v1/garden_plans', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify({ user_id: uid, title: newTitle, ai_analysis: cur._proAnalysis })});
+      if (_gsPersonGewechselt(ins) || _gsPersonAnders(_wer)) return;   // Tor: gehoert dem vorigen Konto
       var row = (ins && ins.data && ins.data[0]) ? ins.data[0] : null;
-      if (row && row.id) newPlan = Object.assign({}, cur, { id:'gp_'+row.id, title:newTitle, created: row.created_at||nowIso, _origId: row.id });
+      if (row && row.id) { newPlan = Object.assign({}, cur, { id:'gp_'+row.id, title:newTitle, created: row.created_at||nowIso, _origId: row.id }); _cloudD = true; }
     }
   } catch(e){ console.warn('[gsPPduplicatePlan] cloud:', e); }
   // (b) Fallback / LS-only-Plan → lokale Kopie + user_gardens.data.plans (Cross-Device best-effort)
@@ -76087,18 +76165,32 @@ async function gsPPduplicatePlan(id){
     try {
       if (online){
         var ug2 = await sbFetch('/rest/v1/user_gardens?user_id=eq.'+uid+'&select=data&limit=1', {method:'GET'});
-        var ugRows2=(ug2&&ug2.data&&Array.isArray(ug2.data))?ug2.data:[];
-        var data2 = (ugRows2[0] && ugRows2[0].data && typeof ugRows2[0].data==='object') ? ugRows2[0].data : {};
-        if (!Array.isArray(data2.plans)) data2.plans = [];
-        data2.plans.unshift(newPlan); data2.plans = gsCapWithArchive('gs_garden_plans', data2.plans, 30);
-        await sbFetch('/rest/v1/user_gardens?on_conflict=user_id', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify({user_id:uid, data:data2, updated_at:nowIso})});
+        var _blob2 = _gsGartenBlobLesen(ug2);
+        if (_blob2.zustand === 'gewechselt' || _gsPersonAnders(_wer)) return;   // Tor: gehoert dem vorigen Konto
+        if (_blob2.zustand === 'fehler') {
+          console.warn('[gsPPduplicatePlan] Cloud-Blob nicht lesbar — nichts geschrieben:', ug2 && ug2.error);
+          _cloudD = false;
+        } else {
+          var data2 = _blob2.data;
+          if (!Array.isArray(data2.plans)) data2.plans = [];
+          data2.plans.unshift(newPlan); data2.plans = gsCapWithArchive('gs_garden_plans', data2.plans, 30);
+          var _rug3 = await sbFetch('/rest/v1/user_gardens?on_conflict=user_id', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify({user_id:uid, data:data2, updated_at:nowIso})});
+          if (_gsPersonGewechselt(_rug3) || _gsPersonAnders(_wer)) return;
+          _cloudD = !!(_rug3 && !_rug3.error);   // ein Upsert, den RLS abweist, kommt als Fehler (§3.5)
+        }
       }
-    } catch(e){ console.warn('[gsPPduplicatePlan] ug:', e); }
+    } catch(e){ console.warn('[gsPPduplicatePlan] ug:', e); if (online) _cloudD = false; }
   }
-  // LS einfügen (vorn, Cap 30)
-  try { var s2 = JSON.parse(localStorage.getItem('gs_garden_plans')||'[]'); if(!Array.isArray(s2)) s2=[]; s2.unshift(newPlan); localStorage.setItem('gs_garden_plans', JSON.stringify(gsCapWithArchive('gs_garden_plans', s2, 30))); } catch(_){}
+  if (_gsPersonAnders(_wer)) return;
+  // LS einfügen (vorn, Cap 30) — am Rueckgabewert geprueft (§3.5)
+  var _lsOk = false;
+  try { var s2 = JSON.parse(localStorage.getItem('gs_garden_plans')||'[]'); if(!Array.isArray(s2)) s2=[]; s2.unshift(newPlan); _lsOk = (localStorage.setItem('gs_garden_plans', JSON.stringify(gsCapWithArchive('gs_garden_plans', s2, 30))) !== false); } catch(_){ _lsOk = false; }
   try { if (typeof gsCollectionsAutoVacuumDebounced==='function') gsCollectionsAutoVacuumDebounced(); } catch(_){}
-  if (typeof showProfileToast==='function') showProfileToast('🔁 Plan dupliziert');
+  if (!_lsOk && _cloudD !== true) {
+    if (typeof showProfileToast==='function') showProfileToast({title:'⚠️ Speicher voll', body:'Die Kopie konnte nicht gesichert werden — bitte alte Fotos oder Pläne entfernen und erneut versuchen.', kind:'error', duration:6000});
+  } else if (_cloudD === false) {
+    _gsPlanNurLokal(true);
+  } else if (typeof showProfileToast==='function') showProfileToast('🔁 Plan dupliziert');
   gsPPopenSavedPlans();
 }
 window.gsPPduplicatePlan = gsPPduplicatePlan;
@@ -81939,7 +82031,12 @@ async function sbLoadProfile() {
     // hier — kein Profil von A fuer B und auch kein Ersatzprofil mit der Id von A
     // (sicherheit_check 71_person „Tor e2": vorher stand Name und XP von A in _sbProfile).
     if (_gsPersonGewechselt(res)) return null;
-    if (res.error || !res.data || !res.data[0]) {
+    // Gegenpruefung blob (19.11.2026): „existiert noch nicht" (0 Zeilen) und „nicht lesbar" (Fehler, keine
+    // Liste) sind zwei Zustaende. Bis hier galten beide als neues Konto — und checkAndUpdateStreak,
+    // profileTrack* und checkMilestones schrieben danach login_streak 1, longest_streak 1, total_logins 1,
+    // stats {scans:1} und eine fast leere Meilenstein-Liste als GANZE Spalten zurueck (save_check „Profil
+    // nicht lesbar"). Das Ersatzprofil bleibt fuer die Anzeige; `_ungelesen` sperrt jedes Zurueckschreiben.
+    if (res.error || !Array.isArray(res.data) || !res.data[0]) {
       // Profil existiert noch nicht — Fallback-Profil aus localStorage
       _sbProfile = {
         id: uid,
@@ -81947,6 +82044,7 @@ async function sbLoadProfile() {
         display_name: localStorage.getItem('gs_sb_display_name') || '',
         xp: 0, level: 1, login_streak: 0, avatar_emoji: '🌿'
       };
+      if (res.error || !Array.isArray(res.data)) _sbProfile._ungelesen = true;
     } else {
       _sbProfile = res.data[0];
       // v31.11: Datenschutz-Schalter aus dem SERVER-Wert spiegeln.
@@ -81973,7 +82071,8 @@ async function sbLoadProfile() {
       id: uid,
       email: gsStore.get('gs_sb_email', null) || '',
       display_name: localStorage.getItem('gs_sb_display_name') || '',
-      xp: 0, level: 1, login_streak: 0, avatar_emoji: '🌿'
+      xp: 0, level: 1, login_streak: 0, avatar_emoji: '🌿',
+      _ungelesen: true   // 19.11.2026: nicht gelesen — nichts darueber zurueckschreiben (siehe oben)
     };
   }
   // UI-Update triggern nach Profil-Load
@@ -82031,8 +82130,11 @@ async function profileAddXp(amount, reason) {
 
 // ── Streak-System ─────────────────────────────────────────────
 async function checkAndUpdateStreak() {
-  var profile = _sbProfile || await sbLoadProfile();
-  if (!profile) return;
+  // 19.11.2026: ein Profil, das nicht gelesen werden konnte (_ungelesen), wird noch einmal geholt — und
+  // bleibt es ungelesen, schreibt der Streak nichts (sonst ersetzt login_streak 1 / longest_streak 1 /
+  // total_logins 1 die Werte der Cloud).
+  var profile = (_sbProfile && !_sbProfile._ungelesen) ? _sbProfile : await sbLoadProfile();
+  if (!profile || profile._ungelesen) return;
   // v31.14: gleiche Tagesgrenze wie überall sonst (Ortszeit statt UTC) — sonst
   // zählt der Server-Streak eine Sitzung um 00:30 Uhr noch zu gestern, während
   // der lokale Aktiv-Streak sie schon zu heute zählt, und der Nutzer sieht zwei
@@ -82107,7 +82209,7 @@ var MILESTONES = [
 ];
 
 function checkMilestones(stats) {
-  if (!_sbProfile) return;
+  if (!_sbProfile || _sbProfile._ungelesen) return;   // 19.11.2026: nie ueber eine ungelesene Liste schreiben
   var achieved = _sbProfile.milestones || [];
   var newOnes = [];
   MILESTONES.forEach(function(m) {
@@ -86662,6 +86764,7 @@ async function gsExecuteDeleteAccount() {
 // ── Profil-Statistiken bei Aktionen tracken ───────────────────
 function profileTrackScan(cat) {
   if (!sbIsLoggedIn()) return;
+  if (!_sbProfile || _sbProfile._ungelesen) return;   // 19.11.2026: stats ist EINE Spalte — nie ueber ein ungelesenes Profil schreiben
   var stats = (_sbProfile && _sbProfile.stats) || {};
   stats.scans = (stats.scans||0)+1;
   if (cat) {
@@ -86681,6 +86784,7 @@ function profileTrackScan(cat) {
 
 function profileTrackView() {
   if (!sbIsLoggedIn()) return;
+  if (!_sbProfile || _sbProfile._ungelesen) return;   // 19.11.2026: stats ist EINE Spalte — nie ueber ein ungelesenes Profil schreiben
   var stats = (_sbProfile && _sbProfile.stats) || {};
   stats.views = (stats.views||0)+1;
   if (_sbProfile) _sbProfile.stats = stats;
@@ -86690,6 +86794,7 @@ function profileTrackView() {
 
 function profileTrackFav(count) {
   if (!sbIsLoggedIn()) return;
+  if (!_sbProfile || _sbProfile._ungelesen) return;   // 19.11.2026: stats ist EINE Spalte — nie ueber ein ungelesenes Profil schreiben
   var stats = (_sbProfile && _sbProfile.stats) || {};
   stats.favs = count || (stats.favs||0)+1;
   if (_sbProfile) _sbProfile.stats = stats;
@@ -86699,6 +86804,8 @@ function profileTrackFav(count) {
 
 function profileTrackQuizCorrect() {
   if (!sbIsLoggedIn()) return;
+  // 19.11.2026: stats ist EINE Spalte — nie ueber ein ungelesenes Profil schreiben; die XP (atomar, fn_add_xp) gibt es trotzdem
+  if (!_sbProfile || _sbProfile._ungelesen) { profileAddXp(15, 'Quiz korrekt'); return; }
   var stats = (_sbProfile && _sbProfile.stats) || {};
   stats.quiz_correct = (stats.quiz_correct||0)+1;
   stats.quiz_streak  = (stats.quiz_streak||0)+1;
@@ -87330,6 +87437,7 @@ function gsOnLogout() {
   // Eine voellig normale Handlung (abmelden, wieder anmelden) loeschte so den
   // gesamten Pflanzen-Bestand ueberall.
   try { window._gsInitialSyncDone = false; } catch(_){}
+  try { window._gsBlobGelesen = {}; } catch(_){}   // 19.11.2026: dieselbe Sperre je Blob (gsCloudSync._flush)
 
   // ═══ v31.04: Sync-Zustand des scheidenden Nutzers raeumen ════════════════
   // `gs_sync_queue` und `gs_sync_dirty` stehen NICHT in GS_USER_KEYS und
@@ -87862,6 +87970,7 @@ async function gsSyncUserDataOnLogin(){
     try { window._gsGlobalKeyMem = ''; } catch(_){}   // v32.68: ein anderes Konto erbt keinen Schluessel
     console.log('[gsSync] User changed:', lastUid, '→', uid, '— clearing previous user data');
     window._gsInitialSyncDone = false; // v29.45: Boot-Race-Empty-Guard für den NEUEN User re-armen
+    window._gsBlobGelesen = {};        // 19.11.2026: dieselbe Sperre je Blob (gsCloudSync._flush)
     if (typeof gsClearUserDataKeys === 'function') gsClearUserDataKeys();
     // v29.45: der Clear erzeugt via setItem-Patch dirty-Marker → wegräumen, sonst pusht der leere
     // neue Stand die frisch zu pullenden Daten weg, bevor der Pull schreibt.
@@ -87915,6 +88024,12 @@ async function gsSyncUserDataOnLogin(){
     // flushNow() schrieb den (womoeglich leeren) lokalen Stand ueber die Cloud.
     // Genau der Datenverlust, gegen den der Guard gebaut wurde.
     var _pullErrors = 0;
+    // Gegenpruefung blob (19.11.2026): welche Zeile in DIESER Sitzung fuer DIESE Person gelesen und
+    // zusammengefuehrt wurde — erst danach darf gsCloudSync._flush ihren Blob hochschieben (er ersetzt die
+    // Zeile ganz). Gesetzt wird nur nach einem Lesen OHNE Fehler (0 Zeilen zaehlen: dort gibt es nichts).
+    var _gelesenMerken = function (sc) {
+      try { if (!window._gsBlobGelesen || typeof window._gsBlobGelesen !== 'object') window._gsBlobGelesen = {}; window._gsBlobGelesen[sc] = uid; } catch(_){}
+    };
     // v33.65: der state-Blob ZUERST — er traegt die Loeschmarken, und die muessen vor den Listen
     // bekannt sein (sonst steht ein auf dem anderen Geraet entfernter Eintrag hier wieder auf).
     // Die Person darf zwischen den awaits nicht gewechselt haben (§3.6: _gsPerson).
@@ -87951,6 +88066,23 @@ async function gsSyncUserDataOnLogin(){
         if (!m.gleichCloud) _gNeu = true;
       });
       if (_gNeu) { try { gsCloudSync.markDirty('garden'); } catch(_){} }   // die zusammengefuehrte Fassung gehoert auch in die Cloud
+      // Gegenpruefung blob (19.11.2026): bei UNGESENDETEM lokalem Stand gewann bis hierher die GANZE lokale
+      // Planliste (und current) — der Push danach ersetzte die der Cloud. Auf einem frisch angemeldeten Geraet,
+      // dessen Start-Abgleich scheiterte und das danach einen Plan nur lokal sichern konnte (gsPPsavePlan merkt
+      // ihn vor), hiess das: die Plaene der anderen Geraete und der offene Plan waren weg (sync_check H8).
+      // Jetzt je Eintrag wie Gaerten und Pflanzungen (ein nur lokaler Plan bleibt, einer nur in der Cloud
+      // kommt dazu), neueste zuerst; current nur, wenn lokal keiner offen ist.
+      if (_gDirty && !_gOver) {
+        if (Array.isArray(d.plans)) {
+          var _lokPl = []; try { _lokPl = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]'); } catch(_){}
+          if (!Array.isArray(_lokPl)) _lokPl = [];
+          var _mPl = _gsMergeEintraege(_lokPl, d.plans, { schmutzig: true, tomb: {} });
+          var _zeit = function (x) { var t = Date.parse(x && x.created); return isFinite(t) ? t : 0; };
+          _gsListeEinspielen('gs_garden_plans', _mPl.liste.slice().sort(function (a, b) { return _zeit(b) - _zeit(a); }));
+        }
+        var _curLok = null; try { _curLok = JSON.parse(localStorage.getItem('gs_garden_plan_current') || 'null'); } catch(_){}
+        if (d.current && !_curLok) { try { localStorage.setItem('gs_garden_plan_current', JSON.stringify(d.current)); } catch(_){} }
+      }
       if (_gOver) {
         // v27.01 EMPTY-CLOBBER-GUARD: leere Cloud-Garten-Daten dürfen populated local nicht überschreiben.
         var _cloudGardenEmpty = !(((d.plans&&d.plans.length))||((d.gardens&&d.gardens.length))||((d.plantings&&d.plantings.length)));
@@ -87974,6 +88106,7 @@ async function gsSyncUserDataOnLogin(){
     var p = await sbFetch('/rest/v1/user_plants?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
     if (typeof _gsPerson === 'function' && _gsPerson() !== _person0) return;   // v33.65: eine Antwort gehoert der Person, die gefragt hat
     if (p && p.error) { _pullErrors++; console.warn('[gsSync] user_plants-Pull fehlgeschlagen:', p.error.message); }
+    var _pGelesen = !!(p && !p.error && Array.isArray(p.data));
     if (p && !p.error && Array.isArray(p.data) && p.data[0] && p.data[0].data) {
       var pd = p.data[0].data;
       var pUpdated = p.data[0].updated_at || null;
@@ -88003,6 +88136,7 @@ async function gsSyncUserDataOnLogin(){
         if (pUpdated && !_pNeu) try { localStorage.setItem('gs_sync_synced_at_plants', pUpdated); } catch(_){}
       }
     }
+    if (_pGelesen) _gelesenMerken('plants');   // 19.11.2026: erst jetzt darf der Pflanzen-Blob hoch
     // v24.24: user_app_state — alles was nicht in plants/garden gehört
     try {
       // (v33.65: `s` wurde oben schon geholt — vor den Listen, wegen der Loeschmarken)
@@ -88147,16 +88281,33 @@ async function gsSyncUserDataOnLogin(){
           }
         }
       }
+      if (s && !s.error && Array.isArray(s.data)) _gelesenMerken('state');   // 19.11.2026: erst jetzt darf der state-Blob hoch
     } catch(_){}
     // v24.24: gpx_tracks aus Garden-Blob nach localStorage zurück (war in Pull oben unsichtbar)
+    var _gpxOk = false;
     try {
       if (g && g.data && g.data[0] && g.data[0].data) {
         var gd2 = g.data[0].data;
-        if (Array.isArray(gd2.gpx_tracks) && _shouldOverwriteLocal('garden', g.data[0].updated_at)) {
-          try { localStorage.setItem('gs_gpx_tracks', JSON.stringify(gd2.gpx_tracks)); } catch(_){}
+        if (Array.isArray(gd2.gpx_tracks)) {
+          if (_shouldOverwriteLocal('garden', g.data[0].updated_at)) {
+            try { localStorage.setItem('gs_gpx_tracks', JSON.stringify(gd2.gpx_tracks)); } catch(_){}
+          } else if (gsCloudSync.localDirtyAt && gsCloudSync.localDirtyAt('garden')) {
+            // 19.11.2026: ungesendet → Vereinigung je Track (Schluessel: Beginn `ts`), nicht „lokal gewinnt
+            // ganz" — der Push danach ersetzte sonst die Tracks der Cloud (sync_check H8).
+            var _trL = []; try { _trL = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]'); } catch(_){}
+            if (!Array.isArray(_trL)) _trL = [];
+            var _trDa = {}; _trL.forEach(function (t) { if (t && t.ts != null) _trDa[String(t.ts)] = true; });
+            var _trNeu = gd2.gpx_tracks.filter(function (t) { return t && typeof t === 'object' && t.ts != null && !_trDa[String(t.ts)]; });
+            if (_trNeu.length) {
+              var _trAlle = _trL.concat(_trNeu).sort(function (a, b) { return (Number(a && a.ts) || 0) - (Number(b && b.ts) || 0); });
+              try { localStorage.setItem('gs_gpx_tracks', JSON.stringify(_trAlle)); } catch(_){}
+            }
+          }
         }
       }
+      _gpxOk = true;
     } catch(_){}
+    if (_gpxOk && g && !g.error && Array.isArray(g.data)) _gelesenMerken('garden');   // 19.11.2026: erst jetzt darf der Garten-Blob hoch
     // v24.23: garden_diary — wenn die Cloud mehr/neuere Einträge hat als der plants-Blob,
     // mergen wir nach gs_gartentagebuch (UI-Source). Dedupe per id.
     try {
@@ -88343,45 +88494,50 @@ window.gsCloudSync = (function(){
       // der zweite und dritte Blob blieben ungesendet. Jeder Push laeuft bis zu seinem fetch
       // synchron, also steht die Anfrage (keepalive) draussen, bevor die Seite eingefroren wird.
       var _auftraege = [];
+      // Gegenpruefung blob (19.11.2026): ein Blob ERSETZT seine Zeile in der Cloud ganz (merge-duplicates).
+      // Er geht deshalb erst hinaus, wenn diese Zeile in DIESER Sitzung fuer DIESE Person gelesen und mit dem
+      // lokalen Stand zusammengefuehrt wurde (_gsBlobGelesen, gesetzt vom Login-Abgleich) — sonst ist der
+      // lokale Stand eines frisch angemeldeten Geraets, dessen Start-Abgleich scheiterte, ein Lesefehler, der
+      // als „leer" hochgeht. Die Waechter von v27.01/v29.45 hielten nur einen LEEREN Blob zurueck — und der
+      // Garten-Blob ist nie leer: die Garten-Ansicht legt „Mein Garten" an (initDefaultGarden → saveGardenData
+      // → markDirty), auch am Ende eines gescheiterten Abgleichs. Gemessen (sync_check H8): 1,5 s nach dem
+      // gescheiterten Start-Abgleich standen in der Cloud nur noch „Mein Garten", keine Pflanzung, kein Plan,
+      // kein current, kein Track. Was zurueckgehalten wird, bleibt vorgemerkt; nach dem naechsten erfolgreichen
+      // Abgleich (Start, Fokus, online, alle 2 min) schiebt flushNow() es hoch.
+      var _gelesen = function (sc) {
+        if (window._gsInitialSyncDone) return true;
+        var gl = window._gsBlobGelesen;
+        return !!(gl && typeof gl === 'object' && gl[sc] && gl[sc] === _uid());
+      };
       // Push Plants-Blob
       if (d.plants) {
         // v27.01 BOOT-RACE-GUARD: vor dem ersten erfolgreichen Pull NIE einen leeren plants-Blob
         // pushen — sonst überschreibt der Boot-Reset (myPlants=[]) die Cloud des Users (Datenverlust).
-        var _pblob = _buildPlantsBlob();
-        if (!window._gsInitialSyncDone && (!_pblob.plants || _pblob.plants.length === 0)) {
+        // 19.11.2026: auch keinen GEFUELLTEN — siehe _gelesen oben.
+        if (!_gelesen('plants')) {
           stillDirty.plants = d.plants; // dirty behalten → nach dem Pull erneut versuchen
         } else {
-          _auftraege.push({ scope: 'plants', p: _pushBlob('user_plants', _pblob, sync) });
+          _auftraege.push({ scope: 'plants', p: _pushBlob('user_plants', _buildPlantsBlob(), sync) });
         }
       }
       // Push Garden-Blob
       if (d.garden) {
-        var _gblob = _buildGardenBlob();
-        var _gEmpty = !(((_gblob.plans&&_gblob.plans.length))||((_gblob.gardens&&_gblob.gardens.length))||((_gblob.plantings&&_gblob.plantings.length)));
-        if (!window._gsInitialSyncDone && _gEmpty) {
+        if (!_gelesen('garden')) {
           stillDirty.garden = d.garden;
         } else {
-          _auftraege.push({ scope: 'garden', p: _pushBlob('user_gardens', _gblob, sync) });
+          _auftraege.push({ scope: 'garden', p: _pushBlob('user_gardens', _buildGardenBlob(), sync) });
         }
       }
       // v24.24: Push State-Blob
       if (d.state) {
         // v29.45 BOOT-RACE-GUARD (symmetrisch zu plants/garden): vor dem ersten erfolgreichen Pull
         // keinen LEEREN State-Blob pushen — sonst überschreibt ein frisches Gerät die Cloud-Achievements/
-        // Favs/Streak/Quiz mit Leerwerten (Datenverlust). Bei echtem lokalem Inhalt → normal pushen.
-        var _sblob = _buildStateBlob();
-        var _stEmpty = !(
-          (_sblob.favs && _sblob.favs.length) ||
-          (_sblob.confirmed_species && _sblob.confirmed_species.length) ||
-          (_sblob.chat_history && _sblob.chat_history.length) ||
-          (_sblob.doctor_history && _sblob.doctor_history.length) ||
-          (_sblob.dq_archive && _sblob.dq_archive.length) ||
-          _sblob.streak || _sblob.dq_stats
-        );
-        if (!window._gsInitialSyncDone && _stEmpty) {
+        // Favs/Streak/Quiz mit Leerwerten (Datenverlust). 19.11.2026: auch keinen gefuellten — ein
+        // frisches Geraet mit EINEM neuen Favoriten ersetzte sonst die zwanzig der Cloud (_gelesen oben).
+        if (!_gelesen('state')) {
           stillDirty.state = d.state; // dirty behalten → nach dem Pull erneut versuchen
         } else {
-          _auftraege.push({ scope: 'state', p: _pushBlob('user_app_state', _sblob, sync) });
+          _auftraege.push({ scope: 'state', p: _pushBlob('user_app_state', _buildStateBlob(), sync) });
         }
       }
       for (var _ai = 0; _ai < _auftraege.length; _ai++) {

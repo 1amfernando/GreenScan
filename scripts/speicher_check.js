@@ -196,6 +196,30 @@ const FAELLE = [
     },
   },
   {
+    // 19.11.2026 (Geschwister zum Blob-Fund): gsPPduplicatePlan schrieb die Kopie ohne Blick auf den
+    // Rueckgabewert und sagte „🔁 Plan dupliziert" — auch wenn weder Geraet noch Cloud sie hatten.
+    name: 'Plan duplizieren · bei vollem Speicher (abgemeldet) kein „dupliziert" — mit Platz genau eine Kopie',
+    lauf: async () => {
+      if (typeof gsPPduplicatePlan !== 'function') return { ok: false, warum: 'gsPPduplicatePlan fehlt' };
+      const echt = { login: window.sbIsLoggedIn, open: window.gsPPopenSavedPlans, vac: window.gsCollectionsAutoVacuumDebounced };
+      window.sbIsLoggedIn = () => false; window.gsPPopenSavedPlans = () => {}; window.gsCollectionsAutoVacuumDebounced = () => {};
+      const QUELLE = { id: 'plan_voll', title: 'Vollplan', created: '2026-05-01T00:00:00.000Z', plan: { summary: 'Q', plants: [] }, source: 'local' };
+      const kopien = () => (JSON.parse(localStorage.getItem('gs_garden_plans') || '[]') || []).filter(x => x && x.title === 'Vollplan (Kopie)').length;
+      try {
+        localStorage.setItem('gs_garden_plans', JSON.stringify([QUELLE]));
+        __voll(true); await gsPPduplicatePlan('plan_voll'); __voll(false);
+        if (!__VOLL_LOG.some(k => k === 'gs_garden_plans')) return { ok: false, warum: 'kein Schreibversuch auf gs_garden_plans — Fall nicht hergestellt' };
+        if (__TOASTS.some(t => /Plan dupliziert/.test(t))) return { ok: false, warum: 'meldet „dupliziert" fuer nichts: ' + JSON.stringify(__TOASTS.slice(0, 3)) };
+        if (!__TOASTS.some(t => /Speicher voll/.test(t))) return { ok: false, warum: 'still verloren, keine Meldung: ' + JSON.stringify(__TOASTS.slice(0, 3)) };
+        if (kopien()) return { ok: false, warum: 'eine Kopie steht im Speicher, obwohl der Schreibversuch scheiterte' };
+        window.__TOASTS = [];
+        await gsPPduplicatePlan('plan_voll');
+        if (kopien() !== 1 || !__TOASTS.some(t => /^🔁 Plan dupliziert$/.test(t))) return { ok: false, warum: 'mit Platz: ' + JSON.stringify({ kopien: kopien(), meldungen: __TOASTS }) };
+        return { ok: true, info: 'voll → „Speicher voll", keine Kopie · mit Platz → genau eine Kopie, „🔁 Plan dupliziert"' };
+      } finally { try { localStorage.removeItem('gs_garden_plans'); } catch (_) {} window.sbIsLoggedIn = echt.login; window.gsPPopenSavedPlans = echt.open; window.gsCollectionsAutoVacuumDebounced = echt.vac; }
+    },
+  },
+  {
     // v33.03: zwei ungeprueffte Schreibvorgaenge hintereinander — Server und Geraet.
     // Hier die lokale Haelfte: der Server sagt Ja, das Geraet ist voll.
     name: 'Name aendern · Server sagt Ja, Geraet ist voll → „geaendert, aber nicht gemerkt" statt „aktualisiert"',

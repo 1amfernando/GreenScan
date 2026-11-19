@@ -614,6 +614,178 @@ const melde = (frage, ok, wie) => {
       'Löschmarken: ' + z.h1d_marken + ' · Cloud nach A: ' + z.h1d_cloudNachA + ' · B danach: ' + z.h1d_bPfl + ' / ' + z.h1d_bPlant + ' · Cloud danach: ' + z.h1d_cloudPfl + ' / ' + z.h1d_cloudPlant + ' · Name: ' + z.h1d_bName);
   }
 
+  // ── Gegenpruefung blob (19.11.2026) · H8: Plan speichern, waehrend der Garten-Blob NICHT LESBAR ist ──
+  // gsPPsavePlan schreibt seit der Reparatur nur noch ueber einen GELESENEN Blob — und merkt den Plan bei
+  // einem Lesefehler vor (markDirty('garden')). Der Fall der Reparatur stellte markDirty durch einen Zaehler
+  // und sah deshalb nur die Funktion, nicht den ABGLEICH dahinter: der schob 500 ms spaeter den LOKALEN
+  // Garten-Blob hoch — auf einem frisch angemeldeten Geraet, dessen Start-Abgleich am selben Blob gescheitert
+  // war, ein Blob ohne die Gaerten, Pflanzungen, Plaene, current und Tracks der Cloud. Und der naechste
+  // erfolgreiche Abgleich behielt bei „ungesendet" die GANZE lokale Planliste (und current, Tracks), der Push
+  // danach ersetzte die der Cloud. Gemessen wird hier der ganze Weg mit dem ECHTEN gsCloudSync und dem
+  // ECHTEN Login-Abgleich gegen eine gestellte Cloud: was steht am Ende in der Cloud und auf dem Geraet?
+  const h8 = await page.evaluate(async () => {
+    const raus = {};
+    const warte = (ms) => new Promise(r2 => setTimeout(r2, ms));
+    const echt = { fetch: window.sbFetch, login: window.sbIsLoggedIn, raw: window.fetch, toast: window.showProfileToast, agent: window.gsAgentScheduleNotifications };
+    const exp0 = localStorage.getItem('gs_sb_expires'), tok0 = localStorage.getItem('gs_sb_token');
+    const TAB = /\/rest\/v1\/(user_plants|user_gardens|user_app_state)/;
+    const cloud = {};
+    let gartenLesbar = false;   // das Netz wackelt: das LESEN des Garten-Blobs scheitert (503), Schreiben ginge
+    const nimm = (tab, body) => { try { cloud[tab] = { data: JSON.parse(body).data, updated_at: new Date().toISOString() }; } catch (_) {} };
+    window.sbFetch = async function (pfad, opts) {
+      opts = opts || {}; const m = (opts.method || 'GET').toUpperCase();
+      const tab = (String(pfad).match(TAB) || [])[1];
+      if (tab && (m === 'POST' || m === 'PATCH')) { nimm(tab, opts.body); return { data: [{}], error: null, status: 200 }; }
+      if (tab && m === 'GET') {
+        if (tab === 'user_gardens' && !gartenLesbar) return { data: null, error: { message: 'Service Unavailable', status: 503 }, status: 503 };
+        return cloud[tab] ? { data: [cloud[tab]], error: null, status: 200 } : { data: [], error: null, status: 200 };
+      }
+      return { data: [], error: null, status: 200 };
+    };
+    window.fetch = async function (url, opts) {   // der Sofort-Flush nach dem Abgleich geht ueber rohes fetch (keepalive)
+      const tab = (String(url).match(TAB) || [])[1];
+      if (tab && opts && opts.body) { nimm(tab, opts.body); return new Response('[{}]', { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+      return echt.raw.apply(this, arguments);
+    };
+    window.sbIsLoggedIn = () => true;
+    window.showProfileToast = () => {};
+    window.gsAgentScheduleNotifications = async () => {};
+    localStorage.setItem('gs_sb_expires', String(Date.now() + 3600e3));
+    if (!tok0) localStorage.setItem('gs_sb_token', 'x.y.z');
+    const lies = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+    const ids = (a) => (a || []).map(x => x && x.id).sort().join(',');
+    // „Mein Garten" (gard_default) legt die Garten-Ansicht an, wenn die Liste leer ist — auch am Ende eines
+    // GESCHEITERTEN Abgleichs. Nach dem naechsten Abgleich steht er zusaetzlich da; das ist kein Verlust und
+    // wird unten nur genannt (blick → extra), gezaehlt wird ohne ihn.
+    const ohneStd = (a) => (a || []).filter(x => !(x && x.id === 'gard_default'));
+    const plaene = (a) => (a || []).map(p => p && (p.id === 'plan-alt' ? 'alt' : (p.plan && p.plan.summary === 'Neuer Plan H8' ? 'neu' : '?'))).sort().join(',');
+    const blick = (d) => { d = d || {}; return { gaerten: ids(ohneStd(d.gardens)), pflanzungen: ids(d.plantings), plaene: plaene(d.plans), current: !!(d.current && d.current.plan), tracks: (d.gpx_tracks || []).length }; };
+    try {
+      // Die Cloud: ein Konto mit Garten, Pflanzung, einem Plan von einem anderen Geraet, dem offenen Plan und einem Track.
+      cloud.user_gardens = { data: {
+        gardens: [{ id: 'g_c', name: 'Hochbeet (Cloud)' }],
+        plantings: [{ id: 'pl_c', gardenId: 'g_c', name: 'Karotte', date: '2026-10-01' }],
+        plans: [{ id: 'plan-alt', created: '2026-05-01T00:00:00.000Z', title: 'Plan vom anderen Geraet', plan: { summary: 'alt', plants: [] } }],
+        current: { plan: { summary: 'offen' } },
+        gpx_tracks: [{ ts: 1767225600000, end: 1767229200000, points: [] }],
+      }, updated_at: '2026-11-01T08:00:00.000Z' };
+      raus.vorher = blick(cloud.user_gardens.data);
+      // Dieses Geraet: frisch angemeldet (der Garten-Speicher ist geraeumt), der Start-Abgleich scheitert am Garten-Blob.
+      ['gs_gardens', 'gs_plantings', 'gs_garden_plans', 'gs_garden_plan_current', 'gs_gpx_tracks', 'gs_sync_dirty', 'gs_sync_dirty_at_garden', 'gs_sync_synced_at_garden'].forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('gs_sb_uid', 'nutzer-H8'); localStorage.setItem('gs_last_active_uid', 'nutzer-H8');
+      gardens = []; plantings = [];
+      window._gsInitialSyncDone = false;
+      await gsSyncUserDataOnLogin();
+      raus.startOk = !!window._gsInitialSyncDone;
+      // Die Person speichert einen Plan — das Lesen des Blobs scheitert wieder.
+      window._gsPP = window._gsPP || {};
+      _gsPP.plan = { summary: 'Neuer Plan H8', bed: { width_m: 2, length_m: 2 }, plants: [{ name: 'Pruefart', count: 1 }] }; _gsPP.data = { area: 4 };
+      await gsPPsavePlan();
+      await warte(1500);                     // ein entprellter Abgleich (500 ms) haette jetzt geschoben
+      raus.s1 = blick(cloud.user_gardens.data);
+      raus.s1_std = ((cloud.user_gardens.data || {}).gardens || []).some(x => x && x.id === 'gard_default');
+      raus.s1_lokal = plaene(lies('gs_garden_plans'));
+      // Das Netz ist wieder da: der naechste Abgleich (Pull, danach Push).
+      gartenLesbar = true;
+      window._gsInitialSyncDone = false;
+      await gsSyncUserDataOnLogin();
+      await warte(1500);
+      raus.s2 = blick(cloud.user_gardens.data);
+      raus.s2_std = ((cloud.user_gardens.data || {}).gardens || []).some(x => x && x.id === 'gard_default');
+      raus.s2_lokal = { plaene: plaene(lies('gs_garden_plans')), gaerten: ids(ohneStd(lies('gs_gardens'))), current: !!(JSON.parse(localStorage.getItem('gs_garden_plan_current') || 'null') || {}).plan, tracks: lies('gs_gpx_tracks').length };
+      raus.s2_ungesendet = localStorage.getItem('gs_sync_dirty_at_garden') ? 'ja' : 'nein';
+    } catch (e) { raus.fehler = String(e && e.stack || e).split('\n').slice(0, 3).join(' | '); }
+    finally {
+      window.sbFetch = echt.fetch; window.sbIsLoggedIn = echt.login; window.fetch = echt.raw; window.showProfileToast = echt.toast; window.gsAgentScheduleNotifications = echt.agent;
+      if (exp0 == null) localStorage.removeItem('gs_sb_expires'); else localStorage.setItem('gs_sb_expires', exp0);
+      if (tok0 == null) localStorage.removeItem('gs_sb_token');
+    }
+    return raus;
+  });
+  {
+    const S = (o) => JSON.stringify(o);
+    const voll = { gaerten: 'g_c', pflanzungen: 'pl_c', plaene: 'alt', current: true, tracks: 1 };
+    const ende = { gaerten: 'g_c', pflanzungen: 'pl_c', plaene: 'alt,neu', current: true, tracks: 1 };
+    const ok1 = !h8.fehler && h8.startOk === false && S(h8.s1) === S(voll) && !h8.s1_std && h8.s1_lokal === 'neu';
+    const ok2 = ok1 && S(h8.s2) === S(ende) && h8.s2_lokal.plaene === 'alt,neu' && h8.s2_lokal.gaerten === 'g_c' && h8.s2_lokal.current && h8.s2_lokal.tracks === 1 && h8.s2_ungesendet === 'nein';
+    melde('H8 · Plan gespeichert, waehrend der Garten-Blob nicht lesbar war (frisches Geraet, Start-Abgleich gescheitert) → die Cloud behaelt Gaerten, Pflanzungen, Plaene, current und Tracks — vor UND nach dem naechsten Abgleich, und der neue Plan kommt dazu',
+      ok2,
+      ok2 ? 'nach dem Lesefehler: Cloud unveraendert, Plan lokal · nach dem Abgleich: Cloud und Geraet ' + S(h8.s2) + (h8.s2_std ? ' (dazu „Mein Garten“ aus dem gescheiterten Start — kein Verlust)' : '')
+      : h8.fehler ? 'Ausnahme: ' + h8.fehler
+        : (!ok1 ? 'Start-Abgleich ok=' + h8.startOk + ' · Cloud 1,5 s nach dem Speichern: ' + S(h8.s1) + (h8.s1_std ? ' + „Mein Garten“' : '') + ' (vorher ' + S(h8.vorher) + ') · Plan lokal: „' + h8.s1_lokal + '“ — der Abgleich hat einen Blob hochgeschoben, der die Cloud nie gelesen hat'
+          : 'nach dem naechsten Abgleich — Cloud: ' + S(h8.s2) + ' (erwartet ' + S(ende) + ') · Geraet: ' + S(h8.s2_lokal) + ' · ungesendet: ' + h8.s2_ungesendet));
+  }
+
+  // ── H9 · die Sperre gilt JE BLOB, in beide Richtungen ──
+  // Der Pflanzen-Blob ist nicht lesbar, der Garten-Blob schon: eine neue Pflanze darf die Pflanzen der Cloud
+  // nicht ersetzen (bis v33.68 ging ein GEFUELLTER Blob vor jedem Lesen hoch — nur ein leerer wartete), ein
+  // neuer Garten geht trotzdem hoch (sonst waere die Sperre „nie schieben, solange irgendetwas klemmt").
+  const h9 = await page.evaluate(async () => {
+    const raus = {};
+    const warte = (ms) => new Promise(r2 => setTimeout(r2, ms));
+    const echt = { fetch: window.sbFetch, login: window.sbIsLoggedIn, raw: window.fetch };
+    const exp0 = localStorage.getItem('gs_sb_expires'), tok0 = localStorage.getItem('gs_sb_token');
+    const TAB = /\/rest\/v1\/(user_plants|user_gardens|user_app_state)/;
+    const cloud = {};
+    let pflanzenLesbar = false;
+    const nimm = (tab, body) => { try { cloud[tab] = { data: JSON.parse(body).data, updated_at: new Date().toISOString() }; } catch (_) {} };
+    window.sbFetch = async function (pfad, opts) {
+      opts = opts || {}; const m = (opts.method || 'GET').toUpperCase();
+      const tab = (String(pfad).match(TAB) || [])[1];
+      if (tab && (m === 'POST' || m === 'PATCH')) { nimm(tab, opts.body); return { data: [{}], error: null, status: 200 }; }
+      if (tab && m === 'GET') {
+        if (tab === 'user_plants' && !pflanzenLesbar) return { data: null, error: { message: 'Failed to fetch', status: 0 }, status: 0 };
+        return cloud[tab] ? { data: [cloud[tab]], error: null, status: 200 } : { data: [], error: null, status: 200 };
+      }
+      return { data: [], error: null, status: 200 };
+    };
+    window.fetch = async function (url, opts) {
+      const tab = (String(url).match(TAB) || [])[1];
+      if (tab && opts && opts.body) { nimm(tab, opts.body); return new Response('[{}]', { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+      return echt.raw.apply(this, arguments);
+    };
+    window.sbIsLoggedIn = () => true;
+    localStorage.setItem('gs_sb_expires', String(Date.now() + 3600e3));
+    if (!tok0) localStorage.setItem('gs_sb_token', 'x.y.z');
+    const ids = (a) => (a || []).filter(x => !(x && x.id === 'gard_default')).map(x => x && x.id).sort().join(',');
+    try {
+      cloud.user_plants = { data: { plants: [{ id: 'mp_c', name: 'Tomate (Cloud)' }], diary: [{ id: 'tb_c', ts: '2026-10-01T08:00:00.000Z', text: 'Cloud-Eintrag' }] }, updated_at: '2026-11-01T08:00:00.000Z' };
+      cloud.user_gardens = { data: { gardens: [{ id: 'g_c', name: 'Hochbeet (Cloud)' }], plantings: [], plans: [] }, updated_at: '2026-11-01T08:00:00.000Z' };
+      ['ps_myplants', 'gs_gartentagebuch', 'gs_gardens', 'gs_plantings', 'gs_garden_plans', 'gs_sync_dirty', 'gs_sync_dirty_at_plants', 'gs_sync_dirty_at_garden', 'gs_sync_synced_at_plants', 'gs_sync_synced_at_garden'].forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('gs_sb_uid', 'nutzer-H9'); localStorage.setItem('gs_last_active_uid', 'nutzer-H9');
+      myPlants = []; gardens = []; plantings = [];
+      window._gsInitialSyncDone = false;
+      await gsSyncUserDataOnLogin();                      // Pflanzen-Blob: Netzfehler · Garten-Blob: gelesen
+      raus.startOk = !!window._gsInitialSyncDone;
+      myPlants.push({ id: 'mp_neu', name: 'Neue Minze' }); savePlantsToStorage();
+      gardens.push({ id: 'g_neu', name: 'Balkon (neu)' }); saveGardenData();
+      await warte(1500);
+      raus.s1 = { pflanzen: ids(cloud.user_plants.data.plants), tagebuch: (cloud.user_plants.data.diary || []).length, gaerten: ids(cloud.user_gardens.data.gardens),
+                  pflWartet: localStorage.getItem('gs_sync_dirty_at_plants') ? 'ja' : 'nein' };
+      pflanzenLesbar = true;
+      window._gsInitialSyncDone = false;
+      await gsSyncUserDataOnLogin();
+      await warte(1500);
+      raus.s2 = { pflanzen: ids(cloud.user_plants.data.plants), lokal: ids(JSON.parse(localStorage.getItem('ps_myplants') || '[]')) };
+    } catch (e) { raus.fehler = String(e && e.stack || e).split('\n').slice(0, 3).join(' | '); }
+    finally {
+      window.sbFetch = echt.fetch; window.sbIsLoggedIn = echt.login; window.fetch = echt.raw;
+      if (exp0 == null) localStorage.removeItem('gs_sb_expires'); else localStorage.setItem('gs_sb_expires', exp0);
+      if (tok0 == null) localStorage.removeItem('gs_sb_token');
+    }
+    return raus;
+  });
+  {
+    const S = (o) => JSON.stringify(o);
+    const ok = !h9.fehler && h9.startOk === false
+      && h9.s1 && h9.s1.pflanzen === 'mp_c' && h9.s1.tagebuch === 1 && h9.s1.pflWartet === 'ja' && h9.s1.gaerten === 'g_c,g_neu'
+      && h9.s2 && h9.s2.pflanzen === 'mp_c,mp_neu' && h9.s2.lokal === 'mp_c,mp_neu';
+    melde('H9 · die Sperre gilt je Blob: der nicht gelesene Pflanzen-Blob wartet (die Cloud behaelt Pflanzen und Tagebuch), der gelesene Garten-Blob geht hoch — und nach dem naechsten Abgleich kommt die neue Pflanze dazu',
+      ok,
+      ok ? 'vor dem Lesen: Cloud-Pflanzen ' + h9.s1.pflanzen + ', Tagebuch ' + h9.s1.tagebuch + ', Gaerten ' + h9.s1.gaerten + ' · danach: ' + h9.s2.pflanzen
+        : (h9.fehler ? 'Ausnahme: ' + h9.fehler : 'Start ok=' + h9.startOk + ' · 1,5 s nach dem Eintragen: ' + S(h9.s1) + ' (erwartet Pflanzen „mp_c“, Tagebuch 1, wartet „ja“, Gaerten „g_c,g_neu“) · nach dem Abgleich: ' + S(h9.s2)));
+  }
+
   await b.close();
 
   // ── Bericht ────────────────────────────────────────────────────────────
@@ -660,7 +832,7 @@ const melde = (frage, ok, wie) => {
       : 'ungeprüft, weil kein Probewert eingetragen: ' + ohneProbe.join(', '));
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 17 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 19 · davon rot: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (fehler.length ? fehler.slice(0, 3).join(' | ') : 'keine'));
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;
 })();
