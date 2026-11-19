@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-19 · **Branch**: `main` · **Version**: `v33.61` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-19 · **Branch**: `main` · **Version**: `v33.62` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
@@ -62,6 +62,57 @@ nach dem Tor — je rot). Auf diesem Stand: scan 119/0, edge 80/0, robust 33/0, 
 
 **Offen:** brett:2026-11-19-a24a, brett:2026-11-11-2714 — Auslieferung `mushroom-identify` (FUER-FERNANDO §31, Fernando); Versionsnummer `v33.6x` am Kopf der Reihe; Verlaufseintrag für Pilze erst nach a24a
 **Nicht geprüft:** ob das Modell mit allen 276 Arten besser bestimmt (von hier antwortet kein Modell — geprüft ist, welche Liste es bekommt); die Mehrkosten je Scan (rund 2 Rappen geschätzt aus 258'000 statt 190'000 Zeichen); ob die übrigen fünf KI-Functions von v33.59 live sind (`AUSLIEFERUNG.json` nur für `mushroom-identify` nachgezogen); die Darstellung auf einem Telefon
+
+
+### 2026-11-19 (jj) - v33.62: Kein „Daten wiederherstellen?“ mehr beim Start — was fehlt, holt die App still von selbst (ersetzt #324)
+
+**Anlass:** Fernando, 10.11.2026 (Bildschirmfoto): „Das kommt die ganze Zeit" — und 11.11.2026: „Keine Lust, dass
+jedes Mal ein Pop-up kommt und nach dem Backup fragt."
+
+**Ursache des Dauerbanners (am Quelltext gemessen):** `gsSnapshotMaybeOfferRestore` fragte seit v30.97 nur, ob lokal
+IRGENDEINER der zwölf snapshot-exklusiven Bereiche leer ist — der Normalzustand. Die Cloud-Seite wurde nur auf
+„gibt es einen Snapshot?" geprüft, und das × war nirgends gemerkt.
+
+**Was jetzt gilt — es wird nicht mehr gefragt:**
+- Der Banner ist ENTFERNT (`_gsShowRestoreBanner`, `gsSnapshotMaybeOfferRestore`, `_gsSnapshotHasExclusiveGap`).
+- **Eine Rechnung:** `_gsSnapshotFehlt(st, mitHaupt)` — ein Bereich zählt nur, wenn der Snapshot dort Inhalt HAT
+  und er lokal LEER ist. Die Hauptbereiche (`_GS_SNAPSHOT_HAUPT`) zählen nur, wenn lokal gar kein Inhalt da ist.
+- **`gsSnapshotAutoWiederherstellen()`** holt das still zurück (`gsSnapshotRestore({still, st, ohne})` — schreibt
+  nur in leere Bereiche) und sagt danach EINEN Satz („Aus deinem Cloud-Backup ergänzt: …"). Rückgabe immer
+  `{geholt, grund}` (`window._gsRestoreStand`).
+- **Verloren oder geleert?** Steht ein Bereich in `gs_snapshot_had` (war beim letzten Backup auf DIESEM Gerät da)
+  und ist jetzt leer, wurde er hier geleert: er bleibt leer, kommt in `gs_restore_abgelehnt` und hält die
+  automatischen Backups nicht mehr an. Ohne Spur (Browserdaten gelöscht, neues Gerät, neu angemeldet) ist es ein
+  Verlust und wird zurückgeholt. Hat ein geleerter Bereich wieder Inhalt, verfällt der Eintrag.
+- **Von Hand** (Einstellungen › „Aus Cloud-Backup wiederherstellen") kommt alles zurück, auch Geleertes.
+- **Kosten:** je Start die Liste; der ganze Snapshot nur bei neuem Snapshot oder geänderten Lücken
+  (`gs_restore_geprueft`: Id, Lücken-Signatur, Ergebnis, `versucht`). EIN Versuch je Stand — keine Schleife bei
+  vollem Speicher. Ein Netzfehler wird nicht als Ergebnis gemerkt.
+- Beide neuen Schlüssel stehen in `GS_USER_KEYS`. Der FAQ-Satz dazu ist angepasst.
+
+**Zwei Preise, benannt:** (1) Wer einen Bereich hier leert, dessen altes Backup wird von neueren verdrängt
+(Aufbewahrung: 6 + je Anlass der neueste) — vorher stoppten die automatischen Backups in dem Fall still für
+immer. (2) Die Unterscheidung hängt an der lokalen Spur: verliert ein Gerät EINEN Bereich und behält die Spur
+(kein bekannter Weg ausser Programmfehler), gilt er als geleert; die manuelle Wiederherstellung holt ihn.
+
+**Prüfstand:** `backup_check` W1–W6 (gestellter Server; Anfragen, Meldungen und „fragt etwas?" gezählt).
+Gegenprobe: die Verloren/Geleert-Unterscheidung ausgebaut → W3 und W4 rot. Gegen `origin/main` (v33.58) bricht
+der Prüfstand an den Fällen ab (die Funktion gibt es dort nicht) — die Reproduktion des Dauerbanners stammt aus
+dem ersten Stand dieses PRs („Banner STEHT DA"). `pruefstaende.sh schnell` (TZ=UTC): 37 · rot 0 · nicht prüfbar 8
+(kein lokales Postgres / keine Android-Werkzeuge hier); die vier langsamen laufen in der CI.
+
+**Mit v33.62 nachgezogen (Auflagen der Abschlussprüfung zu #324):** neue Versionsnummer (der Stand von #324 hiess v33.59, das inzwischen
+vergeben ist); main per Merge eingearbeitet; `backup_check` W1 stellt seine Vorbedingung („Pflanzen da") selbst her, weil ein früherer
+Fall `gs_sb_uid` auf ein anderes Konto setzt und der Kontowechsel seit v33.59 `ps_myplants` räumt; und `gsSnapshotAutoWiederherstellen`
+prüft nach jedem `await` die Person (`_gsPerson()`, v33.61) — meldet sich jemand dazwischen ab oder wechselt das Konto, wird nichts
+geschrieben (Fall W7, Gegenprobe gefahren). `GS_RELEASES`: der älteste Inline-Eintrag ist ins Archiv umgezogen (Deckel 20).
+
+**Prüfstände (19.11.2026, nach dem Bump, `TZ=UTC bash scripts/pruefstaende.sh schnell`):** 41 Prüfstände · rot 0 · nicht prüfbar 1 (apk:
+keine Android-Werkzeuge hier); `backup_check` 13 Fälle (W1–W7) rot 0, lokales Postgres lief. W7-Gegenprobe: ohne `_weg()` und ohne die
+Prüfung in `gsSnapshotRestore` ist W7 rot; wiederhergestellt (md5 gleich). Die vier langsamen laufen in der CI.
+
+**Offen:** nichts
+**Nicht geprüft:** das echte Gerät und die Live-Datenbank; Safari/Firefox; die vier langsamen Prüfstände (nur CI).
 
 
 ### 2026-11-16 (je) - v33.61: Suche, Scanner und Lina — „Essbar“ gilt überall gleich, Tippfehler werden verziehen, nichts geht mehr verloren
@@ -859,7 +910,6 @@ Skripte sind unverändert) — ihr Lauf für diesen Stand ist der CI-Lauf am PR.
 
 **Offen:** brett:2026-11-11-fcaf, brett:2026-11-11-df0b, brett:2026-11-11-030e, brett:2026-11-11-2e3a, brett:2026-11-11-ec73, brett:2026-11-11-e383, brett:2026-11-11-9f91, brett:2026-11-11-75c2 (acht Befunde, keiner behoben) · brett:2026-11-11-669d, brett:2026-11-11-90db (zwei Fragen an Fernando, §2) · acht Fehlerklassen ohne Suche (`node scripts/austausch.mjs klasse`)
 **Nicht geprüft:** ob eine geplante Routine das Brett wirklich liest (dazu muss ihr Auftrag `CLAUDE.md` laden und sie das Repo erreichen, brett:2026-11-11-669d); ob `Workflow({ name: 'austausch-runde' })` den Namen in einer Cloud-Sitzung auflöst (mit `scriptPath` geht es in jedem Fall), und die Runde selbst ist nach ihrem Umbau nicht gelaufen — geprüft ist, dass sie sich übersetzen lässt und nur Felder schreibt, die das Brett annimmt; das Verhalten mit einer neueren git-Fassung als 2.43. Die Funde der ersten Agenten-Runde, die ich nicht selbst nachmessen konnte, stehen NICHT auf dem Brett.
-
 ### 2026-11-11 (jc) - v33.58: Rezepte und Fruchtfolge zeigen nie mehr auf eine Giftpflanze — und die KI läuft über den 30. November hinaus
 
 **Auftrag (Fernando, 10.11.2026):** „Die App muss einmal komplett verbessert werden. Es
@@ -16231,7 +16281,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.61` (Client) · SW-Cache `gs-v33.61` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.62` (Client) · SW-Cache `gs-v33.62` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **98'409 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
