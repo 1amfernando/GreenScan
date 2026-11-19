@@ -555,6 +555,29 @@ Planer-Seite: eine Vorlage aus einem Plan von vorletztem Jahr landet in einem ve
 **Offen:** brett:2026-11-11-2e3a, brett:2026-11-16-4d79, brett:2026-11-16-c72c, brett:2026-11-16-cd07, brett:2026-11-16-8234, brett:2026-11-16-397d, brett:2026-11-16-bb6f, brett:2026-11-16-8949, brett:2026-11-16-eb4b, brett:2026-11-16-34d2, brett:2026-11-16-09f5, brett:2026-11-16-89ee — Gratis-Zähler (Fernando), Wissen-Tab und Garten-Frostbanner (andere Besitzer), KI-Fehlertext (mit der Sitzung „KI-Modelle" abgestimmt), Rolle des Scan-Chats (an die Sitzung „KI-Modelle"), der falsche Fakt in der Datenbank (Fernando), das Wackeln von offline_check (g) und sein Hänger nach Fall 34 (Ursache eingegrenzt, Vorschlag für den Prüfstand), die Vorlage aus einem Plan von vorletztem Jahr (Planer-Seite), eine Korrektur fürs zweite Gerät (Idee, bewusst nicht gebaut), der Lärchen-Röhrling als „baum" (Daten), die 18 KI-Wege ausserhalb der vier Funktionen (Fehlerklasse „Antwort nach await“)
 **Nicht geprüft:** ob Open-Meteo `hourly` wirklich ab 00:00 liefert (Wissen über die API, von hier nicht erreichbar — `_gsWetterJetzt` sucht die laufende Stunde über die Zeitstempel und stimmt so oder so); die Farben der zwei Verlaufs-Detailansichten im Dunkelmodus (contrast_check öffnet nur Fenster über `openModal`, diese beiden nicht — SV2 hält die Textfarbe gleich der der Ergebniskarte, die er misst); ob die spanischen Sätze für Muttersprachler natürlich sind (eigene Auswahl, kein Korpus); die Gegenprobe im Scan-Chat und Linas Ersatzantwort nur mit gestellter KI — eine echte ist von hier nicht erreichbar; nach „Alternative wählen" bleibt in `user_scans` die Zeile mit dem Namen der KI stehen (kein Update erlaubt) — dieses Gerät blendet sie über `ki_name` aus, ein zweites Gerät zeigt die erste Bestimmung; der Tageszähler für Gratis-Scans (brett 2e3a) bleibt bewusst unangetastet — ihn zu reparieren hiesse, Gratis-Nutzer ab sofort zu begrenzen, und das ist eine Entscheidung für Fernando. `_gsSammelSicher` erkennt Gefahr an Wörtern in `warning`/`lookalike` und an Doppelgängern, die sich in der Liste nachschlagen lassen — eine Warnung ohne Gift-Wort und ohne nachschlagbaren Namen sähe es nicht (gemessen: alle Doppelgänger der Stufe ≥ 3 ohne Warnwort, zwei, werden gefangen); dass Pilze und Arten mit gefährlichem Doppelgänger nicht mehr unter „Jetzt sammeln“ stehen, ist eine Sicherheitsentscheidung dieser Sitzung, die Fernando umkehren kann. Nach der gegnerischen Prüfung nicht geprüft: ein echtes Abmelden auf einem Telefon (gemessen ist der Weg sbLogout/gsOnLogout mit gestelltem Server); ob eine Antwort, die nach dem Abmelden VERWORFEN wird, das Kontingent belastet hat (der Aufruf lief — ohne Abbruchsignal, Brett 8186, lässt sich das nicht verhindern); `_gsIstPilz` setzt voraus, dass ein Binomen mit der Gattung beginnt (bei 4'337 Einträgen gemessen: trifft ausserhalb der Pilze nur T039).
 
+### 2026-11-11 (ji) - kein Bump: das Agenten-Netz — die Rezeptur über dem Brett
+
+> **Kürzel 18.11.2026 von (je) auf (ji) umgestellt:** (je) gehört inzwischen der Sicherheitsreparatur v33.59 (#327, auf `main`); (jf) trägt der Zahlungsweg, (jg)/(jh) der Brett-Zweig. Der Text unten ist der vom 11.11.
+
+**Auftrag (Fernando, 11.11.2026):** je Funktion der App eine eigene Sitzung; alle sollen
+immer den neuesten Stand kennen; das Netz soll Verbesserungen selbständig angehen. Die App
+ist unverändert — deshalb kein Bump.
+
+**Was es jetzt gibt.** `docs/AGENTEN-NETZ.md` (die Rezeptur): fünf Zutaten (Brett ·
+Bereichs-Agenten · Koordinator · Prüfstände · Fernando), der Kreislauf in sechs Schritten
+mit je einem Auslöser (finden → zustellen → nehmen → bauen → einreihen → verteilen), die
+**Merge-Reihe** (eine Versionsnummer gehört dem PR an der Spitze), drei Stufen der
+Selbständigkeit und die Liste dessen, was auf keiner Stufe ohne Fernando geschieht.
+`ROADMAP.md` P2-5. Eine Koordinator-Sitzung läuft seit heute stündlich: sie liest `main`,
+begrüsst neue Sitzungen und verteilt jede Zusammenfassung.
+
+**Gemessen am ersten Tag:** zwei frische Branches tragen gleichzeitig `v33.59`
+(`ccr-5e705a36-jveaak`, `claude/restore-banner-nur-bei-bedarf`) — der Anlass für die
+Merge-Reihe. Beide Sitzungen sind benachrichtigt.
+
+**Offen:** nichts
+**Nicht geprüft:** ob die vier Zahlen aus `docs/AGENTEN-NETZ.md` §5 je erreicht werden — sie sind definiert, nicht gemessen; ob Stufe 2 und 3 gewollt sind (Fernandos Entscheidung); der Kreislauf ist bisher einmal durchlaufen (PR #325), nicht mit mehreren Bereichs-Agenten zugleich.
+
 ### 2026-11-11 (je) - v33.59: Was von anderen kommt, bleibt Text — und der Server prüft selbst nach
 
 **Auftrag (Fernando, 10.11.2026, wörtlich):** „Arbeite an dem Projekt. Verbesser alles
