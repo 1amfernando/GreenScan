@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.67.20261119">
+<meta name="app-version" content="33.68.20261119">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -79542,6 +79542,29 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.68', date: '19.11.2026',
+      headline: 'Eine Antwort nach dem Abmelden landet nie mehr im nächsten Konto',
+      summary: 'Fehlerklasse 2026-11-16-89ee, zu Ende gebaut: eine Antwort nach einem await gehört der Person, die gefragt hat. Statt rund 210 Einzelstellen steht ein Tor an den zwei Stellen, durch die jede Antwort muss — sbFetch und _gsAiAnfrage merken die Person beim Eintritt und liefern nach einem Wechsel keine Daten (Fehler person_gewechselt, _gsPersonGewechselt). Dazu die Wege am Tor vorbei: rohe Aufrufe an Edge-Functions und Stripe, Warteschlangen, Funde und Fotos, ein später Token-Refresh, und die 19 KI-Wege, deren catch-Zweig nach einem Wechsel still endet. Abmelden heisst derselbe Bildschirm wie nach einem Neuladen (Fenster, Textfelder, Anzeigen, Startseite); der Plan-Wartebereich zählt je Konto; der Garten-Zwilling gehört seinem Konto. Prüfstand: sicherheit_check 71_person (neu) und 98_schluss_e.',
+      user_summary: 'Wer GreenScan mit anderen teilt, kann sich jetzt bedenkenlos abmelden: was noch unterwegs war, landet nie im Konto der nächsten Person, und der Bildschirm ist danach so leer wie nach einem Neustart.',
+      user_items: [
+        {emoji:'👥', bold:'Geteiltes Gerät:', text:' eine Antwort der KI oder des Servers, die erst nach dem Abmelden ankommt, wird verworfen — sie erscheint nicht beim nächsten Konto und wird dort nicht gespeichert. Das gilt für Scanner, Pflanzendoktor, Planer, Garten-Zwilling, Quiz und alle anderen Wege.'},
+        {emoji:'🧹', bold:'Abmelden räumt auch den Bildschirm:', text:' offene Fenster schliessen sich, Eingabefelder mit Namen, Entwürfen und Suchwörtern werden geleert, und die App beginnt wieder auf der Startseite.'},
+        {emoji:'💳', bold:'Zahlungsfenster:', text:' das Abo-Portal, die Kasse und das Verkäuferkonto öffnen sich nach einem Kontowechsel nie mehr mit den Angaben des vorigen Kontos.'},
+        {emoji:'📍', bold:'Deine Funde bleiben deine:', text:' wer sich während des Hochladens von Funden oder Fotos abmeldet, hält es an — nichts wird unter einem anderen Konto abgelegt.'},
+        {emoji:'🗂️', bold:'Pläne beim Abmelden:', text:' jedes Konto bekommt seine eigenen 20 Plätze für nur auf dem Gerät gespeicherte Pläne; was nicht hineinpasst, bleibt auf dem Gerät, und die App sagt es dir im Anmeldefenster.'},
+        {emoji:'🌳', bold:'Garten-Zwilling:', text:' er gehört dem Konto, das ihn angelegt hat, und ist für andere auf demselben Gerät nicht sichtbar.'}
+      ],
+      items: [
+        {emoji:'🚪', bold:'Ein Tor statt 210 Stellen:', text:' sbFetch gibt nach einem Wechsel {error:{code:person_gewechselt}} zurück, callAI und callVisionAI werfen _gsPersonAusnahme(); eine Anfrage, die ohne Person startet (Anmeldung), bleibt unberührt. Fragen: _gsPersonGewechselt, _gsPersonAnders, _gsPersonJetzt; Satz GS_PERSON_GEWECHSELT_SATZ über _gsFehlerText.'},
+        {emoji:'🔁', bold:'Später Token-Refresh:', text:' eine Erneuerung, die nach dem Abmelden von A und der Anmeldung von B ankam, schrieb die Sitzung von A über die von B — B war danach unbemerkt wieder A. _gsRefreshShared speichert jetzt nur, wenn der eingelöste Token noch der aktuelle ist.'},
+        {emoji:'🧭', bold:'Wege am Tor vorbei:', text:' Pflanzendoktor, Schädling, Pilz, Garten-Scan, Plan anpassen, Abo-Portal, Kasse, Verkäuferkonto und Inserat (rohes fetch) fragen vor dem Senden und nach der Antwort; Warteschlangen, Korrekturen, Funde und Galerie-Fotos merken die Person einmal und fragen vor jeder Runde.'},
+        {emoji:'🤖', bold:'19 KI-Wege:', text:' ein catch-Zweig fragt zuerst _gsPersonGewechselt und endet still — ein Tor, das Erfolg zu Fehler macht, schob die Aufrufer sonst in Fehlerkarten für die nächste Person. Die Person wird vor dem ERSTEN await gemerkt (FileReader, Verkleinern, Wetter sind auch awaits).'},
+        {emoji:'🖥️', bold:'Abmelde-Bildschirm:', text:' _gsAbmeldenFenster, _gsAbmeldenFelder, _gsAbmeldenStartseite; Sätze beim Abmelden stehen im Meldefeld des Anmeldebildschirms (_gsAbmeldenSagen) — ein Toast lag darunter und war nie sichtbar.'},
+        {emoji:'🧪', bold:'Prüfstände:', text:' sicherheit_check 227 Fälle in 24 Dateien (neu 71_person: Tor a–t, KI a–h), speicher_check 26, edge_check 82; jede Reparatur mit einem Fall, der vorher rot war, und einer gegnerischen Gegenprüfung, die selbst nachgebessert hat.'},
+        {emoji:'🧯', bold:'Nicht von hier messbar:', text:' ein echter Kontowechsel auf einem Telefon und die echten Stripe-Fenster; gemessen ist Chromium mit gestellten Antworten.'}
+      ]
+  },
+  {
     v: 'v33.67', date: '19.11.2026',
       headline: 'Einen laufenden Scan abbrechen — und ein neuer Scan ersetzt den alten',
       summary: 'Scanner 4 (Hauptfunktionen). Gemessen am 19.11.2026: solange die KI rechnet, waren auf der Wartefläche nur Glocke und Menü antippbar; wer zurückging, bekam die Antwort trotzdem gezeichnet und gespeichert, und zwei Scans schrieben in dieselbe Fläche. Jetzt trägt jeder Scan eine Nummer (_gsScanNr); was nach einem await ankommt, gilt nur, solange es noch der laufende Scan derselben Person ist (_gilt). „Abbrechen“ (gsScanAbbrechen) führt zurück zur Kamera; abgebrochen wird die Folge, nicht der Aufruf an die KI. gsStartScanStatus mit seinen fünf erfundenen Meldungen ist entfernt. Prüfstand: scan_check AB1–AB4.',
@@ -79927,23 +79950,6 @@ window.GS_RELEASES = [
         {emoji:'🚦', bold:'gsArtenStand():', text:' drei Zustände — ok · laedt · fehlt MIT Grund. Gemessen wird die Liste selbst (DB.length), nicht der gemerkte Ladeversuch: kommt sie über einen anderen Weg doch an, gibt es nichts zu melden.'},
         {emoji:'🧪', bold:'offline_check 22 → 24 Fragen:', text:' der erste Versuch wird wirklich abgebrochen und der zweite durchgelassen (muss sich erholen, auf dieselbe Artenzahl), dann beide (muss es sagen) — mit der Gegenrichtung „im guten Fall keine Zeile". Drei Gegenproben, jede einzeln rot.'}
       ],
-    },
-  {
-    v: 'v33.47', date: '17.09.2026',
-      headline: '„Nicht geprüft" ist keine Entwarnung',
-      summary: 'Fällt die Artenliste beim Laden aus, konnte der Scanner nichts gegenprüfen — und sagte trotzdem „Nichts spricht dagegen", unter der Überschrift „Gegengeprüft mit unserer Artenliste". Für einen Knollenblätterpilz, den das Modell als essbar meldet, stand damit eine Entwarnung auf dem Bildschirm. Das Prüfwerk hat jetzt einen vierten Zustand.',
-      user_summary: 'Wenn die Artenliste einmal nicht geladen werden konnte, sagt dir das Scan-Ergebnis das jetzt deutlich — statt so auszusehen, als sei alles gegengeprüft worden.',
-      user_items: [
-        {emoji:'⚠️', bold:'„Nicht gegengeprüft":', text:' steht als Überschrift auf der Karte, wenn keine einzige Prüfung laufen konnte — mit dem Hinweis, die App neu zu laden.'},
-        {emoji:'🛡️', bold:'Keine falsche Beruhigung:', text:' „Nichts spricht dagegen" gibt es nur noch, wenn wirklich geprüft wurde und nichts widersprochen hat.'}
-      ],
-      items: [
-        {emoji:'🔬', bold:'Gemessen, nicht vermutet:', text:' mit blockiertem data/plants.v1.js sind alle sieben Regeln „unbekannt", gsMatchScanToDb gibt null, die Giftstufe bleibt die ungeprüfte 0 der KI statt der 5 aus unserer Liste — und die Stufe fiel in den Zweig warn === 0.'},
-        {emoji:'🚦', bold:'Vierter Zustand im Prüfwerk:', text:' ok === 0 && warn === 0 ergibt jetzt „Nicht geprüft" MIT Grund (Artenliste nicht geladen), in der Warnfarbe — demselben Token wie „schwach", also in beiden Modi längst vermessen.'},
-        {emoji:'📛', bold:'Die Überschrift behauptet nicht mehr, als geschehen ist:', text:' sie stand fest im Code und sagte immer „Gegengeprüft mit unserer Artenliste", auch wenn nichts gegengeprüft hatte.'},
-        {emoji:'📍', bold:'Selten, aber genau der richtige Fehler:', text:' mit geladener Liste ist der Zustand nicht erreichbar — S1 liefert immer ok oder warn (an sieben Ergebnisformen gemessen, darunter „gar nichts erkannt"). Er gehört dem Fehler auf dem GERÄT, den kein Prüfstand vor der Auslieferung sieht.'},
-        {emoji:'🧪', bold:'scan_check P1 und P2:', text:' P1 rechnet die Stufe, P2 liest die GERENDERTE Überschrift (Regel aus v31.90). Beide mit Gegenrichtung „mit Liste unverändert"; zwei Gegenproben, einzeln rot (vierter Zustand ausgebaut → 2 rot, Überschrift wieder fest → 1 rot).'}
-      ],
     }
 ];
 
@@ -80155,7 +80161,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.67';
+var GS_VERSION = 'v33.68';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

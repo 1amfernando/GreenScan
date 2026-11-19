@@ -30,6 +30,23 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.47', date: '17.09.2026',
+      headline: '„Nicht geprüft" ist keine Entwarnung',
+      summary: 'Fällt die Artenliste beim Laden aus, konnte der Scanner nichts gegenprüfen — und sagte trotzdem „Nichts spricht dagegen", unter der Überschrift „Gegengeprüft mit unserer Artenliste". Für einen Knollenblätterpilz, den das Modell als essbar meldet, stand damit eine Entwarnung auf dem Bildschirm. Das Prüfwerk hat jetzt einen vierten Zustand.',
+      user_summary: 'Wenn die Artenliste einmal nicht geladen werden konnte, sagt dir das Scan-Ergebnis das jetzt deutlich — statt so auszusehen, als sei alles gegengeprüft worden.',
+      user_items: [
+        {emoji:'⚠️', bold:'„Nicht gegengeprüft":', text:' steht als Überschrift auf der Karte, wenn keine einzige Prüfung laufen konnte — mit dem Hinweis, die App neu zu laden.'},
+        {emoji:'🛡️', bold:'Keine falsche Beruhigung:', text:' „Nichts spricht dagegen" gibt es nur noch, wenn wirklich geprüft wurde und nichts widersprochen hat.'}
+      ],
+      items: [
+        {emoji:'🔬', bold:'Gemessen, nicht vermutet:', text:' mit blockiertem data/plants.v1.js sind alle sieben Regeln „unbekannt", gsMatchScanToDb gibt null, die Giftstufe bleibt die ungeprüfte 0 der KI statt der 5 aus unserer Liste — und die Stufe fiel in den Zweig warn === 0.'},
+        {emoji:'🚦', bold:'Vierter Zustand im Prüfwerk:', text:' ok === 0 && warn === 0 ergibt jetzt „Nicht geprüft" MIT Grund (Artenliste nicht geladen), in der Warnfarbe — demselben Token wie „schwach", also in beiden Modi längst vermessen.'},
+        {emoji:'📛', bold:'Die Überschrift behauptet nicht mehr, als geschehen ist:', text:' sie stand fest im Code und sagte immer „Gegengeprüft mit unserer Artenliste", auch wenn nichts gegengeprüft hatte.'},
+        {emoji:'📍', bold:'Selten, aber genau der richtige Fehler:', text:' mit geladener Liste ist der Zustand nicht erreichbar — S1 liefert immer ok oder warn (an sieben Ergebnisformen gemessen, darunter „gar nichts erkannt"). Er gehört dem Fehler auf dem GERÄT, den kein Prüfstand vor der Auslieferung sieht.'},
+        {emoji:'🧪', bold:'scan_check P1 und P2:', text:' P1 rechnet die Stufe, P2 liest die GERENDERTE Überschrift (Regel aus v31.90). Beide mit Gegenrichtung „mit Liste unverändert"; zwei Gegenproben, einzeln rot (vierter Zustand ausgebaut → 2 rot, Überschrift wieder fest → 1 rot).'}
+      ],
+    },
+  {
     v: 'v33.46', date: '16.09.2026',
       headline: 'Ein Sync, der klemmt, sagt es — dort, wo du bist',
       summary: 'Ein unvollständiger Cloud-Abgleich landete bis hierher in der Browser-Konsole und sonst nirgends. Die Statuszeile in den Einstellungen sagte zwar das Richtige, stand aber in den Einstellungen — und kannte keinen Unterschied zwischen „seit einer Minute offen" und „seit drei Tagen offen". gsSyncStand() ist jetzt EINE Rechnung mit vier Zuständen, und ab 24 Stunden steht sie auf der Startseite.',
