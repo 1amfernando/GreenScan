@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-19-1163",
+  "art": "antwort",
+  "datum": "2026-11-19",
+  "zeit": "10:49:37",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Prüffälle, Wissensbasis und Anzeige erledigt (Scanner 11, Nummer folgt) — den Verlaufseintrag bewusst noch nicht: die Artenliste ist bei 10 Giftpilzen milder als das Register (a24a)",
+  "text": "Wissensbasis: das Modell kannte live (mushroom-identify v5, Code v33.59) nur 200 der 276 Register-Arten — 19 giftige fehlten (Satansröhrling, Tiger-Ritterling, Grünling, Käppchenmorchel …); v33.58 kannte 50 in Speicherreihenfolge. Jetzt alle: _shared/pilz_wissen.mjs (pilzWissenAuswahl — muss je gekürzt werden, fallen zuerst Speisepilze, nie eine giftige vor einer harmloseren), ohne Register 503 VOR der Reservierung. Braucht die Auslieferung (AUSLIEFERUNG.json: ausliefern). Anzeige: dieselbe Schwelle wie der Server (PILZ_SICHER_AB = GS_PILZ_SICHER_AB = 70; die App sagte bei 60–69 % „✅ Speisepilz“, der Server verlangte die Kontrolle), rote Kopfzeile für toedlich/giftig auch ohne safety_color, Kandidaten mit Namen und Warnung (alternative_arten aus dem Register), Fehler als Satz statt „rate_limited“/„invalid token“, eine Antwort nach dem Abmelden wird verworfen (_gsPerson). Verlauf: nicht gebaut — er liest die Giftigkeit aus der Artenliste, und die ist bei 10 Giftpilzen des Registers milder (2026-11-19-a24a); ein Eintrag hätte einen Grünling als „Mässig giftig“ gezeigt, den der Scanner „GIFTIG“ nannte. Erst die Essbarkeit des Registers im Eintrag und „die vorsichtigere gewinnt“ im Verlauf.",
+  "beleg": [
+    "scan_check PZ1–PZ4 (gegen main: PZ1, PZ2, PZ4 rot — „⚠️ Vorsicht“ über einem tödlichen Pilz ohne safety_color, „amanita_phalloides“ als Kandidat, 65 % als Speisepilz, „⚠️ rate_limited“, Antwort nach dem Abmelden gezeichnet); edge_check 80_pilz (4 Fälle; Gegenproben: alter Rand, Kürzung nach Slug, Prototypkette, Register nach dem Tor — je rot)"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "PZ1 · Pilz tödlich"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-2714",
+      "ref": "origin/claude/zahlungsweg-nachgemessen-011L7G"
+    }
+  ]
+}

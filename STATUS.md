@@ -47,6 +47,58 @@ Brett-Teile von STATUS/FUER-FERNANDO und `docs/austausch/*` von #329 sind nicht 
 **Offen:** nichts neu — #329 wird nicht gemergt; ob es geschlossen wird, entscheidet die Head-Sitzung
 **Nicht geprüft:** ob die Übersetzungsleiste auf einem echten Telefon (Chrome, Safari) wirklich ausbleibt — gemessen ist nur das geladene Dokument; Safari/Firefox; die Live-Seite (von hier nicht erreichbar); CI.
 
+### 2026-11-19 (jl) - v33.64: Pilz-Scanner — die KI kannte 19 Giftpilze nicht, und ein tödlicher Pilz ohne Farbangabe stand als „Vorsicht" da
+
+**Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"). Anlass: Brett
+`2026-11-11-2714` — der Pilz-Scanner, der Bildschirm mit dem höchsten Einsatz der App, hatte keinen
+einzigen Prüfstand-Fall. Die Nummer v33.64 hat die Head-Sitzung am Kopf der Merge-Reihe vergeben (Bump, Changelog-Eintrag, v33.43 ins Archiv).
+
+**Gemessen** (Live-Datenbank und Live-Function nur lesend, 19.11.2026):
+
+- **Die KI kannte 76 der 276 Pilzarten nicht, 19 davon giftig.** `mushroom-identify` v5 (Code von v33.59,
+  ausgeliefert am 16.11.) lädt das Register mit `.order("slug").limit(200)`; was alphabetisch ab
+  „pluteus_salicinus" steht, sieht das Modell nie: Pluteus salicinus, Ramaria formosa, Flockenstieliger
+  Hexen-Röhrling, Rubroboletus legaliae, **Satansröhrling**, vier Täublinge (emetica, nobilis, queletii,
+  sardonia), beide **Kartoffelboviste**, sieben Ritterlinge (**Grünling**, **Tiger-Ritterling**, saponaceum,
+  scalpturatum, sulphureum, terreum, ustale) und die **Käppchenmorchel**. Das Modell darf nur einen Slug aus
+  seiner Liste nennen — eine giftige Art, die es nicht kennt, kann es nicht nennen, und die ähnlichste, die es
+  kennt, ist oft der essbare Doppelgänger. v33.58 kannte 50 Arten in Speicherreihenfolge.
+- **Die App:** Schwelle 60 % gegen 70 % am Server (dazwischen „✅ Speisepilz", während der Server die
+  Kontrolle verlangte); ohne `safety_color` die Kopfzeile „⚠️ Vorsicht" über einem tödlichen Pilz (das rote
+  Vollbild darüber stimmte); Kandidaten als roher Slug („amanita_phalloides"), ein tödlicher ohne Warnung;
+  Fehler als Kennung („⚠️ rate_limited", „⚠️ invalid token"); eine Antwort, die nach dem Abmelden ankam,
+  wurde gezeichnet (§3.6).
+- **Die Daten:** die Artenliste ist bei 10 Giftpilzen des Registers milder (9× „Mässig giftig", der
+  Birken-Dachpilz „Ungiftig, keine bekannten Risiken"), und 34 giftige Register-Arten fehlen ihr, darunter
+  4 tödliche — Brett `2026-11-19-a24a` (Datenseite, nicht angefasst).
+
+**Behoben:**
+
+- **Server** (wirkt erst mit Fernandos Auslieferung, `docs/FUER-FERNANDO.md` §31): neues Modul
+  `supabase/functions/_shared/pilz_wissen.mjs` — `pilzWissenAuswahl` (alle Arten; muss je gekürzt werden,
+  fallen zuerst Speisepilze, nie eine giftige vor einer harmloseren; Kürzung wird protokolliert),
+  `pilzAlternativen` (Kandidaten mit Name und Essbarkeit aus der Liste des Prompts, als
+  `alternative_arten`), `PILZ_SICHER_AB` = 70 (Prompt und `vapko_required` aus derselben Zahl). Ohne
+  Register antwortet die Function mit 503, BEVOR ein Kontingent reserviert ist. `AUSLIEFERUNG.json`:
+  `mushroom-identify` auf „ausliefern", live v5; die übrigen fünf KI-Functions von v33.59 auf „live" —
+  nachgesehen per `get_edge_function`: alle laufen seit dem 16.11. mit dem Code von `57a7acf`.
+- **App:** `GS_PILZ_SICHER_AB` (= Server), rote Kopfzeile für toedlich/giftig unabhängig von
+  `safety_color` (Farbtabelle über `_gsNachschlag`), `_gsPilzKandidatenHtml` (Name, ☠️/⚠️ aus dem Register;
+  ältere Function: lesbarer Slug), `_gsPilzFehlerSatz` (fester Satz des KI-Tors bleibt, sonst Satz aus dem
+  Status), `_gsPerson` vor und nach dem `await`.
+- **Bewusst nicht gebaut: der Eintrag im Scan-Verlauf.** Der Verlauf liest die Giftigkeit aus der
+  Artenliste — ein Eintrag hätte einen Grünling als „Mässig giftig" gezeigt, den der Scanner „GIFTIG" nannte.
+  Erst die Essbarkeit des Registers im Eintrag und „die vorsichtigere gewinnt" im Verlauf (Antwort
+  `2026-11-19-1163` auf 2714).
+
+**Prüfstände:** `scan_check` PZ1–PZ4 (gegen main rot: PZ1, PZ2, PZ4 — mit genau den gemessenen
+Sätzen), `edge_check` 80_pilz (4 Fälle; Gegenproben: alter Rand, Kürzung nach Slug, Prototypkette, Register
+nach dem Tor — je rot). Auf diesem Stand: scan 119/0, edge 80/0, robust 33/0, i18n, versprechen grün.
+
+**Offen:** brett:2026-11-19-a24a — Auslieferung `mushroom-identify` (FUER-FERNANDO §31, Fernando); Versionsnummer `v33.64` am Kopf der Reihe; der Verlaufseintrag für Pilze (Befund 2026-11-11-2714, liegt auf dem Branch `claude/zahlungsweg-nachgemessen-011L7G`, beantwortet mit 1163) erst nach a24a
+**Nicht geprüft:** ob das Modell mit allen 276 Arten besser bestimmt (von hier antwortet kein Modell — geprüft ist, welche Liste es bekommt); die Mehrkosten je Scan (rund 2 Rappen geschätzt aus 258'000 statt 190'000 Zeichen); die Darstellung auf einem Telefon
+
+
 ### 2026-11-19 (jk) - v33.63: Der Zahlungsweg in EINER Fassung (Auftrag P-C2)
 
 **Auftrag (Head-Sitzung „main", 19.11.2026):** aus PR #329 (`claude/zahlungsweg-nachgemessen-011L7G`)
@@ -165,7 +217,6 @@ Prüfung in `gsSnapshotRestore` ist W7 rot; wiederhergestellt (md5 gleich). Die 
 
 **Offen:** nichts
 **Nicht geprüft:** das echte Gerät und die Live-Datenbank; Safari/Firefox; die vier langsamen Prüfstände (nur CI).
-
 
 
 ### 2026-11-16 (je) - v33.61: Suche, Scanner und Lina — „Essbar“ gilt überall gleich, Tippfehler werden verziehen, nichts geht mehr verloren
