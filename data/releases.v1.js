@@ -30,6 +30,23 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.43', date: '16.09.2026',
+      headline: 'Der Zurück-Knopf schliesst ein Fenster — nicht die ganze App',
+      summary: 'Erster Schritt zur Android-App: die App schrieb nichts in den Browser-Verlauf, also schloss der Android-Zurück-Knopf bei jedem offenen Fenster die ganze App. Jetzt gibt es EINE Zurück-Regel, an der Zurück-Taste und an Escape — und sie erreicht auch die acht Vollbild-Fenster (Tagesquiz, ‚Ueben‘, Lichtmesser), die Escape noch nie erreicht hat.',
+      user_summary: 'Escape (am Computer) und der Zurück-Knopf (am Handy) schliessen jetzt genau EIN Fenster — nicht zwei auf einmal, und nicht gleich die ganze App.',
+      user_items: [
+        {emoji:'↩️', text:'Zurück schliesst das oberste Fenster. Ist keines offen, geht es einen Tab zurück.'},
+        {emoji:'🧩', text:'Auch das Tagesquiz, ‚Ueben‘ und der Lichtmesser lassen sich so schliessen — vorher ging das nur über ihr eigenes X.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen an v33.42:', text:' null Treffer auf history.pushState, popstate und history.back in der ganzen Datei. In einer Android-Hülle (TWA) schliesst der Zurück-Knopf damit die App — rund vierzig Fenster, elf Tabs. Im Browser fällt das nicht auf, weil es den Knopf dort nicht gibt.'},
+        {emoji:'↩️', bold:'gsZurueck():', text:' die eine Regel. Nimmt die OBERSTE Schicht ab — über drei Familien hinweg (dynamische Dialoge, gestapelte Fenster, Vollbild-Fenster), danach den Tab. Escape und popstate rufen sie beide; ein Druck ist EINE Schicht (Escape schloss vorher zwei).'},
+        {emoji:'🧮', bold:'GS_VOLLBILD_OVERLAYS:', text:' acht Vollbild-Fenster laufen nicht über openModal und waren damit für Escape unsichtbar — Tagesquiz, Ueben, Rangliste, Scan-Verlauf, Wetter, Lichtmesser, Pro-Messung, Kalibrierung. Die Liste ist die Prüfung.'},
+        {emoji:'📱', bold:'gsLaeuftAlsApp():', text:' ein Prädikat statt zwei. Nur das des Install-Banners kannte die Android-Hülle (referrer android-app://); der Push-Weg und der Druck-Rückfall hängen jetzt an derselben Rechnung.'},
+        {emoji:'🧪', bold:'scripts/android_check.js (neu, 37. Prüfstand):', text:' neun Fragen, acht davon rot gegen v33.42. Drei meiner eigenen Fälle massen zuerst nichts — die Gegenproben haben es gezeigt; sie gehen jetzt den ECHTEN Weg (history.back → popstate) statt die Funktion direkt zu rufen. docs/ANDROID-APK.md nennt die Handgriffe und die Risiken.'}
+      ],
+  },
+  {
     v: 'v33.42', date: '16.09.2026',
       headline: 'Admin-Panel: was nicht geladen hat, sagt es — und lässt sich einzeln nachholen',
       summary: 'Dreizehn von sechzehn Admin-Sektionen lasen den Fehler gar nicht: eine Ablehnung wurde zur leeren Liste, und auf dem Bildschirm stand ‚Keine offenen Meldungen‘. Sieben fragten nicht einmal, ob die Person Admin ist. Jetzt gibt es eine Liste, einen Weg und vier Zustände — dazu einen Überblick ganz oben und einen Aktualisieren-Knopf je Sektion.',

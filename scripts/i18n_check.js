@@ -493,7 +493,7 @@ function aufrufe() {
         'Der Browser bietet das Uebersetzen der App nicht an (translate="no" und meta notranslate, auch mit gesetzter Sprache)',
         'translate=' + JSON.stringify(tr.translate) + ' · meta google=' + JSON.stringify(tr.meta) + ' · lang=' + JSON.stringify(tr.lang));
 
-  // v33.64: die Uebersetzungsleiste des Browsers. Wer die App auf Franzoesisch/Italienisch/
+  // v33.65: die Uebersetzungsleiste des Browsers. Wer die App auf Franzoesisch/Italienisch/
   // Englisch/Spanisch stellt, hat `<html lang="fr">` — Chrome (und Edge, Safari) bieten dann bei
   // jedem Neuladen an, die Seite zu uebersetzen, obwohl die App sich selbst uebersetzt. Fernando:
   // „die eingestellte Sprache poppt bei jedem Neuladen auf"; einen Sprachdialog gibt es im Code
