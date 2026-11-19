@@ -30,6 +30,21 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.45', date: '16.09.2026',
+      headline: 'Was demnächst abläuft, steht jetzt auf dem Bildschirm',
+      summary: 'v33.44 hat das Risiko-Inventar gebaut und im selben Atemzug notiert, was daran fehlt: eine Liste, die niemand liest, ist Speicherplatz. GS_FRISTEN rechnet sechs Fristen selbst aus — fünf live auf dem Gerät, eine gemessen mit Datum — und das Admin-Panel zeigt sie.',
+      user_summary: 'Diese Auslieferung betrifft nur das Admin-Panel. Für dich ändert sich nichts — sie sorgt dafür, dass Deckel und Fristen nicht erst auffallen, wenn sie erreicht sind.',
+      user_items: [
+        {emoji:'⏳', text:'Der Speicher auf deinem Gerät und die Deckel der App werden überwacht, bevor etwas voll ist.'}
+      ],
+      items: [
+        {emoji:'📋', bold:'GS_FRISTEN + gsFristenStand():', text:' zwei Arten — ein DATUM ist gemessen (mit Messdatum und Quelle daneben), eine SCHWELLE rechnet die App live. Vier Zustände: ok · bald (ab 80 %) · fällig · nicht_bekannt MIT GRUND.'},
+        {emoji:'⚖️', bold:'Am Deckel ist der Normalzustand, nicht der Alarm:', text:' das Changelog steht bei 20 von 20, und der nächste Bump schiebt den ältesten ins Archiv. ‚Fällig‘ ist erst DARÜBER — ein Alarm, der im Normalzustand steht, ist die Zahl, die man zu ignorieren lernt.'},
+        {emoji:'🧪', bold:'risiko_check R4:', text:' liest die GERENDERTE Karte, nicht das Objekt — und beide Richtungen: jeder Eintrag steht auf dem Bildschirm, und jedes Datum aus dem Inventar hat einen Eintrag. Die Gegenrichtung fehlte zuerst, und die Gegenprobe ‚eine Frist entfernt‘ blieb genau deshalb grün.'},
+        {emoji:'🏷️', bold:'GS_MESSWERTE_MAX:', text:' der Messwerte-Deckel hiess bis hierher nur 2000 an seiner Aufrufstelle. Ein Deckel ohne Namen steht in keinem Dokument und in keiner Regel.'}
+      ],
+    },
+  {
     v: 'v33.44', date: '16.09.2026',
       headline: 'Was später schiefgeht — gemessen, bevor es passiert',
       summary: 'Die Wochen-Tipps werden nur nach Kalenderwoche ausgewählt, wiederholen sich also jedes Jahr — und elf davon nannten ein Jahr im Sinn von ‚dieses Jahr‘. Ab dem 1. Januar 2027 hätte die App in Woche 13 von einer Pilzsaison erzählt, die vorbei ist. Bereinigt, und ein neuer Prüfstand hält es fest.',
@@ -60,7 +75,7 @@ window.GS_RELEASES_ARCHIVE = [
         {emoji:'📱', bold:'gsLaeuftAlsApp():', text:' ein Prädikat statt zwei. Nur das des Install-Banners kannte die Android-Hülle (referrer android-app://); der Push-Weg und der Druck-Rückfall hängen jetzt an derselben Rechnung.'},
         {emoji:'🧪', bold:'scripts/android_check.js (neu, 37. Prüfstand):', text:' neun Fragen, acht davon rot gegen v33.42. Drei meiner eigenen Fälle massen zuerst nichts — die Gegenproben haben es gezeigt; sie gehen jetzt den ECHTEN Weg (history.back → popstate) statt die Funktion direkt zu rufen. docs/ANDROID-APK.md nennt die Handgriffe und die Risiken.'}
       ],
-  },
+    },
   {
     v: 'v33.42', date: '16.09.2026',
       headline: 'Admin-Panel: was nicht geladen hat, sagt es — und lässt sich einzeln nachholen',
