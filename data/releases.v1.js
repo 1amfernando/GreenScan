@@ -30,6 +30,28 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.49', date: '17.09.2026',
+      headline: 'GreenScan ist jetzt eine Android-App',
+      summary: 'Es gibt ein APK zum Herunterladen — dieselbe App, aber die Dateien liegen IM Paket statt im Netz. Sie startet ohne Empfang, hat nie eine Adressleiste und braucht keinen Play Store. Fünf Dinge sind in der App anders als im Browser, und die App sagt jedes davon mit Grund.',
+      user_summary: 'GreenScan gibt es jetzt als richtige App zum Herunterladen. Sie startet auch ohne Empfang — die ganze Artenliste ist schon drin — und sieht nirgends mehr nach einer Webseite aus. Was in der App noch nicht geht, steht in der App.',
+      user_items: [
+        {emoji:'📱', bold:'Eine Datei, keine Anmeldung bei Google:', text:' herunterladen, einmal „Installieren erlauben“ antippen, fertig.'},
+        {emoji:'🌲', bold:'Der erste Start geht im Wald:', text:' die Artenliste und alle Bilder sind Teil der App, nicht ein Download beim ersten Öffnen.'},
+        {emoji:'↩️', bold:'Der Zurück-Knopf schliesst ein Fenster,', text:' nicht die ganze App.'},
+        {emoji:'🔎', bold:'Was noch nicht geht, sagt es:', text:' Erinnerungen und der Export von Backup/CSV/PDF kommen in der App später — im Browser auf green-scan.ch gehen sie weiter.'}
+      ],
+      items: [
+        {emoji:'📦', bold:'Nackte WebView statt TWA:', text:' dl.google.com ist aus dieser Umgebung gesperrt (403) — damit kein Google Maven, kein AndroidX, also weder Bubblewrap/TWA noch Capacitor. Und eine TWA ohne gültige Fingerabdrücke zeigt die Adressleiste, wäre also weiter eine Webseite in einer Hülle.'},
+        {emoji:'🌐', bold:'Derselbe Ursprung:', text:' shouldInterceptRequest liefert die Dateien unter https://green-scan.ch aus dem Paket. Deshalb gelten CORS, Anmelde-Rückkehr, Stripe und die CSP aus _headers unverändert — am Backend ist NICHTS zu ändern.'},
+        {emoji:'🚫', bold:'Nie null für den eigenen Ursprung:', text:' was das Paket nicht kennt, bekommt eine 404 aus dem Paket. null hiesse „hol es aus dem Netz“ — und dann wäre die App wieder eine Webseite.'},
+        {emoji:'📋', bold:'GS_HUELLE_ANDERS:', text:' fünf Einträge (kein Service Worker, kein Push, Update als Datei, kein Export, Bezahlen im Browser). Jeder hat eine Durchsetzungsstelle im Code UND steht auf dem Bildschirm; apk_check R8 hält beides gegeneinander.'},
+        {emoji:'🚪', bold:'Ein Tor statt acht Pflaster:', text:' acht Stellen bauen sich ihren eigenen Export-Anker. Das Tor sitzt am Klick auf a[download] — dieselbe Entscheidung wie das Kamera-Tor (v32.33) und die Tastatur-Nachrüstung (v32.16).'},
+        {emoji:'⏳', bold:'_gsSwReady:', text:' navigator.serviceWorker.ready kommt ohne registrierten Worker NIE zurück. Fünf Stellen warteten darauf — der Test-Push hätte für immer „⏳ Sende …“ gezeigt. Jetzt EIN Leser, der null liefert.'},
+        {emoji:'🧪', bold:'apk_check (28 Fälle, 18 Gegenproben):', text:' Pfade.java wird übersetzt und AUSGEFÜHRT (Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:), das Paket wird wirklich gebaut und aufgemacht (index.html byte-gleich), und die App läuft zweimal — mit und ohne die Kennung der Hülle.'},
+        {emoji:'📵', bold:'Grenze:', text:' hier läuft kein Android. Geprüft sind Bau, Rechnung und Entscheidung — nicht, wie sich ein Telefon verhält.'}
+      ]
+  },
+  {
     v: 'v33.48', date: '17.09.2026',
       headline: 'Die Artenliste hat einen zweiten Versuch',
       summary: 'Das Script-Tag der 2,1-MB-Artenliste hatte kein onerror und keinen Rückfall: fiel die Datei aus, lief die App mit einer leeren Liste weiter und sagte beim Start nichts. Jetzt gibt es einen zweiten Ladeversuch mit Cache-Umgehung — und wenn auch der danebengeht, steht es auf der Startseite.',

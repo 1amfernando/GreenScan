@@ -35,7 +35,7 @@ Person angemeldet ist (`_gsPerson`). *(sensor_check L9, L10, L11)*
 | Zeile | Quelle | Deckel |
 |---|---|---|
 | SPRACHE | `gsI18n.getLang()` | — |
-| Pflanzenzahl | `gsPflanzenZahl()` (beide Listen) | nur die ZAHL — Namen erscheinen nur in „Faellig" |
+| Pflanzenzahl | `gsPflanzenZahl()` (beide Listen) | die ZAHL — die Namen stehen im Einblick (unten) |
 | Region, Jahreszeit | `gs_user_location.name`, Monat → 4 Werte | kein Datum, keine Hoehe |
 | Faellig | `gsGetDueTasks().filter(days <= 0)` | 5 Namen + „+N weitere" |
 | Alarme / Messwerte | `gsGeraete()`, `gsRegelnPruefen`, `gsMesswerte` — Rohwerte, nie gerundet | 4 Geraete, 3 Groessen, 3 Alarme, je mit „+N weitere“ (v33.39). Eine Regel im Zustand `nicht_pruefbar` ergibt NIE „keine verletzte Regel“ |
@@ -45,10 +45,31 @@ Person angemeldet ist (`_gsPerson`). *(sensor_check L9, L10, L11)*
 | ARTEN | `_gsArtenTreffer(frage)` → `_gsArtAnzeige` je Art | `GS_LINA_ARTEN_MAX` 260 Zeichen |
 | Gesamt | | `GS_LINA_ZAHLEN_MAX` 1000 Zeichen — seit v33.39 faellt EINE GANZE ZEILE, nie ein halber Satz (`_gsLinaDeckeln`), Reihenfolge und Fallordnung aus `GS_LINA_ZEILEN_RANG`, und „(+N Zeilen ausgelassen)“ steht dabei |
 
-Was sie NICHT sieht (gemessen 15.09.2026): Gaerten und Beete (0 Treffer
-`gardens`), Pflanzennamen ohne faellige Aufgabe, `nick`, Tagebuch, Ernten,
-Saatgut, Uebungs-Lernstand, fruehere Gespraeche (nur die letzte Konversation, neueste
-100 Zeilen, davon 16 an das Modell).
+### Der Einblick (`gsLinaEinblick(frage)`, zweiter Block, eigener Deckel)
+
+Seit dem Paket „Lina · Einblick" (Punkt 8) kennt Lina den Garten beim Namen.
+Ein zweiter Block neben `gsLinaZahlen`, abschaltbar im Lina-Fenster
+(`gs_lina_einblick = '0'`, in `GS_KEEP_ON_LOGOUT`; `gsLinaEinblickAn()`).
+
+| Zeile | Quelle | Deckel |
+|---|---|---|
+| Braucht Hilfe | `gsPflanzenHilfe()` — Aufgabe ≥ `GS_HILFE_UEBERFAELLIG_TAGE` (2) im Verzug (`gsGetDueTasks`) oder Schaedling im Tagebuch der letzten `GS_HILFE_SCHAEDLING_TAGE` (14) Tage (`gsTagebuchAlle`, `cat === 'pest'`) | 4 + „+N weitere“; ohne Signal nennt die Zeile, WAS geprueft wurde |
+| Im Detail — <Pflanze> | eigene Pflanzen, die in der FRAGE stehen (`_gsLinaPflanzenInFrage`: ganzer Name an Wortgrenzen, Mehrzahl-Endung) → Ort, Aufgaben (`_gsTaskDays`), 3 Tagebuch-Eintraege, Foto-ZAEHLER, Notiz | 2 Pflanzen, je `GS_LINA_DETAIL_MAX` 420 Zeichen — ganze Angaben fallen von hinten |
+| Wetter <Ort> | `gs_weather_cache` (Rohwerte Open-Meteo), Schwellen aus `_gsWetterTage` | 3 Tage, 3 Warnungen. Nur wenn die Vorhersage zum gewaehlten Ort gehoert UND den heutigen Tag enthaelt |
+| Pflanzen | beide Listen (`_gsLinaPflanzenAlle`) mit Ort | 8 + „+N weitere“ |
+| Gärten | `gardens` + `plantings`, Art ueber `gsGartenArt` | 3 Gaerten, je 5 Pflanzungen |
+| Frühere Scans | `gs_scan_history` ab dem zweitjuengsten (`_gsScanZeit`) | 3 |
+| Funde auf deiner Karte | `greenscan_markers` (`_gsFundZeit`) — Name und Tag, nie die Koordinate | 4 |
+| Gesamt | | `GS_LINA_EINBLICK_MAX` 1500 Zeichen, Zeilen fallen ganz (`_gsLinaDeckeln`) |
+
+Derselbe `gsPflanzenHilfe()` speist den ersten Vorschlag im leeren Verlauf
+(`gsLinaVorschlaege`). *(sensor_check „Lina · Einblick")*
+
+Was sie weiterhin NICHT sieht: Fotos (nur den Zaehler), Koordinaten, Ernten,
+Saatgut, Uebungs-Lernstand, fruehere Gespraeche (nur die letzte Konversation,
+neueste 100 Zeilen, davon 16 an das Modell). Einen Gesundheits- oder
+Wachstumswert einer Pflanze gibt es in der App nicht — also auch nicht im
+Kontext.
 
 ## Was Lina DARF (`gsLinaDispatch`, 9 Faelle)
 
