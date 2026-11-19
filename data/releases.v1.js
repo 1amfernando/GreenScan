@@ -30,6 +30,21 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.44', date: '16.09.2026',
+      headline: 'Was später schiefgeht — gemessen, bevor es passiert',
+      summary: 'Die Wochen-Tipps werden nur nach Kalenderwoche ausgewählt, wiederholen sich also jedes Jahr — und elf davon nannten ein Jahr im Sinn von ‚dieses Jahr‘. Ab dem 1. Januar 2027 hätte die App in Woche 13 von einer Pilzsaison erzählt, die vorbei ist. Bereinigt, und ein neuer Prüfstand hält es fest.',
+      user_summary: 'Die saisonalen Tipps nennen keine Jahreszahl mehr, wenn sie ‚dieses Jahr‘ meinen — sie wären sonst ab Neujahr falsch gewesen.',
+      user_items: [
+        {emoji:'📅', text:'Kein Tipp erzählt mehr von einem Jahr, das vorbei ist.'}
+      ],
+      items: [
+        {emoji:'🔎', bold:'Gemessen:', text:' WEEKLY_SEASONAL_FACTS hat 521 Einträge und wird NUR nach Kalenderwoche gefiltert (gsGetKW) — die Liste wiederholt sich jährlich. Elf Zeilen nannten ‚Pilzsaison 2026‘, ‚Jahresrückblick Natur 2026‘, ‚Planung für 2027‘. Fünf Jahresnennungen bleiben, weil sie feste Punkte sind (Zieljahr 2030, datierte Berichte) — namentlich mit Grund im Prüfstand.'},
+        {emoji:'🧪', bold:'scripts/risiko_check.js (neu, 38. Prüfstand):', text:' R1 kein ‚dieses Jahr‘ in einem jährlich wiederkehrenden Text · R2 jede Listen-Abfrage ohne limit= ist eingeordnet (80 gedeckelt, 25 Katalog, 13 Einzelzeile, 13 wächst-mit-der-Person, je mit Grund) · R3 was docs/RISIKEN.md als Zahl nennt, steht so auch im Quelltext. Vier Gegenproben, jede macht ihren Fall rot.'},
+        {emoji:'📘', bold:'docs/RISIKEN.md:', text:' vier Klassen — was an einem DATUM aufhört (Quiz-Vorrat ermüdet am 16.06.2027, Migration nicht angewandt), was mit der GRÖSSE aufhört, was von ANDEREN abhängt (pdf.js ist der einzige CDN-Rest), und was eine ENTSCHEIDUNG braucht statt Code.'},
+        {emoji:'⚠️', bold:'Ein Messfehler von mir, festgehalten:', text:' mein erster Zähler las nur das ERSTE Zeichenketten-Literal eines Pfades und meldete device_readings als ‚ohne Deckel‘ — das limit= steht im zweiten. Gelesen wird jetzt der ganze erste Parameter von sbFetch(.'}
+      ],
+    },
+  {
     v: 'v33.43', date: '16.09.2026',
       headline: 'Der Zurück-Knopf schliesst ein Fenster — nicht die ganze App',
       summary: 'Erster Schritt zur Android-App: die App schrieb nichts in den Browser-Verlauf, also schloss der Android-Zurück-Knopf bei jedem offenen Fenster die ganze App. Jetzt gibt es EINE Zurück-Regel, an der Zurück-Taste und an Escape — und sie erreicht auch die acht Vollbild-Fenster (Tagesquiz, ‚Ueben‘, Lichtmesser), die Escape noch nie erreicht hat.',
@@ -45,7 +60,7 @@ window.GS_RELEASES_ARCHIVE = [
         {emoji:'📱', bold:'gsLaeuftAlsApp():', text:' ein Prädikat statt zwei. Nur das des Install-Banners kannte die Android-Hülle (referrer android-app://); der Push-Weg und der Druck-Rückfall hängen jetzt an derselben Rechnung.'},
         {emoji:'🧪', bold:'scripts/android_check.js (neu, 37. Prüfstand):', text:' neun Fragen, acht davon rot gegen v33.42. Drei meiner eigenen Fälle massen zuerst nichts — die Gegenproben haben es gezeigt; sie gehen jetzt den ECHTEN Weg (history.back → popstate) statt die Funktion direkt zu rufen. docs/ANDROID-APK.md nennt die Handgriffe und die Risiken.'}
       ],
-    },
+  },
   {
     v: 'v33.42', date: '16.09.2026',
       headline: 'Admin-Panel: was nicht geladen hat, sagt es — und lässt sich einzeln nachholen',
