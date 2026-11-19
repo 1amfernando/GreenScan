@@ -10723,9 +10723,9 @@ function openGartenTagebuch() {
             // v33.60: `gsTagebuchAlle()` liefert das Feld `photo` (Garten-,
             // Pflanzen- und Cloud-Tagebuch) — hier stand `e.photo_url`, das seit
             // v32.46 kein Eintrag mehr traegt: gemessen 0 Bilder bei einem Eintrag
-            // MIT Foto. Die Adresse geht durch _gsSafeUrl, und das Bild oeffnet in
+            // MIT Foto. Die Adresse geht durch _gsFundFoto (auch gsphoto://), und das Bild oeffnet in
             // der App (gsFotoAnsicht) statt per window.open.
-            (_gsFundFoto(e.photo, false) ? '<div style="margin-top:6px;"><img src="' + _gsSafeUrl(e.photo) + '" loading="lazy" onclick="gsFotoAnsicht(this.src)" style="max-width:100%;max-height:160px;border-radius:var(--r-sm);object-fit:cover;cursor:zoom-in;" alt="' + _tbFotoName + '" aria-label="' + _tbFotoName + '">' + '</div>' : '') +
+            (_gsFundFoto(e.photo, false) ? '<div style="margin-top:6px;"><img src="' + _gsFundFoto(e.photo, false) + '" loading="lazy" onclick="gsFotoAnsicht(this.src)" style="max-width:100%;max-height:160px;border-radius:var(--r-sm);object-fit:cover;cursor:zoom-in;" alt="' + _tbFotoName + '" aria-label="' + _tbFotoName + '">' + '</div>' : '') +
             '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:3px;">' + escHtml(e.date||'') + (e.weather ? ' · ' + escHtml(e.weather) : '') + '</div>' +
           '</div>' +
           '<button onclick="gsTbDelete(' + (Number(e.id) || 0) + ')" style="background:none;border:none;color:var(--muted);font-size:var(--fs-md);cursor:pointer;padding:2px 4px;opacity:.4;-webkit-tap-highlight-color:transparent;">✕</button>' +
