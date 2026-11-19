@@ -15094,6 +15094,16 @@ function gsGetStreak() {
 }
 
 function gsUpdateStreak() {
+  // Gegenpruefung dom-plaene (19.11.2026): ohne angemeldete Person kein Stempel. Die Sperre beim
+  // Abmelden (_gsAbmeldenLaeuft in gsTouchStreak) gilt nur, solange _gsAbmeldenStartseite laeuft —
+  // ein Zeitzuender danach nicht: closeDailyQuiz ruft setTimeout(initHomeBoard, 300), und 1,5 s
+  // nach dem Abmelden standen gs_streak, gs_streak_sig, gs_streak_stamp und gs_last_active_day_iso
+  // fuer niemanden im Speicher (sicherheit_check 98_schluss_e, Tagesquiz offen). Die Regel steht
+  // deshalb am SCHREIBER, nicht an jedem Weg dorthin (CLAUDE.md §3.6, _gsPerson).
+  if (typeof _gsPerson === 'function' && !_gsPerson()) {
+    try { gsRenderStreakEverywhere(); } catch(_){}
+    return gsGetStreak();
+  }
   // v23.60: Vor dem Update: Signatur prüfen, bei Manipulation reset
   if (!_gsStreakVerify()){
     _gsStreakResetAll();
@@ -15171,6 +15181,10 @@ function gsRenderStreakEverywhere() {
 // Triggert gsUpdateStreak() nur wenn heute noch nicht aktiv, vermeidet so unnötige Writes.
 function gsTouchStreak() {
   try {
+    // 19.11.2026: beim Abmelden zeichnet _gsAbmeldenStartseite die Startseite neu (switchTab /
+    // initHomeBoard rufen hierher) — dann nur zeichnen, nicht stempeln: der Tag gehoerte
+    // niemandem, und gs_streak entstuende zwischen Abmelden und Anmelden fuer kein Konto.
+    if (window._gsAbmeldenLaeuft) { gsRenderStreakEverywhere(); return; }
     var today = _gsDayKey();
     var lastDay = localStorage.getItem('gs_last_active_day_iso') || '';
     if (lastDay !== today) {
@@ -38660,6 +38674,11 @@ function openScanChat() {
   // Subtitle setzen
   var sub = document.getElementById('scan-chat-subtitle');
   if (sub && r && r.name) sub.textContent = _gsSatz('Über: {1}', r.name + (r.latin ? ' (' + r.latin + ')' : ''));
+  // Gegenpruefung dom-plaene (19.11.2026): closeModal (Escape, Zurueck) und sbLogout setzen
+  // display:none INLINE — das schlug .modal-overlay.open{display:flex}, und der Chat ging bis zum
+  // naechsten Neuladen nicht mehr auf (nach dem Abmelden fuer das naechste Konto). Gemessen ueber
+  // alle Oeffner ohne Parameter: der einzige, der nur die Klasse setzt.
+  modal.style.display = '';
   modal.classList.add('open');
   setTimeout(function(){ var inp = document.getElementById('scan-chat-input'); if(inp) inp.focus(); }, 300);
 }
@@ -59137,6 +59156,26 @@ function clearInlinePhoto() {
   if (preview) preview.style.display = 'none';
 }
 
+// Der Beitrags-Entwurf oben im Feed zurueck auf den Anfang — nach dem Senden (submitInlinePost)
+// und beim Abmelden (_gsAbmeldenFelder, 19.11.2026): bis dahin trug er nach dem Abmelden Foto,
+// Pflanze und Art von A, und der erste Beitrag des naechsten Kontos nahm das Foto mit hinaus.
+// Die Vorschau verliert auch ihre Adresse — das Foto stand sonst unsichtbar weiter im DOM.
+function _gsInlineEntwurfLeeren() {
+  const textEl = document.getElementById('inline-post-text');
+  if (textEl) { textEl.value = ''; textEl.style.height = 'auto'; }
+  clearInlinePhoto();
+  const img = document.getElementById('inline-photo-img');
+  if (img) img.removeAttribute('src');
+  inlineTaggedPlant = null;
+  const label = document.getElementById('inline-plant-label');
+  if (label) label.textContent = 'Pflanze';
+  inlinePostType = 'showcase';
+  document.querySelectorAll('.inline-type-pill').forEach((p,i) => p.classList.toggle('active', i===0));
+  const typeRow = document.getElementById('inline-type-row');
+  if (typeRow) typeRow.style.display = 'none';
+  updateInlineActions();
+}
+
 function openInlinePlantTag() {
   document.getElementById('ig-plant-search-input').value = '';
   igSearchPlant('');
@@ -59232,16 +59271,7 @@ async function submitInlinePost() {
   socialPosts.unshift(optimistic);
 
   // Reset composer SOFORT (Insta-style)
-  if (textEl) { textEl.value = ''; textEl.style.height = 'auto'; }
-  clearInlinePhoto();
-  inlineTaggedPlant = null;
-  const label = document.getElementById('inline-plant-label');
-  if (label) label.textContent = 'Pflanze';
-  inlinePostType = 'showcase';
-  document.querySelectorAll('.inline-type-pill').forEach((p,i) => p.classList.toggle('active', i===0));
-  const typeRow = document.getElementById('inline-type-row');
-  if (typeRow) typeRow.style.display = 'none';
-  updateInlineActions();
+  _gsInlineEntwurfLeeren();
   try { renderSocialFeed(); } catch(_){}
 
   // Photo zu Storage (parallel)
@@ -81793,7 +81823,12 @@ async function sbLogout() {
   // stale Session weiter. Hier explizit beenden.
   try { if (window._gsChat && window._gsChat.pollId) { clearInterval(window._gsChat.pollId); window._gsChat.pollId = null; } } catch(_){}
   try { if (window._gsRealtimeChat && window._gsRealtimeChat.unsubscribe) window._gsRealtimeChat.unsubscribe(); } catch(_){}
-  if (typeof gsOnLogout === 'function') gsOnLogout();
+  // Gegenpruefung dom-plaene (19.11.2026): was das Abmelden selbst sagt (_gsAbmeldenSagen),
+  // wird gesammelt und unten AUF dem Anmeldebildschirm gezeigt — ein Toast laege darunter.
+  var _saetze = [];
+  window._gsAbmeldenSaetze = _saetze;
+  try { if (typeof gsOnLogout === 'function') gsOnLogout(); }
+  finally { window._gsAbmeldenSaetze = null; }
   // v25.4 A1: Sofort Onboarding zeigen — User soll nicht auf der letzten Seite
   // hängen bleiben. Wrapper sichtbar machen + Sub-View auf onb-start zurücksetzen.
   // Plus: alle offenen Modals zu (Settings/Profile/Detail).
@@ -81806,6 +81841,7 @@ async function sbLogout() {
     if (typeof _onbShowView === 'function') _onbShowView('onb-start');
     document.querySelectorAll('.modal-overlay').forEach(function(m){ try { m.style.display = 'none'; } catch(_){} });
     if (typeof showProfileToast === 'function') showProfileToast('👋 Erfolgreich abgemeldet', 'info');
+    if (_saetze.length && typeof _gsAuthSatz === 'function') _gsAuthSatz(_saetze.join(' '), 'warning');
   } catch(_){}
 }
 
@@ -87530,8 +87566,158 @@ var GS_USER_KEYS = [
 var GS_USER_PREFIXES = ['gs_aicalls_','gs_sync_dirty_at_','gs_sync_synced_at_','gs_dq_tag_',
   'gs_frost_logged_','gs_weather_logged_','gs_score_logged_','gs_sh_lastalert_','gs_corrupt_bak__'];
 
+// ══════════════════════════════════════════════════════════════════════════
+// Abmelden auf dem BILDSCHIRM — derselbe Stand wie nach einem Neuladen
+// (19.11.2026, Brett 2026-11-16-a6d6)
+// ══════════════════════════════════════════════════════════════════════════
+// gsClearUserDataKeys raeumt seit v33.59 Speicher UND Arbeitsspeicher. Das DOM blieb: sbLogout
+// laedt die Seite nicht neu. Gemessen gegen v33.61 (sicherheit_check 98_schluss_e, echter
+// Anmeldeweg von B ueber den Anmeldebildschirm):
+//   - 72 Textfelder trugen nach dem Anmelden von B, was A getippt hatte — Namen, die E-Mail,
+//     Entwuerfe von Beitrag, Kommentar, Inserat, Feedback, Tagebuch, Rezept und Planer, und
+//     die Suchbegriffe (searchText filterte die Artenliste weiter nach dem Wort von A);
+//   - #compose-avatar zeigte das Emoji aus dem Community-Namen von A (gesetzt nur bei NICHT
+//     leerem Namen) — submitInlinePost liest es als author_avatar des ersten Beitrags von B;
+//     und das Foto im Beitrags-Entwurf von A ging mit diesem Beitrag hinaus (inlinePhotoData);
+//   - offene Fenster von A (eine Rueckfrage mit seinem Namen, der Scan-Verlauf, „Meine Plaene")
+//     lagen unter dem Anmeldebildschirm und nach dem Anmelden sichtbar ueber der App;
+//   - die Startseite zeigte B den Tagesplan und den Gruss von A, bis jemand den Tab wechselte.
+// Eine Antwort fuer alle Stellen statt je ein Pflaster: Fenster zu, jedes Textfeld auf seinen
+// Ausgangswert (defaultValue = was im HTML steht = was ein Neuladen zeigt), die Anzeigen und
+// Entwuerfe, die aus Kontodaten gesetzt und nie neu gezeichnet werden (zwei Listen unten), und
+// am Ende die Startseite — auf der ein Neuladen landet — aus dem leeren Stand.
+// Nicht angefasst: Auswahlfelder und Kaestchen (eine Wahl, kein Text der Person; die Schalter
+// der Einstellungen spiegeln Geraete-Vorlieben aus GS_KEEP_ON_LOGOUT), und was in einem
+// VERBORGENEN Tab oder Fenster steht, bis es neu gezeichnet wird (nicht sichtbar, nicht im
+// Barrierefreiheitsbaum).
+
+// Textfelder, die NICHT zuruecklaufen: sie spiegeln einen Schluessel aus GS_KEEP_ON_LOGOUT (eine
+// Ansicht dieses Geraets, kein Text der Person). renderMarket setzt sie aus dem Speicher, und
+// ihr oninput (gsMarketPriceFilter) wuerde den Geraete-Filter beim Leeren loeschen.
+var GS_ABMELDEN_FELDER_GERAET = {
+  'market-price-min': 'gs_market_price_min (GS_KEEP_ON_LOGOUT) — Preisfilter des Marktplatzes',
+  'market-price-max': 'gs_market_price_max (GS_KEEP_ON_LOGOUT) — Preisfilter des Marktplatzes'
+};
+// Anzeigen, die aus Kontodaten gesetzt und von keinem Renderer neu gezeichnet werden — mit dem
+// Text, den das HTML traegt. #compose-avatar: aus socialUserName (loadSocialPosts,
+// showNameInput), und submitInlinePost liest es als Avatar des naechsten Beitrags.
+var GS_ABMELDEN_ANZEIGEN = { 'compose-avatar': '🌱' };
+// Entwuerfe, deren Foto oder Auswahl NEBEN den Textfeldern im Arbeitsspeicher liegt — je der
+// vorhandene Leerer (derselbe Weg wie nach dem Senden bzw. dem ✕ an der Vorschau). Gesucht am
+// 19.11.2026 ueber jede Variable, die ein Foto eines Entwurfs haelt: inlinePhotoData (der
+// Beitrag oben im Feed — submitInlinePost laedt es hoch), window._gsListingPhotoB64 (submitListing
+// legt es ins Inserat), window._gsPostImage (Vorschau im Beitrags-Fenster). diagImageData leert
+// sein Oeffner selbst; igPhotoData gehoert zu einer Seite ohne Einstieg (#ig-post-screen).
+var GS_ABMELDEN_ENTWUERFE = ['_gsInlineEntwurfLeeren', 'clearListingPhoto', 'gsClearPostImage'];
+
+function _gsAbmeldenFenster(){
+  // 1. Die drei Familien, die auch gsZurueck kennt: dynamische Dialoge (ueber ihren eigenen
+  //    Abbrechen-Knopf — ein wartendes gsPromptModal/gsConfirmModal loest mit null/false auf),
+  //    gestapelte Fenster (.open entfernen; sbLogout setzte bisher nur display:none, die Klasse
+  //    blieb) und die Vollbild-Fenster mit eigener Schliess-Funktion.
+  try { if (typeof gsDismissOrphanOverlays === 'function') gsDismissOrphanOverlays(); } catch(_){}
+  try {
+    Array.prototype.slice.call(document.querySelectorAll('.modal-overlay.open, .overlay-modal.open')).forEach(function (m) {
+      try { if (m.id && typeof closeModal === 'function') closeModal(m.id); else { m.classList.remove('open'); m.style.display = 'none'; } } catch(_){}
+    });
+  } catch(_){}
+  try {
+    (typeof GS_VOLLBILD_OVERLAYS !== 'undefined' ? GS_VOLLBILD_OVERLAYS : []).forEach(function (v) {
+      var el = document.getElementById(v.id);
+      if (!el || getComputedStyle(el).display === 'none') return;
+      try { if (typeof window[v.zu] === 'function') window[v.zu](); } catch(_){}
+      if (getComputedStyle(el).display !== 'none') el.style.display = 'none';
+    });
+  } catch(_){}
+  // 2. Was sonst fest ueber der App liegt — Vollbild-Seiten, die sich selbst bauen („Meine
+  //    Plaene", Baum-Planer, Pilzsaison, Beitrags-Seite) und in keiner der drei Listen stehen.
+  //    Dieselbe Regel wie im Pruefstand: eine feste Schicht ab einem Drittel des Bildschirms,
+  //    deren naechster fester Vorfahr #app oder keiner ist. Grundlinie (19.11.2026): auf allen
+  //    elf Tabs ohne offenes Fenster gibt es keine — getroffen wird also nur ein Fenster.
+  try {
+    var flaeche = (window.innerWidth || 0) * (window.innerHeight || 0) / 3;
+    Array.prototype.slice.call(document.querySelectorAll('body *')).forEach(function (el) {
+      if (el.id === 'app' || el.id === 'gs-onboarding' || el.closest('#gs-onboarding')) return;
+      var cs = getComputedStyle(el);
+      if (cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden') return;
+      for (var p = el.parentElement; p && p !== document.body && p.id !== 'app'; p = p.parentElement) {
+        if (getComputedStyle(p).position === 'fixed') return;
+      }
+      var b = el.getBoundingClientRect();
+      if (b.width * b.height < flaeche) return;
+      el.classList.remove('open');   // Fenster, die an einer Klasse haengen (.ig-post-screen.open)
+      if (getComputedStyle(el).display !== 'none') el.style.display = 'none';   // die anderen schliessen selbst mit display:none
+    });
+  } catch(_){}
+}
+
+function _gsAbmeldenFelder(){
+  // Jedes Textfeld zurueck auf seinen Ausgangswert — und das `input`-Ereignis danach, damit die
+  // Ansicht folgt, die an ihm haengt (doSearch setzt searchText, die Einstellungs- und
+  // Menue-Suche heben ihren Filter auf, die Wissens-Suche schliesst ihre Treffer). Laeuft VOR
+  // dem Leeren der Schluessel: was ein solcher Handler ablegt (gsMarketSearch → gs_market_search,
+  // GS_USER_KEYS), geht gleich danach mit.
+  var TEXT = /^(text|search|email|tel|url|password|number|)$/;
+  try {
+    Array.prototype.slice.call(document.querySelectorAll('input, textarea')).forEach(function (el) {
+      if (el.tagName === 'INPUT' && !TEXT.test(String(el.getAttribute('type') || '').toLowerCase())) return;
+      if (el.id && Object.prototype.hasOwnProperty.call(GS_ABMELDEN_FELDER_GERAET, el.id)) return;
+      if (el.value === el.defaultValue) return;
+      el.value = el.defaultValue;
+      try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch(_){}
+    });
+  } catch(_){}
+  Object.keys(GS_ABMELDEN_ANZEIGEN).forEach(function (id) {
+    try { var el = document.getElementById(id); if (el) el.textContent = GS_ABMELDEN_ANZEIGEN[id]; } catch(_){}
+  });
+  // Die Entwuerfe mit Foto oder Auswahl (GS_ABMELDEN_ENTWUERFE).
+  GS_ABMELDEN_ENTWUERFE.forEach(function (n) {
+    try { if (typeof window[n] === 'function') window[n](); } catch(_){}
+  });
+}
+
+// Zahlen aus Kontodaten, die WEDER initHomeBoard NOCH ein Tab-Wechsel zur Startseite neu
+// schreibt — ihre Zeichner, gerufen nach dem Leeren (Gegenpruefung dom-plaene, 19.11.2026).
+// Gemessen gegen eine Seite, die B mit GENAU seinem Speicher neu laedt (sicherheit_check
+// 98_schluss_e): #stat-favs zeigte B die 4 Pflanzen von A (geschrieben nur beim Start und beim
+// Wechsel auf „Meine Pflanzen"), das Abzeichen am Reiter „Pflanzen" die 3 ueberfaelligen Aufgaben
+// von A (geschrieben nur von savePlantsToStorage und 200 ms nach dem Start). Wer eine Zahl aus
+// Kontodaten in die Leiste oder auf die Startseite schreibt, traegt ihren Zeichner hier ein.
+var GS_ABMELDEN_ZEICHNER = ['updatePlantStat', 'gsUpdateGardenBadge'];
+
+function _gsAbmeldenStartseite(){
+  // Ein Neuladen landet auf der Startseite. Bis hier blieb der Tab stehen, auf dem A sich
+  // abgemeldet hatte — und die Startseite zeichnete erst beim naechsten Tab-Wechsel neu.
+  // _gsAbmeldenLaeuft: initHomeBoard tippt sonst die Serie an (gsTouchStreak schreibt
+  // gs_streak) — fuer niemanden, zwischen Abmelden und Anmelden.
+  window._gsAbmeldenLaeuft = true;
+  try {
+    if (typeof _gsCurrentTab !== 'undefined' && _gsCurrentTab !== 'home' && typeof switchTab === 'function') switchTab('home');
+    else if (typeof initHomeBoard === 'function') initHomeBoard();
+  } catch(_){}
+  GS_ABMELDEN_ZEICHNER.forEach(function (n) {
+    try { if (typeof window[n] === 'function') window[n](); } catch(_){}
+  });
+  window._gsAbmeldenLaeuft = false;
+  try { _gsNavStack = ['home']; } catch(_){}
+}
+
+// Ein Satz, den das Abmelden SELBST sagt (Plaene, die nicht aufbewahrt werden konnten). Als
+// Toast (z-index 9999) lag er unter dem Anmeldebildschirm (9999999), den sbLogout gleich danach
+// einblendet — gemessen gegen 0b930cf mit echtem sbLogout: 8 von 8 Proben verdeckt, die Person
+// sah ihn nie (sicherheit_check 98_schluss_b). Waehrend sbLogout laeuft, sammelt es die Saetze
+// (window._gsAbmeldenSaetze) und zeigt sie AUF dem Anmeldebildschirm (_gsAuthSatz). Beim
+// Kontowechsel (gsSyncUserDataOnLogin) meldet sich B gerade an — dort bleibt es ein Toast.
+function _gsAbmeldenSagen(satz){
+  if (Array.isArray(window._gsAbmeldenSaetze)) { window._gsAbmeldenSaetze.push(satz); return; }
+  try { if (typeof gsToast === 'function') gsToast(satz, 'warning'); } catch(_){}
+}
+
 function gsClearUserDataKeys(){
   try {
+    // 19.11.2026 (Brett a6d6): zuerst der Bildschirm — Fenster zu, Felder auf den Ausgangswert.
+    _gsAbmeldenFenster();
+    _gsAbmeldenFelder();
     // v33.59: nur lokal gespeicherte Plaene warten gestempelt (gs_plans_wartend), statt mit gs_plans_v2 zu gehen.
     // v33.59: parken() sagt, ob es geschrieben hat (-1 = nein). Dann bleibt gs_plans_v2 zuerst
     // liegen: die uebrigen Schluessel geben Platz frei, und es wird noch einmal geparkt.
@@ -87569,13 +87755,25 @@ function gsClearUserDataKeys(){
         // Gesamtpruefung g1: der Satz nennt den GRUND — voller Speicher oder der Deckel des
         // Wartebereichs (mehr als 20 nur lokale Plaene je Konto). Je ein ganzer Satz als Literal
         // (der Uebersetzer findet sie so, gsI18nMeldungenAusQuelltext).
-        var _deckel = false; try { _deckel = typeof gsPlans.parkGrund === 'function' && gsPlans.parkGrund() === 'deckel'; } catch(_){}
+        // 19.11.2026 (Brett 7ebf): eine Ausnahme im Parken (parkGrund 'fehler') bekam bis hier
+        // den Satz „Speicher voll" — einen Rat (Platz schaffen), der nicht hilft; sie hat jetzt
+        // eigene Saetze. Und der Deckel gilt je Konto: passen nur Plaene eines ANDEREN Kontos
+        // nicht ('deckel_anderes_konto'), bleibt gs_plans_v2 fuer sie liegen, aber der Person,
+        // die sich gerade abmeldet, ist nichts zu sagen — ihre Plaene sind alle aufbewahrt.
+        var _grund = null; try { _grund = typeof gsPlans.parkGrund === 'function' ? gsPlans.parkGrund() : null; } catch(_){}
         try {
-          if (typeof gsToast === 'function') {
-            if (_deckel && _bleibt) gsToast('Mehr als 20 Pläne nur auf diesem Gerät: sie bleiben hier liegen, sichtbar nur für ihr Konto.', 'warning');
-            else if (_deckel) gsToast('Mehr als 20 Pläne nur auf diesem Gerät: sie konnten beim Abmelden nicht aufbewahrt werden.', 'warning');
-            else if (_bleibt) gsToast('Speicher voll: dein nur auf dem Gerät gespeicherter Plan bleibt hier liegen, sichtbar nur für dein Konto.', 'warning');
-            else gsToast('Speicher voll: ein nur auf dem Gerät gespeicherter Plan konnte beim Abmelden nicht aufbewahrt werden.', 'warning');
+          // Gegenpruefung dom-plaene (19.11.2026): je Satz _gsSatz (der Sammler des Uebersetzers
+          // findet ihn so, und _gsAuthSatz zeigt ihn ohne eigene Uebersetzung) und unter 120
+          // Zeichen — der Sammler nimmt kein laengeres Literal; der „Fehler"-Satz mit „bleibt" hatte
+          // 123 und stand in jeder Sprache deutsch da. Gesagt wird ueber _gsAbmeldenSagen: ein Toast
+          // laege beim Abmelden unter dem Anmeldebildschirm (siehe dort).
+          if (_grund !== 'deckel_anderes_konto') {
+            if (_grund === 'deckel' && _bleibt) _gsAbmeldenSagen(_gsSatz('Mehr als 20 Pläne nur auf diesem Gerät: die übrigen bleiben hier liegen, sichtbar nur für dein Konto.'));
+            else if (_grund === 'deckel') _gsAbmeldenSagen(_gsSatz('Mehr als 20 Pläne nur auf diesem Gerät: die übrigen konnten beim Abmelden nicht aufbewahrt werden.'));
+            else if (_grund === 'fehler' && _bleibt) _gsAbmeldenSagen(_gsSatz('Beim Abmelden ging etwas schief: dein nur auf dem Gerät gespeicherter Plan bleibt hier, sichtbar nur für dein Konto.'));
+            else if (_grund === 'fehler') _gsAbmeldenSagen(_gsSatz('Beim Abmelden ging etwas schief: ein nur auf dem Gerät gespeicherter Plan konnte nicht aufbewahrt werden.'));
+            else if (_bleibt) _gsAbmeldenSagen(_gsSatz('Speicher voll: dein nur auf dem Gerät gespeicherter Plan bleibt hier liegen, sichtbar nur für dein Konto.'));
+            else _gsAbmeldenSagen(_gsSatz('Speicher voll: ein nur auf dem Gerät gespeicherter Plan konnte beim Abmelden nicht aufbewahrt werden.'));
           }
         } catch(_){}
       }
@@ -87634,6 +87832,8 @@ function gsClearUserDataKeys(){
     // v33.59: gespeicherte Plaene (gs_plans_v2) — die Liste „Meine Plaene" haelt
     // sie zusaetzlich im Arbeitsspeicher; ohne das oeffnete die naechste Person sie.
     try { if (window.gsPlans && typeof gsPlans.reset === 'function') gsPlans.reset(); } catch(_){}
+    // 19.11.2026 (Brett a6d6): zuletzt die Startseite — aus dem eben geleerten Stand.
+    _gsAbmeldenStartseite();
   } catch(e){ console.warn('[gsClearUserDataKeys]', e); }
 }
 
@@ -100569,17 +100769,15 @@ function meins(e){ var u = uid(); return !!e && (!e.uid || (!!u && e.uid === u))
 function readWartend(){ try{ var a=JSON.parse(localStorage.getItem('gs_plans_wartend')||'[]'); return Array.isArray(a)?a.filter(function(e){ return e && typeof e.uid==='string'; }):[]; }catch(_){ return []; } }
 // v33.59 (Gesamtpruefung g1): die Frist zaehlt ab dem PARKEN (e.geparkt), nicht ab der Anlage —
 // ein Plan, der seit 100 Tagen nur lokal lag, fiel sonst beim Abmelden sofort weg. Und der
-// Deckel je Konto verdraengt nichts mehr still: deckeln() gibt zurueck, was er wegen des
-// Deckels (nicht wegen der Frist) weglassen MUESSTE — parken schreibt dann gar nicht (-1).
+// Deckel je Konto verdraengt nichts still: ein Plan, der schon wartet, hat dort seine einzige
+// Kopie und bleibt; nur NEUE Plaene fuellen die freien Plaetze (parken, Brett 7ebf).
 function _parkZeit(e){ return new Date(e.geparkt || e.created || 0).getTime(); }
-function deckeln(a){
-  var grenze = Date.now() - WARTEND_TAGE * 86400000, je = {};
-  var frisch = a.filter(function(e){ var t = _parkZeit(e); return isFinite(t) && t >= grenze; })
-    .sort(function(x,y){ return _parkZeit(y) - _parkZeit(x); });
-  var liste = frisch.filter(function(e){ je[e.uid] = (je[e.uid]||0) + 1; return je[e.uid] <= WARTEND_MAX; });
-  return { liste: liste, verdraengt: frisch.length - liste.length };
-}
-var _parkGrund = null;   // warum das letzte parken() -1 gab: 'speicher_voll' | 'deckel' | 'fehler'
+function _frisch(e){ var t = _parkZeit(e); return isFinite(t) && t >= Date.now() - WARTEND_TAGE * 86400000; }
+// warum das letzte parken() -1 gab: 'speicher_voll' | 'fehler' | 'deckel' (ein Plan des Kontos,
+// das sich abmeldet, passt nicht mehr) | 'deckel_anderes_konto' (nur Plaene eines ANDEREN Kontos
+// passen nicht — gs_plans_v2 bleibt fuer sie, aber der Person, die geht, ist nichts zu sagen)
+var _parkGrund = null;
+var _geparkt = {};       // uid|localId der Plaene, die das letzte parken() wirklich in den Wartebereich schrieb
 // v33.59: Plaene von VOR dem Stempel (ohne uid) liegen auf dem Geraet der Person, die
 // sie gespeichert hat — beim ersten Lesen mit Anmeldung bekommen sie deren uid; danach
 // gilt fuer sie dieselbe Regel (parken, nachschieben). Ohne Anmeldung: nichts.
@@ -100595,8 +100793,14 @@ function stempeln(wer){
   } catch(_){ return 0; }
 }
 // Synchron, aus gsClearUserDataKeys VOR dem Leeren: nur lokale, gestempelte Plaene parken.
+// 19.11.2026 (Brett 2026-11-16-7ebf): der Deckel wird JE KONTO entschieden. Bis hier schrieb
+// parken() gar nichts, sobald IRGENDEIN Konto mehr als 20 haette — auch die 20, die passten,
+// blieben in gs_plans_v2, und beim Abmelden eines anderen Kontos parkte dessen Plan ebenso
+// wenig (der Deckel von A sperrte den Wartebereich fuer alle; speicher_check misst es). Jetzt:
+// was passt, wird geparkt; was nicht passt, bleibt gestempelt in gs_plans_v2 (bewahrbar), und
+// nurLokalBehalten nimmt dort heraus, was geparkt ist — eine Kopie je Plan.
 function parken(){
-  _parkGrund = null;
+  _parkGrund = null; _geparkt = {};
   try {
     var _vorher = null; try { _vorher = localStorage.getItem('gs_last_active_uid'); } catch(_){}
     var wer = _vorher || (loggedIn() ? uid() : null);
@@ -100610,21 +100814,35 @@ function parken(){
     // Gesamtpruefung g1: jeder geparkte Plan bekommt die Zeit des Parkens (ab ihr laeuft die
     // Frist); steht derselbe Plan schon im Wartebereich, ersetzt ihn die aktuelle Fassung.
     var jetzt = new Date().toISOString();
-    var alt = readWartend(), pos = {};
-    alt.forEach(function(e, i){ pos[e.uid+'|'+e.localId] = i; });
+    var alt = readWartend(), pos = {}, belegt = {};
+    alt.forEach(function(e, i){ pos[e.uid+'|'+e.localId] = i; if (_frisch(e)) belegt[e.uid] = (belegt[e.uid]||0) + 1; });
+    // Je Konto: eine neue Fassung eines schon wartenden Plans nimmt dessen Platz (die Zahl bleibt);
+    // ein neuer Plan braucht einen freien Platz unter WARTEND_MAX. Die Liste ist neueste zuerst
+    // (save legt vorne an) — was nicht passt, sind die aeltesten.
+    var draussen = [];
     weg.forEach(function(e){
       var k = e.uid+'|'+e.localId, c = Object.assign({}, e, { geparkt: jetzt });
-      if (Object.prototype.hasOwnProperty.call(pos, k)) alt[pos[k]] = c; else { pos[k] = alt.length; alt.push(c); }
+      var da = Object.prototype.hasOwnProperty.call(pos, k);
+      if (!(da && _frisch(alt[pos[k]]))) {
+        if ((belegt[e.uid]||0) >= WARTEND_MAX) { draussen.push(e); return; }
+        belegt[e.uid] = (belegt[e.uid]||0) + 1;
+      }
+      if (da) alt[pos[k]] = c; else { pos[k] = alt.length; alt.push(c); }
     });
-    // Mehr als WARTEND_MAX je Konto: nichts schreiben (sonst verdraengte der Deckel einen Plan,
-    // dessen einzige Kopie hier oder in gs_plans_v2 liegt) — -1, gs_plans_v2 bleibt (bewahrbar).
-    var d = deckeln(alt);
-    if (d.verdraengt > 0) { _parkGrund = 'deckel'; return -1; }
-    // v33.59: am Rueckgabewert (CLAUDE.md §3.5) — -1 heisst NICHT geparkt; der Aufrufer
-    // darf gs_plans_v2 dann nicht als einzige Kopie wegwerfen (gsClearUserDataKeys).
-    if (localStorage.setItem('gs_plans_wartend', JSON.stringify(d.liste)) === false) { _parkGrund = 'speicher_voll'; return -1; }
+    // Die Frist gilt weiter: wer seit mehr als WARTEND_TAGE wartet, faellt weg.
+    var liste = alt.filter(_frisch);
+    // v33.59: am Rueckgabewert (CLAUDE.md §3.5) — -1 heisst: gs_plans_v2 darf NICHT als
+    // einzige Kopie weggeworfen werden (gsClearUserDataKeys) — hier, weil nichts geschrieben
+    // wurde; unten, weil ein Teil nicht passt.
+    if (localStorage.setItem('gs_plans_wartend', JSON.stringify(liste)) === false) { _parkGrund = 'speicher_voll'; return -1; }
+    weg.forEach(function(e){ if (draussen.indexOf(e) < 0) _geparkt[e.uid+'|'+e.localId] = 1; });
+    if (draussen.length) {
+      var wer2 = (typeof wer === 'string') ? wer : '';
+      _parkGrund = draussen.some(function(e){ return e.uid === wer2; }) ? 'deckel' : 'deckel_anderes_konto';
+      return -1;
+    }
     return weg.length;
-  } catch(_){ _parkGrund = 'fehler'; return -1; }
+  } catch(_){ _parkGrund = 'fehler'; _geparkt = {}; return -1; }
 }
 function parkGrund(){ return _parkGrund; }
 // v33.59: darf gs_plans_v2 nach gescheitertem Parken liegen bleiben? Nur wenn ein lokaler
@@ -100640,9 +100858,12 @@ function bewahrbar(){
 // zurueck); seit der Deckel −1 gibt, bleibt die Liste auch beim Abmelden eines ZWEITEN Kontos
 // liegen, und dessen Cloud-Plaene (Titel, Inhalt) blieben sonst nach seinem Abmelden hier.
 // Ein Schreibversuch, der verkleinert — false nur, wenn auch das nicht ging (dann bleibt alles).
+// 19.11.2026 (Brett 7ebf): auch ohne das, was das letzte parken() in den Wartebereich geschrieben
+// hat (_geparkt) — seit der Deckel je Konto gilt, parkt ein Teil, und der Rest bleibt hier. Eine
+// Kopie je Plan: geparkt ODER in gs_plans_v2, nie beides.
 function nurLokalBehalten(){
   try {
-    var l = readLS(), lok = l.filter(function(e){ return e && !e.cloud; });
+    var l = readLS(), lok = l.filter(function(e){ return e && !e.cloud && !_geparkt[e.uid+'|'+e.localId]; });
     if (lok.length === l.length) return true;
     return localStorage.setItem('gs_plans_v2', JSON.stringify(lok)) !== false;
   } catch(_){ return false; }
