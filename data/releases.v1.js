@@ -30,6 +30,17 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.41', date: '16.09.2026',
+    headline: 'Der Server kennt jetzt auch deine Beete — und zwei Migrationen, die gar nicht angewendet werden konnten',
+    summary: 'Siebte und letzte Scheibe von KALENDER-V2. Drei Befunde, alle live gemessen: der Aufgaben-Push kannte nur „Meine Pflanzen" und nie eine Garten-Pflanzung; die saisonale Erinnerung filterte auf eine Spalte, die es gar nicht gibt (`priority`), und der Fehler wurde verschluckt — sie hat seit dem Bau keine einzige Zeile gehabt; und zwei Migrationen, die seit Tagen als „bereit" in der Liste standen, waeren beim Anwenden gescheitert, weil `CREATE OR REPLACE VIEW` Spalten nur anhaengen darf.',
+    user_summary: 'Erinnerungen fuer Pflanzen in deinen Beeten sind vorbereitet — bisher kannte der Server nur die Pflanzen aus „Meine Pflanzen".',
+    user_items: [
+      {emoji: '🌱', bold: 'Beete zaehlen mit:', text: ' Der Server, der die Erinnerungen verschickt, kannte nur „Meine Pflanzen". Gemessen: 15 Pflanzungen in Beeten mit Pflege-Aufgaben, und keine einzige davon hat je eine Erinnerung ausgeloest. Die App zaehlte beide Listen, der Server eine.'},
+      {emoji: '📅', bold: 'Die saisonale Erinnerung kam nie:', text: ' Sie suchte nach einem Feld, das die Tabelle nicht hat — die Abfrage schlug jedes Mal fehl, und niemand hat es gemerkt, weil der Fehler weggeworfen wurde. Jetzt sucht sie das richtige Feld, und ein Fehler wird gesagt.'},
+      {emoji: '🧱', bold: 'Zwei Datenbank-Aenderungen waren gar nicht anwendbar:', text: ' Sie standen seit Tagen als „bereit" da und waeren beim ersten Versuch gescheitert. Jetzt sind sie es wirklich — nachgerechnet in einer echten Datenbank.'}
+    ],
+  },
+  {
     v: 'v33.40', date: '16.09.2026',
     headline: 'Die Woche auf einen Blick — und deine Stillen Tage stehen im Kalender',
     summary: 'Sechste Scheibe von KALENDER-V2. Eine Zeile sagt, was die Woche bringt — auf der Startseite, im Kalender und in Linas Kontext, aus DERSELBEN Rechnung. Und wenn du Stille Tage eingestellt hast, sagt jede Aufgabe, die hineinfällt, dass sie hineinfällt. Dabei gemessen: mit Stillen Tagen bis zum 11.9. fielen SIEBEN Fälligkeiten in die Abwesenheit, und kein Ereignis sagte es; und der Wochenrückblick zählte einen selbst notierten Tagebuch-Eintrag als erledigte Aufgabe.',
