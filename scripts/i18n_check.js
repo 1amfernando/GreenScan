@@ -470,6 +470,11 @@ function aufrufe() {
     } catch (e) { o.toastFehler = e.message; }
     return o;
   });
+  var tr = await p5.evaluate(function () {
+    var m = document.querySelector('meta[name="google"]');
+    return { translate: document.documentElement.getAttribute('translate'), lang: document.documentElement.lang,
+             meta: m ? m.getAttribute('content') : null };
+  });
   await br5.close();
   const f5 = [];
   if (satz.gesammelt !== 1) f5.push('Sammler findet die Vorlage nicht (' + satz.gesammelt + ' statt 1)');
@@ -484,6 +489,17 @@ function aufrufe() {
           ? '„' + satz.uebersetzt + '" · Stellung getauscht: „' + satz.gestellt + '" · ohne Paket deutsch · undefined → leer · Toast „' + String(satz.imToast).slice(0, 40) + '"'
           : f5.join(' · '));
   if (errs5.length) melde(false, 'Keine JS-Fehler im fr-Meldungslauf', errs5.slice(0, 2).join(' | '));
+  melde(tr.translate === 'no' && tr.meta === 'notranslate' && tr.lang && tr.lang !== 'de',
+        'Der Browser bietet das Uebersetzen der App nicht an (translate="no" und meta notranslate, auch mit gesetzter Sprache)',
+        'translate=' + JSON.stringify(tr.translate) + ' · meta google=' + JSON.stringify(tr.meta) + ' · lang=' + JSON.stringify(tr.lang));
+
+  // v33.64: die Uebersetzungsleiste des Browsers. Wer die App auf Franzoesisch/Italienisch/
+  // Englisch/Spanisch stellt, hat `<html lang="fr">` — Chrome (und Edge, Safari) bieten dann bei
+  // jedem Neuladen an, die Seite zu uebersetzen, obwohl die App sich selbst uebersetzt. Fernando:
+  // „die eingestellte Sprache poppt bei jedem Neuladen auf"; einen Sprachdialog gibt es im Code
+  // nicht. `translate="no"` an <html> und `<meta name="google" content="notranslate">` sagen dem
+  // Browser, dass die Seite fertig ist. Gemessen wird am GELADENEN Dokument, mit der Sprache
+  // gesetzt (lang kippt, translate bleibt) — nicht am Quelltext.
 
   // v32.94: der Rueckfall ohne Intl — er darf nicht abstuerzen und muss
   // Deutsch liefern (wie `gsWochentage` seit jeher).
