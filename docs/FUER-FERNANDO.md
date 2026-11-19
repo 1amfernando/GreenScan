@@ -2015,7 +2015,7 @@ automatisch, der Admin schaltet bei gewonnenem Fall frei (so gebaut, W2) · eine
 `v_user_entitlements`, damit eine alte Probezeit-Zeile nicht für immer Pro bleibt (Frage 7f36,
 noch nicht gebaut) · Netlify-Rückkehr: Netlify abschalten statt aufnehmen (so gebaut, W4).
 
-## 31 · Pilz-Scanner: die KI kennt live nur 200 von 276 Pilzarten (v33.6x)
+## 31 · Pilz-Scanner: die KI kennt live nur 200 von 276 Pilzarten (v33.64)
 
 **Was live ist** (nur lesend nachgesehen am 19.11.2026): `mushroom-identify` v5 lädt den Code
 von v33.59 (Commit `57a7acf`, ausgeliefert am 16.11.). Er gibt dem Modell das Pilz-Register mit

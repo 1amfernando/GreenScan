@@ -90,7 +90,7 @@
     },
     "mushroom-identify": {
       "zustand": "ausliefern",
-      "grund": "v33.6x: ALLE Arten des Registers gehen ans Modell (pilzWissenAuswahl) — live v5 (Code von v33.59, ausgeliefert 16.11.2026, nachgesehen 19.11.2026) laedt .limit(200): 76 von 276 Arten fehlen, 19 davon giftig; ohne Register 503 VOR der Reservierung",
+      "grund": "v33.64: ALLE Arten des Registers gehen ans Modell (pilzWissenAuswahl) — live v5 (Code von v33.59, ausgeliefert 16.11.2026, nachgesehen 19.11.2026) laedt .limit(200): 76 von 276 Arten fehlen, 19 davon giftig; ohne Register 503 VOR der Reservierung",
       "live_version": "v5"
     },
     "pest-identify": {

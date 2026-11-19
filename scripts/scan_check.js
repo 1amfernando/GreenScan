@@ -4076,7 +4076,7 @@ const FAELLE = [
     },
   },
 
-  // ── v33.6x Pilz-Scanner (Brett 2026-11-11-2714): der Bildschirm mit dem höchsten Einsatz hatte keinen
+  // ── v33.64 Pilz-Scanner (Brett 2026-11-11-2714): der Bildschirm mit dem höchsten Einsatz hatte keinen
   // einzigen Fall. Gerendert wird die ECHTE gsMushroomRenderResult mit Antworten in der Form der Function
   // (mushroom-identify), gemessen am Text des Bildschirms — nicht am Objekt.
   {

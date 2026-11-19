@@ -1,4 +1,4 @@
-// Pilz-Scanner (mushroom-identify): welche Arten kennt das Modell? (v33.6x, Brett 2026-11-11-2714)
+// Pilz-Scanner (mushroom-identify): welche Arten kennt das Modell? (v33.64, Brett 2026-11-11-2714)
 //
 // Gemessen am 19.11.2026 (live, nur lesend): mushroom_register hat 276 Arten — 12 toedlich, 69 giftig,
 // 50 bedingt essbar, 19 nur jung essbar, 47 ungeniessbar, 79 Speisepilze. Die ausgelieferte Function

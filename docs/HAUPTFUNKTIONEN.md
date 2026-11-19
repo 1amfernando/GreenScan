@@ -15,7 +15,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 |---|---|
 | v33.61 | Filter „Essbar/Giftig/Ungiftig" fragen die Art · `_gsArtAnzeige` macht nichts essbarer · Menü-Einträge setzen den Filter · Trefferliste escaped · Notfall-Erkennung auf Spanisch · Scan-Chat mit Notfallnummer und Gegenprobe |
 | v33.61 (16.11.) | Suche 1–8, 10 · Lina 1, 2, 3, 5, 6 (Lina-Untersitzung), 4, 7, 8 · Scanner 1, 2, 3, 5, 7 (Scanner-Untersitzung) · Scanner 6, 8, 10 · Home 1, 1b, 2, 5, 6, 7 — Einzelheiten in STATUS (je) |
-| v33.6x (19.11.) | Scanner 11 — Pilz-Scanner: alle Register-Arten ans Modell (Server, braucht die Auslieferung), Schwelle wie am Server, rote Kopfzeile auch ohne Farbe, Kandidaten mit Namen und Warnung, Fehler als Satz, keine Antwort nach dem Abmelden |
+| v33.64 (19.11.) | Scanner 11 — Pilz-Scanner: alle Register-Arten ans Modell (Server, braucht die Auslieferung), Schwelle wie am Server, rote Kopfzeile auch ohne Farbe, Kandidaten mit Namen und Warnung, Fehler als Satz, keine Antwort nach dem Abmelden |
 
 ## Offen — Scanner
 
@@ -42,7 +42,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 10. ✅ v33.61 (bestätigt — und auch „Zu meinen Pflanzen" bekam nie ein Foto; `scan_check` SB1) —
     Verdacht: das Vorschaubild im Verlauf ist leer (`video.srcObject` ist nach `stopCamera`
     schon `null`).
-11. ✅ v33.6x (`edge_check` 80_pilz, `scan_check` PZ1–PZ4) — **Pilz-Scanner** (Brett 2714): das Modell
+11. ✅ v33.64 (`edge_check` 80_pilz, `scan_check` PZ1–PZ4) — **Pilz-Scanner** (Brett 2714): das Modell
     kannte live nur 200 der 276 Register-Arten (19 giftige fehlten — Satansröhrling, Tiger-Ritterling,
     Grünling, Käppchenmorchel …); die App sagte bei 60–69 % „✅ Speisepilz", der Server verlangte die
     Kontrolle; ein tödlicher Pilz ohne `safety_color` bekam die Kopfzeile „⚠️ Vorsicht"; Kandidaten
