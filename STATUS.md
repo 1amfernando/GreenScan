@@ -4,13 +4,78 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-19 · **Branch**: `main` · **Version**: `v33.66` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
+**Stand**: 2026-11-19 · **Branch**: `main` · **Version**: `v33.67` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-11-19 (jo) - v33.67: Scanner 4 — einen laufenden Scan abbrechen; ein neuer ersetzt den alten; keine erfundenen Meldungen über der Kamera
+
+**Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"; Arbeitsliste
+`docs/HAUPTFUNKTIONEN.md`, Scanner 4). Gebaut auf main v33.64 (`eaf9ee1`), zusammengeführt mit v33.65 (`cc8bb60`, #334). Die Nummer v33.67 hat die Head-Sitzung am Kopf der Merge-Reihe vergeben —
+die Nummer vergibt die Head-Sitzung am Kopf der Merge-Reihe (laut Koordinator als nächste frei: v33.67).
+
+**Gemessen** (lokal, `analyzeImage` mit gestellter, langsamer KI, Stand v33.64):
+
+- **Kein Weg hinaus.** Solange die KI rechnet (60 s Zeitlimit, eine Wiederholung, bis zu vier Modelle), waren
+  auf der Wartefläche nur Glocke und Hauptmenü antippbar. Der Zurück-Knopf (`gsZurueck` → `tab`) führte zur
+  Startseite, der Scan lief weiter: seine Antwort wurde in den verborgenen Scanner gezeichnet und in Verlauf
+  und Cloud gespeichert.
+- **Zwei Scans in einer Wartefläche.** Ein zweiter Scan über einen laufenden: beide Sekundenzähler schrieben in
+  dieselbe Zeile (aufgezeichnet: „0 s · 5 s · 1 s · 6 s · 2 s"), die spätere Antwort des ersten legte sich über
+  das Ergebnis des zweiten („Antwort nach 7 s" über „Antwort nach 2 s"), und beide kamen in den Verlauf.
+- **Erfundene Meldungen über der Kamera.** Der Auslöser startete `gsStartScanStatus`: fünf Meldungen
+  („🔍 Analysiere Struktur…" bis „🍃 Fast fertig…"), alle 0,9 s die nächste, gestoppt nur von einem
+  erfolgreichen Ergebnis. Während des Scans lagen sie unter der Wartefläche; nach einem Fehler und „zurück zur
+  Kamera" wechselten sie endlos über dem Sucher (sechs Wechsel in 5,4 s, während nichts geschah) — dieselben
+  erfundenen Schritte, die v31.79 aus der Wartefläche genommen hat.
+
+**Behoben:**
+
+- **„Abbrechen"** auf der Wartefläche (`gsScanAbbrechen`, `.gs-scan-abbruch`: 44 px, unten klebend — auf
+  320×568 stand er sonst unter dem Bildrand; Text aus `btn_cancel_generic`): zurück zur Kamera
+  (`gsResetScanner`), Zähler, Animation und Scan-Linie stehen; der Satz danach sagt, ob das Foto schon zur KI
+  unterwegs war („dieser Versuch kann für heute zählen") oder nichts geschickt wurde. Abgebrochen wird die
+  FOLGE, nicht der Aufruf — `callVisionAI` kennt kein Abbruchsignal (Brett-Idee 8186; `callAI` /
+  `callVisionAI` bleiben unangetastet, Absprache mit der Sitzung „KI-Modelle").
+- **Eine Nummer je Scan** (`_gsScanNr`; `_gilt()` nach jedem `await` in `analyzeImage` — Schlüssel nachladen,
+  Bildqualität, Farben, KI-Antwort, Fehler): eine Antwort zählt nur, solange ihr Scan der laufende ist und
+  dieselbe Person angemeldet ist (§3.6). Ein neuer Scan löst den laufenden ab (`_gsScanLaufLoesen`: dessen
+  Zähler und Animation stehen). Abgebrochen vor der KI: sie wird nicht gefragt, die Kamera bleibt an.
+- **`gsStartScanStatus` und die fünf Meldungen sind weg**; den Statusbalken setzt `analyzeImage` selbst.
+- **Bewusst nicht geändert:** der Zurück-Knopf während eines Scans — wer weggeht, findet das Ergebnis beim
+  Zurückkommen; wer abbrechen will, tippt „Abbrechen".
+- **Doku:** CLAUDE.md §3.6 und `docs/memory/02-regeln.md` 5b (eine Antwort gehört auch dem VORGANG, für den
+  gefragt wurde); `docs/HAUPTFUNKTIONEN.md` — Scanner 4 ✅, ein Stand, was in den vier Funktionen noch offen
+  ist, und bei der Suche die Haken an 2, 3, 4, 6, 7 und 9 (der Kopf nannte sie seit v33.61 als geliefert, die
+  Punkte selbst trugen keinen).
+
+**Prüfstände:** `scan_check` AB1–AB4 — Knopf frei und ≥ 44 px, späte Antwort weder gezeichnet noch gespeichert,
+später Fehler ohne Karte, abgebrochen vor der KI ohne Anfrage und mit laufender Kamera, ein Zähler je
+Wartefläche in beiden Reihenfolgen der Antworten, über den echten Auslöser keine erfundene Meldung. Gegen main
+alle vier rot, mit genau den gemessenen Zahlen. Gegenproben je Schutzzeile, jede am richtigen Fall rot: ohne
+Prüfung nach der Farbmessung AB2 („die KI wurde nach dem Abbrechen noch gefragt · die Kamera wurde
+ausgeschaltet" — und AB3, weil der Zähler des abgebrochenen Scans im nächsten weiterschreibt); ohne Prüfung im
+`catch` AB1 („ein Fehler NACH dem Abbrechen legt die Fehlerkarte über die Kamera"); ohne Prüfung nach der
+KI-Antwort AB1, AB3, AB4; ohne Ablösen des laufenden Scans AB3 („0 · 2 · 1 · 3 · 2 s"); ohne das Abschalten der
+Scan-Linie AB4. **Der erste Bau von AB2 hing** gegen die kaputte Fassung, statt rot zu melden: er wartete auf
+einen Scan, der nie endet. Jedes Warten auf einen Scan hat jetzt eine Frist (`fertig`, 3 s) — ein Fall muss auch
+dann melden, wenn die Funktion dahinter hängt.
+
+**Und `scan_check` als Ganzes war nicht sauber** — gefunden, weil AB1 einzeln grün und in der vollen Suite rot war
+(alle Fälle laufen in EINER Seite): (1) vier ältere Fälle (`Ablauf · jedes Foto gemessen`, `Dritter Blick`, H5,
+H7) ersetzten acht Funktionen — darunter `gsResetScanner` durch `() => {}` — und gaben sie nie zurück; für jeden
+späteren Fall war das Zurücksetzen des Scanners tot. Jetzt merkt sich jeder, was er ersetzt, und gibt es im
+`finally` zurück (H7 hatte keins). (2) SB1 löst „Zu meinen Pflanzen" aus, das 350 ms später per `setTimeout` auf
+„Meine Pflanzen" wechselt — der Wechsel landete mitten im nächsten Fall, dessen Scanner dann ausgeblendet war
+(Knopf 0 px). SB1 wartet seinen Zeitgeber jetzt ab, bevor es `switchTab` zurückgibt. **Ein Fall, der eine Funktion
+ersetzt, gibt sie zurück; ein Fall, der einen Zeitgeber auslöst, wartet ihn ab.** Danach `scan_check` 131/0.
+
+**Offen:** brett:2026-11-16-8186 — ein echtes Abbruchsignal in `callAI` / `callVisionAI` (Sitzung „KI-Modelle"); dann spart „Abbrechen" auch das Kontingent, der Knopf bleibt derselbe. Versionsnummer `v33.67` am Kopf der Reihe.
+**Nicht geprüft:** ein echtes Telefon; ob eine abgebrochene Anfrage beim Anbieter tatsächlich zählt (von hier antwortet kein KI-Dienst — der Satz sagt deshalb „kann zählen"); der Pilz-Scanner (eigener Weg, `gsMushroomRunScan`) hat weiter kein Abbrechen
 
 ### 2026-11-19 (jn) - v33.66: Neu eingetragene Pflanzen gehen nicht mehr verloren und stehen sofort überall da (Auftrag P-F)
 
@@ -16653,7 +16718,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.66` (Client) · SW-Cache `gs-v33.66` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.67` (Client) · SW-Cache `gs-v33.67` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
 - **Frontend:** `index.html` **98'409 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
