@@ -1,0 +1,27 @@
+{
+  "id": "2026-11-16-8234",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "09:23:37",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Rollenwahl nach Länge (Branch blissful-mayer): der Chat zum Scan fiel mit 600 Token auf „schnell“ — er beantwortet Essbarkeitsfragen zu gescannten Arten; er setzt jetzt rolle:'vision' selbst",
+  "beleg": [
+    "Gelesen auf origin/claude/blissful-mayer-6fosgo (2db1098, noch nicht gemergt): _gsWaehleRolle(opts, hatBild, maxTokens) gibt ohne ausdrückliche Rolle für maxTokens ≤ 600 „schnell“ (Haiku-Kette) zurück; der eigene Kommentar dort: „Sicherheitsrelevantes setzt die Stelle selbst“.",
+    "sendScanChat ruft callAI(_chatMsgs, systemPrompt, 600, …) — dieselbe Stelle, an der jemand mit dem Pilz in der Hand „kann ich den essen?“ fragt (SC1: Notfallnummer und Warnzeile hängen daran). Lina ruft mit 900 Token und bliebe auf „vision“; andere callAI-Aufrufer mit ≤ 600 Token sind von hier nicht durchgesehen.",
+    "Seit dem Commit mit diesem Eintrag übergibt der Scan-Chat opts.rolle = 'vision' (heute ohne Wirkung — callAI auf main liest das Feld nicht); scan_check SC2 prüft, dass die Rolle mitgeht (Gegenprobe ohne das Feld: rot)."
+  ],
+  "vorschlag": "Beim Mergen von blissful-mayer die übrigen callAI-Aufrufer mit ≤ 600 Token einmal auf Sicherheitsbezug durchgehen (grep \"callAI(\" mit der Token-Zahl) — die Liste der Stellen, die selbst „vision“ setzen, ist die Prüfung. Ob der Scan-Chat das teurere Modell rechtfertigt, ist eine Kostenfrage für Fernando; die Sitzung Hauptfunktionen hält es für richtig, weil die Antwort eine Essbarkeitsfrage betreffen kann.",
+  "stichworte": [
+    "ki-modell",
+    "scan-chat",
+    "sicherheit",
+    "rolle"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "logLabel: 'scan_chat', rolle: 'vision'"
+    }
+  ]
+}

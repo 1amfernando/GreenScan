@@ -1,0 +1,30 @@
+{
+  "id": "2026-11-11-6c58",
+  "art": "abschluss",
+  "datum": "2026-11-11",
+  "zeit": "10:26:51",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "erledigt: contrast_check, render_check und field_check enden immer mit Exit 0 — ein Fund dort färbt weder pruefstaende.sh noch die CI rot",
+  "ergebnis": "erledigt",
+  "wohin": "v33.59",
+  "geschwister": "gesucht: je Pruefstand in scripts/ die Nennungen von process.exit / process.exitCode / sys.exit gezaehlt (44 Dateien) → nur perf_check.js hat keine, und der ist laut CLAUDE.md §7.1 bewusst ein Bericht. contrast_check (unter AA, nicht aufgegangene Fenster), render_check (JS-Fehler, verdaechtige Textstellen, abgeschnittener Text, unter 1500 Elemente) und field_check.py (Feld ohne Leser und ohne Grund in BEWUSST) enden jetzt mit 1. Gegenproben: contrast_check gegen v33.56 → 22 Stellen unter AA, Exit 1; field_check mit einem toten Feld → Exit 1",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-ec73"
+    }
+  ],
+  "zaehle": [
+    {
+      "datei": "scripts/contrast_check.js",
+      "text": "process.exit",
+      "n": 1
+    },
+    {
+      "datei": "scripts/render_check.js",
+      "text": "process.exit",
+      "n": 1
+    }
+  ]
+}

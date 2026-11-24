@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-16-0a7f",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "07:23:24",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "data/plants.v1.js hat eine feste Adresse (?v=1) und gilt ein Jahr als unveränderlich — kein Wächter merkt, wenn sich der Inhalt ohne neue Nummer ändert",
+  "vorschlag": "Ein Fall in robust_check, der die SHA-256 von data/plants.v1.js zusammen mit N aus ?v=N festhält: rot, wenn sich die Summe bei gleichem N ändert oder die drei Stellen nicht dasselbe N tragen.",
+  "beleg": [
+    "_headers: /data/* max-age=31536000, immutable; die Artenliste steht an drei Stellen mit ?v=1 (index.html <script src>, der Nachlade-Weg mit &r=, sw.js SHELL_URLS). Ändert sich die Datei ohne neue Nummer, behält ein Gerät die alte bis zu ein Jahr. Für data/releases.v1.js ist das seit v33.59 behoben (Adresse trägt GS_VERSION); für die Artenliste nicht. Rest von Audit sw-1, docs/AUDIT-2026-11-11.md"
+  ],
+  "stichworte": [
+    "plants.v1.js",
+    "_headers",
+    "immutable",
+    "SHELL_URLS"
+  ],
+  "anker": [
+    {
+      "datei": "sw.js",
+      "text": "  '/data/plants.v1.js?v=1',"
+    }
+  ]
+}

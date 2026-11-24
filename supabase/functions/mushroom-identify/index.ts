@@ -30,6 +30,9 @@ import { anthropicFetch, modellKette, modellSecret } from "../_shared/modelle.mj
 // Bildtyp aus einer Liste; nach aussen feste Saetze statt Anbieter-Rohtext.
 // Die Reservierung gilt fuer den ganzen anthropicFetch — ein Modell-Rueckfall bucht nichts dazu.
 import { kiEingabeOk, kiFehlerCode, kiFreigabeNoetig, kiFreigeben, kiSlugAusListe, kiToken, kiTor } from "../_shared/ki_tor.mjs";
+// v33.64: welche Arten das Modell kennt, entscheidet EINE Regel — alle, und giftige nie weglassen
+// (vorher .limit(200): 19 giftige Arten fehlten im Prompt, gemessen 19.11.2026).
+import { PILZ_SICHER_AB, PILZ_ZEILEN_HOLEN, pilzAlternativen, pilzWissenAuswahl } from "../_shared/pilz_wissen.mjs";
 
 const KI_FN = "mushroom-identify";
 
@@ -104,21 +107,36 @@ Deno.serve(async (req) => {
   const apiKey = await getAnthropicKey(admin);
   if (!apiKey) return json(503, { error: "Anthropic API-Key nicht konfiguriert" });
 
+  // v33.64: das Register VOR der Reservierung — ohne Register kein Aufruf: ein Modell ohne
+  // Wissensbasis kann keinen Slug nennen, und „unsicher" aus einer leeren Liste wäre eine Antwort
+  // ohne Grundlage. Weil noch nichts reserviert ist, geht dabei auch kein Kontingent verloren.
+  const { data: mushrooms, error: registerFehler } = await admin.from("mushroom_register")
+    .select("slug,common_name_de,scientific_name,family,edibility,vapko_klasse,habitat,cap_color,cap_surface,gills_or_pores,gill_color,spore_color,stem_color,smell,identifying_features,season_months")
+    .order("slug")   // v33.59: ohne Reihenfolge entschied die Speicherreihenfolge, welche Arten das Modell kennt
+    .limit(PILZ_ZEILEN_HOLEN);
+  if (registerFehler || !Array.isArray(mushrooms) || !mushrooms.length) {
+    console.error(KI_FN + " mushroom_register", registerFehler || "leer");
+    return fehler("intern", 503);
+  }
+
   const tor = await kiTor({ fn: KI_FN, userClient: sbUser, admin, userId });
   if (!tor.erlaubt) return fehler(tor.code, tor.status, tor.plan);
 
-  const { data: mushrooms } = await admin.from("mushroom_register")
-    .select("slug,common_name_de,scientific_name,family,edibility,vapko_klasse,habitat,cap_color,cap_surface,gills_or_pores,gill_color,spore_color,stem_color,smell,identifying_features,season_months")
-    .order("slug")   // v33.59: ohne Reihenfolge entschied die Speicherreihenfolge, welche Arten das Modell kennt
-    .limit(200);
-  const knownMushrooms = mushrooms || [];
+  const wahl = pilzWissenAuswahl(mushrooms);
+  if (wahl.weggelassen.length || wahl.abgeschnitten) {
+    console.error(KI_FN + " Wissensbasis gekuerzt", JSON.stringify({
+      arten: mushrooms.length, im_prompt: wahl.liste.length, weggelassen: wahl.weggelassen.length,
+      gefaehrlich_weggelassen: wahl.gefaehrlich_weggelassen, abgeschnitten: wahl.abgeschnitten,
+    }));
+  }
+  const knownMushrooms = wahl.liste;
 
   const knowledge = knownMushrooms.map((m: any) =>
     `- ${m.slug} | ${m.common_name_de} (${m.scientific_name}, ${m.family}) | EDIBILITY=${m.edibility} | VAPKO=${m.vapko_klasse || "?"} | Hut: ${(m.cap_color || []).join("/")} ${m.cap_surface || ""} | Lamellen/Poren: ${m.gills_or_pores || "?"}/${m.gill_color || ""} | Sporen: ${m.spore_color || "?"} | Stiel: ${m.stem_color || "?"} | Geruch: ${m.smell || "?"} | Merkmale: ${m.identifying_features || "?"} | Habitat: ${(m.habitat || []).join(", ")}`
   ).join("\n");
 
   const systemPrompt =
-    `Du bist ein Schweizer Pilz-Experte nach VAPKO-Standard. Analysiere das Foto und vergleiche mit dieser Knowledge-Base (${knownMushrooms.length} Schweizer Pilze, darunter TOEDLICHE):\n\n${knowledge}\n\nWICHTIGE REGELN:\n- SICHERHEIT VOR PRAEZISION. Im Zweifel matched_slug=null und vapko_required=true.\n- Bei toedlich-aussehenden Verwechslungen (Knollenblaetter, Pantherpilz, Spitzgebuckelter Raukopf) immer hoechste Vorsicht.\n- Wenn confidence < 70: vapko_required=true.\n- Wenn edibility=toedlich oder giftig: safety_advice IMMER mit Notfall-Hinweis 145.\n\nAntworte AUSSCHLIESSLICH valides JSON-Objekt in diesem Format:\n{\"matched_slug\": \"<slug aus Liste oder null>\",\n \"confidence\": <0-100>,\n \"reasoning\": \"<2-3 Saetze identifizierende Merkmale>\",\n \"alternative_slugs\": [\"<slug>\"],\n \"vapko_required\": true|false,\n \"observed_features\": \"<was du siehst>\"\n}\n\nKEIN Markdown, KEIN Pre-/Post-Text, NUR das JSON.`;
+    `Du bist ein Schweizer Pilz-Experte nach VAPKO-Standard. Analysiere das Foto und vergleiche mit dieser Knowledge-Base (${knownMushrooms.length} Schweizer Pilze, darunter TOEDLICHE):\n\n${knowledge}\n\nWICHTIGE REGELN:\n- SICHERHEIT VOR PRAEZISION. Im Zweifel matched_slug=null und vapko_required=true.\n- Bei toedlich-aussehenden Verwechslungen (Knollenblaetter, Pantherpilz, Spitzgebuckelter Raukopf) immer hoechste Vorsicht.\n- Wenn confidence < ${PILZ_SICHER_AB}: vapko_required=true.\n- Wenn edibility=toedlich oder giftig: safety_advice IMMER mit Notfall-Hinweis 145.\n\nAntworte AUSSCHLIESSLICH valides JSON-Objekt in diesem Format:\n{\"matched_slug\": \"<slug aus Liste oder null>\",\n \"confidence\": <0-100>,\n \"reasoning\": \"<2-3 Saetze identifizierende Merkmale>\",\n \"alternative_slugs\": [\"<slug>\"],\n \"vapko_required\": true|false,\n \"observed_features\": \"<was du siehst>\"\n}\n\nKEIN Markdown, KEIN Pre-/Post-Text, NUR das JSON.`;
 
   let aiJson: any;
   try {
@@ -189,7 +207,9 @@ Deno.serve(async (req) => {
   }
 
   const conf = typeof parsed.confidence === "number" ? parsed.confidence : 0;
-  let vapkoRequired = parsed.vapko_required === true || conf < 70;
+  const altArten = pilzAlternativen(parsed.alternative_slugs, knownMushrooms);
+  // v33.64: dieselbe Zahl wie die App (GS_PILZ_SICHER_AB) — darunter zeigt sie „unsicher".
+  let vapkoRequired = parsed.vapko_required === true || conf < PILZ_SICHER_AB;
   if (fullMushroom && (fullMushroom.edibility === "toedlich" || fullMushroom.edibility === "giftig")) {
     vapkoRequired = true;
   }
@@ -212,7 +232,11 @@ Deno.serve(async (req) => {
     confidence: conf,
     reasoning: parsed.reasoning || "",
     observed_features: parsed.observed_features || "",
-    alternatives: Array.isArray(parsed.alternative_slugs) ? parsed.alternative_slugs.map((x: unknown) => kiSlugAusListe(x as string, knownMushrooms)).filter(Boolean).slice(0, 3) : [],
+    // v33.64: die Kandidaten auch mit Namen und Essbarkeit aus der Liste, die das Modell sah — sonst
+    // stand in der App „Möglicher Kandidat: amanita_phalloides", ohne Warnung. `alternatives` bleibt
+    // (Slugs) fuer aeltere App-Fassungen.
+    alternatives: altArten.map((a) => a.slug),
+    alternative_arten: altArten,
     mushroom: fullMushroom,
     edibility: fullMushroom?.edibility || null,
     safety_color: safetyRow?.safety_color || null,

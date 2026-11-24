@@ -27,6 +27,13 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   Die eine Funktion gab es seit v31.79 — mit sechs Aufrufern, keiner davon
   eine Anzeige. Regel: `_gsScanKonfidenz(h)`, und die ERZEUGER umstellen
   (fuenf Stellen, eine Reparatur), nicht die Anzeigen einzeln flicken.
+- **v33.60** Abgehakt wird auf drei Wegen. Der Knopf AUF der Pflanzenkarte
+  rief eine eigene Fassung (`doneTask`): `lastDone` ja, Verlaufseintrag nein
+  (mit dem echten Knopf gemessen: Tagebuch 5 → 5, Woche „erledigt" 3 → 3).
+  Und „Alle erledigt ✓" setzt einen anderen Merker (`done_all_due`) als das
+  Einzel-Abhaken (`quick_done`) — der Leser kannte nur einen, die Woche
+  zaehlte solche Eintraege als Notizen. Regel: abhaken heisst `gsQuickDone`,
+  „wurde abgehakt" fragt `_gsTbAbgehakt(e)`, den Titel liest `_gsTbTitel(e)`.
 
 ## B · Eine Ansicht, die nie etwas zeigen konnte
 
@@ -41,6 +48,17 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v32.38** `gsGetLocationFor('weather')` funktionierte seit v28.03 — es rief
   nur niemand. Der Schalter setzte einen Haken und zeigte einen Toast. Regel:
   eine Wahl, die bestaetigt und nicht umgesetzt wird, ist schlimmer als keine.
+- **v33.60** Der Knopf „›" an JEDER Scan-Zeile des Kalenders nannte eine
+  Funktion, die es nie gab; `gsKalHin` prueft `typeof` und tat dann nichts.
+  Der Fall dazu fragte, ob der Verweis GESETZT ist — eine Zeichenkette ist
+  immer gesetzt. Regel: ein Funktionsname in einem Feld (`fn`, `zu`, `tap`,
+  `hol`, `html`) wird gesucht (`wiring_check` Richtung 6), und der Knopf wird
+  im Fall ANGETIPPT (`kalender_check` N5).
+- **v33.60** Die Menue-Suche fand zu „Notfall", „145", „Tox Info" nichts;
+  „gegessen" fuehrte zu den Rezepten. Regel: `gsNotfallOeffnen` ist der eine
+  Ort der Nummern (`GS_NOTFALL_NUMMERN`, mit Quelle und Pruefdatum), der
+  Eintrag hat seine eigene Trefferregel (`_gsMenuNotfallTrifft`) — und kein
+  Satz Erste Hilfe ohne Quelle.
 
 ## C · Beispieldaten, die gruen luegen
 
@@ -143,6 +161,66 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v33.55** Zwei Gegenproben liessen den Pruefstand ABSTUERZEN (`null.click`,
   `caches` auf einer Fehlerseite) statt rot zu melden. Regel: jede Frage meldet
   auch dann, wenn die Funktion dahinter kaputt ist.
+- **v33.60** `contrast_check` und `render_check` endeten IMMER mit 0. Im
+  CI-Lauf von v33.59 stand „DUNKELMODUS — 1 Textstellen unter AA · 1.51:1"
+  und darunter „EXIT=0" — gruen, in jedem Lauf. Regel: **ein Pruefstand, der
+  nicht rot werden kann, ist ein Bericht** — und einen Bericht liest niemand.
+  Wer „muss 0 sein" schreibt, haengt den Exit-Code daran.
+- **v33.60** `contrast_check` mass je Tab EINEN Bildschirm (`scrollTo(0,0)`),
+  NEUN von elf Tabs und nur Fenster, deren Oeffner `openModal(` selbst ruft.
+  Im Handbuch stand „jede Textstelle". Darunter lagen: der Tagesquiz-Knopf
+  der Startseite mit 2,19:1 im Dunkelmodus, die Karte („Bitte kurz warten"
+  2,61:1), 14 Stellen in fuenf Fenstern hinter dem Helfer `_gsNlOpen`. Regel:
+  **ein Pruefstand nennt, WIE VIEL er vermessen hat** (Zeile je Tab und je
+  Fenster) — und wer „alle" schreibt, zaehlt nach. Was er weiter nicht sieht,
+  steht in STATUS §2 (waagrecht verschobene Karten, Rezepte ueber dem Deckel).
+- **v33.60** Ein Fenster, das nicht aufging, meldete „29 Textstellen
+  vermessen" — vermessen war die Seite dahinter. Und der erste Anlauf der
+  Reparatur (`if (!hoch)`) hielt 21 OFFENE Fenster fuer geschlossen: ein
+  Fenster, das nicht rollt, hat die Hoehe 0. Regel: „offen" ist eine eigene
+  Antwort des Oeffners (−1), nie aus einer Groesse abgeleitet.
+- **v33.60** `_gsNotfallStufe` sagt Nein mit dem WORT `'keiner'`. `!!…` darauf
+  ist immer wahr — der Notfall-Eintrag stand bei „tomate" und „pilz" oben.
+  Gefunden hat es die Gegenrichtung im Fall. Regel: bei einer Funktion mit
+  mehreren Zustaenden vergleicht man den Zustand, nicht die Wahrheit (dieselbe
+  Klasse wie `fn_achievements_showcase_set`, das mit `false` ablehnt).
+- **v33.60** Die Gegenprobe „eigene Trefferregel ausgebaut" blieb GRUEN: die
+  gewoehnliche Punktzahl stellte den Notfall bei allen 17 Einzelwoertern
+  zufaellig auch nach vorn. Erst drei ganze Saetze und vier schwache
+  Teiltreffer („giftig", „a") trennten die zwei Regeln (v33.28: zwei Regeln,
+  die bei den gewaehlten Daten dasselbe liefern, prueft keine).
+- **v33.60** „Jeder Eintrag bekommt seine eigene Zeit — eine Millisekunde
+  SPAETER": der Kalender liest alles nach jetzt als Erinnerung, die Woche
+  zaehlte die eben abgehakten Aufgaben als kommende. Gefunden nur, weil
+  `kalender_check` die Uhr stellt. Regel: eine eigene Zeit liegt in der
+  Vergangenheit, und wer Zeiten vergibt, laesst den Fall unter gestellter Uhr
+  laufen.
+- **v33.72** `_gsSichtbar` stand zweimal als Funktion in derselben Datei — die
+  spaetere gewinnt still, fuer ALLE Aufrufer. Regel: kein Lauf zeigt das, ein
+  Parser in einer Sekunde (`statik_check` S1).
+- **v33.72** `if (typeof markDirty === 'function') markDirty('state')` — die
+  Funktion heisst `gsCloudSync.markDirty`. Ein `typeof`-Schutz vor einem Namen,
+  den es nicht gibt, ist ein toter Zweig, der wie Sorgfalt aussieht
+  (`statik_check` S3). Vier weitere lagen so da.
+- **v33.72** Ein Fall rief `gsAddScanToMyPlants`, das zuerst „Wohnung oder
+  Garten?" fragt und auf einen Tipp WARTET — zehn Minuten Stille. Regel: wer
+  einen Weg faehrt, der eine Rueckfrage stellt, stellt die Antwort.
+- **v33.72** Der Deckel in `datum_check` stand zuerst auf 27 (geschaetzt);
+  gezaehlt waren es 32. Regel: „gemessen" steht nur vor einer Zahl, hinter der
+  eine Rechnung steht (wie v33.52).
+- **v33.72** Sieben `calc()`-Ausdruecke ohne Leerraum um das Plus: ungueltig,
+  ohne Meldung. Gefunden hat es ein Agent mit einem Skript ueber die
+  Stylesheets; gemessen wurde die Wirkung erst danach im Browser
+  (`getComputedStyle`) — die Kopfleiste war seit jeher 17 px zu niedrig.
+- **v33.72** Der Titel eines Wochen-Fakts kommt in mehreren Wochen vor; ein
+  Fall, der die Woche am ERSTEN Treffer des Titels ablas, meldete KW 49 statt
+  52. Gefragt wird die Zugehoerigkeit, nicht der erste Treffer.
+- **v33.72** Ein Brett-Abschluss nannte „13 Verzeichnisse" — geschaetzt; der
+  Fall daneben mass 12. Der Eintrag war noch nicht veroeffentlicht und wurde
+  neu geschrieben. Eine Zahl kommt aus der Messung, nie aus dem Kopf.
+- **v33.72** Acht lose Agenten rissen zweimal am Nutzungslimit, bevor einer
+  berichtet hatte. Regel: ein Workflow mit Zwischenspeicher je Agent, und jeder
+  Auditor schreibt seine Funde ZUERST in eine Datei.
 
 ## F · Die richtige Ursache, die falsche Abhilfe
 
@@ -211,6 +289,15 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   beantwortete. Regel: Attrappen tragen den Live-Stand und scheitern wie das
   Original; ein Blick auf den ZUSAMMENGEFUEHRTEN Diff findet, was keine Gruppe
   allein sah.
+- **v33.63** `stripe-checkout` schickte seit v8 `automatic_payment_methods` an
+  Checkout — den Parameter gibt es dort nicht, Stripe lehnt ihn mit 400 ab
+  (gefolgert, nicht gegen Stripe gemessen). `edge_check` war gruen, weil die
+  Stripe-Attrappe JEDEN Parameter annahm. Regel: eine Attrappe lehnt ab, was
+  das Original ablehnt (`_zahlung_stripe.mjs`: `parameter_unknown`), und ihre
+  Liste ist eine eigene Abschrift, nie die Liste des Prueflings. Und: zwei
+  Module fuer dieselbe Frage (#329 `stripe_regeln.mjs` neben `zahlung_regeln.mjs`)
+  sind zwei Wahrheiten — vereint wird in das EINE, die Widersprueche einzeln
+  entschieden (W1–W11).
 - **v33.59** Das KI-Tor setzte zahlenden Kunden Tageslimits unter den
   bisherigen Stand, waehrend die App „unbegrenzt" verspricht. Regel: ein
   Kontingent wird gegen das gemessen, was der Kunde bekam und zugesagt
@@ -289,3 +376,42 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   keinen Ausweg nahelegen, den es nicht gibt („Wunsch kuerzer fassen“, „in
   einem Schritt“) — und die App kuerzt jeden Satz ueber 120 Zeichen
   (`_gsFehlerText`). Der Fall misst den Satz so, wie die App ihn ZEIGT.
+- **v33.60** Das Pflanzentagebuch setzte den Titel eines Eintrags roh ins
+  `innerHTML` und die Foto-Adresse roh ins `src` — beides kommt aus dem
+  gesyncten Blob oder einem eingespielten Backup. Regel: eigene Daten, die
+  gereist sind, sind Fremdtext (`escHtml`, `_gsSafeUrl`, `gsFotoAnsicht`).
+- **v33.60** Im Menue stand unter „Premium freischalten" „TWINT · Karte ·
+  IBAN". Welche Zahlungsarten erscheinen, entscheidet das Stripe-Dashboard.
+  Regel: die App nennt nichts, was nur ein fremdes System weiss.
+- **v33.60** Ein Zweig holte `main` nur am Anfang; zwoelf Stunden spaeter hatte
+  ein anderer denselben Zahlungsweg unabhaengig neu geschrieben (neun Dateien
+  mit Konflikt). Regel: `git fetch` und `node scripts/austausch.mjs holen` vor
+  JEDER Scheibe, frueh pushen — und zwei Fassungen fuehrt EINE Sitzung zusammen,
+  bis beide Pruefstaende gruen sind.
+- **v33.60** Der neue Notfall-Eintrag der Menue-Suche kannte vier Sprachen —
+  das Brett fuehrte seit dem Morgen den Befund „Spanisch ist die fuenfte".
+  Regel: vor dem Bauen auf dem Brett nach der Klasse suchen, zu der das Neue
+  gehoert.
+- **19.11.2026 (Tor, Brett 89ee)** Ein Tor, das aus einem Erfolg einen Fehler macht,
+  schiebt jeden Aufrufer in seinen `catch` — dort zeigte B danach Fehlerkarten zur
+  Anfrage von A, und wer im Fehlerfall EINREIHTE, reihte die Arbeit von A für B ein.
+  Regel: `catch` fragt zuerst `_gsPersonGewechselt(e)`; wer einreiht, fragt vorher.
+- **19.11.2026 (Tor)** Das Tor sieht nur Antworten, nicht Anfragen, die erst NACH dem
+  Wechsel losgehen: eine Schleife, die die uid je Runde neu liest, lud die Funde von A
+  mit genauen Koordinaten unter dem Konto von B hoch. Regel: uid EINMAL merken, vor
+  jeder Runde fragen.
+- **19.11.2026 (Abmelden)** Ein Satz beim Abmelden als Toast war nie sichtbar: der
+  Anmeldebildschirm liegt darüber. Regel: was beim Abmelden gesagt werden muss, steht
+  im Meldefeld des Anmeldebildschirms (`_gsAbmeldenSagen`).
+- **19.11.2026 (Prüfstand)** Ein Fall, dessen Grün davon abhing, dass NICHTS geschah
+  (der Deckel-Teil in 98_schluss_b: „0 ≤ 20“, weil gar nicht geparkt wurde), bleibt
+  grün, wenn die Regel umgestellt wird. Wer eine Regel ändert, sucht diese Fälle.
+- **24.11.2026 (Abgleich)** Wer eine Liste von „lokal gewinnt ganz“ auf „je Eintrag
+  zusammenführen“ umstellt, holt ohne Löschmarke alles zurück, was offline gelöscht
+  wurde — die Reparatur gegen Datenverlust wurde zur Wiederauferstehung (`sync_check`
+  H10). Regel: jede Zusammenführung je Eintrag braucht eine Antwort auf „wie überlebt
+  ein Löschen?“ (`_gsLoeschmarke`, `GS_GELOESCHT_LISTEN`).
+- **24.11.2026 (Abgleich)** Eine Sperre „erst lesen, dann schreiben“ hilft nichts,
+  wenn beim Lesen nichts zusammengeführt wird: der Verlust wandert nur hinter das
+  Lesen (`sync_check` H11). Und ein Ersatzwert ist kein Messwert: xp 0 aus dem
+  ungelesenen Profil galt als Cloud-Stand, die lokale XP wurde doppelt gebucht (H12).

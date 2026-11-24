@@ -15,7 +15,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v33.59';
+const VERSION = 'gs-v33.72';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -379,7 +379,9 @@ async function networkFirst(req, cacheName) {
     // Final fallback für HTML-Navigation: index.html → offline.html
     if (isHTMLNav(req)) {
       const shell = await caches.open(SHELL_CACHE);
-      const fallback = await shell.match('/index.html') || await shell.match('/');
+      // v33.72: `/` zuerst. Cloudflare Pages leitet `/index.html` auf `/` um; eine
+      // umgeleitete Antwort darf eine Navigation nicht beantworten (Netzwerkfehler).
+      const fallback = await shell.match('/') || await shell.match('/index.html');
       if (fallback) return fallback;
       // Last-Resort: dedicated offline.html mit nice UI
       const offlinePage = await shell.match('/offline.html');

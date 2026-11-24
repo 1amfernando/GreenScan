@@ -37,6 +37,42 @@ Tagebuch in `CLAUDE.md`.
    `state`-Blob auf HIN- und RUECKWEG (`_gsBuildStateBlob` + `stateMap`) und
    `markDirty('state')` am Schreiber. *(storage_check, sync_check)*
 
+5a. **Zwei Geräte, ein Konto: Pflanzen und Gärten werden je EINTRAG
+   zusammengeführt, nie als ganze Liste ersetzt** (v33.66).
+   `_gsMergeEintraege` (Stempel `geaendert`, Löschmarken `gs_geloescht`),
+   gestempelt in `savePlantsToStorage` / `saveGardenData`, eingespielt über
+   `_gsListeEinspielen`. Und: speichern heisst erst schreiben, dann melden —
+   `=== false` nimmt den Eintrag zurück und sagt einen Satz.
+   *(sync_check „Zwei Geräte", speicher_check, save_check)*
+
+5a′. **Ein Blob geht erst hoch, wenn er gelesen wurde** (v33.68). `_flush` schiebt
+   nur, was `_gsBlobGelesen[scope]` für diese Person trägt; ein Lesefehler ist nie
+   „leer“ (`_gsGartenBlobLesen`). Pläne und Tracks: je Eintrag, mit Löschmarke
+   (`_gsLoeschmarke`); state auf einem nie abgeglichenen Gerät: je Schlüssel
+   gemischt (`_gsStateMischen`); ein ungelesenes Profil (`_ungelesen`) ist kein
+   Cloud-Stand. *(CLAUDE.md §3.3; sync_check H8–H12)*
+
+5b. **Eine Antwort nach einem `await` gehört der Person, die gefragt hat.**
+   `sbLogout` lädt nicht neu. Wer nach einem `await` zeichnet oder schreibt, merkt
+   sich vorher `_gsPerson()` und prüft danach, ob es noch dieselbe ist; was nur im
+   Arbeitsspeicher liegt und einer Person gehört, räumt `gsOnLogout`.
+   *(§3.6; sensor_check L10, scan_check SC3)* — Und dem VORGANG: wer abbrechen lässt
+   oder einen neuen Vorgang über den laufenden startet, gibt jedem eine Nummer und prüft
+   sie nach jedem `await` (`_gsScanNr`, `gsScanAbbrechen`). *(scan_check AB1–AB4)* — Und
+   dem GESPRÄCH: kann die Person während des Wartens das Gespräch wechseln, zählt jeder
+   Wechsel (`_gsLinaGespraechNr`), und Vorgeschichte, Gesprächs-Id und Antwort gehören dem
+   Gespräch, in dem gefragt wurde — ist es nicht mehr offen, in die Cloud dorthin, mit einem
+   Satz. *(sensor_check L12)* — Die Prüfung reicht bis zum Zeichnen, auch durch eine
+   aufgerufene Funktion, die selbst wartet: auf sie warten und die Prüfung hineinreichen
+   (`gsMushroomRenderResult(j, gilt)`, wartet in fr/it/en/es auf Übersetzungen). *(scan_check PZ7)*
+   Seit 19.11.2026 ein TOR in `sbFetch` und `_gsAiAnfrage`: wechselt die Person, kommt
+   keine Antwort an (`_gsPersonGewechselt`, Fehler `person_gewechselt`). Das Tor sieht
+   nicht, was erst NACH dem Wechsel losgeht: die Person vor dem ERSTEN `await` merken,
+   ein rohes `fetch` vor dem Senden und danach fragen, eine Schleife die uid einmal
+   merken, ein `catch` zuerst `_gsPersonGewechselt(e)` fragen und still enden. Abmelden
+   heisst derselbe Bildschirm wie nach einem Neuladen (`_gsAbmeldenFenster`,
+   `_gsAbmeldenFelder`, `_gsAbmeldenStartseite`). *(sicherheit_check 71_person, 98_schluss_e)*
+
 6. **Fremder Text ist Text, nie Code.** `escHtml(s)` fuer Text/Attribut,
    `_gsOcStr(s)` fuer Werte in `onclick="…"`, `gsSanitizeHtml(html)` fuer
    Fragmente mit erlaubter Auszeichnung, `_gsSafeUrl` / `_gsSafeLink` fuer
@@ -145,6 +181,45 @@ Tagebuch in `CLAUDE.md`.
     Name nie aus der E-Mail (`_gsOeffentlicherName`). Ein neuer externer Host
     steht in `scripts/sicherheit/97_empfaenger.js` UND in beiden
     Datenschutztexten. *(§3.7; sicherheit_check 90_datenschutz, 97_empfaenger)*
+
+## Zehn Regeln aus v33.72 (CLAUDE.md §4f)
+
+- **Ein Pull frischt auch den Arbeitsspeicher auf.** Speicher UND Variable
+  gehen zusammen durch `_gsListeEinspielen` (§3.3) — sonst sieht das naechste
+  Rendern eine leere Variable, und `initDefaultGarden` legt „Mein Garten" ueber
+  das Geholte. Zwei Sitzungen haben das parallel gefunden (v33.59 auf `main`,
+  v33.72 hier); es gilt der Eingang von `main`. *(sync_check)*
+- **Eine Aufbereitung im Arbeitsspeicher haengt nie an einem Schalter im
+  Geraetespeicher.** Die Artenliste wird bei jedem Start frisch gebaut; jeder
+  Pruefstand beginnt mit leerem Speicher und misst die ERSTE Sitzung.
+  *(robust_check „Zweite Sitzung")*
+- **Beim Parsen wird formsicher gelesen:** `_gsListeLesen(key)`,
+  `_gsObjektLesen(key)`, `safeGetItem(key, vorgabe)` haelt die Form der
+  Vorgabe. `JSON.parse(x || '[]')` faengt weder `null` noch `{}`.
+  *(robust_check „Kaputter Speicher")*
+- **Jede benutzte CSS-Variable ist definiert.** `var(--x, rueckfall)` ohne
+  Definition ist eine feste Farbe, die im Dunkelmodus nicht kippt.
+  *(statik_check S6, contrast_check Durchgang 3)*
+- **Lokal gemeint heisst `_gsDayKey()` / `_gsKalTag(d)`** — nie
+  `toISOString().slice(0, 10)`; das ist in der Schweiz nachts der Vortag, und
+  in UTC (hier, in CI) sieht man es nie. *(datum_check)*
+- **Ein Pruefstand urteilt oder heisst Bericht.** `contrast_check`,
+  `render_check` und `field_check` endeten immer mit 0 und urteilen seit
+  v33.60 (parallel auch hier gefunden); nur `perf_check` ist bewusst ein
+  Bericht.
+- **`calc()` braucht Leerraum um + und −.** `calc(var(--a)+var(--b))` ist
+  ungueltig, die Eigenschaft faellt still weg (Kopfleiste 39 statt 56 px; ein
+  Knopf 10'499 px unter dem Bildschirm). *(statik_check S8)*
+- **Was auf dem Anmeldebildschirm gebraucht wird, wohnt nicht in `#app`.** Wer
+  von dort ein Fenster oeffnet, fragt `_gsAnmeldungSteht()` und haengt es an
+  den `<body>` (Vorbild `openLegalModal`). *(robust_check „Rechtstexte vor der
+  Anmeldung", statik_check S9)*
+- **Die Kalenderwoche ist `gsIsoKW()`**, die Fakten einer Woche holt
+  `_gsWochenFakten(kw)` — nie Sieben-Tage-Bloecke ab dem 1. Januar, nie ein
+  eigener Rueckfall. *(datum_check T7)*
+- **Vor dem Bump die Nummer gegen `main` halten** (`git fetch origin main`),
+  und einen Fund gegen den Stand nachmessen, in den er einfliesst — diese
+  Scheibe hiess v33.57, bis `main` die Nummer vergeben hatte.
 
 ## Und drei Regeln ueber das Arbeiten selbst
 

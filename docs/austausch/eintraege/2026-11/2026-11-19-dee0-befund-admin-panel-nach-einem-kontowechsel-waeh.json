@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-19-dee0",
+  "art": "befund",
+  "datum": "2026-11-19",
+  "zeit": "15:30:21",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.68",
+  "titel": "Admin-Panel: nach einem Kontowechsel während einer Admin-Aktion zeigt _gsAdmTun der nächsten Person „Fehlgeschlagen. Das Konto wurde gewechselt …“",
+  "vorschlag": "_gsAdmTun gibt bei _gsPersonGewechselt(r) einen eigenen Zustand zurück, den _gsAdmSagen und die Aufrufer still lassen; ein admin_check-Fall mit Wechsel während der RPC.",
+  "beleg": [
+    "13 Aufrufer von _gsAdmTun (assign_role, set_tier, flag_set, broadcast, moderate, voucher_*, knowledge_*, report_review, integrity_scan, global_api_key) — am Code gelesen; gemessen nur an species_image und species_proposal, dort behoben (71_person KI g)"
+  ],
+  "stichworte": [
+    "admin-panel",
+    "_gsAdmTun",
+    "person_gewechselt"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "function _gsAdmSagen("
+    }
+  ]
+}

@@ -20,7 +20,17 @@ const fs = require('fs');
 const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
 const SEED = require('./_seed.js');
 
+// v33.72: Zahl der Freemail-Adressen im CODE eines Textes (ganze Kommentarzeilen und
+// Kommentare am Zeilenende heraus — dort steht die Adresse des GreenScan-Kontos als
+// Notiz). Eine private Adresse gehoert nicht in eine Datei, die der Web-Root ausliefert,
+// und die Pruefung nennt keine: sie zaehlt.
+function robustFreemail(text) {
+  const code = String(text).replace(/^[ \t]*\/\/.*$/gm, '').replace(/[ \t]\/\/[ \t].*$/gm, '');
+  return (code.match(/[A-Za-z0-9._%+-]+@(?:gmail|googlemail|hotmail|outlook|live|yahoo|gmx|bluewin|icloud|proton(?:mail)?)\.[A-Za-z]{2,}/g) || []).length;
+}
+
 let __seite = null;
+let __browser = null;   // v33.72: fuer Faelle, die eine EIGENE Sitzung brauchen (Zweite Sitzung)
 const __anfragen = [];
 const FAELLE = [
   {
@@ -436,7 +446,14 @@ const FAELLE = [
     lauf: async () => {
       const f = [];
       const idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-      ['GS_ADMIN_PW_SEED', 'GS_ADMINS', 'gsHashPw', 'admin-pw-input', 'fernando.rankwiler1997@gmail.com'].forEach(t => { if (idx.includes(t)) f.push('Quelltext traegt noch ' + t); });
+      ['GS_ADMIN_PW_SEED', 'GS_ADMINS', 'gsHashPw', 'admin-pw-input'].forEach(t => { if (idx.includes(t)) f.push('Quelltext traegt noch ' + t); });
+      // v33.72: eine private Adresse steht nie im Code — und die Pruefung nennt sie
+      // auch nicht. Bis v33.72 stand die gesuchte Adresse hier WOERTLICH, in einer
+      // Datei, die beide Hoster aus dem Wurzelverzeichnis ausliefern. Gesucht wird
+      // jetzt JEDE Freemail-Adresse im Code (Kommentare heraus); gemeldet wird die
+      // Zahl, nie die Adresse.
+      const _frei = robustFreemail(idx);
+      if (_frei) f.push(_frei + ' Freemail-Adresse(n) im Code von index.html (ausserhalb von Kommentaren)');
       const ab = idx.indexOf('GREENSCAN EMBEDDED ADMIN');
       if (ab < 0 || /[0-9a-f]{64}/.test(idx.slice(ab, ab + 4000))) f.push('64-hex-Konstante im Admin-Block (oder Block fehlt)');
       const r = await __seite.evaluate(async () => {
@@ -490,7 +507,7 @@ const FAELLE = [
         if (/^async function loadSettings\(|^function zurichHour\(|^async function sendPush\(/m.test(t)) f.push(n + ' traegt noch eine eigene Kopie');
       });
       const alle = fs.readdirSync(fnRoot).filter(d => fs.existsSync(path.join(fnRoot, d, 'index.ts')));
-      alle.forEach(d => { if (/rankwiler/.test(fs.readFileSync(path.join(fnRoot, d, 'index.ts'), 'utf8'))) f.push(d + ' traegt eine private Adresse'); });
+      alle.forEach(d => { if (robustFreemail(fs.readFileSync(path.join(fnRoot, d, 'index.ts'), 'utf8'))) f.push(d + ' traegt eine private Adresse (Freemail)'); });
       const modPfad = path.join(fnRoot, '_shared', 'push_helfer.mjs');
       if (!fs.existsSync(modPfad)) return { ok: false, warum: '_shared/push_helfer.mjs fehlt · ' + f.join(' · ') };
       if (/^import /m.test(fs.readFileSync(modPfad, 'utf8'))) f.push('Modul ist nicht rein (import)');
@@ -593,36 +610,20 @@ const FAELLE = [
         gsAROpen:         'AR-Ansicht einer Art. Nicht verdrahtet, und das ist GEMESSEN begruendet: ar_models hat 30 Zeilen, davon 0 mit gltf_url und 0 mit low_poly_url (09.09.2026, nur lesend). Es gibt kein einziges Modell — ein Knopf zeigte fuer JEDE Art nur den Rueckfall. Erst Modelle, dann Knopf.',
       };
       const wurzel = path.join(__dirname, '..');
-      const idx = fs.readFileSync(path.join(wurzel, 'index.html'), 'utf8');
+      // v33.72: der Korpus steht in scripts/_korpus.js — statik_check S5 stellt
+      // dieselbe Frage von der anderen Seite (stehen ALLE weiteren Nennungen im
+      // eigenen Rumpf?) und muss denselben Text zaehlen. Die Regeln sind
+      // unveraendert: ganze Kommentarzeilen heraus, die eigene Ausfuhr
+      // `window.X = X;` ist keine Nennung (v32.96), die Java-Quellen der Huelle
+      // zaehlen mit (v33.53), und DIESE Datei zaehlt nicht — sie nennt jeden
+      // Namen, den sie in BEWUSST/OHNE_EINSTIEG deklariert, und waere sonst ihre
+      // eigene zweite Nennung (v32.96).
+      const { nennungsKorpus } = require('./_korpus.js');
+      const selbst = path.join('scripts', path.basename(__filename));
+      const { zaehl, dateien, index: idx } = nennungsKorpus(wurzel, [selbst]);
       const defs = new Set();
       for (const m of idx.matchAll(/^\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm)) defs.add(m[1]);
       for (const m of idx.matchAll(/window\.([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?function/g)) defs.add(m[1]);
-      const dateien = ['sw.js', 'install.html', 'offline.html'];
-      const sammle = (d, re) => { try { fs.readdirSync(path.join(wurzel, d)).filter(f => re.test(f)).forEach(f => dateien.push(path.join(d, f))); } catch (_) {} };
-      sammle('scripts', /\.(js|py)$/); sammle('supabase/migrations', /\.sql$/);
-      // v33.53: die Android-Huelle ruft zwei Funktionen der Seite — und NUR sie
-      // (gsHuellePause, gsHuelleDateiErgebnis, per evaluateJavascript). Ohne den
-      // Java-Quelltext zaehlte dieser Fall ihren einzigen echten Aufrufer nicht
-      // mit, und sie ueberlebten nur, weil ein Pruefstand sie zufaellig nennt.
-      sammle(path.join('android', 'src', 'ch', 'greenscan', 'app'), /\.java$/);
-      // v32.96: DIESE Datei zaehlt nicht mit. Sie nennt jeden Namen, den sie in
-      // BEWUSST/OHNE_EINSTIEG deklariert — eine Deklaration im Pruefstand waere
-      // damit ihre eigene zweite Nennung, und der Fall meldete brav „0 ohne
-      // zweite Nennung". Ein Pruefstand, der durch das Eintragen still wird,
-      // misst nur noch sich selbst. (Gefunden beim Eintragen der sieben.)
-      const selbst = path.join('scripts', path.basename(__filename));
-      for (let i = dateien.length - 1; i >= 0; i--) if (dateien[i] === selbst) dateien.splice(i, 1);
-      try { fs.readdirSync(path.join(wurzel, 'supabase', 'functions')).forEach(f => { const p = path.join('supabase', 'functions', f, 'index.ts'); if (fs.existsSync(path.join(wurzel, p))) dateien.push(p); }); } catch (_) {}
-      let korpus = idx;
-      for (const f of dateien) { try { korpus += '\n' + fs.readFileSync(path.join(wurzel, f), 'utf8'); } catch (_) {} }
-      korpus = korpus.replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\*.*$/gm, '');
-      // v32.96: die eigene Ausfuhr ist keine Nennung. `window.gsSafetyDefaults =
-      // gsSafetyDefaults;` nennt den Namen ZWEIMAL in einer Zeile — eine Funktion,
-      // die sonst niemand ruft, kam damit auf 3 und fiel durch das Raster.
-      // gsSafetyDefaults (86 Zeilen Warntexte) lag so seit v27.x unbemerkt.
-      korpus = korpus.replace(/window\.([A-Za-z_$][\w$]*)\s*=\s*\1\s*;?/g, '');
-      const zaehl = new Map();
-      for (const m of korpus.matchAll(/[A-Za-z_$][\w$]*/g)) zaehl.set(m[0], (zaehl.get(m[0]) || 0) + 1);
       const tot = [...defs].filter(d => (zaehl.get(d) || 0) <= 1).sort();
       const unbegruendet = tot.filter(d => !BEWUSST[d] && !OHNE_EINSTIEG[d]);
       const ohneEinstieg = tot.filter(d => OHNE_EINSTIEG[d]);
@@ -1051,14 +1052,11 @@ const FAELLE = [
       const BEWUSST = {
         'WMO_ICONS[cw.weathercode]': 'Wettercode-ZAHL von Open-Meteo; Rueckfall 🌡️',
         'GS_TRAINING_INTERVALLE[k.b]': 'eigene Leitner-Box (Zahl 1–5), von gsTrainingBuchen gesetzt',
-        'GS_USES_TEMPLATES[sp.cat]': 'sp.cat der Artenliste; fremde Arten gehen durch _gsArtEingang (cat aus GS_ART_KATEGORIEN)',
-        'GS_LOOKALIKE_TEMPLATES[sp.cat]': 'wie GS_USES_TEMPLATES',
-        'GS_WARNING_TEMPLATES[sp.cat]': 'wie GS_USES_TEMPLATES',
-        'HABITAT_TEMPLATES[sp.cat]': 'wie GS_USES_TEMPLATES',
+        // v33.72: die vier *_TEMPLATES[sp.cat]-Nachschlaege gibt es nicht mehr — die
+        // Fuellfunktionen hatten keinen Aufrufer und sind entfernt (statik_check S5).
         'CAT_COLORS_W[w.cat]': 'w aus GS_WISSEN, einer festen Liste im Code',
         'CAT_BG_W[w.cat]': 'w aus GS_WISSEN',
         'CAT_LABELS_W[w.cat]': 'w aus GS_WISSEN',
-        'WEATHER_CODE_MAP[c.weather_code]': 'Wettercode-ZAHL von Open-Meteo; Rueckfall 🌤️',
         'GS_WETTER_GRENZEN[a.k]': 'a aus einer festen Liste daneben',
         'GS_FARBE_HEX[f.name]': 'f aus der eigenen Farbmessung (gsBildFarben), Namen aus derselben Tabelle',
         'PFLANZ_BODEN_INFO[plant.name]': 'Offline-Chat, plant aus PLANT_DB im Code',
@@ -1216,7 +1214,379 @@ const FAELLE = [
       // Gegenrichtung: der Fall muss etwas SEHEN — ein Gedaechtnis ohne Namen waere auch gruen.
       if (n < 60) return { ok: false, warum: 'nur ' + n + ' Namen gefunden — die Dateien nennen kaum Code, oder das Muster greift nicht' };
       if (fehlt.length) return { ok: false, warum: fehlt.length + ' Namen ohne Definition: ' + fehlt.slice(0, 8).join(' · ') + (fehlt.length > 8 ? ' · +' + (fehlt.length - 8) : '') };
-      return { ok: true, info: n + ' Namen in ' + ERWARTET.length + ' Dateien, alle im Quelltext · bewusst entfernt: ' + Object.keys(BEWUSST).join(', ') };
+      // v33.60 — die ZAHL der Pruefstaende hat einen Schreiber: scripts/pruefstaende.sh.
+      // Gemessen am 11.11.2026: das Gedaechtnis nannte sie viermal verschieden (35 · 38 · 39 · 41),
+      // drei Pruefstaende (a11y, i18n, apk) standen in keiner Zeile der Tabelle, und nichts wurde
+      // rot. Eine Zahl, die an sieben Stellen von Hand steht, stimmt an hoechstens einer.
+      const sh = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'pruefstaende.sh'), 'utf8');
+      const laeufe = (sh.match(/^\s*(?:TAILN=\d+\s+)?run\s+\S+\s+(?:node|python3)\s+scripts\/([a-z0-9_]+)\.(?:js|py)/gm) || []).map(z => /scripts\/([a-z0-9_]+)\./.exec(z)[1]);
+      const N = laeufe.length;
+      if (N < 30 || new Set(laeufe).size !== N) return { ok: false, warum: 'pruefstaende.sh: ' + N + ' Laeufe gelesen, ' + new Set(laeufe).size + ' verschiedene — die Suche sieht etwas nicht, oder ein Pruefstand laeuft doppelt' };
+      const nieGefahren = fs.readdirSync(path.join(__dirname)).filter(f => /_check\.(js|py)$/.test(f)).map(f => f.replace(/\.(js|py)$/, '')).filter(s => laeufe.indexOf(s) < 0);
+      if (nieGefahren.length) return { ok: false, warum: 'liegt in scripts/, wird von pruefstaende.sh aber nie gefahren: ' + nieGefahren.join(', ') + ' — ein Pruefstand, den niemand faehrt, misst nichts' };
+      const tabelle = fs.readFileSync(path.join(dir, '04-pruefstaende.md'), 'utf8');
+      const ohneZeile = laeufe.filter(s => tabelle.indexOf('| `' + s + '`') < 0);
+      if (ohneZeile.length) return { ok: false, warum: 'ohne Zeile in docs/memory/04-pruefstaende.md: ' + ohneZeile.join(', ') };
+      const handbuch = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8');
+      const ohneHandbuch = laeufe.filter(s => handbuch.indexOf('scripts/' + s + '.') < 0);
+      if (ohneHandbuch.length) return { ok: false, warum: 'ohne Zeile in CLAUDE.md §7.1: ' + ohneHandbuch.join(', ') };
+      const zahlFalsch = [];
+      const ZAHL = /(\d+)\s+(?:Pruefstaende|Prüfstände)\b|\b(?:alle|ALLE|aller|der)\s+(\d+)\s+(?:Pruefstaende|Prüfstände|nacheinander|teilen|mit\b)|fährt alle (\d+)|faehrt alle (\d+)/g;
+      const lies = (name, text) => { text.split('\n').forEach((zeile, i) => { let m; ZAHL.lastIndex = 0; while ((m = ZAHL.exec(zeile))) { const z = Number(m[1] || m[2] || m[3] || m[4]); if (z >= 20 && z <= 99 && z !== N) zahlFalsch.push(name + ':' + (i + 1) + ' sagt ' + z); } }); };
+      for (const f of ERWARTET) lies('docs/memory/' + f, fs.readFileSync(path.join(dir, f), 'utf8'));
+      // In CLAUDE.md nur die zwei Gegenwarts-Zeilen (Repo-Struktur und der Aufruf) — der Rest ist Protokoll und bleibt, wie er gemessen wurde.
+      handbuch.split('\n').forEach((zeile, i) => { if (/^├── scripts\/|^bash scripts\/pruefstaende\.sh\s+#/.test(zeile)) lies('CLAUDE.md', '\n'.repeat(i) + zeile); });
+      if (zahlFalsch.length) return { ok: false, warum: 'pruefstaende.sh faehrt ' + N + ' — ' + zahlFalsch.slice(0, 8).join(' · ') + (zahlFalsch.length > 8 ? ' · +' + (zahlFalsch.length - 8) : '') };
+      return { ok: true, info: n + ' Namen in ' + ERWARTET.length + ' Dateien, alle im Quelltext · bewusst entfernt: ' + Object.keys(BEWUSST).join(', ') + ' · ' + N + ' Pruefstaende: jeder gefahren, jeder mit Zeile im Gedaechtnis und im Handbuch, die Zahl stimmt ueberall' };
+    },
+  },
+  {
+    name: 'Zweite Sitzung · die Artenliste sieht beim zweiten Start aus wie beim ersten — keine Aufbereitung im Arbeitsspeicher haengt an einem Schalter im Geraetespeicher',
+    lauf: async () => {
+      // v33.72. Gemessen: `gsNormalizeCatEmojis` und `gsAutoFillLookalikes` bereiten
+      // die Artenliste IM ARBEITSSPEICHER auf — und stiegen aus, sobald ein
+      // Schalter im Geraetespeicher stand (`gs_emoji_normalized_v2`,
+      // `gs_lookalike_filled`), den sie beim ersten Lauf selbst setzten. Die
+      // Liste wird aber bei jedem Start frisch aus data/plants.v1.js gebaut.
+      // Folge: erste Sitzung 160 Arten mit generischem Symbol und 0 ohne
+      // Verwechslungshinweis — ab der zweiten 1'971 und 1'435. Und JEDER
+      // Pruefstand beginnt mit leerem Speicher, misst also immer die erste.
+      // Dieser Fall laedt die App zweimal im SELBEN Speicher und haelt beide
+      // Listen Eintrag fuer Eintrag gegeneinander.
+      const ctx = await __browser.newContext({ viewport: { width: 412, height: 915 } });
+      try {
+        const p = await ctx.newPage();
+        await p.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+        await p.addInitScript(SEED);
+        const url = 'file://' + path.resolve(__dirname, '..', 'index.html');
+        const bild = async () => {
+          // Die Aufbereitung laeuft zeitversetzt (2 s und 4 s nach dem Start).
+          // Gewartet wird auf die LISTE, dann eine feste Spanne dahinter.
+          for (let i = 0; i < 80; i++) {
+            const da = await p.evaluate(() => typeof DB !== 'undefined' && DB.length > 100);
+            if (da) break;
+            await p.waitForTimeout(250);
+          }
+          await p.waitForTimeout(6500);
+          return p.evaluate(() => {
+            const gen = ['🌿', '⬜', '', '🔬'];
+            const zeile = (s) => [s.id, s.emoji, s.lookalike || '', s.warning || '', s.uses || '', s.tox, s.edible ? 1 : 0].join('|');
+            const schalter = [];
+            for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (/_filled|_normalized/.test(k)) schalter.push(k); }
+            return {
+              n: DB.length,
+              generisch: DB.filter(s => gen.includes(s.emoji)).length,
+              ohneHinweis: DB.filter(s => !s.lookalike || s.lookalike === '–').length,
+              zeilen: DB.map(zeile),
+              schalter,
+            };
+          });
+        };
+        await p.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 });
+        const eins = await bild();
+        await p.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
+        const zwei = await bild();
+        if (eins.n < 4000 || zwei.n < 4000) return { ok: false, warum: 'Artenliste nicht geladen (' + eins.n + ' / ' + zwei.n + ') — der Fall hat nichts gemessen' };
+        const anders = [];
+        for (let i = 0; i < eins.zeilen.length; i++) if (eins.zeilen[i] !== zwei.zeilen[i]) anders.push(i);
+        if (eins.n !== zwei.n || anders.length) {
+          return { ok: false, warum: 'zweite Sitzung weicht ab: ' + anders.length + ' von ' + eins.n + ' Eintraegen anders · generisches Symbol ' + eins.generisch + ' → ' + zwei.generisch +
+            ' · ohne Verwechslungshinweis ' + eins.ohneHinweis + ' → ' + zwei.ohneHinweis + ' · z.B. „' + String(eins.zeilen[anders[0]]).slice(0, 60) + '" → „' + String(zwei.zeilen[anders[0]]).slice(0, 60) + '"' };
+        }
+        // Gegenrichtung: die Aufbereitung muss ueberhaupt etwas getan haben, sonst
+        // waeren zwei unaufbereitete Listen ebenfalls gleich.
+        if (eins.generisch > 500 || eins.ohneHinweis > 0) return { ok: false, warum: 'die Aufbereitung ist in KEINER Sitzung gelaufen (generisch ' + eins.generisch + ', ohne Hinweis ' + eins.ohneHinweis + ') — zwei gleiche, unaufbereitete Listen' };
+        if (zwei.schalter.length) return { ok: false, warum: 'im Geraetespeicher steht wieder ein Schalter fuer eine Aufbereitung im Arbeitsspeicher: ' + zwei.schalter.join(', ') };
+        return { ok: true, info: eins.n + ' Eintraege, zweimal im selben Speicher geladen — alle gleich · generisches Symbol ' + zwei.generisch + ' · ohne Verwechslungshinweis ' + zwei.ohneHinweis + ' · kein Aufbereitungs-Schalter im Speicher' };
+      } finally { await ctx.close(); }
+    },
+  },
+  {
+    name: 'Kaputter Speicher · kein einzelner Wert im Geraetespeicher verhindert den Start — abgeschnittenes JSON, null, {} und [null] in JEDEM gelesenen Schluessel: die App startet und laeuft fehlerfrei durch alle Tabs',
+    lauf: async () => {
+      // v33.72 (Audit „robust", nachgestellt). Das Hauptskript las gs_market,
+      // gs_recipes und gs_remedies beim PARSEN mit `JSON.parse(stored)` ohne Halt
+      // und `arr.map(…)` ohne Formpruefung. EIN kaputter Wert (voller Speicher
+      // mitten im Schreiben, ein Backup in alter Form) liess das ganze Skript
+      // sterben: GS_VERSION undefiniert, der Ladebildschirm blieb stehen —
+      // gemessen mit sieben Formen, in jeder. Die Integritaetspruefung, die
+      // genau das reparieren soll, lief erst 1,5 s NACH dem Lesen und kannte die
+      // Schluessel nicht. Der Fall setzt JEDEN Schluessel, den der Quelltext
+      // liest, auf den kaputten Wert (nur die Sitzung bleibt, sonst prueft man den
+      // Anmeldebildschirm) und geht durch die App.
+      const quelle = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+      const keys = new Set();
+      for (const m of quelle.matchAll(/(?:getItem|safeGetItem|gsStore\.get|gsStore\.getJSON|_gsListeLesen|_gsObjektLesen)\(\s*'((?:gs_|ps_|greenscan_)[A-Za-z0-9_]+)'/g)) keys.add(m[1]);
+      const liste = [...keys].filter(k => !/^gs_sb_|^gs_supabase|^gs_consent$/.test(k));
+      if (liste.length < 120) return { ok: false, warum: 'nur ' + liste.length + ' Schluessel im Quelltext gefunden — der Fall misst offenbar etwas anderes' };
+      const PROBEN = ['{"a":', 'null', '{}', '[null]'];
+      const klagen = [];
+      for (const probe of PROBEN) {
+        const ctx = await __browser.newContext({ viewport: { width: 412, height: 915 } });
+        try {
+          const p = await ctx.newPage();
+          const errs = [];
+          p.on('pageerror', e => errs.push(e.message.split('\n')[0]));
+          await p.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+          await p.addInitScript(SEED);
+          await p.addInitScript(([ks, v]) => { ks.forEach(k => { try { localStorage.setItem(k, v); } catch (_) {} }); }, [liste, probe]);
+          await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+          await p.waitForTimeout(4500);
+          const start = await p.evaluate(() => {
+            const sp = document.getElementById('gs-splash');
+            return { version: typeof GS_VERSION === 'string', splash: !!(sp && getComputedStyle(sp).display !== 'none' && sp.getClientRects().length), db: typeof DB !== 'undefined' ? DB.length : -1 };
+          });
+          if (!start.version || start.splash) { klagen.push(JSON.stringify(probe) + ': die App startet NICHT (GS_VERSION ' + (start.version ? 'da' : 'undefiniert') + ', Ladebildschirm ' + (start.splash ? 'steht noch' : 'weg') + (errs.length ? ' — ' + errs[0] : '') + ')'); continue; }
+          const sync = await p.evaluate(async () => {
+            document.documentElement.classList.remove('gs-preauth'); window.gsRequire = () => true;
+            const w = (ms) => new Promise(r => setTimeout(r, ms)); const f = [];
+            for (const t of ['home', 'garden', 'wissen', 'favs', 'search', 'social', 'market', 'recipes', 'remedies', 'map', 'scanner', 'settings', 'home']) { try { switchTab(t); } catch (e) { f.push(t + ': ' + e.message); } await w(300); }
+            // v33.72 (Gegenlesen): drei der sieben Namen gab es nicht (openSettings,
+            // gsOpenKalender, gsOpenMesswerte) — `typeof … === 'function'` liess sie STILL
+            // aus, und ausgerechnet Kalender und Messwerte lesen viele der verdorbenen
+            // Schluessel. Ein Name, den es nicht gibt, ist jetzt ein Fehler des Falls;
+            // die Einstellungen sind ein Tab (oben).
+            for (const n of ['gsOpenLina', 'gsKalenderOeffnen', 'openErnteTracking', 'gsMesswerteOeffnen', 'openDailyQuiz', 'gsOpenNaturjahr']) {
+              if (typeof window[n] !== 'function') { f.push(n + ': gibt es nicht — der Fall oeffnet ein Fenster, das es nicht gibt'); continue; }
+              try { await window[n](); } catch (e) { f.push(n + ': ' + e.message); }
+              await w(300); try { document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id)); } catch (_) {}
+            }
+            return f;
+          });
+          const alle = [...new Set(errs.concat(sync))];
+          if (alle.length) klagen.push(JSON.stringify(probe) + ': ' + alle.length + ' Fehler beim Durchgehen — ' + alle.slice(0, 3).join(' | '));
+        } finally { await ctx.close(); }
+      }
+      if (klagen.length) return { ok: false, warum: klagen.slice(0, 3).join(' · ') + (klagen.length > 3 ? ' · … (' + klagen.length + ')' : '') };
+      return { ok: true, info: liste.length + ' gelesene Schluessel × ' + PROBEN.length + ' kaputte Formen (' + PROBEN.join(' · ') + ') — jedes Mal gestartet, 12 Tabs (mit den Einstellungen) und 6 Fenster ohne Fehler' };
+    },
+  },
+  {
+    name: 'Drei kleine Zusagen · die Community-Suche unterscheidet „nicht geladen" von „keine Treffer", der Backup-Import nimmt keine falsche Form an, und der Baum-Planer sagt „Gespeichert" erst nach dem Blick auf die Antwort',
+    lauf: async () => {
+      // v33.72 (Audit „robust", alle drei bestaetigt).
+      const r = await __seite.evaluate(async () => {
+        const o = {};
+        // ── Community-Suche: Fehler · leer · ein Treffer ──
+        let body = document.getElementById('gs-community-body'); let neu = false;
+        if (!body) { body = document.createElement('div'); body.id = 'gs-community-body'; document.body.appendChild(body); neu = true; }
+        const echt = window.sbFetch;
+        const lauf = async (antwort) => { window.sbFetch = async () => antwort; body.innerHTML = ''; await gsCommunitySearch('anna'); return body.textContent.replace(/\s+/g, ' ').trim(); };
+        try {
+          o.fehler = await lauf({ data: null, error: { message: 'JWT expired', status: 401 }, status: 401 });
+          o.leer = await lauf({ data: [], error: null, status: 200 });
+          o.treffer = await lauf({ data: [{ id: 'u1', display_name: 'Anna Prüfstand', username: 'anna' }], error: null, status: 200 });
+        } finally { window.sbFetch = echt; if (neu) body.remove(); }
+        // ── Backup-Import: falsche Form wird abgelehnt, nichts wird angefasst ──
+        const mp0 = JSON.stringify(myPlants), g0 = JSON.stringify(gardens);
+        const erg = _gsBackupEinspielen({ version: 16, exportDate: new Date().toISOString(), myPlants: { a: 1 }, gardens: 'x' });
+        o.form = erg; o.unberuehrt = JSON.stringify(myPlants) === mp0 && JSON.stringify(gardens) === g0;
+        return o;
+      });
+      const f = [];
+      if (/Keine Treffer/.test(r.fehler)) f.push('Serverfehler 401 → „' + r.fehler.slice(0, 60) + '" — das sieht aus wie „nichts gefunden"');
+      if (!/nicht geladen/.test(r.fehler)) f.push('der Fehlerfall sagt nicht, dass nicht geladen wurde: „' + r.fehler.slice(0, 80) + '"');
+      if (!/Keine Treffer/.test(r.leer)) f.push('eine leere Antwort sagt nicht „Keine Treffer": „' + r.leer.slice(0, 60) + '"');
+      if (/Keine Treffer|nicht geladen/.test(r.treffer) || !r.treffer) f.push('ein Treffer wird nicht gezeigt: „' + r.treffer.slice(0, 60) + '"');
+      if (!r.form || r.form.ok !== false || r.form.grund !== 'form') f.push('Backup mit myPlants als Objekt wird angenommen: ' + JSON.stringify(r.form));
+      else if ((r.form.felder || []).join(',') !== 'gardens,myPlants') f.push('die Ablehnung nennt nicht die falschen Felder: ' + JSON.stringify(r.form.felder));
+      if (!r.unberuehrt) f.push('ein abgelehntes Backup hat trotzdem etwas veraendert');
+      // ── Baum-Planer: Quelltext — der gruene Knopf steht NACH dem Blick auf die Rueckgabe ──
+      const idx = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+      const a = idx.indexOf('window._gsTPsave = async function(btn){'), e = idx.indexOf('window._gsTPloadSaved', a);
+      const rumpf = a > 0 && e > a ? idx.slice(a, e) : '';
+      if (!rumpf) f.push('_gsTPsave nicht gefunden');
+      else {
+        // Gesucht wird HINTER dem Aufruf — der Kommentar davor nennt `local_failed` auch
+        // (eine Suche im eigenen Text findet zuerst den Text UEBER die Sache, v33.41).
+        const iSave = rumpf.indexOf('gsPlans.save('), iBlick = rumpf.indexOf('local_failed', iSave), iGruen = rumpf.indexOf("L('tp_saved'", iSave);
+        if (!(iSave > 0 && iBlick > iSave && iGruen > iBlick)) f.push('_gsTPsave: „Gespeichert" steht nicht hinter dem Blick auf die Rueckgabe (save ' + iSave + ', local_failed ' + iBlick + ', Meldung ' + iGruen + ')');
+        if (!/e\s*=\s*await gsPlans\.save\(/.test(rumpf)) f.push('_gsTPsave verwirft die Rueckgabe von gsPlans.save');
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Suche: 401 → „' + r.fehler.slice(0, 38) + '…" · leer → Keine Treffer · Treffer → Karte · Backup falscher Form: abgelehnt (' + r.form.felder.join(', ') + '), nichts veraendert · Baum-Planer liest die Rueckgabe' };
+    },
+  },
+  {
+    name: 'Rechtstexte vor der Anmeldung · die zwei Links im Registrierformular zeigen ein Fenster, das man SIEHT — über dem Anmeldebildschirm, mit Text, und Escape schliesst es',
+    lauf: async () => {
+      // v33.72 (Audit „CSS/HTML", gefahren mit dem gespeicherten Workflow).
+      // „Ich akzeptiere die Datenschutzerklaerung & Nutzungsbedingungen" — beide
+      // Links oeffnen #modal-rechtlich, einen Nachfahren von #app. Ohne Anmeldung
+      // ist #app `display:none!important` (html.gs-preauth), und #gs-onboarding
+      // liegt auf z-index 9999999. Gemessen gegen den Stand davor: `.open` gesetzt,
+      // Scrollen gesperrt, 0 Rechtecke — ein Fenster, das niemand sieht.
+      // Dieser Fall laedt die App OHNE Anmeldung (kein Seed) und klickt die
+      // echten Links; die Gegenrichtung laeuft auf der angemeldeten Seite.
+      const ctx = await __browser.newContext({ viewport: { width: 412, height: 800 } });
+      let r;
+      try {
+        const p = await ctx.newPage();
+        await p.route('**', q => q.request().url().startsWith('file:') ? q.continue() : q.abort());
+        await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+        await p.waitForTimeout(2500);
+        r = await p.evaluate(async () => {
+          const warte = (ms) => new Promise((res) => setTimeout(res, ms));
+          const o = { steht: document.documentElement.classList.contains('gs-preauth'), app: getComputedStyle(document.getElementById('app')).display };
+          onbShowRegister(); await warte(500);
+          const m = document.getElementById('modal-rechtlich');
+          const mess = () => {
+            const box = m.querySelector('.modal, .obox, .mpanel') || m;
+            const q = box.getBoundingClientRect();
+            const oben = document.elementFromPoint(q.left + q.width / 2, q.top + 30);
+            const txt = (document.getElementById('legal-content') || {}).innerText || '';
+            return { open: m.classList.contains('open'), rechtecke: m.getClientRects().length, hoehe: Math.round(q.height), oben: !!(oben && m.contains(oben)), text: txt.trim().replace(/\s+/g, ' ').slice(0, 40) };
+          };
+          const l1 = document.querySelector('#gs-onboarding [onclick*="onbOpenPrivacy"]');
+          const l2 = document.querySelector('#gs-onboarding [onclick*="onbOpenTerms"]');
+          o.links = [l1, l2].map((l) => !!l && l.getClientRects().length > 0);
+          if (!l1 || !l2) return o;
+          l1.click(); await warte(700);
+          o.datenschutz = mess();
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await warte(500);
+          o.nachEscape = { open: m.classList.contains('open'), overflow: document.body.style.overflow, anmeldung: getComputedStyle(document.getElementById('gs-onboarding')).display };
+          l2.click(); await warte(700);
+          o.agb = mess();
+          closeModal('modal-rechtlich'); await warte(400);
+          return o;
+        });
+      } finally { await ctx.close(); }
+      const f = [];
+      if (!r.steht || r.app !== 'none') return { ok: false, warum: 'der Anmeldebildschirm steht in diesem Aufbau nicht (gs-preauth: ' + r.steht + ', #app: ' + r.app + ') — der Fall misst etwas anderes' };
+      if (!r.links || !r.links[0] || !r.links[1]) return { ok: false, warum: 'die zwei Links im Registrierformular sind nicht sichtbar (' + JSON.stringify(r.links) + ')' };
+      const pruef = (was, x, wort) => {
+        if (!x.open) f.push(was + ': Fenster nicht offen');
+        else if (!x.rechtecke || x.hoehe < 200) f.push(was + ': Fenster ist „offen", aber nicht zu sehen (' + x.rechtecke + ' Rechtecke, ' + x.hoehe + ' px hoch)');
+        else if (!x.oben) f.push(was + ': Fenster liegt UNTER dem Anmeldebildschirm');
+        if (x.text.indexOf(wort) < 0) f.push(was + ': Text beginnt mit „' + x.text + '" statt mit „' + wort + '"');
+      };
+      pruef('Datenschutzerklärung', r.datenschutz, 'Datenschutz');
+      pruef('Nutzungsbedingungen', r.agb, 'Geschäftsbedingungen');
+      if (r.nachEscape.open) f.push('Escape schliesst das Fenster nicht');
+      if (r.nachEscape.overflow === 'hidden') f.push('nach dem Schliessen bleibt das Scrollen gesperrt');
+      if (r.nachEscape.anmeldung === 'none') f.push('Escape hat den Anmeldebildschirm mit geschlossen');
+      // Gegenrichtung: angemeldet geht dasselbe Fenster auf seiner ALTEN Ebene auf.
+      const g = await __seite.evaluate(async () => {
+        const warte = (ms) => new Promise((res) => setTimeout(res, ms));
+        const m = document.getElementById('modal-rechtlich');
+        // Der Pseudo-Token der Beispieldaten ist keine echte Sitzung: nach dem
+        // Start legt die App den Anmeldebildschirm ueber alles (gemessen:
+        // display:flex). „Angemeldet" wird deshalb HERGESTELLT, wie es
+        // render_check und contrast_check tun — und danach zurueckgestellt.
+        const ob = document.getElementById('gs-onboarding');
+        const alt = ob ? ob.style.cssText : '';
+        if (ob) ob.style.setProperty('display', 'none', 'important');
+        try {
+          openLegalModal('impressum'); await warte(600);
+          const o = { open: m.classList.contains('open'), rechtecke: m.getClientRects().length, z: getComputedStyle(m).zIndex, text: (document.getElementById('legal-content').innerText || '').trim().slice(0, 20) };
+          closeModal('modal-rechtlich'); await warte(400);
+          return o;
+        } finally { if (ob) ob.style.cssText = alt; }
+      });
+      if (!g.open || !g.rechtecke) f.push('Gegenrichtung: angemeldet geht das Fenster nicht auf');
+      if (parseInt(g.z, 10) > 100000) f.push('Gegenrichtung: angemeldet liegt das Fenster auf z-index ' + g.z + ' — die Ebene über der Anmeldung gilt nur dort');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'ohne Anmeldung: beide Fenster sichtbar (' + r.datenschutz.hoehe + ' px), über dem Anmeldebildschirm, Escape schliesst nur das Fenster · angemeldet: z-index ' + g.z };
+    },
+  },
+  {
+    name: 'Web-Root · jedes Verzeichnis und jede Datei im Wurzelverzeichnis ist entweder Auslieferung (mit Grund) oder traegt noindex in _headers UND Disallow in robots.txt',
+    lauf: async () => {
+      // Seit dem Merge mit main (v33.59) EIN Fall: main hatte fuer dieselbe Regel (Brett e383) einen
+      // zweiten mit eigener OEFFENTLICH-Liste — zwei Listen fuer eine Regel. Dieser prueft dieselben
+      // Verzeichnisse und dazu die Dateien im Wurzelverzeichnis.
+      // v33.72 (brett:2026-11-11-e383). Der Web-Root IST das Repo (kein Build).
+      // Seit v32.69 tragen docs/, supabase/, scripts/ und store/ `noindex` — eine
+      // Liste, die niemand nachzog: android/ (v33.49), store-assets/, .claude/
+      // und .github/ kamen ohne Block dazu, und im Wurzelverzeichnis lag eine
+      // interne Audit-Datei als JSON, die `/*.md` nicht erfasst. Dieser Fall
+      // haelt das Wurzelverzeichnis gegen zwei Listen: was die App braucht
+      // (mit Grund), und was `_headers` UND `robots.txt` fernhalten.
+      const wurzel = path.resolve(__dirname, '..');
+      const OEFFENTLICH = {
+        'assets': 'Leaflet, Three.js und Schriften — index.html laedt sie',
+        'data': 'Artenliste und Changelog-Archiv',
+        'icons': 'PWA-Icons aus manifest.json',
+        '.well-known': 'assetlinks.json — die Android-App weist sich damit aus',
+      };
+      const DATEI_OEFFENTLICH = /^(index\.html|install\.html|offline\.html|privacy\.html|manifest\.json|sw\.js|robots\.txt|sitemap\.xml|_headers|_redirects|favicon\.ico|favicon-\d+\.png|apple-touch-icon\.png)$/;
+      const OHNE_BELANG = { '.gitignore': 'eine Liste von Dateinamen, kein Inhalt' };
+      let eintraege;
+      try {
+        const aus = require('child_process').execFileSync('git', ['ls-files'], { cwd: wurzel, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
+        eintraege = [...new Set(aus.split('\n').filter(Boolean).map(z => z.split('/')[0] + (z.includes('/') ? '/' : '')))];
+      } catch (_) {
+        eintraege = fs.readdirSync(wurzel, { withFileTypes: true }).filter(d => d.name !== '.git' && d.name !== 'node_modules').map(d => d.name + (d.isDirectory() ? '/' : ''));
+      }
+      if (eintraege.length < 20) return { ok: false, warum: 'nur ' + eintraege.length + ' Eintraege im Wurzelverzeichnis gefunden — der Fall misst offenbar etwas anderes' };
+      const kopf = fs.readFileSync(path.join(wurzel, '_headers'), 'utf8').split('\n');
+      const noindex = new Set();
+      for (let i = 0; i < kopf.length; i++) {
+        if (!/^\//.test(kopf[i])) continue;
+        for (let j = i + 1; j < kopf.length && /^\s+\S/.test(kopf[j]); j++) if (/X-Robots-Tag:\s*noindex/i.test(kopf[j])) noindex.add(kopf[i].trim());
+      }
+      const robots = fs.readFileSync(path.join(wurzel, 'robots.txt'), 'utf8');
+      const ab = robots.lastIndexOf('User-agent: *');
+      const sperren = new Set([...robots.slice(ab).matchAll(/^Disallow:\s*(\S+)/gm)].map(m => m[1]));
+      const f = []; let dirs = 0, intern = 0;
+      eintraege.forEach((e) => {
+        if (e.endsWith('/')) {
+          dirs++;
+          const d = e.slice(0, -1);
+          if (OEFFENTLICH[d]) return;
+          intern++;
+          if (!noindex.has('/' + d + '/*')) f.push(d + '/ hat keinen noindex-Block in _headers (und steht nicht mit Grund in OEFFENTLICH)');
+          if (!sperren.has('/' + d + '/')) f.push(d + '/ fehlt als Disallow in robots.txt');
+        } else {
+          if (DATEI_OEFFENTLICH.test(e) || OHNE_BELANG[e]) return;
+          const end = (e.match(/\.[A-Za-z0-9]+$/) || [''])[0];
+          if (!end || !noindex.has('/*' + end) || !sperren.has('/*' + end + '$')) f.push('Datei ' + e + ' im Wurzelverzeichnis: weder Auslieferung noch von einem Muster in _headers UND robots.txt erfasst — interne Dateien gehoeren nach docs/');
+        }
+      });
+      Object.keys(OEFFENTLICH).forEach((d) => { if (eintraege.indexOf(d + '/') < 0) f.push('OEFFENTLICH nennt ' + d + '/, das es nicht gibt'); if (noindex.has('/' + d + '/*')) f.push(d + '/ steht in OEFFENTLICH und traegt zugleich noindex'); });
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: dirs + ' Verzeichnisse: ' + Object.keys(OEFFENTLICH).length + ' Auslieferung (mit Grund), ' + intern + ' intern mit noindex + Disallow · keine interne Datei ausserhalb der Muster' };
+    },
+  },
+  {
+    name: 'Deep-Link · ein ?screen=-Wert ohne Bildschirm fuehrt auf die Startseite statt ins Leere — und Sitemap wie Manifest nennen nur Werte, die es gibt',
+    lauf: async () => {
+      // v33.72 (Audit „Auslieferung"). `?screen=light` stand in sitemap.xml;
+      // gsHandleShortcutUrl reichte den Wert roh an switchTab, das ALLE Bildschirme
+      // ausblendet und keinen zeigt, wenn es `screen-<wert>` nicht gibt.
+      const wurzel = path.resolve(__dirname, '..');
+      const idx = fs.readFileSync(path.join(wurzel, 'index.html'), 'utf8');
+      const ids = new Set([...idx.matchAll(/id="screen-([a-z0-9_-]+)"/g)].map(m => m[1]));
+      const a = idx.indexOf('var SCREEN_MAP = {'), e = idx.indexOf('};', a);
+      const karte = {}; for (const m of idx.slice(a, e).matchAll(/'([a-z0-9_-]+)'\s*:\s*'([a-z0-9_-]+)'/g)) karte[m[1]] = m[2];
+      if (ids.size < 10 || Object.keys(karte).length < 8) return { ok: false, warum: 'nur ' + ids.size + ' Bildschirme / ' + Object.keys(karte).length + ' Zuordnungen gefunden — der Fall misst offenbar etwas anderes' };
+      const f = [];
+      const werte = [];
+      for (const d of ['sitemap.xml', 'manifest.json']) {
+        const t = fs.readFileSync(path.join(wurzel, d), 'utf8');
+        for (const m of t.matchAll(/[?&]screen=([A-Za-z0-9_-]+)/g)) werte.push([d, m[1]]);
+      }
+      if (werte.length < 4) return { ok: false, warum: 'nur ' + werte.length + ' ?screen=-Werte in Sitemap und Manifest gefunden' };
+      werte.forEach(([d, w]) => { const ziel = karte[w] || w; if (!ids.has(ziel)) f.push(d + ' nennt ?screen=' + w + ' — einen Bildschirm „' + ziel + '" gibt es nicht'); });
+      const r = await __seite.evaluate(async () => {
+        const adr = location.href;
+        const lies = () => Array.from(document.querySelectorAll('.screen.active')).map(x => x.id);
+        try {
+          history.replaceState(null, '', location.pathname + '?screen=gibtsnicht');
+          gsHandleShortcutUrl();
+          await new Promise(res => setTimeout(res, 1200));
+          const unbekannt = lies();
+          history.replaceState(null, '', location.pathname + '?screen=garten');
+          gsHandleShortcutUrl();
+          await new Promise(res => setTimeout(res, 1200));
+          const bekannt = lies();
+          return { unbekannt, bekannt };
+        } finally { try { history.replaceState(null, '', adr); switchTab('home'); } catch (_) {} }
+      });
+      if (r.unbekannt.length !== 1 || r.unbekannt[0] !== 'screen-home') f.push('?screen=gibtsnicht → aktive Bildschirme: ' + (r.unbekannt.join(',') || 'KEINER') + ' (erwartet genau screen-home)');
+      if (r.bekannt.length !== 1 || r.bekannt[0] !== 'screen-garden') f.push('Gegenrichtung: ?screen=garten → ' + (r.bekannt.join(',') || 'keiner') + ' (erwartet screen-garden)');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: werte.length + ' Werte aus Sitemap und Manifest, alle mit Ziel · ?screen=gibtsnicht → Startseite · ?screen=garten → Garten' };
     },
   },
   {
@@ -1454,44 +1824,10 @@ const FAELLE = [
       return { ok: true, info: stellen.length + ' Stellen in ' + new Set(stellen.map(x => x.split(':')[0])).size + ' Dateien setzen den Token, alle in JWT-Form · Sitzung aus _seed.js steht nach 4 s, sbIsLoggedIn = true' };
     },
   },
-  {
-    name: 'Web-Root · jedes Verzeichnis im Wurzelverzeichnis ist entweder bewusst oeffentlich oder traegt noindex in _headers UND Disallow in robots.txt',
-    lauf: async () => {
-      // v33.59 (Brett 2026-11-11-e383): der Web-Root ist das Repo. android/ (seit v33.49), .claude/
-      // und store-assets/ lagen ohne Block da — jedes neue Verzeichnis brachte die Luecke wieder mit,
-      // weil die Regel aus v32.69 nur als Kommentar in _headers stand. Die Liste ist die Pruefung.
-      const fs = require('fs'), path = require('path'), W = path.join(__dirname, '..');
-      const OEFFENTLICH = {
-        assets: 'Bibliotheken, Schriften, Lizenztexte — die App laedt sie',
-        data: 'Artenliste und Changelog-Archiv — die App laedt sie',
-        icons: 'PWA-Icons aus manifest.json',
-        '.well-known': 'assetlinks.json fuer die Android-Huelle',
-      };
-      let verz;
-      try {
-        verz = [...new Set(require('child_process').execSync('git ls-files', { cwd: W, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-          .split('\n').filter(z => z.indexOf('/') > 0).map(z => z.split('/')[0]))].sort();
-      } catch (e) { return { ok: false, warum: 'git ls-files laesst sich nicht fahren: ' + e.message }; }
-      if (verz.length < 6) return { ok: false, warum: 'nur ' + verz.length + ' Verzeichnisse gefunden — die Suche misst nichts' };
-      const kopf = fs.readFileSync(path.join(W, '_headers'), 'utf8').split('\n');
-      const rob = fs.readFileSync(path.join(W, 'robots.txt'), 'utf8');
-      const noindex = (d) => { const i = kopf.findIndex(z => z.trim() === '/' + d + '/*'); return i >= 0 && /X-Robots-Tag:\s*noindex/.test(kopf[i + 1] || ''); };
-      const f = [], intern = [];
-      for (const d of verz) {
-        if (Object.prototype.hasOwnProperty.call(OEFFENTLICH, d)) continue;
-        intern.push(d);
-        if (!noindex(d)) f.push(d + '/ ohne Block „/' + d + '/*  X-Robots-Tag: noindex“ in _headers');
-        if (!new RegExp('^Disallow: /' + d.replace(/[.]/g, '\\.') + '/\\s*$', 'm').test(rob)) f.push(d + '/ ohne „Disallow: /' + d + '/“ in robots.txt');
-      }
-      for (const d of Object.keys(OEFFENTLICH)) if (verz.indexOf(d) < 0) f.push('OEFFENTLICH nennt ' + d + '/ — das Verzeichnis gibt es nicht mehr');
-      if (f.length) return { ok: false, warum: f.join(' · ') + ' — ein internes Verzeichnis bekommt beide Zeilen, ein oeffentliches einen Eintrag mit Grund in OEFFENTLICH' };
-      return { ok: true, info: verz.length + ' Verzeichnisse · ' + intern.length + ' intern, alle mit noindex und Disallow (' + intern.join(', ') + ') · ' + Object.keys(OEFFENTLICH).length + ' bewusst oeffentlich' };
-    },
-  },
 ];
 
 (async () => {
-  const br = await chromium.launch();
+  const br = await chromium.launch(); __browser = br;
   const ctx = await br.newContext({ viewport: { width: 412, height: 915 } });
   const p = await ctx.newPage(); __seite = p;
   const errs = [];

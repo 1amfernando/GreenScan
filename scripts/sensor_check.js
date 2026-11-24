@@ -2020,6 +2020,815 @@ const FAELLE = [
     },
   },
 
+  {
+    // Hauptfunktionen „Offen — Lina" 3. Gemessen vor der Reparatur: die Blase
+    // zeigte „Antwort **fett** hier" woertlich, auch die Notfallzeile.
+    name: 'Lina L1 · Auszeichnung: **fett** und Zeilenumbrueche werden dargestellt, Fremd-HTML bleibt Text, und die Zeile der Person bleibt woertlich',
+    lauf: async () => {
+      const sichern = { li: window.sbIsLoggedIn, sf: window.sbFetch, m: window._gsLinaMsgs };
+      try {
+        window.sbIsLoggedIn = () => true; window.sbFetch = async () => ({ data: [], error: null });
+        window.__pwned = 0;
+        window._gsLinaMsgs = [
+          { role: 'user', content: 'ich schreibe **sterne** selbst' },
+          { role: 'assistant', content: '🆘 **SOFORT Tox Info Suisse: 145 anrufen!**\nZweite Zeile <img src=x onerror="window.__pwned=1"> Ende' },
+        ];
+        gsLinaRender(false);
+        await new Promise(r => setTimeout(r, 350));
+        const sc = document.getElementById('gs-lina-scroll');
+        if (!sc) return { ok: false, warum: 'Linas Fenster ist nicht da — der Fall misst nichts' };
+        const blasen = sc.querySelectorAll(':scope > div > div');
+        const nutzer = blasen[0], lina = blasen[1];
+        const klagen = [];
+        if (!lina.querySelector('strong') || !/SOFORT Tox Info Suisse: 145 anrufen!/.test(lina.querySelector('strong').textContent)) klagen.push('kein <strong> um den fetten Teil: ' + lina.innerHTML.slice(0, 140));
+        if (/\*\*/.test(lina.textContent)) klagen.push('Sternchen stehen sichtbar da: ' + lina.textContent.slice(0, 80));
+        if (!lina.querySelector('br')) klagen.push('der Zeilenumbruch fehlt');
+        if (lina.querySelector('img') || window.__pwned) klagen.push('Fremd-HTML wurde als HTML gesetzt');
+        if (!/<img src=x/.test(lina.textContent)) klagen.push('der Fremdtext wurde verschluckt statt angezeigt');
+        // Gegenrichtung: was die Person tippt, bleibt, wie sie es getippt hat
+        if (nutzer.querySelector('strong') || !/\*\*sterne\*\*/.test(nutzer.textContent)) klagen.push('die Zeile der Person wurde umformatiert');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'fett als <strong>, Umbruch als <br>, <img> bleibt Text, 0 Ausfuehrungen · Nutzerzeile woertlich' };
+      } finally { window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window._gsLinaMsgs = sichern.m; try { closeModal('gs-nl-modal'); } catch (_) {} }
+    },
+  },
+  {
+    // „Offen — Lina" 2. Gemessen: waehrend der laufenden Anfrage getippt →
+    // nach der Antwort war das Feld leer.
+    name: 'Lina L2 · Entwurf: was waehrend „Lina denkt nach" getippt wird, steht nach der Antwort noch im Feld — und die gesendete Frage kommt nicht zurueck',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      try {
+        window.sbIsLoggedIn = () => true; window.sbFetch = async () => ({ data: [], error: null });
+        await gsOpenLina(); await warte(150);
+        const feld = () => document.getElementById('gs-lina-input');
+        if (!feld()) return { ok: false, warum: 'kein Eingabefeld — der Fall misst nichts' };
+        window._gsLinaMsgs = []; window._gsLinaSending = false;
+        let los; window.callAI = () => new Promise(r => { los = r; });
+        feld().value = 'Wie oft giesse ich Basilikum?';
+        const lauf = gsLinaSend(); await warte(120);
+        if (feld().value !== '') return { ok: false, warum: 'die gesendete Frage steht noch im Feld: „' + feld().value + '"' };
+        if (!los) return { ok: false, warum: 'die KI wurde nicht gerufen — der Fall misst nichts' };
+        feld().value = 'und die Tomate?';
+        los('Etwa alle zwei Tage.'); await lauf; await warte(80);
+        const nach = feld().value;
+        if (nach !== 'und die Tomate?') return { ok: false, warum: 'der Entwurf ist nach der Antwort weg: „' + nach + '"' };
+        // Gegenrichtung: ohne Entwurf bleibt das Feld leer
+        feld().value = 'Noch eine Frage';
+        window.callAI = async () => 'Gern.';
+        await gsLinaSend(); await warte(80);
+        if (feld().value !== '') return { ok: false, warum: 'ohne Entwurf steht nach der Antwort etwas im Feld: „' + feld().value + '"' };
+        return { ok: true, info: 'Entwurf „und die Tomate?" ueberlebt den Neuaufbau · ohne Entwurf bleibt das Feld leer' };
+      } finally { window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window._gsLinaSending = false; window._gsLinaMsgs = []; try { closeModal('gs-nl-modal'); } catch (_) {} }
+    },
+  },
+  {
+    // „Offen — Lina" 1. Gemessen: KI wirft, Geraet online → nur „versuch es
+    // gleich nochmal", 0 Knoepfe, obwohl die App-Liste die Antwort haette.
+    name: 'Lina L3 · KI faellt aus (online): die Antwort aus der App-Liste kommt als Ersatz, „Erneut senden" schickt dieselbe Frage noch einmal — ohne Dublette, ohne die falsche Art, und bei Erfolg ohne Knopf',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const posts = [];
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async (pfad, o) => {
+          if (o && o.method === 'POST' && /coach_conversations/.test(pfad)) return { data: [{ id: 'conv-l3' }], error: null };
+          if (o && o.method === 'POST' && /coach_messages/.test(pfad)) { posts.push(JSON.parse(o.body)); return { data: [{}], error: null }; }
+          return { data: [], error: null };
+        };
+        await gsOpenLina(); await warte(150);
+        const feld = () => document.getElementById('gs-lina-input');
+        const knopf = () => document.querySelector('#gs-lina-scroll [data-lina-nochmal]');
+        const letzte = () => (window._gsLinaMsgs.slice(-1)[0] || {});
+        const senden = async (t) => { feld().value = t; window._gsLinaSending = false; await gsLinaSend(); await warte(80); };
+        const neu = () => { window._gsLinaMsgs = []; window._gsLinaConvId = null; posts.length = 0; };
+        const klagen = [];
+        let rufe = 0;
+        // 1 · KI wirft, die App-Liste kennt die Art
+        neu(); window.callAI = async () => { rufe++; throw new Error('Timeout'); };
+        await senden('Kann ich Bärlauch essen?');
+        const a1 = String(letzte().content || '');
+        if (!rufe) return { ok: false, warum: 'die KI wurde nicht gerufen — der Fall misst nichts' };
+        if (!/Bärlauch/i.test(a1) || !/App-Liste/.test(a1)) klagen.push('kein Ersatz aus der App-Liste: „' + a1.slice(0, 120) + '"');
+        if (!knopf()) klagen.push('kein Knopf „Erneut senden" nach dem Ausfall');
+        if (posts.some(p => p.role === 'assistant')) klagen.push('die Ersatzzeile wurde als Linas Antwort in den Verlauf geschrieben');
+        // 2 · „Erneut senden" mit laufender KI: Antwort da, Ausfallzeile weg, Frage EINMAL
+        window.callAI = async () => { rufe++; return 'Ja, Bärlauch ist ein Wildgemüse.'; };
+        knopf() && knopf().click(); await warte(250);
+        const m2 = window._gsLinaMsgs;
+        if (m2.length !== 2 || m2[0].role !== 'user' || m2[0].content !== 'Kann ich Bärlauch essen?' || !/Wildgemüse/.test(m2[1].content)) klagen.push('nach „Erneut senden" steht: ' + JSON.stringify(m2.map(x => x.role + ':' + String(x.content).slice(0, 30))));
+        if (knopf()) klagen.push('nach einer geglueckten Antwort steht der Knopf noch da');
+        const nutzerPosts = posts.filter(p => p.role === 'user').length;
+        if (nutzerPosts !== 1) klagen.push('die Frage liegt ' + nutzerPosts + '× im Verlauf statt 1×');
+        // 3 · LEERE Antwort ist ein Ausfall, keine Antwort
+        neu(); window.callAI = async () => '';
+        await senden('Kann ich Bärlauch essen?');
+        if (!knopf() || !/Bärlauch/i.test(String(letzte().content))) klagen.push('leere KI-Antwort: kein Ersatz/kein Knopf — „' + String(letzte().content).slice(0, 80) + '"');
+        if (posts.some(p => p.role === 'assistant')) klagen.push('leere Antwort: eine Fehlerzeile ging als Linas Antwort in den Verlauf');
+        // 4 · die App-Liste kennt nichts Passendes: ehrlicher Satz + Knopf, NIE die falsche Art
+        neu(); window.callAI = async () => { throw new Error('boom'); };
+        await senden('Meine Tomaten haben braune Blätter, was tun?');
+        if (/Krustenflechte/.test(String(letzte().content))) klagen.push('der grobe Vergleich kam durch die Hintertuer: ' + String(letzte().content).slice(0, 100));
+        if (!knopf()) klagen.push('ohne Ersatz fehlt der Knopf');
+        // 5 · Notfall + Ausfall + Wiederholung: die Nummer steht ZUERST und nur einmal
+        neu(); window.callAI = async () => { throw new Error('boom'); };
+        await senden('meine tochter hat beeren gegessen');
+        if (!/145/.test(String((window._gsLinaMsgs.filter(m => m.role === 'assistant')[0] || {}).content))) klagen.push('Notfall: die Nummer ist nicht die erste Antwort');
+        window.callAI = async () => 'Bitte ruf sofort an.';
+        knopf() && knopf().click(); await warte(250);
+        const m5 = window._gsLinaMsgs;
+        const nummern = m5.filter(m => m.role === 'assistant' && /145/.test(m.content) && /SOFORT/.test(m.content)).length;
+        if (m5.filter(m => m.role === 'user').length !== 1 || nummern !== 1 || !/145/.test(String((m5.filter(m => m.role === 'assistant')[0] || {}).content))) klagen.push('Notfall nach Wiederholung: ' + JSON.stringify(m5.map(x => x.role + ':' + String(x.content).slice(0, 24))));
+        // 6 · Gegenrichtung: Kontingent erschoepft ist kein Fall fuer „Erneut senden"
+        neu(); window.callAI = async () => { const e = new Error('q'); e.code = 'free_quota_reached'; throw e; };
+        await senden('Kann ich Bärlauch essen?');
+        if (knopf()) klagen.push('bei erschoepftem Kontingent steht „Erneut senden" da');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Ausfall → Ersatz aus der App-Liste + Knopf · Wiederholung: 1 Frage, 1 Antwort, 1× im Verlauf · leer = Ausfall · ohne Treffer keine falsche Art · Notfallnummer zuerst und einmal · Kontingent: kein Knopf' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf;
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on });
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // „Offen — Lina" 5. Gemessen: navigate schloss das Fenster 140 ms nach der
+    // Antwort — sie war weg, bevor sie gelesen war.
+    name: 'Lina L4 · lesende Aktionen: die Antwort bleibt stehen, die Aktion haengt als Knopf darunter und laeuft erst beim Antippen — ein unerlaubtes Ziel bekommt keinen Knopf, eine schreibende Aktion fragt wie bisher',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, cm: window.gsConfirmModal, on: navigator.onLine };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true; window.sbFetch = async () => ({ data: [], error: null });
+        await gsOpenLina(); await warte(150);
+        const feld = () => document.getElementById('gs-lina-input');
+        const offen = () => document.getElementById('gs-nl-modal').classList.contains('open');
+        const knopf = () => document.querySelector('#gs-lina-scroll [data-lina-aktion]');
+        const senden = async (t) => { feld().value = t; window._gsLinaSending = false; await gsLinaSend(); await warte(450); };
+        const klagen = [];
+        if (!offen()) return { ok: false, warum: 'Linas Fenster gilt nicht als offen — der Fall misst nichts' };
+        // 1 · open_calendar: Fenster bleibt, Antwort sichtbar, Knopf da
+        window._gsLinaMsgs = [];
+        window.callAI = async () => 'Am 1. September ist Aussaatzeit.\n[[GS_ACTION]]{"tool":"open_calendar","args":{"day":"' + gsHeuteTag() + '"}}';
+        try { if (typeof _gsKalStand !== 'undefined') _gsKalStand.tag = null; } catch (_) {}
+        await senden('Zeig mir den Kalender');
+        if (!offen()) klagen.push('Lina wurde nach der Antwort geschlossen');
+        if (!/Aussaatzeit/.test((document.getElementById('gs-lina-scroll') || {}).textContent || '')) klagen.push('die Antwort steht nicht auf dem Bildschirm');
+        if (/GS_ACTION/.test((document.getElementById('gs-lina-scroll') || {}).textContent || '')) klagen.push('die Aktionszeile steht sichtbar da');
+        if (!knopf()) klagen.push('kein Knopf fuer die Aktion');
+        if (typeof _gsKalStand !== 'undefined' && _gsKalStand.tag === gsHeuteTag()) klagen.push('der Kalender ging von selbst auf');
+        // 2 · Antippen fuehrt aus
+        if (knopf()) { knopf().click(); await warte(450);
+          if (typeof _gsKalStand !== 'undefined' && _gsKalStand.tag !== gsHeuteTag()) klagen.push('der Knopf oeffnet den Kalender nicht (steht auf ' + _gsKalStand.tag + ')'); }
+        try { closeModal('detail-modal'); } catch (_) {}
+        // 3 · ein Ziel ausserhalb der Liste: kein Knopf, nichts passiert
+        await gsOpenLina(); await warte(150);
+        window._gsLinaMsgs = [];
+        window.callAI = async () => 'Ich bringe dich hin.\n[[GS_ACTION]]{"tool":"navigate","args":{"screen":"admin"}}';
+        await senden('Bring mich zum Admin');
+        if (knopf()) klagen.push('ein unerlaubtes Ziel bekam einen Knopf');
+        if (!offen()) klagen.push('ein unerlaubtes Ziel hat Lina geschlossen');
+        // 4 · schreibend: fragt sofort, wie bisher
+        let gefragt = 0; window.gsConfirmModal = async () => { gefragt++; return false; };
+        window._gsLinaMsgs = [];
+        window.callAI = async () => 'Gern.\n[[GS_ACTION]]{"tool":"propose_add_plant","args":{"name":"Testminze"}}';
+        await senden('Füge Minze hinzu');
+        if (gefragt !== 1) klagen.push('die schreibende Aktion hat ' + gefragt + '× gefragt statt 1×');
+        if (knopf()) klagen.push('die schreibende Aktion steht als Lese-Knopf da');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Antwort bleibt, Knopf darunter, Kalender erst beim Antippen · „admin": kein Knopf · propose_add_plant fragt 1×' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsConfirmModal = sichern.cm;
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on });
+        window._gsLinaSending = false; window._gsLinaMsgs = [];
+        try { closeModal('detail-modal'); } catch (_) {} try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // „Offen — Lina" 6. Gemessen: propose_reminder fuer die Garten-Pflanzung
+    // „Zucchini" → „✅ Erinnerung eingerichtet", tasks unveraendert (toggleTask
+    // sucht nur in myPlants). propose_add_plant „Basilikum" → zweiter Eintrag.
+    name: 'Lina T3 · Schreibaktionen sagen, was geschehen ist: eine Erinnerung an einer Garten-Pflanzung kommt wirklich an, bei vollem Speicher steht kein „eingerichtet/hinzugefügt", und eine Dublette wird in der Rueckfrage genannt',
+    lauf: async () => {
+      const sichern = { cm: window.gsConfirmModal, gt: window.gsToast, set: gsStore.setJSON, mp: JSON.stringify(myPlants || []), pl: JSON.stringify(plantings || []) };
+      const toasts = []; const fragen = [];
+      try {
+        window.gsToast = (t, k) => toasts.push([String(t), k]);
+        window.gsConfirmModal = async (o) => { fragen.push(String((o && o.message) || '')); return true; };
+        const klagen = [];
+        const pl = (plantings || [])[0];
+        if (!pl) return { ok: false, warum: 'keine Garten-Pflanzung in den Beispieldaten — der Fall misst nichts' };
+        if ((myPlants || []).some(x => x.id === pl.id)) return { ok: false, warum: 'die Pflanzung steht auch in myPlants — der Fall misst nichts' };
+        // 1 · Erinnerung an einer Garten-Pflanzung
+        if (pl.tasks) delete pl.tasks.mist;
+        await gsLinaDispatch({ tool: 'propose_reminder', args: { task: 'mist', plantName: pl.name, intervalDays: 3 } });
+        const t1 = (_gsPflanzeFinden(pl.id).p.tasks || {}).mist;
+        if (!t1 || !t1.active || t1.intervalDays !== 3) klagen.push('Erinnerung an „' + pl.name + '" nicht angekommen: ' + JSON.stringify(t1) + ' · Meldung: ' + JSON.stringify(toasts.slice(-1)[0]));
+        const gesp = (JSON.parse(localStorage.getItem('gs_plantings') || '[]').find(x => x.id === pl.id) || {}).tasks || {};
+        if (!gesp.mist || gesp.mist.intervalDays !== 3) klagen.push('die Erinnerung steht nicht im Speicher');
+        if (!toasts.some(t => t[1] === 'success')) klagen.push('keine Erfolgsmeldung nach dem Einrichten');
+        // 2 · voller Speicher: nichts bleibt, und es steht kein Erfolg da
+        toasts.length = 0; gsStore.setJSON = () => false;
+        await gsLinaDispatch({ tool: 'propose_reminder', args: { task: 'dust', plantName: pl.name, intervalDays: 9 } });
+        const t2 = (_gsPflanzeFinden(pl.id).p.tasks || {}).dust;
+        if (t2 && t2.intervalDays === 9 && t2.active) klagen.push('bei vollem Speicher blieb die Erinnerung im Arbeitsspeicher stehen');
+        if (toasts.some(t => t[1] === 'success')) klagen.push('voller Speicher, Erinnerung: Erfolgsmeldung „' + toasts.find(t => t[1] === 'success')[0] + '"');
+        if (!toasts.some(t => t[1] === 'error')) klagen.push('voller Speicher, Erinnerung: keine Fehlermeldung');
+        toasts.length = 0; const vor = myPlants.length;
+        await gsLinaDispatch({ tool: 'propose_add_plant', args: { name: 'Speichervoll-Minze' } });
+        if (myPlants.length !== vor) klagen.push('voller Speicher: die Pflanze blieb in der Liste');
+        if (toasts.some(t => t[1] === 'success')) klagen.push('voller Speicher, Pflanze: Erfolgsmeldung');
+        gsStore.setJSON = sichern.set;
+        // 3 · Dublette: die Rueckfrage nennt sie; ein neuer Name nicht
+        fragen.length = 0;
+        window.gsConfirmModal = async (o) => { fragen.push(String((o && o.message) || '')); return false; };
+        await gsLinaDispatch({ tool: 'propose_add_plant', args: { name: myPlants[0].name } });
+        await gsLinaDispatch({ tool: 'propose_add_plant', args: { name: 'Ganz neue Testpflanze' } });
+        if (!/schon/.test(fragen[0] || '')) klagen.push('die Rueckfrage nennt die Dublette nicht: „' + fragen[0] + '"');
+        if (/schon/.test(fragen[1] || '')) klagen.push('Dubletten-Hinweis bei einem neuen Namen: „' + fragen[1] + '"');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Bespruehen alle 3 Tage an Garten-Pflanzung „' + pl.name + '" (Liste und Speicher) · voller Speicher: nichts bleibt, Fehlermeldung · Dublette „' + myPlants[0].name + '" wird genannt' };
+      } finally {
+        gsStore.setJSON = sichern.set; window.gsConfirmModal = sichern.cm; window.gsToast = sichern.gt;
+        try { myPlants.length = 0; JSON.parse(sichern.mp).forEach(x => myPlants.push(x)); plantings.length = 0; JSON.parse(sichern.pl).forEach(x => plantings.push(x)); savePlantsToStorage(); saveGardenData(); } catch (_) {}
+      }
+    },
+  },
+  {
+    // „Offen — Lina" 4. Gemessen: gsOpenLina lud NUR das neueste Gespraech (limit=1); „＋ Neu"
+    // nahm den Verlauf aus der Ansicht, und kein Weg fuehrte zurueck — das Gespraech lag in der
+    // Cloud (coach_conversations), erreichbar war es in der App nicht.
+    name: 'Lina L5 · frühere Gespräche: „Verlauf" listet sie, antippen lädt eines (Frage vor Antwort) — nach „＋ Neu" ist das alte erreichbar; leer und Fehler werden gesagt',
+    lauf: async () => {
+      const sichern = { li: window.sbIsLoggedIn, sf: window.sbFetch };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const klagen = [];
+      const GESPR = [
+        { id: 'c-neu', title: 'Tomaten giessen', updated_at: '2026-11-15T10:00:00Z' },
+        { id: 'c-alt', title: 'Bärlauch & <b>Maiglöckchen</b>', updated_at: '2026-11-01T08:00:00Z' },
+      ];
+      // wie PostgREST sie liefert: neueste zuerst (order=created_at.desc)
+      const NACHR = {
+        'c-neu': [{ role: 'assistant', content: 'Etwa alle zwei Tage.' }, { role: 'user', content: 'Wie oft Tomaten giessen?' }],
+        'c-alt': [{ role: 'assistant', content: 'Achte auf den Knoblauchduft.' }, { role: 'user', content: 'Wie unterscheide ich Bärlauch?' }],
+      };
+      let modus = 'daten';
+      try {
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async (pfad, o) => {
+          const get = !o || !o.method || o.method === 'GET';
+          if (get && /coach_conversations/.test(pfad)) {
+            if (modus === 'fehler') return { data: null, error: { message: 'Failed to fetch', status: 0 } };
+            if (modus === 'leer') return { data: [], error: null };
+            return { data: /limit=1(&|$)/.test(pfad) ? GESPR.slice(0, 1) : GESPR, error: null };
+          }
+          if (get && /coach_messages/.test(pfad)) { const m = /conversation_id=eq\.([^&]+)/.exec(pfad); return { data: (m && NACHR[decodeURIComponent(m[1])]) || [], error: null }; }
+          return { data: [], error: null };
+        };
+        await gsOpenLina(); await warte(150);
+        const text = () => ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+        if (!/Tomaten/.test(text())) return { ok: false, warum: 'Lina öffnet nicht mit dem neuesten Gespräch — der Fall misst nichts' };
+        // 1 · „＋ Neu" — das alte Gespraech ist danach ueber den Verlauf erreichbar
+        gsLinaNew(); await warte(80);
+        if (/Tomaten/.test(text())) return { ok: false, warum: 'nach „＋ Neu" steht das alte Gespräch noch da — der Fall misst nichts' };
+        const vk = () => document.querySelector('[data-lina-verlauf]');
+        if (!vk()) klagen.push('kein Knopf „Verlauf" im Lina-Kopf');
+        else {
+          vk().click(); await warte(200);
+          const zeilen = [...document.querySelectorAll('[data-lina-gespraech]')];
+          if (zeilen.length !== 2) klagen.push('Verlauf: ' + zeilen.length + ' Gespräche statt 2');
+          const alt = zeilen.find(z => z.getAttribute('data-lina-gespraech') === 'c-alt');
+          if (!alt) klagen.push('das ältere Gespräch steht nicht in der Liste');
+          else {
+            if (!/Bärlauch & <b>Maiglöckchen<\/b>/.test(alt.textContent)) klagen.push('Titel nicht als Text: „' + alt.textContent.trim() + '"');
+            if (alt.querySelector('b')) klagen.push('der Titel wird als HTML eingesetzt');
+            alt.click(); await warte(200);
+            const t = text();
+            if (window._gsLinaConvId !== 'c-alt') klagen.push('nach dem Antippen ist Gespräch „' + window._gsLinaConvId + '" aktiv');
+            if (!/Knoblauchduft/.test(t) || !/unterscheide/.test(t)) klagen.push('die Nachrichten des älteren Gesprächs stehen nicht da: „' + t.slice(0, 80) + '"');
+            else if (t.indexOf('unterscheide') > t.indexOf('Knoblauchduft')) klagen.push('Antwort vor Frage — die Reihenfolge ist verdreht');
+          }
+        }
+        // 2 · leer und Fehler werden ausgesprochen; „Zurück" fuehrt ins Gespraech
+        modus = 'leer'; vk() && vk().click(); await warte(200);
+        if (!/Noch keine früheren Gespräche/.test(text())) klagen.push('leere Liste wird nicht gesagt: „' + text().slice(0, 80) + '"');
+        modus = 'fehler'; vk() && vk().click(); await warte(200);
+        if (!/lassen sich gerade nicht laden/.test(text())) klagen.push('Fehler wird nicht gesagt: „' + text().slice(0, 80) + '"');
+        const zur = document.querySelector('[data-lina-zurueck]');
+        if (!zur) klagen.push('kein „Zurück" in der Liste');
+        else { zur.click(); await warte(120); if (!/Knoblauchduft/.test(text())) klagen.push('„Zurück" führt nicht ins offene Gespräch: „' + text().slice(0, 60) + '"'); }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '„＋ Neu" → Verlauf: 2 Gespräche, das ältere lädt (Frage vor Antwort), Titel als Text · leer und Fehler gesagt · Zurück ins Gespräch' };
+      } finally {
+        window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf;
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // „Offen — Lina" 8. Die Aktionszeile wurde nur erkannt, wenn das JSON am ENDE der Antwort stand
+    // (`\{[\s\S]*\}\s*$`): mit Text dahinter stand „[[GS_ACTION]]{…}" roh in Linas Antwort, und ein
+    // kaputtes JSON verschwand still — die Antwort sagte „ich öffne dir den Kalender", nichts geschah.
+    name: 'Lina L6 · Aktionszeile: mit Text dahinter wird sie erkannt und entfernt, der Text bleibt — ein kaputtes JSON verschwindet nicht still, und ohne Aktionszeile steht kein solcher Satz',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const klagen = [];
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async () => ({ data: [], error: null });
+        await gsOpenLina(); await warte(150);
+        const feld = () => document.getElementById('gs-lina-input');
+        if (!feld()) return { ok: false, warum: 'kein Eingabefeld — der Fall misst nichts' };
+        const senden = async (t) => { window._gsLinaMsgs = []; window._gsLinaConvId = null; feld().value = t; window._gsLinaSending = false; await gsLinaSend(); await warte(120); };
+        const letzte = () => (window._gsLinaMsgs.slice(-1)[0] || {});
+        const text = () => ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+        // 1 · Text NACH der Aktionszeile
+        window.callAI = async () => 'Schau in den Kalender.\n[[GS_ACTION]]{"tool":"open_calendar","args":{}}\nViel Spass im Garten!';
+        await senden('Wann säe ich Feldsalat?');
+        if (/GS_ACTION/.test(text())) klagen.push('mit Text dahinter steht die Aktionszeile roh in der Antwort');
+        if (!/Viel Spass im Garten/.test(text())) klagen.push('der Text nach der Aktionszeile ist verschwunden');
+        if (!letzte().aktion || letzte().aktion.tool !== 'open_calendar') klagen.push('die Aktion wurde nicht erkannt (' + JSON.stringify(letzte().aktion || null) + ')');
+        // 2 · die Aktionszeile am Ende (der alte Fall) bleibt, wie sie war
+        window.callAI = async () => 'Schau in den Kalender.\n[[GS_ACTION]]{"tool":"open_calendar","args":{"day":"2026-09-01"}}';
+        await senden('Wann säe ich Feldsalat?');
+        if (/GS_ACTION/.test(text()) || !letzte().aktion || (letzte().aktion.args || {}).day !== '2026-09-01') klagen.push('die Aktionszeile am Ende wird nicht mehr erkannt');
+        // 3 · kaputtes JSON: weg aus dem Text, die Antwort bleibt, ein Satz sagt es
+        window.callAI = async () => 'Ich öffne dir den Kalender.\n[[GS_ACTION]]{"tool":"open_calendar","args":{';
+        await senden('Zeig mir den Kalender');
+        const a3 = String(letzte().content || '');
+        if (/GS_ACTION/.test(text())) klagen.push('eine kaputte Aktionszeile steht roh in der Antwort');
+        if (!/Ich öffne dir den Kalender/.test(a3)) klagen.push('die Antwort ist weg: „' + a3.slice(0, 80) + '"');
+        if (!/nicht angekommen/.test(a3)) klagen.push('ein kaputtes JSON verschwindet still: „' + a3.slice(-80) + '"');
+        if (letzte().aktion) klagen.push('aus einem kaputten JSON wurde eine Aktion');
+        // 4 · Gegenrichtung: ohne Aktionszeile kein solcher Satz
+        window.callAI = async () => 'Feldsalat säst du von August bis September.';
+        await senden('Wann säe ich Feldsalat?');
+        if (/nicht angekommen/.test(String(letzte().content || ''))) klagen.push('ohne Aktionszeile steht trotzdem ein Satz über eine Aktion');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Text dahinter: erkannt, entfernt, Text bleibt · am Ende: wie bisher · kaputt: weg + Satz, keine Aktion · ohne Zeile: still' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf;
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on });
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // „Offen — Lina" 7. Die fünf Vorschläge standen fest: „Welche Pflanzen blühen im April?" in jedem
+    // Monat, ohne Bezug zu fälligen Aufgaben oder zum letzten Scan. Und keiner war übersetzbar: ihre
+    // Schlüssel (ai_sug_*) standen nicht in GS_I18N_JS_STRINGS — übersetzt wurden sie nur, solange
+    // es den Chat-Bildschirm mit seinen data-i18n-Knöpfen gab (bis v33.31). Der Fall läuft am
+    // gestellten Tag dieses Prüfstands (1. September) mit den Beispieldaten: fällige Aufgaben und
+    // ein Scan „Löwenzahn" von vorgestern.
+    name: 'Lina L7 · Vorschläge: der Monat ist der laufende, fällige Aufgaben und der letzte Scan bekommen je einen Vorschlag — und jeder feste Vorschlag ist übersetzbar',
+    lauf: async () => {
+      const sichern = { li: window.sbIsLoggedIn, sf: window.sbFetch, send: window.gsLinaSend };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const klagen = [];
+      try {
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async () => ({ data: [], error: null });   // kein früheres Gespräch: die Vorschläge stehen da
+        window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        await gsOpenLina(); await warte(150);
+        const knoepfe = [...document.querySelectorAll('#gs-lina-scroll button[onclick^="gsLinaVorschlag"]')];
+        const texte = knoepfe.map(b => (b.textContent || '').trim());
+        if (!texte.length) return { ok: false, warum: 'Lina zeigt keine Vorschläge — der Fall misst nichts' };
+        const monat = (typeof gsMonate === 'function') ? gsMonate()[new Date().getMonth()] : '';
+        if (!monat) return { ok: false, warum: 'gsMonate fehlt — der Fall misst nichts' };
+        if (monat !== 'April' && texte.some(t => /April/.test(t))) klagen.push('im ' + monat + ' fragt ein Vorschlag nach dem April');
+        if (!texte.some(t => t.indexOf(monat) >= 0)) klagen.push('kein Vorschlag nennt den laufenden Monat (' + monat + ')');
+        const heute = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks().filter(t => (t.days != null ? t.days : 1) <= 0).length : 0;
+        if (!heute) return { ok: false, warum: 'die Beispieldaten haben heute nichts Fälliges — der Fall misst den Aufgaben-Vorschlag nicht' };
+        if (!texte.some(t => /heute/i.test(t))) klagen.push(heute + ' Aufgabe(n) heute fällig, aber kein Vorschlag fragt danach');
+        if (!texte.some(t => /Löwenzahn/.test(t))) klagen.push('der Scan von vorgestern (Löwenzahn) bekommt keinen Vorschlag');
+        if (texte.length > 5) klagen.push(texte.length + ' Vorschläge — mehr als fünf');
+        // Antippen schickt genau den Text des Knopfs
+        let gesendet = null;
+        window.gsLinaSend = function () { const i = document.getElementById('gs-lina-input'); gesendet = i ? i.value : null; };
+        const lk = knoepfe.find(b => /Löwenzahn/.test(b.textContent));
+        if (lk) { lk.click(); if (gesendet !== lk.textContent.trim()) klagen.push('Antippen schickt „' + gesendet + '" statt des Vorschlags'); }
+        // Übersetzbar: jeder feste Vorschlag hat seinen Schlüssel in GS_I18N_JS_STRINGS, mit demselben Text
+        const liste = (typeof GS_LINA_VORSCHLAEGE !== 'undefined') ? GS_LINA_VORSCHLAEGE : [];
+        const tab = window.GS_I18N_JS_STRINGS || {};
+        const fehlen = liste.map(v => Array.isArray(v) ? { key: v[0], de: v[1] } : v)
+          .filter(v => !v || tab[v.key] !== v.de).map(v => v && v.key);
+        if (!liste.length) klagen.push('GS_LINA_VORSCHLAEGE fehlt');
+        else if (fehlen.length) klagen.push(fehlen.length + ' feste Vorschläge ohne Eintrag in GS_I18N_JS_STRINGS (' + fehlen.join(', ') + ') — sie bleiben in jeder Sprache deutsch');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: texte.length + ' Vorschläge: „' + texte.join('" · „') + '"' };
+      } finally {
+        window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsLinaSend = sichern.send;
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // „Offen — Lina" 2 (Rest). Während Lina auf die KI wartet (45 s Zeitlimit, bis zu zwei
+    // Wiederholungen), stand nur „Lina denkt nach…" — dieselbe Zeile nach 2 und nach 90 Sekunden.
+    // Die einzige ehrliche Aussage über einen laufenden Aufruf ist, seit wann er läuft (v31.79,
+    // der Scanner zählt so seit v32.08). Gemessen mit performance.now — die Uhr dieses
+    // Prüfstands ist gestellt, Date.now steht still.
+    name: 'Lina L8 · Wartezeit: während Lina auf die KI wartet, steht seit wann („· N s") — danach ist die Anzeige weg und kein Zähler läuft weiter',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const klagen = [];
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        window.sbFetch = async () => ({ data: [], error: null });
+        window.callAI = () => new Promise(r => setTimeout(() => r('Etwa alle zwei Tage, morgens.'), 4300));
+        window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false;
+        await gsOpenLina(); await warte(120);
+        const inp = document.getElementById('gs-lina-input');
+        if (!inp) return { ok: false, warum: 'Lina hat kein Eingabefeld — der Fall misst nichts' };
+        inp.value = 'Wie oft giesse ich Tomaten?';
+        const lauf = gsLinaSend();
+        await warte(900);
+        const frueh = ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+        if (!/denkt nach/i.test(frueh)) return { ok: false, warum: 'kein „denkt nach" während der Anfrage — der Fall misst nichts' };
+        await warte(2800);   // jetzt rund 3,7 s
+        const z = document.getElementById('gs-lina-denkt-zeit');
+        const zeit = z ? z.textContent.trim() : '';
+        if (!/^·?\s*[34]\s*s$/.test(zeit)) klagen.push('nach rund 3,7 s steht als Wartezeit „' + zeit + '"' + (z ? '' : ' (kein Element)'));
+        await lauf;
+        await warte(1300);
+        if (document.getElementById('gs-lina-denkt-zeit')) klagen.push('die Wartezeit steht nach der Antwort noch da');
+        if (window._gsLinaUhr) klagen.push('der Zähler läuft nach der Antwort weiter');
+        const nach = ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+        if (!/alle zwei Tage/.test(nach)) klagen.push('die Antwort steht nicht da');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'während des Wartens „' + zeit + '" · danach weg, Zähler abgeräumt, Antwort da' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf;
+        try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // „Offen — Lina" 4 (Rest). gsOpenLina leerte bei jedem Öffnen den Verlauf und fragte nur die
+    // Cloud: offline stand Lina danach leer da, und ein Gespräch, das „nur lokal geführt" wurde (die
+    // Konversation liess sich nicht anlegen — so sagt es der Hinweis), war beim nächsten Öffnen weg;
+    // an seiner Stelle erschien ein ÄLTERES aus der Cloud. Die Gegenrichtung gehört dazu: hat die
+    // Cloud ein NEUERES Gespräch (anderes Gerät), gewinnt sie.
+    name: 'Lina L9 · ohne Cloud bleibt das Gespräch: offline geschlossen und wieder geöffnet steht es noch da — ein nur lokal geführtes wird nicht von einem älteren aus der Cloud verdrängt, ein neueres aus der Cloud gewinnt',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine, gt: window.gsToast };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const text = () => ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+      const klagen = [];
+      let online = false, cloud = 'aus';
+      const uidVorher = gsStore.get('gs_sb_uid', null);
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => online });
+        // angemeldet heisst in der App: Token UND uid (sbIsLoggedIn) — der Spiegel gehört der uid
+        window.sbIsLoggedIn = () => true; gsStore.set('gs_sb_uid', 'uid-L9');
+        window.gsToast = () => {};
+        window.callAI = async () => 'Gerne — morgens giessen.';
+        window.sbFetch = async (pfad, o) => {
+          const get = !o || !o.method || o.method === 'GET';
+          if (cloud === 'aus') return { data: null, error: { message: 'Failed to fetch', status: 0 } };
+          if (/coach_conversations/.test(pfad) && get) {
+            if (cloud === 'alt') return { data: [{ id: 'c-alt', updated_at: '2020-01-01T00:00:00Z' }], error: null };
+            return { data: [{ id: 'c-neu', updated_at: new Date().toISOString() }], error: null };   // ein anderes Gerät schreibt GERADE (L11: realistische Reihenfolgen)
+          }
+          if (/coach_conversations/.test(pfad)) return { data: null, error: { message: 'Failed to fetch', status: 0 } };   // anlegen schlägt fehl
+          if (/coach_messages/.test(pfad) && get) {
+            const m = /conversation_id=eq\.([^&]+)/.exec(pfad); const id = m && decodeURIComponent(m[1]);
+            if (id === 'c-alt') return { data: [{ role: 'assistant', content: 'ALT-Antwort' }, { role: 'user', content: 'ALT-Frage' }], error: null };
+            if (id === 'c-neu') return { data: [{ role: 'assistant', content: 'NEU-Antwort' }, { role: 'user', content: 'NEU-Frage vom anderen Gerät' }], error: null };
+          }
+          return { data: [], error: null };
+        };
+        const feld = () => document.getElementById('gs-lina-input');
+        // 1 · offline: Frage, Antwort aus der App-Liste, schliessen, wieder öffnen
+        window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false;
+        await gsOpenLina(); await warte(150);
+        if (!feld()) return { ok: false, warum: 'Lina hat kein Eingabefeld — der Fall misst nichts' };
+        feld().value = 'Kann ich Bärlauch essen?';
+        await gsLinaSend(); await warte(120);
+        if (!/Kann ich Bärlauch essen/.test(text())) return { ok: false, warum: 'offline kam keine Antwort aus der App-Liste — der Fall misst nichts' };
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        await gsOpenLina(); await warte(150);
+        if (!/Kann ich Bärlauch essen/.test(text())) klagen.push('offline wieder geöffnet ist das Gespräch weg („' + text().slice(0, 60) + '")');
+        // 2 · online, die Konversation lässt sich nicht anlegen; die Cloud hat ein älteres Gespräch
+        online = true; cloud = 'alt';
+        gsLinaNew(); await warte(60);
+        feld().value = 'Wann giesse ich Tomaten?';
+        window._gsLinaSending = false;
+        await gsLinaSend(); await warte(120);
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        await gsOpenLina(); await warte(150);
+        const t2 = text();
+        if (!/Wann giesse ich Tomaten/.test(t2)) klagen.push('das nur lokal geführte Gespräch ist nach dem Öffnen weg');
+        if (/ALT-Frage/.test(t2)) klagen.push('ein älteres Gespräch aus der Cloud verdrängt das lokale');
+        // 3 · Gegenrichtung: die Cloud hat ein neueres Gespräch
+        cloud = 'neu';
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        await gsOpenLina(); await warte(150);
+        const t3 = text();
+        if (!/NEU-Frage vom anderen Gerät/.test(t3)) klagen.push('ein neueres Gespräch aus der Cloud wird nicht gezeigt');
+        if (/Wann giesse ich Tomaten/.test(t3)) klagen.push('der Spiegel verdrängt ein neueres Gespräch aus der Cloud');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'offline wieder geöffnet: da · nur lokal: bleibt vor einem älteren · neueres aus der Cloud gewinnt' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt;
+        try { if (uidVorher == null) localStorage.removeItem('gs_sb_uid'); else gsStore.set('gs_sb_uid', uidVorher); } catch (_) {}
+        try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // Gegnerische Prüfung (16.11.2026), Befund 1: eine Antwort, die nach dem Abmelden ankam, öffnete
+    // Lina wieder (gsLinaRender → _gsNlOpen) und schrieb ihr Gespräch in den Spiegel, den gsOnLogout
+    // gerade geräumt hatte. Beim nächsten Konto lief der Kontowechsel-Zweig nicht (gs_last_active_uid
+    // war leer): B sah das Gespräch von A samt dessen Gesprächs-Id. Zwei Reihenfolgen: die Antwort
+    // kommt vor der Anmeldung von B — und nachdem B schon angemeldet ist.
+    name: 'Lina L10 · wer sich abmeldet, während Lina antwortet, nimmt das Gespräch mit — die verspätete Antwort öffnet kein Fenster und schreibt nichts, und das nächste Konto sieht nichts davon',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine, gt: window.gsToast, uid: gsStore.get('gs_sb_uid', null) };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const text = () => ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+      const offen = () => { const m = document.getElementById('gs-nl-modal'); return !!(m && (m.classList.contains('open') || m.classList.contains('active')) && getComputedStyle(m).display !== 'none'); };
+      const klagen = [];
+      let angemeldet = true;
+      const anmelden = (u) => { angemeldet = true; gsStore.set('gs_sb_uid', u); };
+      const abmelden = () => { angemeldet = false; try { gsOnLogout(); } catch (_) {} try { localStorage.removeItem('gs_sb_uid'); } catch (_) {} };
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => angemeldet;
+        window.gsToast = () => {};
+        window.sbFetch = async (pfad, o) => {
+          const get = !o || !o.method || o.method === 'GET';
+          if (/coach_conversations/.test(pfad) && get) return { data: [], error: null };
+          if (/coach_conversations/.test(pfad)) return { data: [{ id: 'conv-A' }], error: null };
+          return { data: [{}], error: null };
+        };
+        for (const reihenfolge of ['vor B', 'nach B']) {
+          window.callAI = () => new Promise(r => setTimeout(() => r('ANTWORT-AN-A über Johanniskraut.'), 500));
+          window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false;
+          try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+          anmelden('uid-A');
+          await gsOpenLina(); await warte(100);
+          const feld = document.getElementById('gs-lina-input');
+          if (!feld) return { ok: false, warum: 'Lina hat kein Eingabefeld — der Fall misst nichts' };
+          feld.value = 'GEHEIM-A: verträgt sich Johanniskraut mit den Tabletten meiner Mutter?';
+          const lauf = gsLinaSend();
+          await warte(80);
+          if (!/GEHEIM-A/.test(text())) return { ok: false, warum: 'die Frage von A steht nicht im Fenster — der Fall misst nichts' };
+          try { closeModal('gs-nl-modal'); } catch (_) {}
+          abmelden();
+          if (reihenfolge === 'nach B') anmelden('uid-B');
+          await lauf; await warte(150);
+          if (offen() && /GEHEIM-A|ANTWORT-AN-A/.test(text())) klagen.push(reihenfolge + ': die verspätete Antwort öffnet Lina mit dem Gespräch von A');
+          const sp = localStorage.getItem('gs_lina_verlauf');
+          if (sp && /GEHEIM-A|ANTWORT-AN-A/.test(sp)) klagen.push(reihenfolge + ': das Gespräch von A steht nach dem Abmelden im Spiegel');
+          // VOR dem Öffnen durch B gemessen — gsOpenLina leert den Arbeitsspeicher ohnehin
+          if (/GEHEIM-A|ANTWORT-AN-A/.test(JSON.stringify(window._gsLinaMsgs || []))) klagen.push(reihenfolge + ': das Gespräch von A liegt nach dem Abmelden noch im Arbeitsspeicher');
+          if (reihenfolge === 'vor B') anmelden('uid-B');
+          try { closeModal('gs-nl-modal'); } catch (_) {}
+          await gsOpenLina(); await warte(150);
+          if (/GEHEIM-A|ANTWORT-AN-A/.test(text())) klagen.push(reihenfolge + ': B sieht das Gespräch von A');
+          if (window._gsLinaConvId === 'conv-A') klagen.push(reihenfolge + ': B schreibt in das Gespräch von A (conv-A)');
+          try { closeModal('gs-nl-modal'); } catch (_) {}
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Antwort vor und nach der Anmeldung von B: kein Fenster, kein Spiegel, B sieht nichts, keine fremde Gesprächs-Id' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt;
+        try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        try { if (sichern.uid == null) localStorage.removeItem('gs_sb_uid'); else gsStore.set('gs_sb_uid', sichern.uid); } catch (_) {}
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // Gegnerische Prüfung (16.11.2026), Befund 2: die Zeit des Spiegels war die Zeit des letzten
+    // Zeichnens. (a) Ab dem zweiten Öffnen gewann die Kopie (höchstens 40 Nachrichten) gegen das
+    // Original in der Cloud (bis 100). (b) Ein offline geöffneter alter Spiegel bekam eine frische
+    // Zeit und verdrängte danach ein neueres Gespräch von einem anderen Gerät. L9 sah beides nicht:
+    // dort lag das neuere Gespräch eine Stunde in der Zukunft.
+    name: 'Lina L11 · der Spiegel ist so alt wie sein Inhalt: ein Gespräch aus der Cloud steht beim zweiten Öffnen ganz da (60 von 60), und ein offline geöffneter alter Spiegel verdrängt kein neueres Gespräch eines anderen Geräts',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine, gt: window.gsToast };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const blasen = () => document.querySelectorAll('#gs-lina-scroll > div').length;
+      const text = () => ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+      const klagen = [];
+      let online = true, cloud = 'c1';
+      const vor = (min) => new Date(Date.now() - min * 60e3).toISOString();
+      const c1Zeit = vor(10), c2Zeit = vor(2);
+      const lang = []; for (let i = 0; i < 60; i++) lang.push({ role: i % 2 ? 'assistant' : 'user', content: 'M' + String(i).padStart(2, '0') });
+      const uidVorher = gsStore.get('gs_sb_uid', null);
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => online });
+        window.sbIsLoggedIn = () => true; gsStore.set('gs_sb_uid', 'uid-L11');
+        window.gsToast = () => {};
+        window.callAI = async () => 'ok';
+        window.sbFetch = async (pfad, o) => {
+          const get = !o || !o.method || o.method === 'GET';
+          if (!online) return { data: null, error: { message: 'Failed to fetch', status: 0 } };
+          if (/coach_conversations/.test(pfad) && get) return { data: [cloud === 'c1' ? { id: 'c1', updated_at: c1Zeit } : { id: 'c2', updated_at: c2Zeit }], error: null };
+          if (/coach_messages/.test(pfad) && get) {
+            const m = /conversation_id=eq\.([^&]+)/.exec(pfad); const id = m && decodeURIComponent(m[1]);
+            if (id === 'c1') return { data: lang.slice().reverse(), error: null };   // die App holt desc und dreht um
+            if (id === 'c2') return { data: [{ role: 'assistant', content: 'C2-Antwort' }, { role: 'user', content: 'C2-Frage vom Laptop' }], error: null };
+          }
+          return { data: [], error: null };
+        };
+        window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false;
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        // (a) zweimal online öffnen
+        await gsOpenLina(); await warte(120);
+        const n1 = blasen();
+        if (n1 < 60) return { ok: false, warum: 'beim ersten Öffnen nur ' + n1 + ' Nachrichten — der Fall misst nichts' };
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        await gsOpenLina(); await warte(120);
+        const n2 = blasen();
+        if (n2 < 60) klagen.push('zweites Öffnen: ' + n2 + ' von 60 Nachrichten (' + (/M00/.test(text()) ? 'M00 da' : 'M00 bis M' + String(60 - n2 - 1).padStart(2, '0') + ' fehlen') + ')');
+        if (window._gsLinaConvId !== 'c1') klagen.push('zweites Öffnen: Gesprächs-Id ' + window._gsLinaConvId + ' statt c1');
+        // (b) offline öffnen (der Spiegel c1), dann online: ein anderes Gerät hat c2 vor 2 Minuten geführt
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        online = false;
+        await gsOpenLina(); await warte(120);
+        if (!/M59/.test(text())) klagen.push('offline geöffnet steht das Gespräch nicht da');
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        online = true; cloud = 'c2';
+        await gsOpenLina(); await warte(120);
+        const t3 = text();
+        if (!/C2-Frage vom Laptop/.test(t3)) klagen.push('das neuere Gespräch des Laptops (vor 2 Minuten) wird nicht gezeigt');
+        if (/M59/.test(t3)) klagen.push('der offline geöffnete alte Spiegel verdrängt das neuere Gespräch');
+        if (window._gsLinaConvId !== 'c2') klagen.push('die Gesprächs-Id bleibt ' + window._gsLinaConvId + ' statt c2');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'zweimal online: 60 von 60 · offline: der Spiegel · danach online: das neuere Gespräch des anderen Geräts (c2)' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt;
+        try { if (uidVorher == null) localStorage.removeItem('gs_sb_uid'); else gsStore.set('gs_sb_uid', uidVorher); } catch (_) {}
+        try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // LINA-9 (24.11.2026). Gemessen am Stand davor: wer während „Lina denkt nach…" auf „＋ Neu" tippte,
+    // sah das neue Gespräch mit der Antwort auf eine Frage beginnen, die dort nicht stand — und die
+    // nächste Frage ging mit dieser fremden Antwort als Vorgeschichte an die KI. Wer ein früheres
+    // Gespräch öffnete, bekam die Antwort dort angehängt UND unter dessen Id in der Cloud gespeichert;
+    // im Gespräch, in dem gefragt wurde, fehlte sie. Eine zweite Frage verschluckte der Riegel wortlos.
+    // Sieben Lagen, je mit gestellter KI (die Antwort kommt, wann der Fall es sagt) und gestellter Cloud.
+    name: 'Lina L12 · eine Antwort gehört dem Gespräch, in dem gefragt wurde: „＋ Neu", ein früheres Gespräch oder ein leeres Neu-Öffnen während des Wartens — die Antwort steht nicht dort, sondern in der Cloud beim richtigen Gespräch, ein Satz sagt wo; zurück im selben Gespräch steht sie da; eine zweite Frage bekommt einen Satz statt Stille',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine, gt: window.gsToast };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const text = () => ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+      const klagen = [];
+      let schreib = [], toasts = [], ki = [], cloudGespraeche = [], convFreigabe = null, convNr = 0;
+      const nachrichten = (conv, rolle) => schreib.filter(s => s.conv === conv && (!rolle || s.role === rolle));
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        window.gsToast = (m) => { toasts.push(String(m)); };
+        window.sbFetch = async (pfad, o) => {
+          const m = (o && o.method) || 'GET';
+          if (m === 'GET' && /coach_conversations/.test(pfad)) return { data: cloudGespraeche.slice(), error: null };
+          if (m === 'POST' && /coach_conversations/.test(pfad)) { if (convFreigabe) await convFreigabe; return { data: [{ id: 'conv-NEU-' + (++convNr) }], error: null }; }
+          if (m === 'POST' && /coach_messages/.test(pfad)) { const b = JSON.parse(o.body); schreib.push({ conv: b.conversation_id, role: b.role, content: String(b.content) }); return { data: [b], error: null }; }
+          if (m === 'GET' && /coach_messages\?conversation_id=eq\.conv-Y/.test(pfad)) return { data: [{ role: 'assistant', content: 'Y-ANTWORT-ALT' }, { role: 'user', content: 'Y-FRAGE-ALT' }], error: null };
+          if (m === 'GET' && /coach_messages\?conversation_id=eq\.conv-X/.test(pfad)) return { data: schreib.filter(s => s.conv === 'conv-X').map(s => ({ role: s.role, content: s.content })).reverse(), error: null };
+          return { data: [{}], error: null };
+        };
+        window.callAI = (hist) => new Promise((res, rej) => { ki.push({ res, rej, hist: hist.map(h => h.role + ':' + h.content) }); });
+        const start = async (konv, msgs, frage) => {
+          schreib = []; toasts = []; ki = []; cloudGespraeche = []; convFreigabe = null;
+          window._gsLinaSending = false; window._gsLinaConvId = konv; window._gsLinaMsgs = msgs;
+          try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+          gsLinaRender(false);
+          const f = document.getElementById('gs-lina-input');
+          if (!f) throw new Error('Lina hat kein Eingabefeld');
+          f.value = frage;
+          // In einer async-Funktion würde `return lauf` auf das Senden WARTEN — und das wartet auf die
+          // Antwort, die der Fall erst danach gibt. Deshalb in einem Behälter.
+          const lauf = gsLinaSend(); await warte(120);
+          return { lauf };
+        };
+        const X0 = () => [{ role: 'user', content: 'X-FRAGE-ALT' }, { role: 'assistant', content: 'X-ANTWORT-ALT' }];
+        const dort = (t) => toasts.some(x => /vorigen Gespräch|nicht mehr offen/.test(x));
+
+        // (a) „＋ Neu" während des Wartens
+        let { lauf } = await start('conv-X', X0(), 'FRAGE-A');
+        if (!ki[0]) return { ok: false, warum: '(a) die KI wurde nicht gefragt — der Fall misst nichts' };
+        gsLinaNew(); await warte(80);
+        ki[0].res('ANTWORT-A'); await lauf; await warte(120);
+        if (/ANTWORT-A/.test(text()) || JSON.stringify(window._gsLinaMsgs).includes('ANTWORT-A')) klagen.push('(a) „＋ Neu": die Antwort auf A steht im neuen Gespräch');
+        if (!nachrichten('conv-X', 'assistant').some(s => s.content === 'ANTWORT-A')) klagen.push('(a) die Antwort auf A ist nicht im Gespräch X der Cloud gespeichert');
+        if (!dort()) klagen.push('(a) kein Satz, wo die Antwort hin ist');
+        const f2 = document.getElementById('gs-lina-input'); f2.value = 'FRAGE-B';
+        const laufB = gsLinaSend(); await warte(120);
+        if (!ki[1]) klagen.push('(a) die nächste Frage im neuen Gespräch ging nicht an die KI');
+        else if (ki[1].hist.some(h => /ANTWORT-A/.test(h)) || ki[1].hist[0] !== 'user:FRAGE-B') klagen.push('(a) die nächste Frage geht mit fremder Vorgeschichte an die KI: ' + ki[1].hist.join(' | '));
+        if (ki[1]) ki[1].res('ANTWORT-B'); await laufB; await warte(80);
+
+        // (b) ein früheres Gespräch Y öffnen; dort eine zweite Frage senden, während A noch läuft
+        ({ lauf } = await start('conv-X', X0(), 'FRAGE-C'));
+        await gsLinaGespraechOeffnen('conv-Y'); await warte(80);
+        if (!/Y-FRAGE-ALT/.test(text())) return { ok: false, warum: '(b) Gespräch Y ging nicht auf — der Fall misst nichts' };
+        const fy = document.getElementById('gs-lina-input'); fy.value = 'FRAGE-D-in-Y';
+        const vorD = ki.length; await gsLinaSend(); await warte(80);
+        if (ki.length !== vorD) klagen.push('(b) während C läuft, ging eine zweite Anfrage an die KI');
+        if (!toasts.some(x => /noch auf deine vorige Frage/.test(x))) klagen.push('(b) die zweite Frage wird wortlos verschluckt');
+        if (((document.getElementById('gs-lina-input') || {}).value || '') !== 'FRAGE-D-in-Y') klagen.push('(b) die zweite Frage ist aus dem Feld verschwunden');
+        ki[0].res('ANTWORT-C'); await lauf; await warte(120);
+        if (/ANTWORT-C/.test(text())) klagen.push('(b) die Antwort auf C steht in Gespräch Y');
+        if (nachrichten('conv-Y').length) klagen.push('(b) in der Cloud wurde unter Gespräch Y geschrieben: ' + nachrichten('conv-Y').map(s => s.content).join(' | '));
+        if (!nachrichten('conv-X', 'assistant').some(s => s.content === 'ANTWORT-C')) klagen.push('(b) die Antwort auf C fehlt im Gespräch X der Cloud');
+        if (!dort()) klagen.push('(b) kein Satz, wo die Antwort hin ist');
+
+        // (c) Lina zu und wieder auf — dasselbe Gespräch X kommt aus der Cloud: die Antwort steht DA
+        ({ lauf } = await start('conv-X', X0(), 'FRAGE-E'));
+        cloudGespraeche = [{ id: 'conv-X', updated_at: new Date().toISOString() }];
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        await gsOpenLina(); await warte(120);
+        ki[0].res('ANTWORT-E'); await lauf; await warte(120);
+        if (!/ANTWORT-E/.test(text())) klagen.push('(c) zurück im selben Gespräch steht die Antwort nicht da');
+        if (dort()) klagen.push('(c) im selben Gespräch kommt trotzdem der Satz „im vorigen Gespräch"');
+        if (!nachrichten('conv-X', 'assistant').some(s => s.content === 'ANTWORT-E')) klagen.push('(c) die Antwort fehlt in der Cloud');
+
+        // (d) ohne Wechsel: wie immer (Gegenrichtung — ein Fall, der nur das Verschieben kennt, wäre auch grün, wenn nichts mehr dastünde)
+        ({ lauf } = await start('conv-X', X0(), 'FRAGE-F'));
+        ki[0].res('ANTWORT-F'); await lauf; await warte(120);
+        if (!/ANTWORT-F/.test(text())) klagen.push('(d) ohne Wechsel steht die Antwort nicht da');
+        if (toasts.length) klagen.push('(d) ohne Wechsel kommt ein Satz: ' + toasts.join(' | '));
+
+        // (e) neues Gespräch: „＋ Neu", während es in der Cloud angelegt wird — die neue Id bleibt beim
+        // Gespräch, in dem gefragt wurde, und die KI bekommt DESSEN Vorgeschichte
+        schreib = []; toasts = []; ki = []; cloudGespraeche = [];
+        let freigeben; convFreigabe = new Promise(r => { freigeben = r; });
+        window._gsLinaSending = false; window._gsLinaConvId = null; window._gsLinaMsgs = [];
+        gsLinaRender(false);
+        document.getElementById('gs-lina-input').value = 'FRAGE-G';
+        lauf = gsLinaSend(); await warte(80);
+        gsLinaNew(); await warte(50);
+        freigeben(); await warte(120);
+        if (window._gsLinaConvId) klagen.push('(e) das neue, leere Gespräch hat die Id des gefragten bekommen (' + window._gsLinaConvId + ')');
+        if (!ki[0]) klagen.push('(e) die KI wurde nicht gefragt');
+        else {
+          if (!ki[0].hist.some(h => h === 'user:FRAGE-G')) klagen.push('(e) die KI bekam die Vorgeschichte des NEUEN Gesprächs, ohne die Frage: ' + (ki[0].hist.join(' | ') || '(leer)'));
+          ki[0].res('ANTWORT-G'); await lauf; await warte(120);
+          const idG = (schreib.find(s => s.content === 'FRAGE-G') || {}).conv;
+          if (!idG || !nachrichten(idG, 'assistant').some(s => s.content === 'ANTWORT-G')) klagen.push('(e) Frage und Antwort G liegen nicht im selben Gespräch der Cloud');
+          if (/ANTWORT-G/.test(text())) klagen.push('(e) die Antwort G steht im neuen Gespräch');
+        }
+
+        // (f) ein Ausfall nach „＋ Neu": keine Zeile „Erneut senden" im neuen Gespräch, ein Satz statt dessen
+        ({ lauf } = await start('conv-X', X0(), 'FRAGE-H'));
+        gsLinaNew(); await warte(60);
+        ki[0].rej(new Error('Zeitüberschreitung')); await lauf; await warte(120);
+        if (document.querySelector('[data-lina-nochmal]') || /FRAGE-H|nicht geklappt|App-Liste/.test(text())) klagen.push('(f) der Ausfall landet im neuen Gespräch');
+        if (!toasts.some(x => /vorige Frage/.test(x))) klagen.push('(f) kein Satz zum Ausfall der vorigen Frage');
+
+        // (g) Lina zu und wieder auf, und die Cloud kennt KEIN Gespräch (leeres Neu-Öffnen): die Antwort
+        // gehört nicht in das leere Fenster
+        ({ lauf } = await start('conv-X', X0(), 'FRAGE-I'));
+        cloudGespraeche = [];
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        await gsOpenLina(); await warte(120);
+        ki[0].res('ANTWORT-I'); await lauf; await warte(120);
+        if (/ANTWORT-I/.test(text())) klagen.push('(g) die Antwort steht allein im leer geöffneten Fenster');
+        if (!nachrichten('conv-X', 'assistant').some(s => s.content === 'ANTWORT-I')) klagen.push('(g) die Antwort fehlt im Gespräch X der Cloud');
+
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '„＋ Neu", früheres Gespräch, leeres Neu-Öffnen: Antwort beim gefragten Gespräch in der Cloud, ein Satz dazu · zurück im selben Gespräch steht sie da · neue Gesprächs-Id und Vorgeschichte bleiben beim gefragten · Ausfall nicht im falschen Gespräch · zweite Frage: Satz statt Stille, Feld bleibt' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt;
+        try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
 ];
 
 (async () => {
@@ -2043,6 +2852,9 @@ const FAELLE = [
   let kaputt = 0;
   for (const f of FAELLE) {
     let r;
+    // v33.61: Lina spiegelt ihr Gespräch (gs_lina_verlauf) und zeigt es beim Öffnen, wenn die Cloud
+    // nichts Neueres hat — jeder Fall beginnt deshalb ohne den Spiegel des vorigen.
+    try { await p.evaluate(() => { try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {} }); } catch (_) {}
     try { r = await p.evaluate(new Function('return (' + f.lauf.toString() + ')()')); }
     catch (e) { r = { ok: false, warum: 'Ausnahme: ' + e.message.split('\n')[0] }; }
     if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));

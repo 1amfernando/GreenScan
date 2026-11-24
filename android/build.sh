@@ -117,17 +117,27 @@ sed -e "s/android:versionCode=\"1\"/android:versionCode=\"$VERSION_CODE\"/" \
 # ---------------------------------------------------------------- Uebersetzen
 echo "-- javac"
 aapt package -f -m -J "$BAU/src" -M "$BAU/AndroidManifest.xml" -S "$HIER/res" -I "$ANDROID_JAR"
+# v33.72: der Status von javac wird FESTGEHALTEN. Vorher lief die Ausgabe durch
+# einen Filter mit `|| true` — ein Uebersetzungsfehler in MainActivity ergab
+# „1 error", javac schrieb trotzdem 17 von 40 Klassen, die Pruefung fragte nur
+# nach IRGENDEINER .class, und das Skript baute und signierte ein Paket OHNE
+# MainActivity mit „FERTIG" und Exit 0. (apk_check R22)
+JAVAC=0
 javac -source 8 -target 8 -nowarn -encoding UTF-8 \
       -bootclasspath "$ANDROID_JAR" -d "$BAU/classes" \
-      $(find "$BAU/src" -name '*.java') 2>&1 \
-  | grep -vE "bootstrap class path|source value 8|target value 8|are deprecated|^Note:|^1 warning|^[0-9]+ warnings|Picked up JAVA_TOOL_OPTIONS" || true
-[ -n "$(find "$BAU/classes" -name '*.class')" ] || { echo "javac hat nichts erzeugt" >&2; exit 1; }
+      $(find "$BAU/src" -name '*.java') > "$BAU/javac.log" 2>&1 || JAVAC=$?
+grep -vE "bootstrap class path|source value 8|target value 8|are deprecated|^Note:|^1 warning|^[0-9]+ warnings|Picked up JAVA_TOOL_OPTIONS" "$BAU/javac.log" || true
+[ "$JAVAC" -eq 0 ] || { echo "javac ist gescheitert (Status $JAVAC) — kein Paket" >&2; exit 1; }
+[ -f "$BAU/classes/ch/greenscan/app/MainActivity.class" ] || { echo "javac hat MainActivity nicht erzeugt" >&2; exit 1; }
 
 echo "-- dex"
 if [ "$(basename "$DEXER")" = "d8" ]; then
   "$DEXER" --lib "$ANDROID_JAR" --output "$BAU/out" $(find "$BAU/classes" -name '*.class')
 else
-  "$DEXER" --dex --output="$BAU/out/classes.dex" "$BAU/classes" 2>&1 | grep -v "Picked up JAVA_TOOL_OPTIONS" || true
+  DEX=0
+  "$DEXER" --dex --output="$BAU/out/classes.dex" "$BAU/classes" > "$BAU/dex.log" 2>&1 || DEX=$?
+  grep -v "Picked up JAVA_TOOL_OPTIONS" "$BAU/dex.log" || true
+  [ "$DEX" -eq 0 ] || { echo "der Dexer ist gescheitert (Status $DEX) — kein Paket" >&2; exit 1; }
 fi
 [ -f "$BAU/out/classes.dex" ] || { echo "kein classes.dex" >&2; exit 1; }
 

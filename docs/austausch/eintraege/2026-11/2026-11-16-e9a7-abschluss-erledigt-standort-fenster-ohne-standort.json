@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-16-e9a7",
+  "art": "abschluss",
+  "datum": "2026-11-16",
+  "zeit": "12:52:15",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "erledigt: Standort-Fenster ohne Standort: im Dunkelmodus helles Grün auf fest hellem Kasten — 1,51:1",
+  "ergebnis": "erledigt",
+  "wohin": "main 57a7acf (v33.59, #327): Schrift im Standort-Fenster fest #1a3d1a auf #f0f7ee; in #326 durch den Merge von main",
+  "geschwister": "gesucht: grep -cE \"style.background='#…'; … style.color='var(--…\" index.html → 0 Stellen auf dem Merge-Stand (feste Fläche mit kippender Themen-Schrift im selben Setzen)",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-16-a082"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-16-34d2",
+  "art": "idee",
+  "datum": "2026-11-16",
+  "zeit": "10:10:07",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Eine korrigierte Bestimmung erreicht auch das zweite Gerät — user_scans ersetzt die Zeile statt sie zu ändern",
+  "nutzen": "Nach „Alternative wählen“ oder einer Korrektur bleibt in user_scans die Zeile mit dem Namen der KI; dieses Gerät blendet sie über ki_name aus, ein zweites zeigt weiter die erste Bestimmung. Live nur lesend gemessen am 16.11.2026: RLS erlaubt SELECT, INSERT und DELETE der eigenen Zeilen, kein UPDATE; der Insert schickt return=minimal, die App kennt die Zeilen-Id also nicht. Weg: (1) gsScanPersistToCloud mit return=representation, Id und created_at am Verlaufseintrag (h.cloud_id, gefunden über h.id === r._scanId, nicht über Name und Zeit). (2) Nach jeder Umbenennung (_gsScanVerlaufAendern) — und nach dem Insert, falls umbenannt wurde, bevor er ankam (langsamer Upload, Offline-Warteschlange) — eine NEUE Zeile mit dem neuen Namen, demselben thumb und dem created_at der alten, context.ersetzt = alte Id und context.ki_name; erst danach DELETE der alten (nie fehlen beide). (3) gsLoadCloudScans liest id und context und wirft lokale Einträge weg, die eine Zeile ersetzt (über cloud_id oder ki_name|Minute — so auch auf einem Gerät, das die alte Zeile schon geholt hat). Umfang ehrlich: 116 Zeilen von 4 Konten, seit dem 29.09. keine neue — deshalb nicht gebaut.",
+  "pruefbar": "scan_check mit gestelltem sbFetch, der eine user_scans-Tabelle mit dieser RLS spielt (UPDATE 0 Zeilen): Wahl nach dem Insert, Wahl vor dem Insert, offline eingereiht, zweites Gerät mit und ohne die alte Zeile im Cache — am Ende genau eine Zeile mit dem gewählten Namen, auf beiden Geräten ein Eintrag; Gegenprobe DELETE vor INSERT → ein Moment ohne Zeile wird gemeldet.",
+  "stichworte": [
+    "scanner",
+    "user_scans",
+    "alternative",
+    "sync"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "if (e._cloud && umbenannt[k]) {"
+    }
+  ]
+}

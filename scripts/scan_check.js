@@ -708,6 +708,8 @@ const FAELLE = [
       if (!qS.messbar || gsQualitaetZuSchlecht(qS)) return { ok: false, warum: 'Prüfbild „scharf" ist selbst zu schlecht (Schärfe ' + qS.blur + ') — der Fall stellt den Zustand nicht her' };
       if (!qF.messbar || !gsQualitaetZuSchlecht(qF)) return { ok: false, warum: 'Prüfbild „flach" gilt als lesbar (Schärfe ' + qF.blur + ') — der Fall stellt den Zustand nicht her' };
       // Sperren und Netz stellen — geprüft wird der ABLAUF, nicht die KI.
+      // Was der Fall ersetzt, gibt er zurück — sonst bleibt z. B. gsResetScanner für jeden späteren Fall tot (gefunden 19.11.2026 an AB1).
+      const _vor = ['getApiConfig', 'stopCamera', 'gsResetScanner', '_gsScanDHash', '_gsScanCacheGet', '_gsScanCachePut', 'gsBuildScanContext', 'callVisionAI'].map((n) => [n, window[n]]);
       window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
       window._gsScanDHash = async () => 'hash-h2'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
       window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
@@ -748,7 +750,7 @@ const FAELLE = [
         const q2 = res && res._qual;
         if (!q2 || q2.fotos !== 2 || !q2.messbar) klagen.push('2: nach „Trotzdem" keine Messung über 2 Fotos: ' + JSON.stringify(q2 && { fotos: q2.fotos, messbar: q2.messbar }));
         if (!/Dünne Bildgrundlage/.test(karte())) klagen.push('2: nach „Trotzdem" fehlt der Vorbehalt „Dünne Bildgrundlage" — die Bestimmung stünde auf einer ungemessenen Grundlage');
-      } finally { window.showScanResult = alt; window._gsQualExtra = null; }
+      } finally { window.showScanResult = alt; window._gsQualExtra = null; _vor.forEach(([n, f]) => { window[n] = f; }); }
       if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
       return { ok: true, info: 'scharf+flach: 2/2 gemessen, bestes zählt (' + qS.quality + '), 1 unscharf genannt · flach+flach: Rückfrage ohne Aufruf, „Trotzdem" mit 2 Fotos und Vorbehalt' };
     },
@@ -761,6 +763,8 @@ const FAELLE = [
         for (let i = 0; i < 14; i++) { g.beginPath(); g.moveTo((seed * 7 + i * 11) % 160, 150); g.lineTo((seed * 13 + i * 9) % 160, 10); g.stroke(); }
         return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
       const b1 = bild(1), b2 = bild(2), b3 = bild(3), b4 = bild(4);
+      // Was der Fall ersetzt, gibt er zurück — sonst bleibt z. B. gsResetScanner für jeden späteren Fall tot (gefunden 19.11.2026 an AB1).
+      const _vor = ['getApiConfig', 'stopCamera', 'gsResetScanner', '_gsScanDHash', '_gsScanCacheGet', '_gsScanCachePut', 'gsBuildScanContext', 'callVisionAI'].map((n) => [n, window[n]]);
       window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
       window._gsScanDHash = async () => 'hash-h3'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
       window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
@@ -797,7 +801,7 @@ const FAELLE = [
         if (!pr4 || pr4.length !== 2) klagen.push('Re-Scan nach 3 Fotos trägt ' + (pr4 && pr4.length) + ' statt 2 (Deckel 3)');
         await analyzeImage(b4, 'image/jpeg');
         if (rufe[3] !== 3) klagen.push('Scan 4 mit ' + rufe[3] + ' Fotos statt 3 (Deckel)');
-      } finally { window._gsRescanMode = false; window._gsRescanPrior = null; window._gsRescanTs = 0; }
+      } finally { window._gsRescanMode = false; window._gsRescanPrior = null; window._gsRescanTs = 0; _vor.forEach(([n, f]) => { window[n] = f; }); }
       if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
       return { ok: true, info: 'Aufrufe mit ' + rufe.join('/') + ' Fotos · Knopf: Zweites → Drittes → Maximum-Satz' };
     },
@@ -938,6 +942,526 @@ const FAELLE = [
       if (!/im Zweifel nicht verzehren/i.test(t)) return { ok: false, warum: 'die Unsicherheit wird nicht benannt' };
       if (!nochmals) return { ok: false, warum: 'kein Weg, es nochmals zu versuchen' };
       return { ok: true, info: 'Fehlschlag benannt, Unsicherheit bleibt, Wiederholung möglich' };
+    },
+  },
+  // ── Die Verzehr-Zeile der Gegenprobe wird GERECHNET (V1–V8) ────────────
+  //
+  // Gemessen am Stand davor (Befund IDEE-B, nachgefahren): `gsGegenprobeRender`
+  // waehlte Kopf und Satz nach `g.urteil`, die Schlusszeile aber ALLEIN nach
+  // `g.verzehr` — beide ungeprueft aus derselben KI-Antwort, die Art wurde
+  // nicht gelesen. „☠️ Der zweite Blick WIDERSPRICHT … Iss das nicht." und
+  // „🍽️ Beide Blicke halten den Verzehr für vertretbar" standen in EINER Karte.
+  // Die vier Faelle davor kennen nur die zwei STIMMIGEN Paare
+  // (widerlegt+nein, bestaetigt+ja) und konnten das nie sehen.
+  //
+  // Die Regel: eine Zustimmung gibt es hoechstens, wenn das Urteil bestaetigt
+  // ist UND die KI ja sagt UND die Artenliste die Art als essbar und ungiftig
+  // fuehrt (ein gepruefter Eintrag) UND es kein Pilz ist. Alles andere ist die
+  // vorsichtigere Zeile; „nicht pruefbar" wird ausgesprochen, mit Grund.
+  // Jeder Fall liest den GERENDERTEN Text und misst mit dem eigenen Massstab
+  // (die Felder der Liste), nicht mit der Funktion, die geprueft wird.
+  {
+    name: 'V1 · Gegenprobe · Verzehr-Zeile: Zustimmung nur bei bestätigt + ja + Art in der Liste essbar und ungiftig + kein Pilz (alle Kombinationen)',
+    lauf: () => {
+      const norm = s => String(s || '').toLowerCase().trim();
+      const binom = s => norm(s).split(' ').slice(0, 2).join(' ');
+      const gruppe = lat => DB.filter(s => s && binom(s.lat) === lat);
+      const sauber = s => s.edible === true && (Number(s.tox) || 0) === 0 && s.toxic !== true && !s._unverified;
+      // ── Aufbau: was die LISTE zu den fuenf Arten sagt ───────────────────
+      const bl = gruppe('allium ursinum'), hz = gruppe('colchicum autumnale'), sp = gruppe('boletus edulis');
+      const aufbau = [];
+      if (!bl.length || !bl.every(s => sauber(s) && s.cat !== 'pilz')) aufbau.push('Bärlauch ist in der Liste nicht durchgehend essbar · ungiftig · geprüft');
+      if (!hz.length || !hz.every(s => (Number(s.tox) || 0) >= 3 && !s._unverified)) aufbau.push('Herbstzeitlose ist nicht durchgehend Giftstufe ≥ 3');
+      if (!sp.length || !sp.every(s => sauber(s) && s.cat === 'pilz')) aufbau.push('Steinpilz ist nicht durchgehend Pilz · essbar · ungiftig · geprüft');
+      if (DB.some(s => s && (/^zzz/i.test(s.name || '') || /^zzz/i.test(s.lat || '')))) aufbau.push('die erfundene Art steht in der Liste');
+      // ein UNGEPRUEFTER Einlese-Eintrag, der selbst „essbar" behauptet und keinen geprueften Zwilling hat
+      const unv = DB.find(s => s && s._unverified && s.edible === true && (Number(s.tox) || 0) === 0 && s.cat !== 'pilz'
+        && binom(s.lat).indexOf(' ') > 0
+        && !DB.some(x => x && !x._unverified && (binom(x.lat) === binom(s.lat) || norm(x.name) === norm(s.name))));
+      if (!unv) aufbau.push('kein ungeprüfter Eintrag mit edible:true ohne geprüften Zwilling gefunden');
+      if (aufbau.length) return { ok: false, warum: 'Aufbau: ' + aufbau.join(' · ') };
+
+      // Was die KI behauptet hat — ohne „essbar" gaebe es die Gegenprobe gar nicht.
+      const ki = { edible: true, toxic: false, toxicity: 0, confidence: 88 };
+      const ARTEN = {
+        essbar:     { r: Object.assign({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze' }, ki) },
+        giftig:     { r: Object.assign({ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', category: 'wildpflanze' }, ki) },
+        pilz:       { r: Object.assign({ name: 'Steinpilz', latin: 'Boletus edulis', category: 'pilz' }, ki) },
+        unbekannt:  { r: Object.assign({ name: 'Zzz Fantasiekraut', latin: 'Zzzus fantasticus', category: 'wildpflanze' }, ki) },
+        ungeprueft: { r: Object.assign({ name: unv.name, latin: unv.lat, category: 'wildpflanze' }, ki) },
+        ohne_liste: { r: Object.assign({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze' }, ki), ohneListe: true },
+      };
+      const echt = window.DB;
+      const zeige = (g, art) => {
+        document.querySelectorAll('#gs-gegenprobe').forEach(e => e.remove());
+        const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+        document.body.appendChild(host);
+        try { if (art.ohneListe) window.DB = []; gsGegenprobeRender(g, Object.assign({}, art.r)); }
+        finally { window.DB = echt; }
+        const z = host.querySelector('.gs-gp-verzehr');
+        const aus = { karte: (host.textContent || '').replace(/\s+/g, ' '), zeile: z ? (z.textContent || '').replace(/\s+/g, ' ').trim() : '' };
+        host.remove();
+        return aus;
+      };
+      // Was die Zeile SAGT — am gerenderten Text
+      const klasse = z => /vertretbar/i.test(z) ? 'zusage'
+        : /Nicht gegengeprüft/i.test(z) ? 'ungeprueft'
+        : /Nicht verzehren/i.test(z) ? 'nein'
+        : /Pilzkontroll/i.test(z) ? 'pilz'
+        : /Fachperson/i.test(z) ? 'fach' : '?';
+      // Was sie sagen DARF — die Regel aus dem Auftrag, nicht die Funktion
+      const soll = (u, v, a) => {
+        if (u === 'widerlegt' || v === 'nein' || a === 'giftig') return 'nein';
+        if (u !== 'bestaetigt' || v !== 'ja') return a === 'pilz' ? 'pilz' : 'fach';
+        return a === 'essbar' ? 'zusage' : a === 'pilz' ? 'pilz' : 'ungeprueft';
+      };
+      const U = ['bestaetigt', 'zweifel', 'widerlegt'], V = ['ja', 'nein', 'nur_nach_fachpruefung'];
+      let n = 0, zusagen = 0, doppelt = 0, ohneZeile = 0; const falsch = [], grund = [];
+      for (const u of U) for (const v of V) for (const a of Object.keys(ARTEN)) {
+        n++;
+        const x = zeige({ urteil: u, vertrauen: 70, dagegen: ['Merkmal fehlt'], dafuer: ['Merkmal da'], fehlend: '', verzehr: v }, ARTEN[a]);
+        if (!x.zeile) { ohneZeile++; continue; }
+        const k = klasse(x.zeile), s = soll(u, v, a);
+        if (k === 'zusage') zusagen++;
+        // die Karte sagt nur EINES: keine Zusage neben einem Verbot
+        if (/vertretbar/i.test(x.karte) && /Iss das nicht|nicht verzehren/i.test(x.karte)) doppelt++;
+        if (k !== s) falsch.push(u + '+' + v + '+' + a + ' → ' + k + ' statt ' + s);
+        // „nicht pruefbar" ist ausgesprochen UND nennt seinen Grund
+        if (s === 'ungeprueft' && k === 'ungeprueft') {
+          if (a === 'ohne_liste' && !/nicht geladen/i.test(x.zeile)) grund.push(a + ': der Grund „Liste nicht geladen" fehlt');
+          if (a !== 'ohne_liste' && !/keinen geprüften Eintrag/i.test(x.zeile)) grund.push(a + ': der Grund „kein geprüfter Eintrag" fehlt');
+          if (!/keine Zustimmung/i.test(x.zeile)) grund.push(a + ': sagt nicht, dass es keine Zustimmung ist');
+        }
+        if (a === 'giftig' && u === 'bestaetigt' && v === 'ja' && k === 'nein' && !/Artenliste/.test(x.zeile)) grund.push('giftig: das Nein nennt die Artenliste nicht');
+        // „der stärkste Beleg, den diese App liefern kann" steht nur ueber einer Art, die die Liste pruefen konnte
+        if (u === 'bestaetigt') {
+          const stark = /stärkste Beleg/.test(x.karte), geprueft = (a === 'essbar' || a === 'giftig' || a === 'pilz');
+          if (stark !== geprueft) grund.push(v + '+' + a + ': „stärkster Beleg" ' + (stark ? 'steht über einer Art, die die Liste nicht prüfen konnte' : 'fehlt über einer geprüften Art'));
+        }
+      }
+      if (window.DB !== echt || !window.DB.length) return { ok: false, warum: 'Artenliste nicht wiederhergestellt' };
+      const zahl = n + ' Kombinationen · ' + zusagen + ' Zusage(n), erlaubt 1 · ' + doppelt + ' Karte(n) mit Zusage UND Verbot · ' + falsch.length + ' mit falscher Zeile';
+      if (ohneZeile) return { ok: false, warum: ohneZeile + ' von ' + n + ' Karten ohne Verzehr-Zeile — der Fall misst nichts' };
+      if (zusagen < 1) return { ok: false, warum: 'die Zeile stimmt NIE zu, auch nicht bei bestätigt + ja + Bärlauch — der Fall unterscheidet nichts (' + zahl + ')' };
+      if (zusagen !== 1 || doppelt || falsch.length || grund.length)
+        return { ok: false, warum: zahl + (falsch.length ? ' · z.B. ' + falsch.slice(0, 4).join(' | ') : '') + (grund.length ? ' · ' + grund.slice(0, 3).join(' | ') : '') };
+      return { ok: true, info: zahl + ' · Pilz → Pilzkontrolle · unbekannt, ungeprüft („' + unv.name + '"), ohne Liste → „Nicht gegengeprüft" mit Grund' };
+    },
+  },
+  {
+    name: 'V2 · Gegenprobe · Verzehr-Zeile: Schreibweisen der KI · fehlende Art · Pilz ohne Eintrag · „essbar, aber nicht ungiftig" · „nicht essbar"',
+    lauf: () => {
+      const norm = s => String(s || '').toLowerCase().trim();
+      const binom = s => norm(s).split(' ').slice(0, 2).join(' ');
+      const gepr = lat => DB.filter(s => s && binom(s.lat) === lat && !s._unverified);
+      const tox = s => Number(s.tox) || 0;
+      const echt = window.DB;
+      const zeige = (g, r, ohneListe) => {
+        document.querySelectorAll('#gs-gegenprobe').forEach(e => e.remove());
+        const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+        document.body.appendChild(host);
+        try { if (ohneListe) window.DB = []; gsGegenprobeRender(g, r); }
+        finally { window.DB = echt; }
+        const z = host.querySelector('.gs-gp-verzehr');
+        const aus = { karte: (host.textContent || '').replace(/\s+/g, ' '), zeile: z ? (z.textContent || '').replace(/\s+/g, ' ').trim() : '' };
+        host.remove();
+        return aus;
+      };
+      const klagen = [];
+      const bj = { urteil: 'bestaetigt', verzehr: 'ja' };
+      const bl = () => ({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', edible: true, toxicity: 0 });
+      let x;
+      // 1 · Umlaut und Grossschreibung: „Bestätigt" + „JA" ist dieselbe Antwort — Kopf UND Zeile lesen sie gleich
+      x = zeige({ urteil: 'Bestätigt', verzehr: 'JA' }, bl());
+      if (!/dasselbe Ergebnis/.test(x.karte) || !/vertretbar/.test(x.zeile))
+        klagen.push('„Bestätigt"+„JA": Kopf „' + x.karte.slice(0, 36) + '" · Zeile „' + x.zeile.slice(0, 44) + '"');
+      // 2 · ein „Nein." mit Punkt bleibt ein Nein
+      x = zeige({ urteil: 'bestaetigt', verzehr: 'Nein.' }, bl());
+      if (!/Nicht verzehren/i.test(x.zeile)) klagen.push('„Nein." wird nicht als Nein gelesen: „' + x.zeile.slice(0, 50) + '"');
+      // 3 · was nicht GENAU bestaetigt + ja ist, stimmt nicht zu
+      [['nicht bestaetigt', 'ja'], ['unbestaetigt', 'ja'], ['ok', 'ja'], ['', 'ja'], ['bestaetigt', 'ja, gekocht'], ['bestaetigt', 'yes'], ['bestaetigt', '']].forEach(p => {
+        const y = zeige({ urteil: p[0], verzehr: p[1] }, bl());
+        if (!y.zeile) klagen.push('„' + p[0] + '"+„' + p[1] + '": keine Zeile');
+        else if (/vertretbar/i.test(y.karte)) klagen.push('„' + p[0] + '"+„' + p[1] + '" stimmt zu');
+      });
+      // 4 · ohne Art keine Zustimmung — und kein Absturz
+      [null, undefined, {}].forEach(r => {
+        let y;
+        try { y = zeige(bj, r); } catch (e) { klagen.push('ohne Art: wirft „' + e.message + '"'); return; }
+        if (/vertretbar/i.test(y.karte) || !/Nicht gegengeprüft/i.test(y.zeile)) klagen.push('ohne Art (' + (r === null ? 'null' : typeof r) + '): „' + y.zeile.slice(0, 50) + '"');
+      });
+      // 5 · ein Pilz, den die Liste nicht kennt (nur die KI sagt „Pilz"): nicht gegengeprueft UND Pilzkontrolle
+      x = zeige(bj, { name: 'Zzz Fantasiepilz', latin: 'Zzzus fungus', category: 'Pilz', edible: true, toxicity: 0 });
+      if (/vertretbar/i.test(x.karte) || !/Nicht gegengeprüft/i.test(x.zeile) || !/Pilzkontroll/i.test(x.zeile)) klagen.push('unbekannter Pilz: „' + x.zeile.slice(0, 80) + '"');
+      // … der Gruene Knollenblaetterpilz OHNE Liste (der Fall aus P1/P2) …
+      const kb = () => ({ name: 'Grüner Knollenblätterpilz', latin: 'Amanita phalloides', category: 'pilz', edible: true, toxicity: 0 });
+      x = zeige(bj, kb(), true);
+      if (/vertretbar/i.test(x.karte) || !/nicht geladen/i.test(x.zeile) || !/Pilzkontroll/i.test(x.zeile)) klagen.push('Knollenblätterpilz ohne Liste: „' + x.zeile.slice(0, 80) + '"');
+      // … und MIT Liste ein Nein, das die Liste nennt
+      x = zeige(bj, kb(), false);
+      if (/vertretbar/i.test(x.karte) || !/Nicht verzehren/i.test(x.zeile) || !/Artenliste/.test(x.zeile)) klagen.push('Knollenblätterpilz mit Liste: „' + x.zeile.slice(0, 80) + '"');
+      // 6 · essbar, aber nicht ungiftig (Holunder: die Art traegt Giftstufe 1–2)
+      const ho = gepr('sambucus nigra');
+      if (!ho.length || !ho.every(s => s.edible === true && tox(s) < 3) || !ho.some(s => tox(s) >= 1)) klagen.push('Aufbau: Holunder ist in der Liste nicht „essbar mit Giftstufe 1–2"');
+      else {
+        x = zeige(bj, { name: 'Schwarzer Holunder', latin: 'Sambucus nigra', category: 'baum', edible: true, toxicity: 0 });
+        if (/vertretbar/i.test(x.karte) || !/nicht als ungiftig/i.test(x.zeile) || !/Fachperson/i.test(x.zeile)) klagen.push('Holunder (essbar, Giftstufe ≥ 1): „' + x.zeile.slice(0, 90) + '"');
+      }
+      // 7 · dasselbe bei einem Pilz (Morchel) → Pilzkontrolle statt Fachperson
+      const mo = gepr('morchella esculenta');
+      if (!mo.length || !mo.every(s => s.edible === true && s.cat === 'pilz' && tox(s) < 3) || !mo.some(s => tox(s) >= 1)) klagen.push('Aufbau: Morchel ist in der Liste nicht „Pilz, essbar mit Giftstufe 1–2"');
+      else {
+        x = zeige(bj, { name: 'Echte Morchel', latin: 'Morchella esculenta', category: 'pilz', edible: true, toxicity: 0 });
+        if (/vertretbar/i.test(x.karte) || !/nicht als ungiftig/i.test(x.zeile) || !/Pilzkontroll/i.test(x.zeile)) klagen.push('Morchel (Pilz, Giftstufe ≥ 1): „' + x.zeile.slice(0, 90) + '"');
+      }
+      // 8 · die Liste fuehrt die Art NICHT als essbar (Edelweiss, Giftstufe 0)
+      const ew = gepr('leontopodium alpinum');
+      if (!ew.length || !ew.every(s => s.edible === false && tox(s) < 3)) klagen.push('Aufbau: Edelweiss ist in der Liste nicht „nicht essbar, Giftstufe < 3"');
+      else {
+        x = zeige(bj, { name: 'Edelweiss', latin: 'Leontopodium alpinum', category: 'wildpflanze', edible: true, toxicity: 0 });
+        if (/vertretbar/i.test(x.karte) || !/Nicht verzehren/i.test(x.zeile) || !/nicht als essbar/i.test(x.zeile)) klagen.push('Edelweiss (Liste: nicht essbar): „' + x.zeile.slice(0, 90) + '"');
+      }
+      if (window.DB !== echt || !window.DB.length) return { ok: false, warum: 'Artenliste nicht wiederhergestellt' };
+      if (klagen.length) return { ok: false, warum: klagen.length + ' von 18 Randfällen: ' + klagen.slice(0, 6).join(' · ') + (klagen.length > 6 ? ' · +' + (klagen.length - 6) + ' weitere' : '') };
+      return { ok: true, info: '18 Randfälle · „Bestätigt"+„JA" und „Nein." gelesen · 7 Abweichungen stimmen nicht zu · ohne Art, unbekannter Pilz, Holunder, Morchel, Edelweiss je mit Grund' };
+    },
+  },
+  {
+    // Die Faelle tragen die Saetze in drei weiteren Sprachen, weil die Zeile
+    // uebersetzt wird: ein Fall, der nur „vertretbar" sucht, saehe eine
+    // Zustimmung auf Franzoesisch nie (v32.99, v33.32: „0 von 12", „3 von 3").
+    name: 'V3 · Gegenprobe · Verzehr-Zeile in fr · it · en: dieselbe Regel, und die Zeile steht in der Sprache der Person',
+    lauf: () => {
+      const S = {
+        fr: {
+          scan_gp_vz_ja: 'Les deux regards jugent la consommation acceptable, et notre liste d’espèces classe l’espèce comme comestible et non toxique — la responsabilité reste la tienne.',
+          scan_gp_vz_nein: 'Ne pas consommer.',
+          scan_gp_vz_fach: 'À consommer uniquement après vérification par une personne spécialisée.',
+          scan_gp_vz_giftig: 'Notre liste d’espèces classe cette espèce comme toxique.',
+          scan_gp_vz_nicht_essbar: 'Notre liste d’espèces ne classe pas cette espèce comme comestible.',
+          scan_gp_vz_bedingt: 'Notre liste d’espèces classe cette espèce comme comestible, mais pas comme non toxique.',
+          scan_gp_vz_kein_eintrag: 'Non vérifié : notre liste d’espèces n’a pas d’entrée vérifiée pour cette espèce — ce n’est pas un accord.',
+          scan_gp_vz_ohne_liste: 'Non vérifié : la liste d’espèces n’est pas chargée — ce n’est pas un accord. Recharge l’application.',
+          mush_vapko_body: 'Fais contrôler CHAQUE champignon cueilli par un poste officiel de contrôle des champignons avant de le manger. Cette application est une information, pas une garantie de comestibilité.',
+        },
+        it: {
+          scan_gp_vz_ja: 'Entrambi gli sguardi ritengono accettabile il consumo, e la nostra lista delle specie indica la specie come commestibile e non tossica — la responsabilità resta tua.',
+          scan_gp_vz_nein: 'Non consumare.',
+          scan_gp_vz_fach: 'Consumare solo dopo il controllo di una persona esperta.',
+          scan_gp_vz_giftig: 'La nostra lista delle specie indica questa specie come tossica.',
+          scan_gp_vz_nicht_essbar: 'La nostra lista delle specie non indica questa specie come commestibile.',
+          scan_gp_vz_bedingt: 'La nostra lista delle specie indica questa specie come commestibile, ma non come non tossica.',
+          scan_gp_vz_kein_eintrag: 'Non verificato: la nostra lista delle specie non ha una voce verificata per questa specie — non è un consenso.',
+          scan_gp_vz_ohne_liste: 'Non verificato: la lista delle specie non è caricata — non è un consenso. Ricarica l’app.',
+          mush_vapko_body: 'Fai controllare OGNI fungo raccolto da un posto ufficiale di controllo dei funghi prima di mangiarlo. Questa app è un’informazione, non una garanzia di commestibilità.',
+        },
+        en: {
+          scan_gp_vz_ja: 'Both looks consider eating it acceptable, and our species list records the species as edible and non-toxic — the responsibility remains yours.',
+          scan_gp_vz_nein: 'Do not eat.',
+          scan_gp_vz_fach: 'Eat only after a check by an expert.',
+          scan_gp_vz_giftig: 'Our species list records this species as toxic.',
+          scan_gp_vz_nicht_essbar: 'Our species list does not record this species as edible.',
+          scan_gp_vz_bedingt: 'Our species list records this species as edible, but not as non-toxic.',
+          scan_gp_vz_kein_eintrag: 'Not cross-checked: our species list has no verified entry for this species — this is not an approval.',
+          scan_gp_vz_ohne_liste: 'Not cross-checked: the species list is not loaded — this is not an approval. Reload the app.',
+          mush_vapko_body: 'Have EVERY collected mushroom checked by an official mushroom inspection point before you eat it. This app is information, not a guarantee of edibility.',
+        },
+      };
+      if (!window.gsI18n || typeof gsI18n.hydrate !== 'function' || typeof gsI18n.getBundles !== 'function') return { ok: false, warum: 'Aufbau: gsI18n.hydrate/getBundles nicht erreichbar' };
+      const norm = s => String(s || '').toLowerCase().trim();
+      const binom = s => norm(s).split(' ').slice(0, 2).join(' ');
+      const unv = DB.find(s => s && s._unverified && s.edible === true && (Number(s.tox) || 0) === 0 && s.cat !== 'pilz'
+        && binom(s.lat).indexOf(' ') > 0
+        && !DB.some(x => x && !x._unverified && (binom(x.lat) === binom(s.lat) || norm(x.name) === norm(s.name))));
+      if (!unv) return { ok: false, warum: 'Aufbau: kein ungeprüfter Eintrag mit edible:true gefunden' };
+      const ki = { edible: true, toxic: false, toxicity: 0, confidence: 88 };
+      const ARTEN = {
+        essbar:     { r: Object.assign({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze' }, ki) },
+        giftig:     { r: Object.assign({ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', category: 'wildpflanze' }, ki) },
+        pilz:       { r: Object.assign({ name: 'Steinpilz', latin: 'Boletus edulis', category: 'pilz' }, ki) },
+        unbekannt:  { r: Object.assign({ name: 'Zzz Fantasiekraut', latin: 'Zzzus fantasticus', category: 'wildpflanze' }, ki) },
+        ungeprueft: { r: Object.assign({ name: unv.name, latin: unv.lat, category: 'wildpflanze' }, ki) },
+        ohne_liste: { r: Object.assign({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze' }, ki), ohneListe: true },
+      };
+      const echt = window.DB;
+      const zeige = (g, art) => {
+        document.querySelectorAll('#gs-gegenprobe').forEach(e => e.remove());
+        const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+        document.body.appendChild(host);
+        try { if (art.ohneListe) window.DB = []; gsGegenprobeRender(g, Object.assign({}, art.r)); }
+        finally { window.DB = echt; }
+        const z = host.querySelector('.gs-gp-verzehr');
+        const aus = z ? (z.textContent || '').replace(/\s+/g, ' ').trim() : '';
+        host.remove();
+        return aus;
+      };
+      const soll = (u, v, a) => {
+        if (u === 'widerlegt' || v === 'nein' || a === 'giftig') return 'nein';
+        if (u !== 'bestaetigt' || v !== 'ja') return a === 'pilz' ? 'pilz' : 'fach';
+        return a === 'essbar' ? 'zusage' : a === 'pilz' ? 'pilz' : 'ungeprueft';
+      };
+      const U = ['bestaetigt', 'zweifel', 'widerlegt'], V = ['ja', 'nein', 'nur_nach_fachpruefung'];
+      const b = gsI18n.getBundles();
+      const vorher = { lang: gsI18n.getLang(), roh: localStorage.getItem('gs_lang'), fr: b.fr, it: b.it, en: b.en };
+      const bericht = [], klagen = [];
+      try {
+        for (const L of ['fr', 'it', 'en']) {
+          localStorage.setItem('gs_lang', L); gsI18n.hydrate();
+          b[L] = Object.assign({}, vorher[L] || {}, S[L]);
+          if (gsI18n.getLang() !== L) { klagen.push(L + ': Aufbau — die Sprache liess sich nicht stellen (' + gsI18n.getLang() + ')'); continue; }
+          const s = S[L];
+          // eine Zustimmung zaehlt in JEDER Schreibweise: der Satz dieser Sprache ODER der deutsche
+          const klasse = z => (z.indexOf(s.scan_gp_vz_ja) >= 0 || /vertretbar/i.test(z)) ? 'zusage'
+            : (z.indexOf(s.scan_gp_vz_kein_eintrag) >= 0 || z.indexOf(s.scan_gp_vz_ohne_liste) >= 0) ? 'ungeprueft'
+            : z.indexOf(s.scan_gp_vz_nein) >= 0 ? 'nein'
+            : z.indexOf(s.mush_vapko_body) >= 0 ? 'pilz'
+            : z.indexOf(s.scan_gp_vz_fach) >= 0 ? 'fach' : '?';
+          let n = 0, zus = 0, falsch = 0, deutsch = 0; const bsp = [];
+          for (const u of U) for (const v of V) for (const a of Object.keys(ARTEN)) {
+            n++;
+            const z = zeige({ urteil: u, vertrauen: 70, dagegen: [], dafuer: [], verzehr: v }, ARTEN[a]);
+            const k = klasse(z), so = soll(u, v, a);
+            if (k === 'zusage') zus++;
+            if (k !== so) { falsch++; if (bsp.length < 2) bsp.push(u + '+' + v + '+' + a + ' → ' + k + ' statt ' + so); }
+            if (/verzehr|Fachperson|Artenliste|Pilzkontroll|vertretbar|gegengeprüft/i.test(z)) deutsch++;
+          }
+          bericht.push(L + ' ' + zus + '/' + falsch + '/' + deutsch);
+          if (zus !== 1 || falsch || deutsch) klagen.push(L + ': ' + zus + ' Zusage(n), erlaubt 1 · ' + falsch + ' von ' + n + ' Zeilen falsch · ' + deutsch + ' deutsch geblieben' + (bsp.length ? ' — z.B. ' + bsp.join(' | ') : ''));
+        }
+      } finally {
+        b.fr = vorher.fr; b.it = vorher.it; b.en = vorher.en;
+        if (vorher.roh === null) localStorage.removeItem('gs_lang'); else localStorage.setItem('gs_lang', vorher.roh);
+        gsI18n.hydrate();
+        window.DB = echt;
+      }
+      if (gsI18n.getLang() !== vorher.lang) klagen.push('Sprache nicht zurückgestellt (' + gsI18n.getLang() + ' statt ' + vorher.lang + ')');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '3 Sprachen × 54 Kombinationen · je Sprache Zusagen/falsch/deutsch: ' + bericht.join(' · ') };
+    },
+  },
+  {
+    // Gemessen: `gsPickAlternative` baute `Object.assign({}, original, …)` und
+    // erbte damit `_gegenprobe`. Baerlauch → Gegenprobe „bestaetigt"+„ja" →
+    // „Herbstzeitlose" angetippt: auf der Karte der Herbstzeitlose stand
+    // „Beide Blicke halten den Verzehr für vertretbar".
+    name: 'V4 · Gegenprobe · gehört zu IHRER Art: nach „Alternative wählen" steht nichts von der vorigen Art auf der neuen Karte',
+    lauf: async () => {
+      const echtKI = window.callVisionAI;
+      const karte = () => ((document.getElementById('scan-result') || {}).textContent || '').replace(/\s+/g, ' ');
+      const kopf = () => ((document.querySelector('#scan-result .sr2-hero-name') || {}).textContent || '').trim();
+      const waehle = name => {
+        const k = Object.keys(window._gsAltCandidates || {}).filter(x => window._gsAltCandidates[x].name === name).pop();
+        if (!k) return false;
+        gsPickAlternative(k);
+        return kopf() === name;
+      };
+      try {
+        try { switchTab('scanner'); } catch (_) {}
+        window._gsLastScanB64 = 'AAAA'; window._gsLastScanMt = 'image/jpeg';
+        window._gsAltCandidates = {};
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 88, edible: true, toxic: false, toxicity: 0, description: 'x',
+          alternatives: [{ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 30, toxicity: 5, edible: false }] });
+        if (!document.querySelector('#gs-gegenprobe .gs-gp-knopf')) return { ok: false, warum: 'Aufbau: die Gegenprobe wird für Bärlauch + Herbstzeitlose nicht angeboten' };
+        window.callVisionAI = async () => JSON.stringify({ urteil: 'bestaetigt', vertrauen: 90, dagegen: [], dafuer: ['Knoblauchgeruch'], fehlend: '', verzehr: 'ja' });
+        await gsScanGegenprobe();
+        if (!/dasselbe Ergebnis/.test(karte())) return { ok: false, warum: 'Aufbau: die Gegenprobe steht nicht auf der Bärlauch-Karte' };
+        if (!waehle('Herbstzeitlose')) return { ok: false, warum: 'Aufbau: der Wechsel zur Herbstzeitlose kam nicht an („' + kopf() + '")' };
+        const klagen = [];
+        const k1 = karte();
+        if (/vertretbar/i.test(k1)) klagen.push('auf der Karte der Herbstzeitlose steht „Verzehr … vertretbar"');
+        if (/dasselbe Ergebnis/.test(k1)) klagen.push('die Gegenprobe des Bärlauchs („dasselbe Ergebnis") steht auf der Karte der Herbstzeitlose');
+        // Die Vererbung in die andere Richtung: von einer KORRIGIERTEN Art zu einer harmlosen.
+        window._gsAltCandidates = {};
+        showScanResult({ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', category: 'wildpflanze', confidence: 60, edible: true, toxic: false, toxicity: 0, description: 'x',
+          alternatives: [{ name: 'Edelweiss', latin: 'Leontopodium alpinum', confidence: 30, toxicity: 0, edible: false }] });
+        if (!/giftiger ein/.test(karte())) return { ok: false, warum: 'Aufbau: die Herbstzeitlose wurde nicht nach oben korrigiert' };
+        if (!waehle('Edelweiss')) return { ok: false, warum: 'Aufbau: der Wechsel zum Edelweiss kam nicht an („' + kopf() + '")' };
+        const k2 = karte();
+        if (/giftiger ein/.test(k2)) klagen.push('die Korrektur der Herbstzeitlose („stuft diese Art als giftiger ein") steht auf der Karte des Edelweiss');
+        if (/☠️\s*Giftig/.test(k2)) klagen.push('der Chip „☠️ Giftig" der Herbstzeitlose steht auf der Karte des Edelweiss (Liste: Giftstufe 0)');
+        if (klagen.length) return { ok: false, warum: klagen.length + ' von 4: ' + klagen.join(' · ') };
+        return { ok: true, info: 'Bärlauch → Herbstzeitlose: keine Gegenprobe, keine Zustimmung · Herbstzeitlose → Edelweiss: keine geerbte Korrektur, kein geerbter Gift-Chip' };
+      } finally { window.callVisionAI = echtKI; }
+    },
+  },
+  {
+    // Gemessen: `gsSaveConfirmedScan` (KI-Sicherheit ≥ 95) und
+    // `gsAutoEnrichNewSpecies` legten per `DB.push` einen Eintrag mit den
+    // Angaben der KI in die Artenliste — ohne `_unverified`. Beim naechsten
+    // Blick sagte das Pruefwerk „In unserer Artenliste vorhanden" und
+    // „Giftigkeit stimmt mit unserer Artenliste überein": die KI bestaetigte
+    // sich selbst.
+    name: 'V5 · Ein Eintrag, den die KI selbst angelegt hat, ist kein Beleg (bestätigter Scan ≥ 95 % · nachrecherchierte Art)',
+    lauf: async () => {
+      const echtKI = window.callAI, echtCfg = window.getApiConfig;
+      const alt = { cs: localStorage.getItem('gs_confirmed_species'), us: localStorage.getItem('gs_user_species_db') };
+      const raeumen = () => { for (let i = DB.length - 1; i >= 0; i--) if (DB[i] && /^Zzz (Pruefkraut|Anreicherkraut)$/.test(DB[i].name || '')) DB.splice(i, 1); };
+      const kurz = s => String(s.id).replace(/\d+/, '…') + ' (edible=' + s.edible + ', tox=' + s.tox + ')';
+      const zeile = r => {
+        document.querySelectorAll('#gs-gegenprobe').forEach(e => e.remove());
+        const host = document.createElement('div'); host.id = 'gs-gegenprobe'; document.body.appendChild(host);
+        gsGegenprobeRender({ urteil: 'bestaetigt', verzehr: 'ja' }, Object.assign({}, r));
+        const z = ((host.querySelector('.gs-gp-verzehr') || {}).textContent || '').replace(/\s+/g, ' ');
+        host.remove();
+        return z;
+      };
+      try {
+        try { switchTab('scanner'); } catch (_) {}
+        raeumen();
+        const n0 = DB.length, klagen = [];
+        // (a) bestaetigter Scan: die KI ist sich zu 96 % sicher, die Liste kennt die Art nicht
+        const r = { name: 'Zzz Pruefkraut', latin: 'Zzzus probatus', category: 'wildpflanze', confidence: 96, edible: true, toxic: false, toxicity: 0, description: 'x',
+          alternatives: [{ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 3, toxicity: 5, edible: false }] };
+        if (_gsScanArtFinden(Object.assign({}, r))) return { ok: false, warum: 'Aufbau: die erfundene Art steht schon in der Liste' };
+        showScanResult(r);
+        const neu = DB.filter(s => s && s.name === 'Zzz Pruefkraut');
+        if (DB.length !== n0 + 1 || neu.length !== 1) return { ok: false, warum: 'Aufbau: der bestätigte Scan hat keinen Eintrag angelegt (' + n0 + ' → ' + DB.length + ') — der Fall misst nichts' };
+        const art = _gsScanArtFinden(Object.assign({}, r));
+        if (art && !art._nur_ungeprueft) klagen.push('bestätigter Scan: der KI-Eintrag ' + kurz(neu[0]) + ' gilt als Beleg');
+        const pw = _gsScanPruefwerk(Object.assign({}, r), null);
+        const ra = pw.regeln.find(x => x.id === 'art'), rg = pw.regeln.find(x => x.id === 'gift');
+        if (ra && ra.zustand === 'ok') klagen.push('Prüfwerk beim nächsten Blick: „' + ra.text + '"');
+        if (rg && rg.zustand === 'ok') klagen.push('Prüfwerk: „' + rg.text + '"');
+        if (/vertretbar/i.test(zeile(r))) klagen.push('die Gegenprobe stimmt dem Verzehr zu — gestützt auf den Eintrag der KI');
+        // (b) nachrecherchierte Art (Sicherheit 75–94): die KI schreibt ein ganzes Profil
+        let gerufen = 0;
+        window.getApiConfig = () => ({ key: 'k' });
+        window.callAI = async () => { gerufen++; return JSON.stringify({ name: 'Zzz Anreicherkraut', lat: 'Zzzus auctus', fam: 'Zzzaceae', cat: 'wildpflanze', desc: 'x', edible: true, tox: 0, warning: 'Keine bekannten Risiken', lookalike: 'Keine' }); };
+        const r2 = { name: 'Zzz Anreicherkraut', latin: 'Zzzus auctus', category: 'wildpflanze', confidence: 80, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' };
+        showScanResult(r2);
+        for (let i = 0; i < 40 && !DB.some(s => s && s.name === 'Zzz Anreicherkraut'); i++) await new Promise(res => setTimeout(res, 100));
+        const neu2 = DB.filter(s => s && s.name === 'Zzz Anreicherkraut');
+        if (!gerufen || neu2.length !== 1) return { ok: false, warum: 'Aufbau: die Nachrecherche hat keinen Eintrag angelegt (KI gerufen ' + gerufen + '×, Einträge ' + neu2.length + ') — der Fall misst nichts' };
+        const art2 = _gsScanArtFinden(Object.assign({}, r2));
+        if (art2 && !art2._nur_ungeprueft) klagen.push('Nachrecherche: der KI-Eintrag ' + kurz(neu2[0]) + ' gilt als Beleg');
+        if (/vertretbar/i.test(zeile(r2))) klagen.push('die Gegenprobe stimmt zu — gestützt auf die Nachrecherche der KI');
+        if (klagen.length) return { ok: false, warum: klagen.length + ' von 6: ' + klagen.join(' · ') };
+        return { ok: true, info: 'zwei KI-Einträge angelegt (' + kurz(neu[0]) + ', ' + kurz(neu2[0]) + ') — beide zählen nur als „ungeprüft": kein Beleg, keine Zustimmung' };
+      } finally {
+        raeumen();
+        window.callAI = echtKI; window.getApiConfig = echtCfg;
+        if (alt.cs === null) localStorage.removeItem('gs_confirmed_species'); else localStorage.setItem('gs_confirmed_species', alt.cs);
+        if (alt.us === null) localStorage.removeItem('gs_user_species_db'); else localStorage.setItem('gs_user_species_db', alt.us);
+      }
+    },
+  },
+  {
+    // Gemessen: der Zweig „Liste führt NICHT als essbar" stand hinter einem
+    // `else if` und lief nur, wenn die KI KEINE Giftstufe mitlieferte. Der
+    // Auftrag verlangt die Giftstufe in jeder Antwort.
+    name: 'V6 · S2 · die Essbarkeit wird gegengehalten — auch wenn die KI eine Giftstufe mitliefert',
+    lauf: () => {
+      const ew = DB.filter(s => s && /^leontopodium alpinum/i.test(s.lat || ''));
+      if (!ew.length || !ew.every(s => s.edible === false && (Number(s.tox) || 0) === 0 && !s._unverified)) return { ok: false, warum: 'Aufbau: Edelweiss ist in der Liste nicht „nicht essbar · Giftstufe 0 · geprüft"' };
+      const frage = extra => {
+        const r = Object.assign({ name: 'Edelweiss', latin: 'Leontopodium alpinum', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [] }, extra || {});
+        const pw = _gsScanPruefwerk(r, null);
+        return { r: r, g: pw.regeln.find(x => x.id === 'gift'), n: pw.regeln.filter(x => x.id === 'gift').length };
+      };
+      const klagen = [];
+      const ohne = frage({ toxicity: undefined, toxic: undefined }), mit = frage();
+      if (ohne.r.edible !== false) klagen.push('OHNE Giftstufe der KI bleibt Edelweiss essbar (dieser Zweig lief schon vorher)');
+      if (mit.r.edible !== false) klagen.push('MIT Giftstufe 0 der KI bleibt Edelweiss „essbar" — die Regel sagt: „' + (mit.g && mit.g.text) + '"');
+      else if (!mit.g || mit.g.zustand !== 'warn' || !/NICHT als essbar/.test(mit.g.text)) klagen.push('korrigiert, aber die Regel sagt es nicht: ' + (mit.g && (mit.g.zustand + ' · ' + mit.g.text)));
+      if (mit.n !== 1) klagen.push('die Regel „gift" steht ' + mit.n + '× in der Bilanz');
+      // die Anzeige
+      try { switchTab('scanner'); } catch (_) {}
+      showScanResult({ name: 'Edelweiss', latin: 'Leontopodium alpinum', category: 'wildpflanze', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      const t = ((document.getElementById('scan-result') || {}).textContent || '').replace(/\s+/g, ' ');
+      if (/✅\s*Essbar\s*Ja/.test(t)) klagen.push('die Karte zeigt „✅ Essbar Ja" für Edelweiss');
+      if (!/NICHT als essbar/.test(t)) klagen.push('die Karte nennt die Korrektur nicht');
+      // Gegenrichtung: eine essbare Art bleibt essbar, ohne Vorbehalt
+      const bl = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [] };
+      const gb = _gsScanPruefwerk(bl, null).regeln.find(x => x.id === 'gift');
+      if (bl.edible !== true || !gb || gb.zustand !== 'ok') klagen.push('Bärlauch wird fälschlich korrigiert: ' + (gb && gb.text));
+      // Und ueber die ganze Liste: jeder gepruefte Eintrag, den die Liste NICHT als essbar fuehrt
+      // (Giftstufe < 3), mit der Behauptung „essbar" und der Giftstufe der Liste — also ohne Tox-Widerspruch.
+      let n = 0, bleibt = 0; const bsp = [];
+      DB.forEach(s => {
+        if (!s || s._unverified || s.edible !== false || (Number(s.tox) || 0) >= 3 || !s.lat) return;
+        const r = { name: s.name, latin: s.lat, confidence: 88, edible: true, toxic: false, toxicity: Number(s.tox) || 0, alternatives: [] };
+        const pw = _gsScanPruefwerk(r, null);
+        if (!pw.art || pw.art.edible !== false) return;   // die ART wird (anderer Eintrag) als essbar gefuehrt — kein Widerspruch
+        n++;
+        if (r.edible === true) { bleibt++; if (bsp.length < 4) bsp.push(s.name); }
+      });
+      if (!n) klagen.push('Aufbau: kein einziger Eintrag „nicht essbar, Giftstufe < 3" geprüft');
+      if (bleibt) klagen.push(bleibt + ' von ' + n + ' nicht essbaren Arten bleiben „essbar", wenn die KI es behauptet (z.B. ' + bsp.join(', ') + ')');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Edelweiss mit und ohne Giftstufe korrigiert · Bärlauch unverändert · ' + n + ' nicht essbare Arten: 0 bleiben „essbar"' };
+    },
+  },
+  {
+    // Gemessen: fuer eine unbekannte Art, einen nur ungeprueften Eintrag und
+    // OHNE Liste (Gruener Knollenblaetterpilz) stand „✅ Essbar Ja" und die
+    // Plakette „✅ Ungiftig" auf der Karte — unter „⚠️ Nicht gegengeprüft".
+    name: 'V7 · Karte · „✅ Essbar" und „✅ Ungiftig" stehen nur da, wenn die Liste prüfen konnte (unbekannt · nur ungeprüft · ohne Liste)',
+    lauf: () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const norm = s => String(s || '').toLowerCase().trim();
+      const binom = s => norm(s).split(' ').slice(0, 2).join(' ');
+      const unv = DB.find(s => s && s._unverified && s.edible === true && (Number(s.tox) || 0) === 0 && s.cat !== 'pilz'
+        && binom(s.lat).indexOf(' ') > 0
+        && !DB.some(x => x && !x._unverified && (binom(x.lat) === binom(s.lat) || norm(x.name) === norm(s.name))));
+      if (!unv) return { ok: false, warum: 'Aufbau: kein ungeprüfter Eintrag mit edible:true gefunden' };
+      const echt = window.DB;
+      const lies = (r, ohneListe) => {
+        try { if (ohneListe) window.DB = []; showScanResult(Object.assign({ confidence: 80, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }, r)); }
+        finally { window.DB = echt; }
+        const el = document.getElementById('scan-result');
+        const t = ((el && el.textContent) || '').replace(/\s+/g, ' ');
+        return { t: t, essbarJa: /✅\s*Essbar\s*Ja/.test(t), plakette: (((el && el.querySelector('.scan-tox-badge')) || {}).textContent || '').replace(/\s+/g, ' ').trim() };
+      };
+      const klagen = []; let gruen = 0;
+      [
+        ['unbekannte Art', { name: 'Zzz Fantasiekraut', latin: 'Zzzus fantasticus', category: 'wildpflanze' }, false],
+        ['nur ungeprüfter Eintrag „' + unv.name + '"', { name: unv.name, latin: unv.lat, category: 'wildpflanze' }, false],
+        ['ohne Liste (Grüner Knollenblätterpilz)', { name: 'Grüner Knollenblätterpilz', latin: 'Amanita phalloides', category: 'pilz' }, true],
+      ].forEach(f => {
+        const x = lies(f[1], f[2]);
+        if (!x.plakette) { klagen.push(f[0] + ': keine Plakette gerendert (Aufbau)'); return; }
+        if (x.essbarJa) { gruen++; klagen.push(f[0] + ': „✅ Essbar Ja"'); }
+        if (/Ungiftig/.test(x.plakette)) { gruen++; klagen.push(f[0] + ': Plakette „' + x.plakette + '"'); }
+        if (!x.essbarJa && !/Essbar\s*nicht geprüft/i.test(x.t)) klagen.push(f[0] + ': sagt nicht, dass die Essbarkeit ungeprüft ist');
+      });
+      // Gegenrichtung 1: mit Beleg bleibt beides stehen
+      const bl = lies({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 92 }, false);
+      if (!bl.essbarJa || !/Ungiftig/.test(bl.plakette)) klagen.push('Bärlauch (geprüft, essbar) verliert „✅ Essbar Ja" oder „✅ Ungiftig" — Plakette „' + bl.plakette + '"');
+      // Gegenrichtung 2: zurueckgehalten wird nur die ENTWARNUNG — eine Giftwarnung der KI bleibt
+      const w = lies({ name: 'Zzz Fantasiekraut', latin: 'Zzzus fantasticus', category: 'wildpflanze', edible: false, toxic: true, toxicity: 4 }, false);
+      if (!/giftig/i.test(w.plakette)) klagen.push('eine Giftwarnung der KI (4 von 5) wird bei unbekannter Art zurückgehalten: „' + w.plakette + '"');
+      if (window.DB !== echt || !window.DB.length) return { ok: false, warum: 'Artenliste nicht wiederhergestellt' };
+      if (klagen.length) return { ok: false, warum: gruen + ' grüne Zusage(n) ohne Prüfung (erlaubt 0) · ' + klagen.join(' · ') };
+      return { ok: true, info: '3 ungeprüfte Lagen: 0 grüne Zusagen, je „Essbar · nicht geprüft" · Bärlauch behält beide · Giftwarnung der KI bleibt' };
+    },
+  },
+  {
+    // Gemessen: „Zzz Fantasiekraut 🍽️ essbar" (die Art gibt es nicht) und
+    // „Edelweiss 🍽️ essbar" (Liste: edible=false).
+    name: 'V8 · Alternativen · „🍽️ essbar" kommt aus der Liste — nie allein aus dem Feld der KI',
+    lauf: () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const norm = s => String(s || '').toLowerCase().trim();
+      const gr = lat => DB.filter(s => s && norm(s.lat).indexOf(lat) === 0 && !s._unverified);
+      const sl = gr('allium schoenoprasum'), ew = gr('leontopodium alpinum');
+      if (!sl.length || !sl.every(s => s.edible === true && (Number(s.tox) || 0) === 0 && s.toxic !== true)) return { ok: false, warum: 'Aufbau: Schnittlauch ist in der Liste nicht durchgehend essbar · ungiftig' };
+      if (!ew.length || !ew.every(s => s.edible === false)) return { ok: false, warum: 'Aufbau: Edelweiss ist in der Liste nicht „nicht essbar"' };
+      showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 70, edible: true, toxicity: 0, description: 'x', alternatives: [
+        { name: 'Zzz Fantasiekraut', latin: 'Zzzus fantasticus', confidence: 20, toxicity: 0, edible: true },
+        { name: 'Edelweiss', latin: 'Leontopodium alpinum', confidence: 10, toxicity: 0, edible: true },
+        { name: 'Schnittlauch', latin: 'Allium schoenoprasum', confidence: 5, toxicity: 0, edible: true } ] });
+      const z = {};
+      document.querySelectorAll('#scan-result .sr2-alt-card .sr2-alt-name').forEach(e => {
+        const t = (e.textContent || '').replace(/\s+/g, ' ').trim();
+        ['Zzz Fantasiekraut', 'Edelweiss', 'Schnittlauch'].forEach(nm => { if (t.indexOf(nm) === 0) z[nm] = /essbar/.test(t); });
+      });
+      if (Object.keys(z).length !== 3) return { ok: false, warum: 'Aufbau: ' + Object.keys(z).length + ' von 3 Alternativen gerendert' };
+      const klagen = [];
+      if (z['Zzz Fantasiekraut']) klagen.push('„Zzz Fantasiekraut 🍽️ essbar" — die Art steht nicht in der Liste');
+      if (z['Edelweiss']) klagen.push('„Edelweiss 🍽️ essbar" — die Liste führt es nicht als essbar');
+      if (!z['Schnittlauch']) klagen.push('„Schnittlauch" (Liste: essbar, ungiftig) verliert die Marke — der Fall unterscheidet nichts');
+      if (klagen.length) return { ok: false, warum: klagen.length + ' von 3: ' + klagen.join(' · ') };
+      return { ok: true, info: 'unbekannt: keine Marke · Edelweiss: keine Marke · Schnittlauch: „🍽️ essbar"' };
     },
   },
   // ── v32.11 · Netz, Fokuszonen, Phasen, Enthüllung ────────────────────
@@ -1899,12 +2423,22 @@ const FAELLE = [
     // Die Untergrenze war Absicht („gering" zaehlt nicht), die Obergrenze nicht:
     // 131 Eintraege mit Stufe 4 und 5 fehlten — genau die stark giftigen und die
     // toedlichen. Gemessen wird die GERENDERTE Zahl, nicht die Rechnung.
-    name: 'D1g · Die Lexikon-Zahl „Giftig" schliesst Stufe 4 und 5 ein',
+    // Home 3 / Brett 4d79 (19.11.2026): die Kachel zaehlt jetzt wie der Filter „☠️ Giftig", den sie
+    // oeffnet — Stufe 2 und mehr ODER `toxic`. Die Eintraege der Stufe 1, die `toxic` tragen
+    // (Spitzmorchel roh, Stinktaeubling, Gelbe Teichrose), zaehlen mit; Stufe 1 OHNE Giftangabe
+    // weiterhin nicht. Bis dahin verlangte dieser Fall „nur Stufe 2 und mehr" (598), waehrend
+    // nutzersicht_check E9 die Zahl des Filters verlangte (675) — zwei Faelle, zwei Regeln fuer
+    // dieselbe Kachel (dieselbe Klasse wie E3/E9, v33.08). Gerechnet wird weiter mit eigenem Massstab.
+    name: 'D1g · Die Lexikon-Zahl „Giftig" schliesst Stufe 4 und 5 ein — und zählt wie der Filter, den sie öffnet (Stufe ≥ 2 oder Giftangabe)',
     lauf: async () => {
       if (typeof renderLexikon !== 'function') return { ok: false, warum: 'renderLexikon fehlt' };
-      const erwartet = DB.filter(s => s && ((typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(s) : s).tox | 0) >= 2).length;
-      const toedlich = DB.filter(s => s && ((typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(s) : s).tox | 0) >= 4).length;
+      const A = (s) => (typeof _gsArtAnzeige === 'function' ? (_gsArtAnzeige(s) || s) : s);
+      const erwartet = DB.filter(s => { if (!s) return false; const a = A(s); return !!a.toxic || (a.tox | 0) >= 2; }).length;
+      const nurStufe = DB.filter(s => s && (A(s).tox | 0) >= 2).length;
+      const mitAngabe = erwartet - nurStufe;
+      const toedlich = DB.filter(s => s && (A(s).tox | 0) >= 4).length;
       if (!toedlich) return { ok: false, warum: 'keine Art mit Stufe 4+ in der Liste — der Fall misst nichts' };
+      if (!mitAngabe) return { ok: false, warum: 'kein Eintrag unter Stufe 2 mit Giftangabe — der Fall misst die Regel des Filters nicht' };
       // renderLexikon GIBT das HTML ZURUECK (es haengt es nicht ein) — der erste
       // Anlauf suchte im Dokument und traf eine fremde Plakette „Giftig"; er
       // waere gruen gewesen, sobald die Zahl zufaellig gepasst haette.
@@ -1915,11 +2449,13 @@ const FAELLE = [
       const eltern = kacheln[0].parentElement;
       const zahl = parseInt(((eltern && eltern.firstElementChild && eltern.firstElementChild.textContent) || '').replace(/\D/g, ''), 10);
       if (!zahl) return { ok: false, warum: 'keine Zahl neben „Giftig" gefunden' };
+      const alt = DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length;
       if (zahl !== erwartet) {
-        const alt = DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length;
-        return { ok: false, warum: 'Kachel zeigt ' + zahl + ', erwartet ' + erwartet + ' (alte Regel tox 2|3 waere ' + alt + ' — ' + toedlich + ' Eintraege mit Stufe 4+ fehlten)' };
+        return { ok: false, warum: 'Kachel zeigt ' + zahl + ', erwartet ' + erwartet
+          + (zahl === nurStufe ? ' — das ist „nur Stufe ≥ 2": die ' + mitAngabe + ' Einträge darunter mit Giftangabe fehlen, der Filter zeigt sie' : '')
+          + ' (alte Regel tox 2|3 waere ' + alt + ' — ' + toedlich + ' Eintraege mit Stufe 4+ fehlten)' };
       }
-      return { ok: true, info: 'Kachel „Giftig" zeigt ' + zahl + ' · davon ' + toedlich + ' mit Stufe 4 oder 5 (alte Regel tox 2|3: ' + DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length + ')' };
+      return { ok: true, info: 'Kachel „Giftig" zeigt ' + zahl + ' · davon ' + toedlich + ' mit Stufe 4 oder 5 und ' + mitAngabe + ' unter Stufe 2 mit Giftangabe (nur Stufe ≥ 2: ' + nurStufe + ' · alte Regel tox 2|3: ' + alt + ')' };
     },
   },
 
@@ -2037,13 +2573,16 @@ const FAELLE = [
         'mi perro ha comido una planta venenosa', 'envenenamiento por setas', 'intoxicación',
         'intoxicacion', '¡ayuda! mi bebé se tragó una hoja', 'el gato ha mordido la planta',
         'vomitos despues de comer setas', 'tengo náuseas después de comer bayas',
-        'qué hago, mi niño se comió una baya', 'por error comí unas bayas', 'urgencia: mi niña ha ingerido una seta'];
+        'qué hago, mi niño se comió una baya', 'por error comí unas bayas', 'urgencia: mi niña ha ingerido una seta',
+        // v33.61 (Hauptfunktionen, df0b): drei weitere aus der eigenen Auswahl.
+        'mi hijo ha comido una seta', 'ayuda mi bebé ha tragado una baya', 'tengo náuseas después de comer setas'];
       const HARMLOS = ['kann man löwenzahn essen', 'ist bärlauch essbar', 'welche pilze sind essbar',
         'darf man brennnessel essen', 'wie schmeckt giersch', 'wann kann ich tomaten ernten',
         'ist die pflanze giftig', 'wie giftig ist der efeu', 'welche beeren sind essbar',
         'rezept mit bärlauch', 'wann blüht der holunder', 'wie pflege ich basilikum',
         'ist maiglöckchen giftig', 'giftige pflanzen im garten', 'was ist essbar im wald',
         'quand fleurit le sureau', 'quali funghi sono commestibili', 'which berries are edible',
+        '¿se puede comer el diente de león?', '¿qué setas son comestibles?', '¿es venenosa la hiedra?', 'cuándo florece el saúco',
         // Scharfe Kante: `\bcat\b` traefe auch „catégorie" — in JS ist „é" kein
         // Wortzeichen, die Grenze sitzt mitten im Wort. Die Nachschau haelt es.
         'dans quelle catégorie ranger cette plante',
@@ -2078,6 +2617,585 @@ const FAELLE = [
       if (r.w.length) f.push(r.w.length + ' von ' + HINWEIS.length + ' Verzehr-Sätzen ohne die ruhige Hinweiszeile (oder als Notfall): „' + r.w.slice(0, 3).join('" · „') + '"');
       if (f.length) return { ok: false, warum: f.join(' · ') };
       return { ok: true, info: DRINGEND.length + ' Notfall-Sätze bringen die 145 · ' + HINWEIS.length + ' Verzehr-Sätze die Hinweiszeile · ' + HARMLOS.length + ' harmlose Fragen bleiben ohne' };
+    },
+  },
+
+  // ── v33.61 · Paket „Sicherheit der vier Hauptfunktionen" ───────────────
+  {
+    name: 'D1j · Die Art-Korrektur macht keinen Eintrag ESSBARER, als er selbst sagt (brett fcaf)',
+    lauf: () => {
+      var mehr = [], weniger = 0;
+      DB.forEach(function (sp) {
+        var a = _gsArtAnzeige(sp);
+        if (!sp.edible && a.edible) mehr.push(sp.id + ' ' + sp.name);
+        if (sp.edible && !a.edible) weniger++;
+      });
+      if (mehr.length) return { ok: false, warum: mehr.length + ' Eintraege werden durch die Korrektur essbar: ' + mehr.slice(0, 3).join(' · ') };
+      if (!weniger) return { ok: false, warum: 'die Korrektur nimmt nirgends ein „essbar" weg — der Fall misst nichts' };
+      return { ok: true, info: '0 werden essbarer · ' + weniger + ' verlieren „essbar" (gewollt)' };
+    },
+  },
+  {
+    name: 'F1 · Die Filter „Essbar", „Giftig", „Ungiftig" fragen die ART — und „Ungiftig" nimmt keinen ungeprueften Eintrag',
+    lauf: () => {
+      var vorher = currentFilter, f = [];
+      var com = { id: 'COM_f1', name: 'Zzz Ungeprueft', lat: 'Ignota ignota', cat: 'wildpflanze', edible: true, toxic: false, tox: null, _community: true, _unverified: true };
+      DB.push(com);
+      try {
+        var roh = { essbar: 0, ungiftig: 0, giftig: 0 };
+        currentFilter = 'essbar';
+        DB.forEach(function (sp) { var a = _gsArtAnzeige(sp); if (_gsPassCat(sp) && (!a.edible || sp._unverified)) f.push('Essbar zeigt ' + sp.name); if (sp.edible && !_gsPassCat(sp)) roh.essbar++; });
+        currentFilter = 'ungiftig';
+        DB.forEach(function (sp) { var a = _gsArtAnzeige(sp); if (_gsPassCat(sp) && (a.toxic || a.tox > 0 || sp._unverified)) f.push('Ungiftig zeigt ' + sp.name + ' (Art tox ' + a.tox + ')'); if (!(sp.toxic || sp.tox > 0) && !_gsPassCat(sp)) roh.ungiftig++; });
+        currentFilter = 'giftig';
+        DB.forEach(function (sp) { var a = _gsArtAnzeige(sp); if (a.tox >= 3 && !_gsPassCat(sp)) f.push('Giftig laesst ' + sp.name + ' aus (Art tox ' + a.tox + ')'); if (!sp.toxic && _gsPassCat(sp)) roh.giftig++; });
+      } finally { currentFilter = vorher; var i = DB.indexOf(com); if (i >= 0) DB.splice(i, 1); }
+      if (f.length) return { ok: false, warum: f.length + ' Abweichungen: ' + f.slice(0, 3).join(' · ') };
+      if (!roh.essbar || !roh.ungiftig) return { ok: false, warum: 'Art und Eintrag liefern dieselben Listen — der Fall misst nichts: ' + JSON.stringify(roh) };
+      return { ok: true, info: 'gegen den Roheintrag: ' + roh.essbar + ' weniger unter Essbar · ' + roh.ungiftig + ' weniger unter Ungiftig · ' + roh.giftig + ' mehr unter Giftig' };
+    },
+  },
+  {
+    name: 'F2 · Die Menue-Eintraege „Giftige / Essbare Pflanzen / Heilpflanzen" setzen den FILTER statt ein Wort zu suchen',
+    lauf: async () => {
+      var eintraege = MENU_ITEMS.filter(function (m) { return /Giftige Pflanzen|Essbare Pflanzen|Heilpflanzen/.test(m.label); });
+      if (eintraege.length !== 3) return { ok: false, warum: eintraege.length + ' statt 3 Eintraege gefunden' };
+      var schlecht = eintraege.filter(function (m) { return /search-input'\)\.value=/.test(m.action) || !/gsZeigeEigenschaft\(/.test(m.action); });
+      if (schlecht.length) return { ok: false, warum: 'tippt weiter ein Wort in die Suche: ' + schlecht.map(function (m) { return m.label; }).join(', ') };
+      var vorher = currentFilter;
+      try {
+        gsZeigeEigenschaft('giftig');
+        await new Promise(function (r) { setTimeout(r, 400); });
+        var inp = document.getElementById('search-input');
+        // seit SUCHE-1 steht die Eigenschaft in currentProp, die Kategorie in currentFilter
+        var _eig = (typeof currentProp !== 'undefined' && currentProp) ? currentProp : currentFilter;
+        if (_eig !== 'giftig') return { ok: false, warum: 'Filter steht auf „' + _eig + '"' };
+        if (inp && inp.value) return { ok: false, warum: 'im Suchfeld steht „' + inp.value + '"' };
+        var liste = (window._lastSearchResults || []);
+        if (!liste.length) return { ok: false, warum: 'die Liste ist leer' };
+        var harmlos = liste.filter(function (sp) { var a = _gsArtAnzeige(sp); return !(a.toxic || a.tox >= 2); });
+        if (harmlos.length) return { ok: false, warum: harmlos.length + ' nicht giftige Arten in der Liste, z.B. ' + harmlos[0].name };
+        // Gegenrichtung: die alte Wortsuche haette essbare Arten gebracht.
+        var alt = DB.filter(function (s) { return gsIstEssbar(s) && /giftig/i.test([s.name, s.desc, s.lookalike, s.warning].join(' ')); }).length;
+        return { ok: true, info: liste.length + ' Arten, alle giftig · die Wortsuche „giftig" traefe auch ' + alt + ' essbare' };
+      } finally { try { gsResetFilter(); } catch (_) {} currentFilter = vorher; }
+    },
+  },
+  {
+    // SUCHE-1, erste Haelfte. Die fuenf Menue-Eintraege der Kategorien riefen setFilter(kat, null):
+    // das setzte currentFilter und starb dann an `null.classList` — VOR renderList. Die Liste blieb,
+    // wie sie war, kein Knopf war markiert, und das Suchwort von vorhin galt weiter.
+    name: 'SU4 · Menü „Wildpflanzen / Pilze / Kräuter / Bäume / Hauspflanzen": die Liste zeigt genau diese Kategorie, ihr Knopf ist markiert, kein Suchwort von vorhin — und nichts wirft',
+    lauf: async () => {
+      var eintraege = MENU_ITEMS.filter(function (m) { return m.cat && /setFilter\(|gsSucheMitFilter\(/.test(m.action); });
+      if (eintraege.length < 5) return { ok: false, warum: 'nur ' + eintraege.length + ' Kategorie-Einträge im Menü — der Fall misst nichts' };
+      var f = [], gesehen = [];
+      var warte = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+      try {
+        for (var i = 0; i < eintraege.length; i++) {
+          var m = eintraege[i];
+          // Vorzustand: ein Suchwort und eine Eigenschaft von vorhin
+          try { gsResetFilter(); } catch (_) {}
+          var inp = document.getElementById('search-input');
+          searchText = 'zzvorhin'; if (inp) inp.value = 'zzvorhin';
+          try { gsFilter('giftig', document.querySelector('.sf-btn[data-group="prop"][onclick*="\'giftig\'"]')); } catch (_) {}
+          var fehler = null;
+          try { (new Function(m.action))(); } catch (e) { fehler = String(e && e.message || e); }
+          await warte(250);
+          var liste = window._lastSearchResults || [];
+          var soll = DB.filter(function (s) { return s && s.id && s.cat === m.cat; }).length;
+          var aktiv = [].slice.call(document.querySelectorAll('.sf-btn.active'));
+          var kat = aktiv.filter(function (b) { return b.getAttribute('data-group') === 'cat'; });
+          var eig = aktiv.filter(function (b) { return b.getAttribute('data-group') === 'prop'; });
+          if (fehler) f.push(m.label + ': wirft „' + fehler + '"');
+          if (liste.length !== soll) f.push(m.label + ': Liste ' + liste.length + ' statt ' + soll);
+          if (kat.length !== 1 || (kat[0].getAttribute('onclick') || '').indexOf("'" + m.cat + "'") < 0) f.push(m.label + ': markiert ist „' + kat.map(function (b) { return b.textContent.trim(); }).join(', ') + '"');
+          if (eig.length) f.push(m.label + ': die Eigenschaft „' + eig[0].textContent.trim() + '" bleibt markiert');
+          if (searchText || (inp && inp.value)) f.push(m.label + ': das Suchwort von vorhin bleibt stehen');
+          gesehen.push(m.cat + ' ' + liste.length);
+        }
+      } finally { try { gsResetFilter(); } catch (_) {} }
+      if (f.length) return { ok: false, warum: f.slice(0, 6).join(' · ') + (f.length > 6 ? ' · +' + (f.length - 6) + ' weitere' : '') };
+      return { ok: true, info: eintraege.length + ' Einträge: ' + gesehen.join(' · ') + ' — je ein Knopf markiert, Suchwort und Eigenschaft geräumt' };
+    },
+  },
+  {
+    // SUCHE-1, zweite Haelfte. gsFilter loeschte das Suchwort, und es gab nur EINEN Filterwert:
+    // „Pilze" und „Giftig" standen beide markiert da, gefiltert wurde nur nach dem zuletzt
+    // getippten. Und das ✕ im Suchfeld raeumte den Filter weg, liess seinen Knopf aber markiert.
+    name: 'SU5 · Suche: Kategorie, Eigenschaft und Suchwort gelten ZUSAMMEN — „Pilze" + „Giftig" zeigt giftige Pilze, ein Filter löscht das Wort nicht, und was markiert ist, gilt',
+    lauf: async () => {
+      var f = [];
+      var warte = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+      var knopf = function (g, w) { return document.querySelector('.sf-btn[data-group="' + g + '"][onclick*="\'' + w + '\'"]'); };
+      var markiert = function () { return [].slice.call(document.querySelectorAll('.sf-btn.active[data-group]')).map(function (b) { return (/'([a-z_]*)'/.exec(b.getAttribute('onclick') || '') || [, '?'])[1] || 'alle'; }).sort().join('+'); };
+      var giftig = function (s) { var a = _gsArtAnzeige(s); return !!(a.toxic || a.tox >= 2); };
+      try {
+        try { gsResetFilter(); } catch (_) {}
+        var row = document.getElementById('sf-props-row'); if (row && row.style.display === 'none') gsTogglePropFilter();
+        // 1 · Pilze, dann Giftig: beide gelten
+        knopf('cat', 'pilz').click(); await warte(150);
+        knopf('prop', 'giftig').click(); await warte(150);
+        var l1 = window._lastSearchResults || [];
+        var soll1 = DB.filter(function (s) { return s && s.id && s.cat === 'pilz' && giftig(s); }).length;
+        if (l1.length !== soll1) f.push('Pilze + Giftig: ' + l1.length + ' Einträge statt ' + soll1 + (l1.some(function (s) { return s.cat !== 'pilz'; }) ? ' (auch Nicht-Pilze)' : ''));
+        if (markiert() !== 'giftig+pilz') f.push('markiert: ' + markiert());
+        var st = (document.getElementById('search-status') || {}).textContent || '';
+        if (!/Pilze/.test(st) || !/Giftig/.test(st)) f.push('die Statuszeile nennt nicht beide Filter: „' + st + '"');
+        // 2 · ein Wort dazu: der Filter bleibt, das Wort gilt mit
+        doSearch('knollenbl'); await warte(250);
+        var l2 = window._lastSearchResults || [];
+        if (!l2.length) f.push('Pilze + Giftig + „knollenbl": leer');
+        if (l2.some(function (s) { return s.cat !== 'pilz' || !giftig(s); })) f.push('mit Suchwort fallen Kategorie oder Eigenschaft weg');
+        // 3 · eine Kategorie tippen löscht das Wort NICHT
+        knopf('cat', 'baum').click(); await warte(150);
+        var inp = document.getElementById('search-input');
+        if (searchText !== 'knollenbl' || !inp || inp.value !== 'knollenbl') f.push('der Kategorie-Knopf löscht das Suchwort (jetzt „' + searchText + '")');
+        if (markiert() !== 'baum+giftig') f.push('nach „Bäume" markiert: ' + markiert());
+        // 4 · die Eigenschaft nochmal antippen nimmt sie weg
+        knopf('prop', 'giftig').click(); await warte(150);
+        if (markiert() !== 'baum') f.push('„Giftig" ein zweites Mal: markiert ' + markiert());
+        // 5 · das ✕ im Suchfeld räumt das WORT — der Filter bleibt und bleibt markiert
+        gsClearSearch(); await warte(150);
+        var l5 = window._lastSearchResults || [];
+        var soll5 = DB.filter(function (s) { return s && s.id && s.cat === 'baum'; }).length;
+        if (searchText) f.push('✕ lässt das Wort stehen');
+        if (markiert() !== 'baum' || l5.length !== soll5) f.push('nach ✕: markiert ' + markiert() + ', Liste ' + l5.length + ' statt ' + soll5 + ' Bäume');
+        // 6 · Reset räumt alles
+        gsResetFilter(); await warte(150);
+        if ((window._lastSearchResults || []).length !== DB.filter(function (s) { return s && s.id; }).length || markiert() !== 'alle') f.push('Reset: markiert ' + markiert() + ', Liste ' + (window._lastSearchResults || []).length);
+      } finally { try { gsResetFilter(); } catch (_) {} }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Pilze + Giftig, mit Wort, Kategorie wechselt ohne das Wort zu löschen, Eigenschaft ab, ✕ räumt nur das Wort, Reset alles' };
+    },
+  },
+  {
+    // SUCHE-5. „Mehr laden" baute die Karten mit EIGENEM Code: ohne Markierung des Suchworts, mit
+    // sp.id roh in einem onclick-String und einem anderen Rand-Stil — die zweite Seite sah anders
+    // aus und verhielt sich anders als die erste. Der Fall rendert beide Seiten und haelt sie
+    // gegeneinander; was markiert gehoert, entscheidet gsHighlight selbst.
+    name: 'SU6 · „Mehr laden": die Karten der zweiten Seite sind gebaut wie die der ersten — dieselbe Form, derselbe Klick, das Suchwort markiert',
+    lauf: async () => {
+      var warte = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+      var f = [];
+      try {
+        gsResetFilter();
+        var kandidaten = ['kraut', 'blume', 'pilz', 'wurz', 'linge', 'baum'];
+        var wort = null;
+        for (var i = 0; i < kandidaten.length && !wort; i++) {
+          searchText = kandidaten[i];
+          var r = getFiltered();
+          // die zweite Seite muss Namen tragen, die das Wort enthalten
+          if (r.length > 100 && r.slice(80, 160).some(function (s) { return /<mark/.test(gsHighlight(s.name, kandidaten[i])); })) wort = kandidaten[i];
+        }
+        searchText = '';
+        if (!wort) return { ok: false, warum: 'kein Suchwort mit einer zweiten Seite voller Treffer — der Fall misst nichts' };
+        doSearch(wort); await warte(300);
+        var liste = document.getElementById('results-list');
+        var s1 = [].slice.call(liste.querySelectorAll('.sp-card'));
+        loadMoreList(); await warte(150);
+        var alle = [].slice.call(liste.querySelectorAll('.sp-card'));
+        var s2 = alle.slice(s1.length);
+        if (!s2.length) return { ok: false, warum: '„Mehr laden" bringt keine Karten — der Fall misst nichts' };
+        var form = function (k) {
+          return {
+            klick: k.getAttribute('onclick'),
+            stil: (k.getAttribute('style') || '').replace(/#[0-9a-f]{3,8}|transparent/gi, 'F'),
+            // die Plaketten haengen an der Art (zwei Karten tragen verschieden viele) — gezaehlt wird das Geruest
+            bau: [].slice.call(k.querySelectorAll('*')).filter(function (x) { return x.tagName !== 'MARK' && !(x.parentElement && x.parentElement.closest('.sp-tags')); }).map(function (x) { return x.tagName + '.' + x.className; }).join('|'),
+          };
+        };
+        var a = form(s1[0]), b = form(s2[0]);
+        ['klick', 'stil', 'bau'].forEach(function (k) { if (a[k] !== b[k]) f.push(k + ': Seite 1 „' + String(a[k]).slice(0, 80) + '" · Seite 2 „' + String(b[k]).slice(0, 80) + '"'); });
+        var sollMark = s2.filter(function (k) { var sp = DB.find(function (x) { return x.id === k.dataset.sid; }); return sp && /<mark/.test(gsHighlight(sp.name, wort)); });
+        var ohne = sollMark.filter(function (k) { return !k.querySelector('.sp-name mark'); });
+        if (ohne.length) f.push(ohne.length + ' von ' + sollMark.length + ' Karten der zweiten Seite tragen „' + wort + '" im Namen ohne Markierung');
+        var knopf = liste.querySelector('[data-loadmore]');
+        if (knopf && knopf.getAttribute('style')) f.push('der Knopf „weitere laden" ist auf Seite 2 anders gebaut als auf Seite 1');
+      } finally { try { gsResetFilter(); } catch (_) {} }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'zweite Seite gleich gebaut, Markierung wie Seite 1' };
+    },
+  },
+  {
+    // SUCHE-10. Die Rangfolge der Artensuche hatte keinen Prüffall ausser „ein exakter Name steht
+    // zuerst" (SU1). Die Regel steht in _gsSucheRang: Name genau > Namensanfang/Segmentanfang > im
+    // Namen > im Binomen > in der Familie > irgendwo im Text. Ein Fehler hier sieht aus wie eine
+    // schlechte Suche, nicht wie ein Fehler — niemand meldet ihn. Der Fall liest die Felder aus dem
+    // Suchindex der App (gleiche Normalisierung) und prüft nur die ORDNUNG der Klassen.
+    name: 'SU8 · Rangfolge der Artensuche: Name genau, dann Namensanfang, im Namen, im Binomen, in der Familie, im Text — die Klassen fallen nie wieder an',
+    lauf: () => {
+      if (typeof getFiltered !== 'function' || typeof _gsSearchNorm !== 'function') return { ok: false, warum: 'getFiltered oder _gsSearchNorm fehlt' };
+      const vorF = currentFilter, vorS = searchText, vorP = (typeof currentProp !== 'undefined') ? currentProp : '';
+      const f = [], gesehen = new Set(), info = [];
+      const NAMEN = ['Name genau', 'Namensanfang', 'im Namen', 'im Binomen', 'in der Familie', 'im Text', 'sonst'];
+      try {
+        currentFilter = ''; if (typeof currentProp !== 'undefined') currentProp = '';
+        // „solanaceae" ist (gemessen) das einzige Wort, das Familien UND bei anderen Einträgen nur den
+        // Text trifft — ohne es bliebe „Familie unter Text" ungeprüft (Gegenprobe so grün geblieben).
+        ['brennnessel', 'ampfer', 'salbei', 'urtica', 'rosaceae', 'solanaceae', 'kamille', 'eiche', 'minze', 'lamium'].forEach(function (wort) {
+          const q = _gsSearchNorm(wort);
+          // Synonyme heben einen Binomen-Treffer bewusst vor „im Namen" (620) — solche Wörter misst der Fall nicht.
+          const syn = window.GS_SYNONYMS || {};
+          if (syn[q] || Object.keys(syn).some((k) => k.indexOf(q) === 0)) { info.push('„' + wort + '" übersprungen (Synonym)'); return; }
+          searchText = wort;
+          const liste = getFiltered();
+          if (!window._gsSearchIdx) { f.push('kein Suchindex'); return; }
+          const idx = new Map(window._gsSearchIdx.map((e) => [e.sp, e]));
+          const klasse = (sp) => {
+            const e = idx.get(sp); if (!e) return 6;
+            if (e.name === q) return 0;
+            if (e.name.indexOf(q) === 0 || e.segs.some((x) => x.indexOf(q) === 0)) return 1;
+            if (e.name.indexOf(q) >= 0) return 2;
+            if (e.lat.indexOf(q) >= 0) return 3;
+            if (e.fam.indexOf(q) >= 0) return 4;
+            if (e.blob.indexOf(q) >= 0) return 5;
+            return 6;
+          };
+          let vor = -1;
+          for (let i = 0; i < liste.length; i++) {
+            const k = klasse(liste[i]); gesehen.add(k);
+            if (k < vor) { f.push('„' + wort + '": Platz ' + (i + 1) + ' „' + liste[i].name + '" (' + NAMEN[k] + ') steht hinter einem Treffer „' + NAMEN[vor] + '"'); break; }
+            vor = k;
+          }
+          if (!liste.length) f.push('„' + wort + '" findet nichts — der Fall misst dort nichts');
+        });
+      } finally { currentFilter = vorF; searchText = vorS; if (typeof currentProp !== 'undefined') currentProp = vorP; }
+      if (gesehen.size < 4) f.push('nur ' + gesehen.size + ' Klassen kamen vor — der Fall misst die Ordnung kaum');
+      if (f.length) return { ok: false, warum: f.slice(0, 4).join(' · ') };
+      return { ok: true, info: gesehen.size + ' Klassen in fallender Ordnung über 10 Wörter' + (info.length ? ' · ' + info.join(', ') : '') };
+    },
+  },
+  {
+    // SUCHE-8. Die Menü-Suche hatte einen eigenen Artenteil: `includes` auf Name, Binomen und
+    // Familie — ohne Umlaut-Faltung („barlauch" fand den Bärlauch nicht), ohne Rangfolge (die ersten
+    // fünf in Dateireihenfolge), ohne Vertipper, und ohne jede Giftmarkierung (die Trefferliste der
+    // Suche trägt Giftrand und „Giftig"). Dazu filterte sie je Tastendruck für JEDEN der 51
+    // Menüeinträge die ganze Artenliste und warf das Ergebnis weg (`dbMatch: []`).
+    name: 'SU7 · Menü-Suche: der Artenteil sucht wie die Suche (Umlaute, Vertipper, Rangfolge), zeigt die Giftigkeit der Art — und filtert die Artenliste nicht mehr je Menüeintrag',
+    lauf: () => {
+      if (typeof searchMenu !== 'function') return { ok: false, warum: 'searchMenu gibt es nicht' };
+      const inp = document.getElementById('menu-search-inp'), box = document.getElementById('menu-search-results');
+      if (!inp || !box) return { ok: false, warum: 'die Menü-Suche fehlt — der Fall misst nichts' };
+      const f = [];
+      const tippe = (w) => { inp.value = w; inp.dispatchEvent(new Event('input', { bubbles: true })); };
+      const arten = () => [].slice.call(box.querySelectorAll('[data-sid], [onclick*="openDetail"]'));
+      const vorF = currentFilter, vorS = searchText, vorP = (typeof currentProp !== 'undefined') ? currentProp : '';
+      const echtFilter = Array.prototype.filter;
+      let dbFilter = 0;
+      try {
+        // 1 · Umlaute und Vertipper wie in der Suche
+        [['barlauch', /Bärlauch/], ['bärlauhc', /Bärlauch/], ['loewenzahn', /Löwenzahn/]].forEach(function (p) {
+          tippe(p[0]);
+          const namen = arten().map((a) => a.textContent);
+          if (!namen.some((t) => p[1].test(t))) f.push('„' + p[0] + '" findet im Menü ' + (namen.length ? '„' + namen[0].trim().slice(0, 30) + '"' : 'keine Art'));
+        });
+        // 2 · dieselbe Rangfolge: die ersten fünf Arten im Menü sind die ersten fünf der Suche (ohne
+        // Filter) — auch mit einem Leerzeichen am Ende und mit zwei Wörtern. Gegnerische Prüfung
+        // (16.11.2026): das Menü gab die Eingabe ungetrimmt weiter; bei „giersch " stand der
+        // Pfifferling vorn, bei „bärlauch " das Maiglöckchen (Stufe 5) auf Platz 3.
+        ['giersch', 'giersch ', 'bärlauch ', 'giersch wald'].forEach(function (w) {
+          tippe(w);
+          currentFilter = ''; searchText = w.trim(); if (typeof currentProp !== 'undefined') currentProp = '';
+          const suche = getFiltered().slice(0, 5).map((x) => x.name);
+          const menue = arten().slice(0, 5).map((z) => z.textContent);
+          if (!suche.length || !menue.length) { f.push('„' + w + '": keine Art im Menü oder in der Suche'); return; }
+          for (let i = 0; i < suche.length; i++) {
+            if (!menue[i] || menue[i].indexOf(suche[i]) < 0) { f.push('„' + w + '": Platz ' + (i + 1) + ' im Menü „' + String(menue[i] || '–').trim().slice(0, 30) + '", in der Suche „' + suche[i] + '"'); break; }
+          }
+        });
+        // 2b · ein Menüwort sucht das Menü: stehen Menüeinträge da, kommt keine Art über einen Vertipper
+        //      oder den Beschreibungstext (gegnerische Prüfung: „wetter" → Fetter Gänsefuss)
+        const falte = (x) => String(x || '').toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss');
+        ['wetter', 'quiz', 'premium'].forEach(function (w) {
+          tippe(w);
+          const menue = box.querySelectorAll('.menu-search-result:not([data-sid])').length;
+          if (!menue) { f.push('„' + w + '": kein Menüeintrag — der Fall misst die Regel nicht'); return; }
+          const fremd = arten().filter((z) => falte(z.textContent).indexOf(falte(w)) < 0);
+          if (fremd.length) f.push('„' + w + '" zeigt neben ' + menue + ' Menüeinträgen die Art „' + fremd[0].textContent.trim().slice(0, 30) + '"');
+        });
+        // 3 · eine giftige Art sagt es — die Angabe der ART (_gsArtAnzeige), wie die Trefferliste
+        tippe('schierling');
+        const zeilen = arten();
+        const gift = zeilen.filter((z) => { const sp = DB.find((s) => s && String(s.id) === String(z.getAttribute('data-sid') || (/openDetail\('([^']+)'/.exec(z.getAttribute('onclick') || '') || [])[1])); return sp && (_gsArtAnzeige(sp).tox || 0) >= 3; });
+        if (!gift.length) f.push('„schierling" findet im Menü keine giftige Art — der Fall misst die Markierung nicht');
+        gift.forEach((z) => { if (!/Giftig/i.test(z.textContent)) f.push('„' + z.textContent.trim().slice(0, 30) + '" steht ohne „Giftig" im Menü'); });
+        // 4 · je Tastendruck höchstens ein Durchlauf über die Artenliste
+        Array.prototype.filter = function () { if (this === DB) dbFilter++; return echtFilter.apply(this, arguments); };
+        tippe('rose');
+        Array.prototype.filter = echtFilter;
+        if (dbFilter > 1) f.push('ein Tastendruck filtert die Artenliste ' + dbFilter + '×');
+      } finally {
+        Array.prototype.filter = echtFilter;
+        currentFilter = vorF; searchText = vorS; if (typeof currentProp !== 'undefined') currentProp = vorP;
+        try { if (typeof clearMenuSearch === 'function') clearMenuSearch(); } catch (_) {}
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Umlaute und Vertipper wie die Suche · dieselben ersten fünf (auch „giersch ", „bärlauch ", „giersch wald") · „Giftig" an giftigen Arten · ' + dbFilter + '× Artenliste je Tastendruck' };
+    },
+  },
+  {
+    name: 'SC1 · Der Scan-Chat hat Linas Schutz: Notfallnummer sofort, Warnzeile ueber einer Essbar-Zusage zu einer Giftart',
+    lauf: async () => {
+      var gift = DB.find(function (s) { return s.tox >= 5 && s.lat && _gsArtenTreffer(s.name + ' ' + s.lat).zahl; });
+      if (!gift) return { ok: false, warum: 'keine Art mit Stufe 5 gefunden' };
+      var zusage = 'Ja, den kannst du essen, er ist ein guter Speisepilz.';
+      var soll = _gsLinaSicherheit(zusage, _gsArtenTreffer(gift.name + ' ' + gift.lat));
+      if (!soll) return { ok: false, warum: 'die Sicherung selbst schlaegt bei „' + gift.name + '" nicht an — der Fall misst nichts' };
+      var echtAI = callAI, echtKi = gsKiVerfuegbar, echtScan = _lastScanResult, rufe = 0;
+      callAI = async function () { rufe++; return zusage; };
+      try {
+        _lastScanResult = { name: gift.name, latin: gift.lat, toxicity: 5, confidence: 90, emoji: '🍄' };
+        gsKiVerfuegbar = function () { return true; };
+        openScanChat();
+        var inp = document.getElementById('scan-chat-input'), log = document.getElementById('scan-chat-log');
+        if (!inp || !log) return { ok: false, warum: 'der Scan-Chat hat kein Eingabefeld' };
+        inp.value = 'Kann ich den essen?';
+        await sendScanChat();
+        var t1 = log.textContent || '';
+        if (!rufe) return { ok: false, warum: 'die KI wurde nicht gefragt' };
+        if (t1.indexOf(soll.replace(/\*\*/g, '').split('\n')[0].slice(0, 40)) < 0) return { ok: false, warum: 'die Warnzeile fehlt ueber der Zusage: „' + t1.slice(-160) + '"' };
+        if (t1.indexOf(zusage) < 0) return { ok: false, warum: 'die Antwort wurde verschluckt' };
+        if (/\*\*/.test(t1)) return { ok: false, warum: 'Sternchen stehen roh im Chat' };
+        // Notfall — auch OHNE KI.
+        gsKiVerfuegbar = function () { return false; };
+        var vor = rufe;
+        inp.value = 'mein kind hat davon gegessen';
+        await sendScanChat();
+        var t2 = (log.textContent || '').slice(t1.length);
+        if (!/145/.test(t2)) return { ok: false, warum: 'ohne KI kommt die Notfallnummer nicht: „' + t2.slice(0, 120) + '"' };
+        if (rufe !== vor) return { ok: false, warum: 'ohne KI wurde trotzdem gefragt' };
+        // Gegenrichtung: eine harmlose Frage bekommt weder Nummer noch Warnung.
+        gsKiVerfuegbar = function () { return true; };
+        callAI = async function () { rufe++; return 'Er waechst im Laubwald.'; };
+        _lastScanResult = { name: 'Zzz Unbekannt', latin: '', toxicity: 0 };
+        openScanChat();
+        inp.value = 'Wo waechst er?';
+        await sendScanChat();
+        var t3 = log.textContent || '';
+        if (/145|Tox Info/.test(t3.replace(/^[\s\S]*?Wo waechst er\?/, ''))) return { ok: false, warum: 'eine harmlose Frage bekommt den Notfalltext' };
+        return { ok: true, info: 'Warnzeile ueber der Zusage zu „' + gift.name + '" · 145 auch ohne KI · harmlose Frage ohne beides' };
+      } finally { callAI = echtAI; gsKiVerfuegbar = echtKi; _lastScanResult = echtScan; try { closeScanChat(); } catch (_) {} }
+    },
+  },
+  {
+    // SCANNER-8. Der Scan-Chat leerte sein Gespräch bei JEDEM Öffnen: wer zur Ergebniskarte
+    // zurückging und wieder fragte, stand vor einem leeren Chat, und die KI kannte die erste Frage
+    // nicht mehr. Er antwortete fest auf Deutsch („Beantworte Fragen präzise auf Deutsch"), auch in
+    // einer anderen App-Sprache. Sein erster Satz nannte die Trefferquote „Sicherheit: 85 %" — bei
+    // einer Giftpflanze liest sich das wie eine Sicherheitsangabe. Und es gab keinen Weg zu Lina,
+    // die ein Gespräch behält.
+    name: 'SC2 · Scan-Chat: das Gespräch bleibt beim Wiederöffnen desselben Scans, ein anderer Scan beginnt neu; die KI antwortet in der App-Sprache; „Mit Lina weiterreden" übergibt Art und Frage',
+    lauf: async () => {
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const echtAI = callAI, echtKi = gsKiVerfuegbar, echtScan = _lastScanResult, echtLina = window.gsOpenLina;
+      const echtLang = (window.gsI18n && gsI18n.getLang) || null;
+      const f = [];
+      let sys = '', msgs = null, linaAuf = 0, aiOpts = null;
+      try {
+        callAI = async function (m, s, n, o) { msgs = m; sys = s; aiOpts = o; return 'Er wächst im Laubwald.'; };
+        gsKiVerfuegbar = function () { return true; };
+        _lastScanResult = { name: 'Zzz Testart', latin: 'Zzz testus', toxicity: 0, confidence: 85, emoji: '🌿' };
+        openScanChat();
+        const inp = document.getElementById('scan-chat-input'), log = document.getElementById('scan-chat-log');
+        if (!inp || !log) return { ok: false, warum: 'der Scan-Chat hat kein Eingabefeld' };
+        if (/Sicherheit:\s*\d/.test(log.textContent)) f.push('der erste Satz nennt die Trefferquote „Sicherheit" („' + log.textContent.slice(0, 90) + '")');
+        inp.value = 'Wo wächst er?';
+        await sendScanChat();
+        // 1 · schliessen und wieder öffnen — derselbe Scan
+        closeScanChat(); openScanChat();
+        if (log.textContent.indexOf('Wo wächst er?') < 0) f.push('nach dem Wiederöffnen ist das Gespräch weg');
+        inp.value = 'Und wann blüht er?';
+        await sendScanChat();
+        if (!msgs || !msgs.some((x) => /Wo wächst er/.test(String(x.content)))) f.push('die zweite Frage geht ohne die erste an die KI');
+        // 2 · ein anderer Scan beginnt neu
+        closeScanChat();
+        _lastScanResult = { name: 'Zzz Andere', latin: 'Zzz alter', toxicity: 0, confidence: 70, emoji: '🌿' };
+        openScanChat();
+        if (/Wo wächst er\?/.test(log.textContent)) f.push('ein anderer Scan zeigt das Gespräch über die vorige Art');
+        // 3 · App-Sprache Französisch: der Prompt nennt sie, und verlangt nicht Deutsch
+        if (window.gsI18n) gsI18n.getLang = function () { return 'fr'; };
+        inp.value = 'Où pousse-t-il ?';
+        await sendScanChat();
+        if (!/Französisch|français|French/i.test(sys)) f.push('in französischer App-Sprache nennt der Prompt die Sprache nicht');
+        if (/auf Deutsch/i.test(sys)) f.push('der Prompt verlangt in französischer App-Sprache weiter Deutsch');
+        if (window.gsI18n && echtLang) gsI18n.getLang = echtLang;
+        // 4 · weiter mit Lina: Art und letzte Frage stehen im Feld, gesendet wird nichts
+        window.gsOpenLina = async function () {
+          linaAuf++;
+          if (!document.getElementById('gs-lina-input')) { const i = document.createElement('input'); i.id = 'gs-lina-input'; i.setAttribute('data-zzz-test', '1'); document.body.appendChild(i); }
+        };
+        let gesendet = 0; const eSend = window.gsLinaSend; window.gsLinaSend = function () { gesendet++; };
+        try {
+          const knopf = document.querySelector('#scan-chat-modal [data-scanchat-lina]');
+          if (!knopf) f.push('kein Knopf „Mit Lina weiterreden" im Scan-Chat');
+          else {
+            knopf.click();
+            await warte(400);
+            const li = document.getElementById('gs-lina-input');
+            const v = li ? li.value : '';
+            if (!linaAuf) f.push('Lina geht nicht auf');
+            else if (v.indexOf('Zzz Andere') < 0) f.push('im Lina-Feld steht die Art nicht („' + v + '")');
+            else if (v.indexOf('Où pousse-t-il') < 0) f.push('im Lina-Feld steht die letzte Frage nicht („' + v + '")');
+            if (gesendet) f.push('die Frage wurde an Lina geschickt, ohne dass die Person sie abgeschickt hat');
+            if (document.getElementById('scan-chat-modal').classList.contains('open')) f.push('der Scan-Chat bleibt über Lina offen');
+          }
+        } finally {
+          window.gsLinaSend = eSend;
+          const t = document.querySelector('#gs-lina-input[data-zzz-test]'); if (t) t.remove();
+        }
+      } finally {
+        callAI = echtAI; gsKiVerfuegbar = echtKi; _lastScanResult = echtScan; window.gsOpenLina = echtLina;
+        if (window.gsI18n && echtLang) gsI18n.getLang = echtLang;
+        try { closeScanChat(); } catch (_) {}
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Gespräch bleibt beim Wiederöffnen, neuer Scan neu · Prompt auf Französisch · Lina bekommt Art und Frage, ohne zu senden' };
+    },
+  },
+  {
+    // Gegnerische Prüfung (16.11.2026) — dieselbe Klasse wie Lina L10, im Scanner: sbLogout lädt die
+    // Seite nicht neu. Das letzte Ergebnis, sein Foto, die Ergebniskarte und der Scan-Chat von A lagen
+    // danach weiter im Speicher. Und eine KI-Antwort, die nach dem Abmelden ankam (bis 60 s), wurde
+    // gezeigt und gespeichert — unter dem Konto, das dann angemeldet war.
+    name: 'SC3 · Abmelden räumt das letzte Scan-Ergebnis, sein Foto und den Scan-Chat — und eine KI-Antwort, die nach einem Kontowechsel ankommt, wird weder gezeigt noch gespeichert',
+    lauf: async () => {
+      if (typeof analyzeImage !== 'function' || typeof gsOnLogout !== 'function') return { ok: false, warum: 'analyzeImage oder gsOnLogout fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const f = [];
+      const e = { li: window.sbIsLoggedIn, ai: window.callVisionAI, pc: window.gsScanPersistToCloud, qo: window.gsQueueOffline, cfg: window.getApiConfig, uid: gsStore.get('gs_sb_uid', null),
+        cam: window.stopCamera, st: window.gsScanStatusShow, sp: window.gsStopScanStatus, hi: window.gsAddToScanHistory, dh: window._gsScanDHash, cg: window._gsScanCacheGet, cp: window._gsScanCachePut };
+      let angemeldet = true, gespeichert = 0, kiGefragt = 0;
+      const sr = () => document.getElementById('scan-result');
+      try {
+        window.sbIsLoggedIn = () => angemeldet;
+        gsStore.set('gs_sb_uid', 'uid-A');
+        window.getApiConfig = () => ({ key: 'k' });
+        window.stopCamera = () => {}; window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {}; window.gsAddToScanHistory = () => {};
+        window._gsScanDHash = async () => 'hash-sc3'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+        window.gsScanPersistToCloud = (r) => { if (r && /GEHEIM/.test(r.name || '')) gespeichert++; return Promise.resolve(true); };
+        window.gsQueueOffline = async (t, r) => { if (r && /GEHEIM/.test(r.name || '')) gespeichert++; };
+        // 1 · A hat gescannt und gefragt; dann meldet A sich ab
+        showScanResult({ name: 'GEHEIM-A-Art', latin: 'Taraxacum officinale', confidence: 88, toxicity: 0, edible: true, category: 'wildpflanze', _scanId: 'scan-A-1' });
+        window._gsLastScanB64 = 'FOTO-VON-A';
+        _scanChatHistory = [{ role: 'user', content: 'GEHEIM-A fragt' }];
+        await warte(100);
+        if (!sr() || !/GEHEIM-A-Art/.test(sr().innerHTML)) return { ok: false, warum: 'die Ergebniskarte von A steht gar nicht da — der Fall misst nichts' };
+        angemeldet = false; gsOnLogout(); try { localStorage.removeItem('gs_sb_uid'); } catch (_) {}
+        if (_lastScanResult) f.push('nach dem Abmelden liegt das Ergebnis von A noch im Speicher („' + _lastScanResult.name + '")');
+        if (window._gsLastScanB64) f.push('nach dem Abmelden liegt das Foto von A noch im Speicher');
+        if (_scanChatHistory.length) f.push('nach dem Abmelden liegt der Scan-Chat von A noch im Speicher');
+        if (sr() && /GEHEIM-A-Art/.test(sr().innerHTML)) f.push('nach dem Abmelden steht die Ergebniskarte von A noch im Dokument');
+        // 2 · A scannt, meldet sich ab, während die KI rechnet; B meldet sich an; dann kommt die Antwort
+        angemeldet = true; gsStore.set('gs_sb_uid', 'uid-A'); gespeichert = 0;
+        window.callVisionAI = async () => { kiGefragt++; await warte(300); return JSON.stringify({ name: 'GEHEIM-A-Zwei', latin: 'Bellis perennis', confidence: 90, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }); };
+        const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+        const g = c.getContext('2d');
+        g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160);
+        g.fillStyle = '#3f9142'; g.beginPath(); g.ellipse(80, 74, 50, 30, -0.5, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#1d5c22'; g.lineWidth = 2; g.beginPath(); g.moveTo(38, 104); g.lineTo(122, 42); g.stroke();
+        const lauf = analyzeImage(c.toDataURL('image/jpeg', 0.9).split(',')[1], 'image/jpeg', '', null, { trotzdem: true });
+        await warte(120);
+        angemeldet = false; gsOnLogout();
+        angemeldet = true; gsStore.set('gs_sb_uid', 'uid-B');
+        await lauf; await warte(150);
+        if (!kiGefragt) return { ok: false, warum: 'der zweite Scan hat die KI nie gefragt — der Fall misst den Wettlauf nicht' + (f.length ? ' · ' + f.join(' · ') : '') };
+        if (_lastScanResult && /GEHEIM-A-Zwei/.test(_lastScanResult.name || '')) f.push('die KI-Antwort für A steht nach dem Kontowechsel als Ergebnis da');
+        if (sr() && /GEHEIM-A-Zwei/.test(sr().innerHTML)) f.push('die Ergebniskarte für A wird nach dem Kontowechsel gezeichnet');
+        if (gespeichert) f.push('die KI-Antwort für A wird nach dem Kontowechsel gespeichert (' + gespeichert + '×)');
+      } finally {
+        window.sbIsLoggedIn = e.li; window.callVisionAI = e.ai; window.gsScanPersistToCloud = e.pc; window.gsQueueOffline = e.qo; window.getApiConfig = e.cfg;
+        window.stopCamera = e.cam; window.gsScanStatusShow = e.st; window.gsStopScanStatus = e.sp; window.gsAddToScanHistory = e.hi;
+        window._gsScanDHash = e.dh; window._gsScanCacheGet = e.cg; window._gsScanCachePut = e.cp;
+        try { if (e.uid == null) localStorage.removeItem('gs_sb_uid'); else gsStore.set('gs_sb_uid', e.uid); } catch (_) {}
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'nach dem Abmelden: kein Ergebnis, kein Foto, kein Chat, keine Karte von A · Antwort nach dem Kontowechsel: nicht gezeigt, nicht gespeichert' };
+    },
+  },
+
+  // ── SUCHE-2 · Die Artensuche findet, was Menschen tippen ────────────────
+  {
+    name: 'SU1 · Suche: ein Vertipper findet die Art, ein exakter Name bleibt oben, Unsinn findet nichts',
+    lauf: () => {
+      var vorF = currentFilter, vorS = searchText, f = [];
+      if (typeof currentProp !== 'undefined') currentProp = '';
+      var such = function (w) { currentFilter = ''; searchText = w; return getFiltered(); };
+      try {
+        var ex = such('giersch');
+        if (!ex.length || !/^giersch/i.test(ex[0].name)) f.push('„giersch" bringt zuerst „' + (ex[0] && ex[0].name) + '"');
+        [['bärlauhc', /bärlauch/i], ['barlauch', /bärlauch/i], ['löwenzan', /löwenzahn/i], ['brenessel', /brennnessel/i], ['fliegenpils', /fliegenpilz/i], ['taraxacun', /taraxacum/i]].forEach(function (p) {
+          var r = such(p[0]).slice(0, 5);
+          if (!r.some(function (sp) { return p[1].test(sp.name + ' ' + (sp.lat || '')); })) f.push('„' + p[0] + '" → ' + (r.length ? '„' + r[0].name + '"' : 'nichts'));
+        });
+        var un = such('xqzwvkj');
+        if (un.length) f.push('Unsinn „xqzwvkj" findet ' + un.length + ' Eintraege, z.B. „' + un[0].name + '"');
+        // Gegenrichtung: ein Vertipper darf keinen echten Namenstreffer verdraengen.
+        var tom = such('tomate');
+        if (!tom.length || !/tomate/i.test(tom[0].name)) f.push('„tomate" bringt zuerst „' + (tom[0] && tom[0].name) + '"');
+      } finally { currentFilter = vorF; searchText = vorS; }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: '6 Vertipper finden ihre Art unter den ersten fuenf · exakte Namen zuerst · Unsinn: 0 Treffer' };
+    },
+  },
+  {
+    name: 'SU2 · Suche: mehrere Woerter und der Anfang eines Synonyms',
+    lauf: () => {
+      var vorF = currentFilter, vorS = searchText, f = [], info = [];
+      if (typeof currentProp !== 'undefined') currentProp = '';
+      var such = function (w) { currentFilter = ''; searchText = w; return getFiltered(); };
+      try {
+        var sp = DB.find(function (s) { return /^Bärlauch/.test(s.name) && /Allium ursinum/.test(s.lat || ''); });
+        if (!sp) return { ok: false, warum: 'kein Baerlauch-Eintrag — der Fall misst nichts' };
+        var r = such('bärlauch allium');
+        if (!r.some(function (x) { return x.id === sp.id; })) f.push('„bärlauch allium" findet den Baerlauch nicht (' + r.length + ' Treffer)');
+        var gegen = such('bärlauch xqzwvkj');
+        if (gegen.length) f.push('„bärlauch xqzwvkj" findet ' + gegen.length + ' — ein Wort allein darf nicht reichen');
+        info.push('zwei Woerter: ' + r.length + ' Treffer');
+        var zam = DB.some(function (s) { return /zamioculcas/i.test(s.lat || ''); });
+        if (zam) {
+          var syn = such('glücksfe');
+          if (!syn.some(function (x) { return /zamioculcas/i.test(x.lat || ''); })) f.push('„glücksfe" findet die Zamioculcas nicht');
+          info.push('Synonym-Anfang: ' + syn.length);
+        } else info.push('Synonym nicht pruefbar (keine Zamioculcas in der Liste)');
+      } finally { currentFilter = vorF; searchText = vorS; }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: info.join(' · ') };
+    },
+  },
+  {
+    name: 'SU3 · Suche: die Markierung faltet Umlaute, zerreisst kein &amp; — Statuszeile und Leerzustand nennen den Filter beim Namen',
+    lauf: async () => {
+      var f = [];
+      var h1 = gsHighlight('Bärlauch & Co', 'barlauch');
+      if (!/<mark[^>]*>Bärlauch<\/mark>/.test(h1)) f.push('„barlauch" markiert den Bärlauch nicht: ' + h1.replace(/ style="[^"]*"/g, ''));
+      if (h1.indexOf('&amp; Co') < 0) f.push('das & ist nicht escaped');
+      var h2 = gsHighlight('A&B', 'amp');
+      if (/<mark/.test(h2) || h2 !== 'A&amp;B') f.push('„amp" markiert im &amp;: ' + h2);
+      var h3 = gsHighlight('<img src=x onerror=1>', 'img');
+      if (/<img/i.test(h3)) f.push('ein Tag im Namen bleibt ein Tag');
+      var vorF = currentFilter, vorS = searchText;
+      try {
+        switchTab('search');
+        currentFilter = 'geschuetzt'; searchText = ''; renderList();
+        var st = (document.getElementById('search-status') || {}).textContent || '';
+        if (/geschuetzt/.test(st) || !/Geschützt/.test(st)) f.push('Statuszeile: „' + st + '"');
+        searchText = 'xqzwvkj'; renderList();
+        var knopf = document.querySelector('#results-list button[onclick*="gsSucheOhneFilter"]');
+        if (!knopf) f.push('der Leerzustand bietet nicht an, ohne Filter zu suchen');
+        else {
+          if (!/Geschützt/.test(knopf.textContent)) f.push('der Knopf nennt den Filter nicht: „' + knopf.textContent + '"');
+          searchText = 'enzian'; knopf.click();
+          await new Promise(function (r) { setTimeout(r, 200); });
+          if (currentFilter) f.push('nach dem Knopf steht der Filter noch: ' + currentFilter);
+          if (searchText !== 'enzian') f.push('das Suchwort ging verloren: „' + searchText + '"');
+        }
+        // Gegenrichtung: ohne Filter gibt es den Knopf nicht.
+        currentFilter = ''; searchText = 'xqzwvkj'; renderList();
+        if (document.querySelector('#results-list button[onclick*="gsSucheOhneFilter"]')) f.push('der Knopf steht auch ohne Filter da');
+      } finally { currentFilter = vorF; searchText = vorS; try { gsResetFilter(); } catch (_) {} }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Markierung mit Umlaut, & und Tag · Status „Geschützt" · Knopf nur mit Filter, Suchwort bleibt' };
     },
   },
 
@@ -2121,12 +3239,634 @@ const FAELLE = [
       // Eigener Massstab — NICHT gsIstEssbar. Ein Fall, der mit der Funktion
       // misst, die er pruefen soll, faellt gegen einen alten Stand nur mit
       // „is not defined" durch und hat die falsche ZAHL nie gesehen.
-      var essbar = function (sp) { return !!(sp && sp.edible); };
+      // v33.61: die Frage gilt der ART (_gsArtAnzeige) — derselbe Massstab wie die Karte in der Liste.
+      var essbar = function (sp) { return !!(sp && !sp._unverified && _gsArtAnzeige(sp).edible); };
       var soll = DB.filter(essbar).length;
       var alt  = DB.filter(function (s) { return s.tox === 0 && (s.cat === 'wildpflanze' || s.cat === 'kraut'); }).length;
       if (gezeigt === alt && alt !== soll) return { ok: false, warum: 'nennt die UNGIFTIGEN: ' + gezeigt + ' statt ' + soll };
       if (gezeigt !== soll) return { ok: false, warum: 'zeigt ' + gezeigt + ', essbar sind ' + soll };
       return { ok: true, info: gezeigt + ' — dieselbe Zahl, die der Filter liefert' };
+    },
+  },
+  {
+    name: 'HS1 · „Jetzt sammeln" liest die Saison mit gsSaisonMonate: „April–Juni" zählt im Mai, „Ganzjährig" nicht — und in einer anderen App-Sprache gibt es weiter einen Tipp',
+    lauf: () => {
+      if (typeof _gsInSaison !== 'function') return { ok: false, warum: '_gsInSaison gibt es nicht' };
+      const f = [];
+      if (!_gsInSaison({ season: 'April–Juni' }, 4)) f.push('„April–Juni" gilt im Mai nicht');
+      if (_gsInSaison({ season: 'April–Juni' }, 7)) f.push('„April–Juni" gilt im August');
+      if (_gsInSaison({ season: 'Ganzjährig' }, 4)) f.push('„Ganzjährig" zählt als Saison');
+      if (!_gsInSaison({ season: 'Nov–Feb' }, 0)) f.push('„Nov–Feb" gilt im Januar nicht');
+      // Wie viele essbare Arten sind im Mai in Saison — alte Textsuche gegen die Regel?
+      const alt = DB.filter(s => s.season && s.season !== 'Ganzjährig' && /mai/i.test(s.season) && gsIstEssbar(s)).length;
+      const neu = DB.filter(s => _gsInSaison(s, 4) && gsIstEssbar(s)).length;
+      if (neu <= alt) f.push('die Regel findet im Mai nicht mehr als die Textsuche (' + neu + ' gegen ' + alt + ') — der Fall misst nichts');
+      // Die Wirkung: Juni, App-Sprache französisch — gsMonate() spricht sie, die Saisontexte sind deutsch.
+      const echtMonat = Date.prototype.getMonth, echtTag = Date.prototype.getDate, echtMonate = window.gsMonate;
+      const name = document.getElementById('season-tip-name');
+      if (!name) return { ok: false, warum: '#season-tip-name fehlt — der Fall misst nichts' };
+      const vorher = name.textContent;
+      let gezeigt = '';
+      try {
+        Date.prototype.getMonth = function () { return 5; };
+        Date.prototype.getDate = function () { return 15; };
+        window.gsMonate = function () { return ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']; };
+        name.textContent = 'Zzz-Platzhalter';
+        gsInitSmartSeasonTip();
+        gezeigt = name.textContent;
+      } finally { Date.prototype.getMonth = echtMonat; Date.prototype.getDate = echtTag; window.gsMonate = echtMonate; name.textContent = vorher; }
+      if (gezeigt === 'Zzz-Platzhalter') f.push('in französischer App-Sprache bleibt der Tipp im Juni stehen, wie er war');
+      else {
+        const sp = DB.find(s => gezeigt === s.name + (s.lat ? ' · ' + s.lat : ''));
+        if (!sp) f.push('der Tipp nennt keine Art der Liste: „' + gezeigt + '"');
+        else if (!_gsInSaison(sp, 5)) f.push('„' + sp.name + '" ist im Juni nicht in Saison (' + sp.season + ')');
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Mai: ' + neu + ' essbare Arten in Saison (Textsuche: ' + alt + ') · Juni auf Französisch: „' + gezeigt.slice(0, 40) + '"' };
+    },
+  },
+  {
+    // HOME-1b. HS1 und E2 rufen gsInitSmartSeasonTip DIREKT — und in der App rief sie niemand.
+    // Gemessen 16.11.2026 auf der Startseite: im März „Paprika" unter „Jetzt sammeln" (aus
+    // SEASON_DATA, eine Aussaat), und online schrieb gsLoadSupabaseDailyContent einen zufälligen
+    // „Wusstest du?"-Eintrag hinein (v_today_tip liest did_you_know_facts — Alpendohlen, giftige
+    // Pflanzen). Drei Sitzungen haben die Rechnung verbessert, die nie auf dem Bildschirm ankam.
+    // Der Fall geht deshalb den WEG: initHomeBoard (Start und jeder Tab-Wechsel) → Karte, mit
+    // einem gestellten Server, der einen fremden Tagestipp liefert.
+    name: 'HS2 · Die Saison-Karte der Startseite kommt über den echten Weg aus gsInitSmartSeasonTip — Name, Kopf und Antippen gehören zu EINER Art, der Tagesinhalt vom Server schreibt nicht hinein',
+    lauf: async () => {
+      const karte = document.getElementById('season-tip-card');
+      const nameEl = document.getElementById('season-tip-name');
+      if (!karte || !nameEl || typeof initHomeBoard !== 'function') return { ok: false, warum: 'Saison-Karte oder initHomeBoard fehlt — der Fall misst nichts' };
+      const FREMD = 'Zzz-Fremder Tagestipp';
+      const eSb = window.sbFetch, eWx = window.loadHomeWeather, eGw = window.loadGardenWeather, eOd = window.openDetail, eMn = window.menuNav;
+      let faktenGefragt = 0, geoeffnet = null;
+      const f = [];
+      try {
+        // Das Wetter laeuft hier nicht mit: initHomeBoard plant es ein, und HW1 misst es danach.
+        window.loadHomeWeather = function () {}; window.loadGardenWeather = function () {};
+        window.sbFetch = async function (pfad) {
+          const p = String(pfad || '');
+          if (/v_today_tip/.test(p)) return { data: [{ title: FREMD, body: 'Alpendohlen nutzen Werkzeuge wie Affen.', icon: '🐦', category: 'animals' }], error: null };
+          if (/did_you_know_facts/.test(p)) { faktenGefragt++; return { data: [], error: null }; }
+          return { data: [], error: null };
+        };
+        nameEl.textContent = '';
+        initHomeBoard();
+        await new Promise((r) => setTimeout(r, 1500));   // der Server-Lader laeuft 300 ms danach
+        if (!faktenGefragt) f.push('der Server-Lader lief nicht — der Fall misst den fremden Tagestipp nicht');
+        const name = nameEl.textContent.replace(/\s+/g, ' ').trim();
+        const kopf = ((document.getElementById('season-tip-kopf') || {}).textContent || '').trim();
+        const teile = name.split(' · ');
+        const treffer = DB.filter((s) => s && s.name === teile[0] && (teile.length < 2 || s.lat === teile[1]));
+        const monat = new Date().getMonth();
+        if (!name) f.push('die Karte bleibt leer');
+        else if (name === FREMD) f.push('der „Wusstest du?"-Eintrag vom Server steht unter „' + kopf + '"');
+        else if (!treffer.length) f.push('„' + name + '" ist keine Art der Liste — die Karte kommt nicht aus gsInitSmartSeasonTip');
+        else if (!treffer.some((s) => _gsInSaison(s, monat))) f.push('„' + name + '" ist jetzt nicht in Saison');
+        if (treffer.length && /sammeln/i.test(kopf) && !treffer.some((s) => gsIstEssbar(s))) f.push('„' + name + '" steht unter „' + kopf + '", ist aber nicht essbar');
+        // Antippen öffnet die Art, die dasteht — nicht eine andere und nicht nur die Saisonansicht.
+        window.openDetail = function (id) { geoeffnet = { art: id }; };
+        window.menuNav = function (ziel) { geoeffnet = { menu: ziel }; };
+        karte.click();
+        if (!geoeffnet) f.push('Antippen tut nichts');
+        else if (geoeffnet.menu) f.push('Antippen öffnet „' + geoeffnet.menu + '" statt der Art auf der Karte');
+        else {
+          const sp = DB.find((s) => s && String(s.id) === String(geoeffnet.art));
+          if (!sp || sp.name !== teile[0]) f.push('Antippen öffnet „' + (sp ? sp.name : geoeffnet.art) + '", die Karte zeigt „' + teile[0] + '"');
+        }
+      } finally {
+        window.sbFetch = eSb; window.loadHomeWeather = eWx; window.loadGardenWeather = eGw; window.openDetail = eOd; window.menuNav = eMn;
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: '„' + nameEl.textContent.trim().slice(0, 40) + '" · Server-Lader lief, Karte blieb · Antippen öffnet dieselbe Art' };
+    },
+  },
+  {
+    // HOME-1c. Mit dem Verdrahten (HS2) wurde eine Rechnung sichtbar, die nie auf dem Bildschirm
+    // stand. Gemessen über 372 Tage: an 158 Tagen ein Pilz unter „Jetzt sammeln", an 104 Tagen
+    // eine Art mit giftigem oder tödlichem Doppelgänger (Samtfussrübling — Gifthäubling). Die
+    // Karte zeigt keine Warnung; Pilze haben ihre eigene Karte (mushroom-season-card). Der Fall misst
+    // mit EIGENEM Massstab, nicht mit der Regel der App. Gegnerische Prüfung (16.11.2026): bis hier
+    // schlug er die Doppelgänger mit derselben Zerlegung und demselben gsMatchScanToDb nach wie die
+    // App — er sah ihre Lücke nicht („Schierling" ist kein ganzer Name; die Petersilie stand an vier
+    // Tagen unter „Jetzt sammeln"). Jetzt ein Hauptwort-Verzeichnis direkt aus der Liste: das LETZTE
+    // Wort jedes Namens-Abschnitts einer giftigen Pflanze (Stufe ≥ 3, kein Pilz), ohne die Wörter,
+    // die auch ein harmloser Name als letztes trägt — gesucht als ganzes Wort im Doppelgänger-Text.
+    name: 'HS3 · „Jetzt sammeln" empfiehlt an keinem Tag des Jahres einen Pilz oder eine Art mit gefährlichem Doppelgänger — und an jedem Tag steht ein Tipp',
+    lauf: () => {
+      if (typeof gsInitSmartSeasonTip !== 'function') return { ok: false, warum: 'gsInitSmartSeasonTip gibt es nicht' };
+      const WORT = /gift|tödlich|toedlich|lebensgef|verwechsl/i;
+      const nameEl = document.getElementById('season-tip-name'), kopfEl = document.getElementById('season-tip-kopf');
+      if (!nameEl) return { ok: false, warum: '#season-tip-name fehlt — der Fall misst nichts' };
+      const eM = Date.prototype.getMonth, eT = Date.prototype.getDate;
+      const vorher = nameEl.textContent;
+      const schlecht = [], leer = [];
+      let geprueft = 0, sammeln = 0;
+      // Hauptwörter: der Klammerzusatz ist ein Adjektiv („Fingerhut (Roter)"), ein Bindestrich-Wort
+      // bleibt ganz („Nieswurz-Schafgarbe" ist nicht „Nieswurz"), und ein deutsches Hauptwort beginnt
+      // gross („Echter Oleander weiss" endet auf keinem). Beim Bau gemessen: ohne diese drei Regeln
+      // meldete das Verzeichnis „roter", „blauer", „weiss" und „nieswurz" — elf Fehlalarme.
+      const falte = (x) => String(x || '').toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss');
+      const woerter = (t) => String(t || '').split(/\s+/).map((w) => w.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')).filter(Boolean);
+      const giftNomen = {}, harmlosNomen = {};
+      DB.forEach((s) => {
+        if (!s || /pilz/i.test(s.cat || '')) return;
+        const gift = (Number((_gsArtAnzeige(s) || s).tox) || 0) >= 3;
+        String(s.name || '').replace(/\([^)]*\)/g, ' ').split(/[\/,]/).forEach((abschnitt) => {
+          const w = woerter(abschnitt);
+          const l = w[w.length - 1];
+          if (!l || l.length < 5 || l[0] === l[0].toLowerCase()) return;
+          const k = falte(l);
+          if (gift) { if (!giftNomen[k]) giftNomen[k] = s; } else harmlosNomen[k] = 1;
+        });
+      });
+      Object.keys(harmlosNomen).forEach((w) => { delete giftNomen[w]; });
+      const giftigerDoppelgaenger = (txt) => {
+        const w = woerter(txt).map(falte);
+        for (let i = 0; i < w.length; i++) if (giftNomen[w[i]]) return giftNomen[w[i]];
+        return null;
+      };
+      if (Object.keys(giftNomen).length < 50) return { ok: false, warum: 'nur ' + Object.keys(giftNomen).length + ' Hauptwörter giftiger Pflanzen — der Fall misst kaum etwas' };
+      // Ein Pilz, der nicht als Pilz abgelegt ist (gegnerische Prüfung: der Lärchen-Röhrling steht als
+      // „baum" in der Liste). Eigener Massstab: eine FAMILIE, die die Liste sonst nur bei Pilzen führt
+      // (die App fragt die Gattung). Der Platzhalter „–" ist keine Familie.
+      const famZahl = {};
+      DB.forEach((x) => { if (!x || !x.fam || /^[\s–-]*$/.test(x.fam)) return; const z = famZahl[x.fam] || (famZahl[x.fam] = { pilz: 0, sonst: 0 }); if (/pilz/i.test(x.cat || '')) z.pilz++; else z.sonst++; });
+      const pilzFamilie = (x) => !!(x && x.fam && famZahl[x.fam] && famZahl[x.fam].pilz >= 2 && famZahl[x.fam].pilz > famZahl[x.fam].sonst * 3);
+      const istPilz = (x) => /pilz/i.test((x && x.cat) || '') || pilzFamilie(x);
+      try {
+        for (let m = 0; m < 12; m++) {
+          for (let t = 1; t <= 31; t++) {
+            Date.prototype.getMonth = function () { return m; };
+            Date.prototype.getDate = function () { return t; };
+            nameEl.textContent = '';
+            gsInitSmartSeasonTip();
+            const name = nameEl.textContent.trim(), kopf = (kopfEl && kopfEl.textContent) || '';
+            const wo = (m + 1) + '/' + t;
+            if (!name) { leer.push(wo); continue; }
+            geprueft++;
+            if (!/sammeln/i.test(kopf)) continue;
+            sammeln++;
+            const teile = name.split(' · ');
+            const sp = DB.find((s) => s && s.name === teile[0] && (teile.length < 2 || s.lat === teile[1]));
+            if (!sp) { schlecht.push(wo + ' „' + name + '": keine Art der Liste'); continue; }
+            const a = _gsArtAnzeige(sp) || sp;
+            const warnung = [a.warning, sp.warning, a.lookalike, sp.lookalike].find((x) => _gsWarnungEcht(x) && WORT.test(String(x)));
+            if (istPilz(sp)) schlecht.push(wo + ' ' + sp.name + ': ein Pilz' + (/pilz/i.test(sp.cat || '') ? '' : ' (abgelegt als „' + sp.cat + '", Familie ' + sp.fam + ')'));
+            else if (warnung) schlecht.push(wo + ' ' + sp.name + ': „' + String(warnung).slice(0, 50) + '"');
+            else {
+              const dg = giftigerDoppelgaenger(sp.lookalike) || giftigerDoppelgaenger(a.lookalike);
+              if (dg) schlecht.push(wo + ' ' + sp.name + ': Doppelgänger ' + dg.name + ' (Stufe ' + (_gsArtAnzeige(dg) || dg).tox + ')');
+            }
+          }
+        }
+      } finally { Date.prototype.getMonth = eM; Date.prototype.getDate = eT; nameEl.textContent = vorher; }
+      try { gsInitSmartSeasonTip(); } catch (_) {}   // wieder auf den echten Tag
+      const f = [];
+      // Dazu jede Art, die der Jahreslauf nicht trifft, mit demselben eigenen Massstab: essbar, kein
+      // Pilz, kein Warnwort — aber ein Doppelgänger, dessen Hauptwort die Liste als giftig führt.
+      const ohneWort = DB.filter((s) => {
+        if (!s || !gsIstEssbar(s) || /pilz/i.test(s.cat || '')) return false;
+        const a = _gsArtAnzeige(s) || s;
+        if ([a.warning, s.warning, a.lookalike, s.lookalike].some((x) => _gsWarnungEcht(x) && WORT.test(String(x)))) return false;
+        return !!(giftigerDoppelgaenger(s.lookalike) || giftigerDoppelgaenger(a.lookalike));
+      });
+      if (typeof _gsSammelSicher !== 'function') f.push('_gsSammelSicher gibt es nicht');
+      else {
+        const durch = ohneWort.filter((s) => _gsSammelSicher(s));
+        if (durch.length) f.push(durch.length + ' von ' + ohneWort.length + ' Arten mit giftigem Doppelgänger ohne Warnwort gelten als sammelbar: ' + durch.slice(0, 3).map((s) => s.name + ' (' + s.lookalike + ')').join(' | '));
+      }
+      // Die Gegenrichtung: ein Pilz ist kein Doppelgänger einer Pflanze. Arten, deren Doppelgänger-Text
+      // nur über einen giftigen PILZ einen Treffer hat (Estragon — „Beifuss" — Beifuss-Ritterling),
+      // bleiben sammelbar; sonst lehnt die Regel ab, was sie nicht begründen kann.
+      const tox = (h) => Number((_gsArtAnzeige(h) || h).tox) || 0;
+      const nurPilz = (typeof _gsArtenTreffer !== 'function') ? [] : DB.filter((s) => {
+        if (!s || !gsIstEssbar(s) || /pilz/i.test(s.cat || '')) return false;
+        const a = _gsArtAnzeige(s) || s;
+        if ([a.warning, s.warning, a.lookalike, s.lookalike].some((x) => _gsWarnungEcht(x) && WORT.test(String(x)))) return false;
+        if (giftigerDoppelgaenger(s.lookalike) || giftigerDoppelgaenger(a.lookalike)) return false;
+        const tr = (_gsArtenTreffer(s.lookalike || '') || {}).arten || [];
+        return tr.some((h) => /pilz/i.test(h.cat || '') && tox(h) >= 3) && !tr.some((h) => !/pilz/i.test(h.cat || '') && tox(h) >= 3);
+      });
+      // Jeder falsch abgelegte Pilz, den der Jahreslauf nicht trifft: auch er ist nie sammelbar.
+      const verkleidet = DB.filter((x) => x && !/pilz/i.test(x.cat || '') && pilzFamilie(x) && gsIstEssbar(x));
+      if (typeof _gsSammelSicher === 'function') {
+        const durchP = verkleidet.filter((x) => _gsSammelSicher(x));
+        if (durchP.length) f.push(durchP.length + (durchP.length === 1 ? ' Pilz mit anderer Kategorie gilt' : ' Pilze mit anderer Kategorie gelten') + ' als sammelbar: ' + durchP.slice(0, 3).map((x) => x.name + ' [' + x.cat + '] ' + x.lat).join(' | '));
+      }
+      if (!nurPilz.length) f.push('keine Art, deren Doppelgänger nur über einen Pilz giftig ist — die Gegenrichtung misst nichts');
+      else if (typeof _gsSammelSicher === 'function') {
+        const abgelehnt = nurPilz.filter((s) => !_gsSammelSicher(s));
+        if (abgelehnt.length) f.push(abgelehnt.length + ' von ' + nurPilz.length + ' Arten werden über einen giftigen PILZ als Doppelgänger abgelehnt: ' + abgelehnt.slice(0, 3).map((s) => s.name + ' („' + s.lookalike + '")').join(' | '));
+      }
+      if (leer.length) f.push('an ' + leer.length + ' Tagen steht kein Tipp (' + leer.slice(0, 4).join(', ') + ')');
+      if (schlecht.length) f.push(schlecht.length + ' von ' + sammeln + ' Sammel-Tipps gefährlich: ' + schlecht.slice(0, 4).join(' | '));
+      if (sammeln < 300) f.push('nur ' + sammeln + ' von ' + geprueft + ' Tagen „Jetzt sammeln" — der Fall misst kaum etwas');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: geprueft + ' Tage · ' + sammeln + ' Sammel-Tipps, keiner ein Pilz, keiner mit Gift-Warnung oder giftigem Doppelgänger · ' + ohneWort.length + ' Arten mit giftigem Doppelgänger ohne Warnwort abgelehnt · ' + nurPilz.length + ' mit einem Pilz als „Doppelgänger" bleiben sammelbar · ' + verkleidet.length + ' Pilz(e) mit anderer Kategorie abgelehnt' };
+    },
+  },
+  {
+    // Gegnerische Prüfung (16.11.2026): ohne Artenliste versucht es der Saison-Tipp 40 × alle 800 ms
+    // und gibt dann auf. Kam die Liste erst danach (zweiter Ladeversuch über 32 s), zeichnete
+    // gsArtenNachgeladen nur den Tagesplan neu — die Saison-Karte blieb leer, bis zum nächsten Weg auf
+    // die Startseite. Der Fall stellt genau das her: Liste weg, Nachversuche verbraucht, Liste zurück.
+    name: 'HS4 · Kommt die Artenliste erst, nachdem der Saison-Tipp aufgegeben hat, füllt das Nachladen die Karte',
+    lauf: () => {
+      if (typeof gsArtenNachgeladen !== 'function' || typeof gsInitSmartSeasonTip !== 'function') return { ok: false, warum: 'gsArtenNachgeladen oder gsInitSmartSeasonTip fehlt' };
+      const nameEl = document.getElementById('season-tip-name');
+      if (!nameEl) return { ok: false, warum: '#season-tip-name fehlt — der Fall misst nichts' };
+      const vorher = nameEl.textContent, eToast = window.gsToast;
+      let sicher = [];
+      try {
+        window.gsToast = () => {};
+        if (window._gsSaisonTippWartet) { clearTimeout(window._gsSaisonTippWartet); window._gsSaisonTippWartet = 0; }
+        sicher = DB.splice(0);                     // die Artenliste fehlt
+        window._gsSaisonTippVersuche = 40;         // alle Nachversuche verbraucht
+        nameEl.textContent = '';
+        gsInitSmartSeasonTip();
+        if (window._gsSaisonTippWartet) return { ok: false, warum: 'der Saison-Tipp versucht es weiter — der Fall stellt den Zustand nicht her, den er prüft' };
+        DB.push.apply(DB, sicher); sicher = [];    // die Liste kommt (zweiter Ladeversuch)
+        gsArtenNachgeladen();
+        const name = nameEl.textContent.trim();
+        if (!name) return { ok: false, warum: 'nach dem Nachladen der Artenliste bleibt der Saison-Tipp leer' };
+        return { ok: true, info: 'Nachversuche verbraucht → Liste nachgeladen → „' + name.slice(0, 40) + '"' };
+      } finally {
+        if (sicher.length) DB.push.apply(DB, sicher);
+        window.gsToast = eToast; window._gsSaisonTippVersuche = 0;
+        if (!nameEl.textContent.trim()) nameEl.textContent = vorher;
+      }
+    },
+  },
+  {
+    // HOME-2. Zwei Ladewege schrieben dieselbe Karte, jeder nach eigenen Regeln: loadHomeWeather
+    // (Start, alle zwei Stunden) mit Text und Ort, gsApplyWeatherToWidget (Zwischenspeicher) mit
+    // einem Gartentipp, anderer Symboltabelle und anderem Format. Was dastand, hing davon ab, wer
+    // zuletzt lief. Der Fall faehrt BEIDE Wege mit denselben Werten und vergleicht die Karte.
+    name: 'HW1 · Gartenwetter auf der Startseite: beide Ladewege zeigen bei denselben Werten dieselbe Karte — Symbol, Temperatur, Text mit Ort, Wind, Feuchte, UV, Vorschau, Warnzeile',
+    lauf: async () => {
+      const W = window.__wetterDaten();
+      const karte = () => {
+        const t = (id) => ((document.getElementById(id) || {}).textContent || '').replace(/\s+/g, ' ').trim();
+        const w = document.getElementById('hw-warning');
+        return { icon: t('hw-icon'), temp: t('hw-temp'), desc: t('hw-desc'), wind: t('hw-wind'), feucht: t('hw-humidity'), uv: t('hw-uv'),
+                 vorschau: t('hw-forecast'), warnung: (w && w.style.display !== 'none') ? t('hw-warning-text') : '' };
+      };
+      const echt = { f: window._gsFetch, loc: window.gsGetLocationFor, stadt: (typeof _gsWeatherCity !== 'undefined') ? _gsWeatherCity : undefined, show: gsNotif.show };
+      let a = null, b = null;
+      try {
+        gsNotif.show = function () {};
+        window.gsGetLocationFor = function () { return { lat: 47.1, lon: 8.1, name: 'Testdorf' }; };
+        window._gsFetch = async function (url) { return { ok: true, status: 200, json: async () => (String(url).indexOf('current=') >= 0 ? W.neu : W.alt) }; };
+        _gsWeatherCity = 'Testdorf';
+        // was aus frueheren Faellen noch unterwegs ist, landet JETZT, nicht mitten in der Messung
+        await new Promise(function (r) { setTimeout(r, 2600); });
+        await loadHomeWeather();
+        b = karte();
+        gsApplyWeatherToWidget(W.alt);
+        a = karte();
+        // scheitert danach der Garten-Ladeweg, bleibt die gueltige Karte stehen. Nur SEINE Adresse
+        // scheitert: laeuft waehrenddessen loadHomeWeather (gsI18nRerenderDynamic ruft es), soll
+        // dessen eigener Fehlersatz diesen Fall nicht vortaeuschen.
+        window._gsFetch = async function (url) {
+          if (String(url).indexOf('current_weather') >= 0) throw new TypeError('Failed to fetch');
+          return { ok: true, status: 200, json: async () => (String(url).indexOf('current=') >= 0 ? W.neu : W.alt) };
+        };
+        // Waehrenddessen ruht loadHomeWeather: ein Aufruf aus einem frueheren Fall, dessen
+        // Wiederholungen (0,7 s / 1,4 s) bis hierher reichen, schriebe sonst mit — gemessen beim Bau.
+        var __echtLH = window.loadHomeWeather;
+        window.loadHomeWeather = async function () {};
+        try { await loadGardenWeather(true); } finally { window.loadHomeWeather = __echtLH; }
+        var nachFehler = karte();
+      } finally { window._gsFetch = echt.f; window.gsGetLocationFor = echt.loc; if (echt.stadt !== undefined) _gsWeatherCity = echt.stadt; gsNotif.show = echt.show; }
+      if (!b.temp || b.temp.indexOf('1') < 0) return { ok: false, warum: 'loadHomeWeather hat die Karte nicht geschrieben („' + b.temp + '") — der Fall misst nichts' };
+      const f = [];
+      if (nachFehler.desc !== a.desc) f.push('ein gescheiterter Garten-Ladeweg überschreibt die gültige Karte: „' + nachFehler.desc + '"');
+      Object.keys(b).forEach(function (k) { if (a[k] !== b[k]) f.push(k + ': Start „' + b[k] + '" · Zwischenspeicher „' + a[k] + '"'); });
+      if (!/Testdorf/.test(b.desc) || !/Testdorf/.test(a.desc)) f.push('der Ort fehlt in der Beschreibung');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'beide Wege: ' + b.icon + ' ' + b.temp + ' · „' + b.desc + '" · Warnung „' + (b.warnung || '—') + '"' };
+    },
+  },
+  {
+    // HOME-2, die Warnzeile. Open-Meteo liefert die Stunden AB MITTERNACHT; checkStormWarning las
+    // hourly[0..2] — „Gewitter in den nächsten 1-2h" hiess 00 bis 02 Uhr, mit Push-Meldung. Und die
+    // Gartenwarnungen der Karte hatten eigene Schwellen statt GS_WETTER_GRENZEN (Kalender W1).
+    name: 'HW2 · Warnzeile der Wetterkarte: ein Gewitter in der NÄCHSTEN Stunde meldet sich, eines um Mitternacht nicht — Frost und Hitze nach GS_WETTER_GRENZEN',
+    lauf: async () => {
+      const f = [], info = [];
+      const echt = { f: window._gsFetch, loc: window.gsGetLocationFor, show: gsNotif.show, frost: GS_WETTER_GRENZEN.frost };
+      let pushes = 0;
+      const lauf = async (aendern) => {
+        const W = window.__wetterDaten(aendern);
+        window._gsFetch = async function () { return { ok: true, status: 200, json: async () => W.neu }; };
+        await loadHomeWeather();
+        const w = document.getElementById('hw-warning');
+        return (w && w.style.display !== 'none') ? ((document.getElementById('hw-warning-text') || {}).textContent || '') : '';
+      };
+      try {
+        gsNotif.show = function () { pushes++; };
+        window.gsGetLocationFor = function () { return { lat: 47.1, lon: 8.1, name: 'Testdorf' }; };
+        const jetztH = new Date().getHours();
+        // 1 · Gewitter in der naechsten Stunde (alle anderen Stunden ruhig, kein Frost)
+        pushes = 0;
+        const w1 = await lauf((d) => { d.mins = [5, 6, 7, 8]; d.stundenCode[jetztH + 1] = 95; });
+        if (!/Gewitter/.test(w1)) f.push('Gewitter um ' + (jetztH + 1) + ' Uhr: Warnzeile „' + w1 + '"');
+        else info.push('nächste Stunde: „' + w1 + '"');
+        if (/Gewitter/.test(w1) && pushes !== 1) f.push('Gewitter: ' + pushes + ' Push-Meldungen statt 1');
+        // 2 · Gewitter um Mitternacht — vorbei, sobald es mindestens 3 Uhr ist
+        if (jetztH >= 3) {
+          pushes = 0;
+          const w2 = await lauf((d) => { d.mins = [5, 6, 7, 8]; d.stundenCode[0] = 95; });
+          if (/Gewitter/.test(w2)) f.push('ein Gewitter um 00 Uhr meldet sich um ' + jetztH + ' Uhr als „in den nächsten 1-2h"');
+          if (pushes) f.push('dafür ' + pushes + ' Push-Meldung(en)');
+          info.push('Mitternacht: still');
+        } else info.push('Mitternacht: nicht prüfbar vor 3 Uhr');
+        // 3 · Frost nach der Tabelle: heute -1 °C ist Frost; mit Schwelle -5 nicht mehr
+        const w3 = await lauf((d) => { d.mins = [-1, 4, 5, 6]; });
+        if (!/Frost/.test(w3)) f.push('Tiefstwert -1 °C: keine Frostzeile („' + w3 + '")');
+        GS_WETTER_GRENZEN.frost = -5;
+        const w4 = await lauf((d) => { d.mins = [-1, 4, 5, 6]; });
+        GS_WETTER_GRENZEN.frost = echt.frost;
+        if (/Frost/.test(w4)) f.push('Frostschwelle -5 °C: die Karte meldet bei -1 °C weiter Frost — sie liest GS_WETTER_GRENZEN nicht');
+        // 4 · 3 °C jetzt, Tiefstwerte 3 °C: kein Frost (die alte Startseiten-Regel sagte < 4)
+        const w5 = await lauf((d) => { d.temp = 3; d.mins = [3, 4, 5, 6]; });
+        if (/Frost/.test(w5)) f.push('3 °C, Tiefstwert 3 °C: Frostzeile „' + w5 + '"');
+        // 5 · Hitze nach der Tabelle
+        const w6 = await lauf((d) => { d.mins = [15, 16, 17, 18]; d.maxs = [31, 29, 28, 27]; });
+        if (!/Hitze/.test(w6)) f.push('Höchstwert 31 °C: keine Hitzezeile („' + w6 + '")');
+        if (!f.length) info.push('Frost/Hitze nach Tabelle');
+      } finally { window._gsFetch = echt.f; window.gsGetLocationFor = echt.loc; gsNotif.show = echt.show; GS_WETTER_GRENZEN.frost = echt.frost; }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: info.join(' · ') };
+    },
+  },
+  {
+    // HOME-5. Die Kartenreihe der Startseite (gsBuildWidgetStack) drehte alle 8 s, ohne dass man
+    // sie anhalten konnte (WCAG 2.2.2), auch während der Fokus in ihr stand — und eine Karte ohne
+    // Inhalt blieb eine Folie mit Punkt: ohne Bauernregel (offline, oder keine für den Monat)
+    // drehte die Reihe auf eine leere Fläche. Der Fall stellt die Zustände HER und misst die
+    // Wirkung: sichtbare Folien gegen Punkte, und die Drehung selbst (mit kurzem Takt).
+    name: 'HK1 · Kartenreihe der Startseite: eine leere Karte ist keine Folie und hat keinen Punkt — ein Pause-Knopf hält die Drehung an (und wieder an), Fokus in der Reihe hält sie an',
+    lauf: async () => {
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const f = [], info = [];
+      if (typeof gsBuildWidgetStack === 'function') gsBuildWidgetStack();
+      const vp = document.getElementById('gs-wstack-viewport'), dots = document.getElementById('gs-wstack-dots');
+      if (!vp || !dots) return { ok: false, warum: 'Kartenreihe nicht gebaut — der Fall misst nichts' };
+      const eWx = window.loadHomeWeather, eGw = window.loadGardenWeather;
+      if (vp.offsetParent === null) {
+        window.loadHomeWeather = function () {}; window.loadGardenWeather = function () {};
+        try { switchTab('home'); await warte(900); } finally { window.loadHomeWeather = eWx; window.loadGardenWeather = eGw; }
+      }
+      if (vp.offsetParent === null) return { ok: false, warum: 'die Startseite ist nicht sichtbar — der Fall misst nichts' };
+      const karten = ['daily-card', 'woche-card', 'season-tip-card', 'card-wusstest', 'wisdom-card'].map((id) => document.getElementById(id));
+      const vorher = karten.map((k) => k ? k.style.display : null);
+      const saisonName = document.getElementById('season-tip-name'), saisonVorher = saisonName ? saisonName.textContent : '';
+      const sichtbareFolien = () => [].slice.call(vp.children).filter((s) => s.getBoundingClientRect().width > 0);
+      const punkte = () => [].slice.call(dots.querySelectorAll('.gs-wdot')).filter((d) => d.getBoundingClientRect().width > 0);
+      const leereSichtbar = () => sichtbareFolien().filter((s) => { const k = s.firstElementChild; return !k || getComputedStyle(k).display === 'none' || !k.textContent.trim(); });
+      const aktiv = () => punkte().findIndex((d) => d.getAttribute('aria-selected') === 'true');
+      const beobachte = async (ms) => { const s = new Set(); const t0 = performance.now(); while (performance.now() - t0 < ms) { s.add(aktiv()); await warte(40); } return s.size; };
+      const knopf = dots.querySelector('[data-wstack-pause]');
+      const eTakt = window.GS_WSTACK_TAKT_MS;
+      let still = null;
+      try { still = localStorage.getItem('gs_wstack_still'); localStorage.removeItem('gs_wstack_still'); } catch (_) {}
+      try {
+        // 1 · Bauernregel ohne Daten (so setzt sie gsLoadTodaysWisdom): keine Folie, kein Punkt.
+        const wisdom = karten[4];
+        if (wisdom) wisdom.style.display = 'none';
+        await warte(200);
+        const leer1 = leereSichtbar();
+        if (leer1.length) f.push('ohne Bauernregel bleibt eine leere Folie sichtbar (' + leer1.map((s) => (s.firstElementChild || {}).id).join(', ') + ')');
+        if (punkte().length !== sichtbareFolien().length) f.push(punkte().length + ' Punkte für ' + sichtbareFolien().length + ' sichtbare Karten');
+        // 2 · Saison-Tipp ohne Inhalt (keine Artenliste): nur der Kopf steht noch da — das ist
+        //     keine Karte. Gemessen an DIESER Folie und den Punkten, nicht am ganzen Kartentext
+        //     (der Kopf allein hätte den Text nicht leer gemacht — Gegenprobe ohne Inhaltsregel
+        //     blieb so grün).
+        if (saisonName && karten[2]) {
+          const n1 = punkte().length;
+          saisonName.textContent = ''; await warte(200);
+          const folie = karten[2].parentNode;
+          if (folie && folie.getBoundingClientRect().width > 0) f.push('ein Saison-Tipp ohne Inhalt (nur der Kopf) bleibt als Folie stehen');
+          if (punkte().length !== n1 - 1) f.push('Saison-Tipp ohne Inhalt: Punkte ' + n1 + ' → ' + punkte().length + ' statt ' + (n1 - 1));
+          saisonName.textContent = saisonVorher || 'Zzz-Saison'; await warte(200);
+          if (punkte().length !== n1) f.push('Saison-Tipp wieder da: Punkte ' + punkte().length + ' statt ' + n1);
+        }
+        // 3 · Die Bauernregel kommt an: Folie und Punkt kommen dazu.
+        const n0 = punkte().length;
+        if (typeof gsRenderWisdom === 'function') gsRenderWisdom({ saying: 'Zzz-Testregel', validity: 'umstritten', region: 'Test', meaning: '', modern_take: '' });
+        await warte(200);
+        if (punkte().length !== n0 + 1) f.push('die Bauernregel kam an — Punkte ' + n0 + ' → ' + punkte().length + ' statt ' + (n0 + 1));
+        if (punkte().length !== sichtbareFolien().length) f.push('nach der Bauernregel: ' + punkte().length + ' Punkte für ' + sichtbareFolien().length + ' Karten');
+        // 4 · Nur eine Karte mit Inhalt: nichts dreht, also weder Punkte noch Pause-Knopf.
+        karten.forEach((k, i) => { if (k && i !== 0) k.style.display = 'none'; });
+        await warte(200);
+        if (dots.getBoundingClientRect().height > 0) f.push('bei einer einzigen Karte stehen Punkte bzw. ein Pause-Knopf da');
+        karten.forEach((k, i) => { if (k && i !== 0) k.style.display = vorher[i] || ''; });
+        if (karten[4]) karten[4].style.display = 'block';
+        await warte(200);
+        // 5 · Pause-Knopf: da, benannt, schaltet — und die Drehung hält wirklich an (kurzer Takt).
+        if (!knopf) f.push('kein Pause-Knopf in der Kartenreihe');
+        else {
+          if (!((knopf.getAttribute('aria-label') || knopf.textContent || '').trim())) f.push('der Pause-Knopf hat keinen Namen');
+          if (knopf.getAttribute('aria-pressed') !== 'false') f.push('der Pause-Knopf steht zu Beginn nicht auf „läuft" (aria-pressed=' + knopf.getAttribute('aria-pressed') + ')');
+          window.GS_WSTACK_TAKT_MS = 250;
+          knopf.click(); knopf.click();   // anhalten und wieder starten: der neue Takt gilt
+          const laeuft = await beobachte(1300);
+          if (laeuft < 2) f.push('mit kurzem Takt dreht die Reihe nicht — der Fall misst die Pause nicht');
+          knopf.click();
+          await warte(800);   // eine Drehung, die beim Anhalten schon unterwegs war, kommt noch an
+          if (knopf.getAttribute('aria-pressed') !== 'true') f.push('nach dem Anhalten steht aria-pressed nicht auf true');
+          let gemerkt = null; try { gemerkt = localStorage.getItem('gs_wstack_still'); } catch (_) {}
+          if (gemerkt !== '1') f.push('das Anhalten wird nicht gemerkt (gs_wstack_still=' + gemerkt + ')');
+          const angehalten = await beobachte(1300);
+          if (angehalten > 1) f.push('angehalten dreht die Reihe weiter');
+          knopf.click();
+          const wieder = await beobachte(1300);
+          if (wieder < 2) f.push('nach „weiter" dreht die Reihe nicht wieder');
+          // 6 · Fokus in der Reihe hält sie an, solange er dort steht.
+          const p0 = punkte()[0];
+          if (p0) {
+            p0.focus();
+            await warte(800);
+            const fokus = await beobachte(1300);
+            if (fokus > 1) f.push('mit dem Fokus auf einem Punkt dreht die Reihe weiter');
+            p0.blur();
+            const nachFokus = await beobachte(1300);
+            if (nachFokus < 2) f.push('nach dem Fokus dreht die Reihe nicht wieder');
+          }
+          info.push(sichtbareFolien().length + ' Karten · ' + punkte().length + ' Punkte · Pause und Fokus halten die Drehung an');
+        }
+      } finally {
+        window.GS_WSTACK_TAKT_MS = eTakt;
+        try { if (still === null) localStorage.removeItem('gs_wstack_still'); else localStorage.setItem('gs_wstack_still', still); } catch (_) {}
+        if (knopf && typeof _gsWStackStoppen === 'function' && typeof _gsWStackStarten === 'function') { _gsWStackStoppen(); _gsWStackStarten(); }
+        karten.forEach((k, i) => { if (k) k.style.display = vorher[i]; });
+        if (saisonName) saisonName.textContent = saisonVorher;
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: info.join(' · ') };
+    },
+  },
+  {
+    // HOME-7. „Wusstest du?" lud die Fakten vom Server mit `order=id.asc&limit=30`: von 192 aktiven
+    // erschienen nur die ersten 30 (live nachgelesen 16.11.2026), und 10 davon tragen eine
+    // Kalenderwoche (kw) — sie standen in jeder Woche da. Escaped wurde nur „<". Der Fall stellt
+    // einen Server, der den Wochenfilter NICHT anwendet (die Antwort ist fremde Eingabe), und
+    // misst, was in die Karte kommt.
+    name: 'HF1 · „Wusstest du?": ein Fakt einer anderen Kalenderwoche erscheint nicht, alle aktiven werden gefragt, und Fremdtext bleibt Text',
+    lauf: async () => {
+      if (typeof gsLoadSupabaseDailyContent !== 'function') return { ok: false, warum: 'gsLoadSupabaseDailyContent fehlt' };
+      // ISO-Woche wie Postgres (EXTRACT(week …)) — eigener Massstab, nicht die Rechnung der App
+      const isoWoche = (d) => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const w = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - w); const j1 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - j1) / 864e5 + 1) / 7); };
+      const diese = isoWoche(new Date()), andere = diese >= 52 ? 1 : diese + 1;
+      const eSb = window.sbFetch, eDyn = window._dynF, el = document.getElementById('fact-text'), eHtml = el ? el.innerHTML : '';
+      let pfadFakten = '';
+      const f = [];
+      try {
+        window.sbFetch = async function (pfad) {
+          const p = String(pfad || '');
+          if (/did_you_know_facts/.test(p)) {
+            pfadFakten = p;
+            return { data: [
+              { title: 'Zzz Andere Woche', body: 'gehört in Woche ' + andere, icon: '📅', kw: andere },
+              { title: 'Zzz Immer', body: 'ohne Woche <b>fett</b> & so', icon: '💡', kw: null },
+              { title: 'Zzz Diese Woche', body: 'gehört in Woche ' + diese, icon: '🗓️', kw: diese },
+            ], error: null };
+          }
+          return { data: [], error: null };
+        };
+        window._dynF = []; window._gsFaktenTag = null;   // der Tages-Zwischenspeicher fragt sonst nicht neu
+        await gsLoadSupabaseDailyContent();
+        const alle = (window._dynF || []).join(' ');
+        if (!pfadFakten) f.push('die Fakten wurden nicht gefragt — der Fall misst nichts');
+        if (/limit=30(&|$)/.test(pfadFakten)) f.push('gefragt werden nur die ersten 30 (' + pfadFakten.slice(0, 120) + ')');
+        if (/Zzz Andere Woche/.test(alle)) f.push('ein Fakt der Woche ' + andere + ' steht in Woche ' + diese + ' da');
+        if (!/Zzz Immer/.test(alle) || !/Zzz Diese Woche/.test(alle)) f.push('ein Fakt ohne Woche oder der Woche ' + diese + ' fehlt (' + (window._dynF || []).length + ' in der Liste)');
+        if (/<b>fett<\/b>/.test(alle)) f.push('Auszeichnung aus der Datenbank wird als HTML eingesetzt');
+        if (/ & so/.test(alle)) f.push('ein „&" aus der Datenbank steht roh im HTML');
+        // Gegnerische Prüfung: der Deckel hat einen Namen und steht als Schwelle in GS_FRISTEN — und
+        // am selben Tag fragt der zweite Weg auf die Startseite nicht noch einmal (vorher ~150 Zeilen je Weg).
+        if (typeof GS_FAKTEN_MAX !== 'number' || pfadFakten.indexOf('limit=' + GS_FAKTEN_MAX) < 0) f.push('der Deckel der Anfrage ist nicht GS_FAKTEN_MAX (' + pfadFakten.slice(-40) + ')');
+        const frist = (typeof gsFristenStand === 'function') ? gsFristenStand().find((x) => x.id === 'fakten') : null;
+        if (!frist || frist.ist !== 3 || frist.von !== GS_FAKTEN_MAX) f.push('GS_FRISTEN nennt die geladenen Fakten nicht (' + JSON.stringify(frist && { ist: frist.ist, von: frist.von, zustand: frist.zustand }) + ')');
+        pfadFakten = ''; window._dynF = [];
+        await gsLoadSupabaseDailyContent();
+        if (pfadFakten) f.push('am selben Tag fragt der zweite Weg auf die Startseite die Fakten noch einmal');
+        if (!(window._dynF || []).length) f.push('aus dem Zwischenspeicher des Tages kommt kein Fakt');
+      } finally {
+        window.sbFetch = eSb; window._dynF = eDyn; if (el) el.innerHTML = eHtml; window._gsFaktenTag = null; window._gsFaktenGeladen = undefined;
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'ISO-Woche ' + diese + ': Woche ' + andere + ' bleibt draussen, ohne Woche und diese Woche drin · alle aktiven gefragt (Deckel GS_FAKTEN_MAX, in GS_FRISTEN) · einmal je Tag · Fremdtext escaped' };
+    },
+  },
+  {
+    // HOME-6 (STATUS 2026-09-10 hj, „Offen für N4"): ein Plan, dessen Jahr vorbei ist, sagt es seit
+    // v33.15 auf seiner Kachel in „Meine Pläne" — aber nur dort. Seit N8 (v33.10) legt ein Plan seine
+    // Termine in den Kalender; einer von letztem Jahr legt DIESES Jahr keinen mehr hin, und die
+    // Startseite sagte nicht, warum. Der Fall stellt die Pläne her und liest den Tagesplan.
+    // Dazu die EINE Jahresregel (_gsPlanJahr): drei Stellen rechneten mit _gsKalTag(x.sow_date), und
+    // new Date(null) ist der 1.1.1970 — eine Pflanze mit "sow_date": null machte aus dem Plan einen
+    // „Plan von 1970" (Kachel: „Plan-Jahr 1970 vorbei", Vorlage: „Vorlage 1971").
+    name: 'HP1 · Startseite: sind ALLE Gartenpläne aus einem vergangenen Jahr, sagt der Tagesplan es und führt zu „Meine Pläne" — ein Plan für dieses Jahr, ein frischer Plan ohne Datum oder „ausblenden" lassen die Zeile weg; "sow_date": null ist kein Plan von 1970',
+    lauf: async () => {
+      if (typeof gsRenderDayPlan !== 'function') return { ok: false, warum: 'gsRenderDayPlan fehlt' };
+      const el = document.getElementById('home-dayplan');
+      if (!el) return { ok: false, warum: '#home-dayplan fehlt — der Fall misst nichts' };
+      const J = new Date().getFullYear();
+      const letztesJahr = new Date(J - 1, 3, 1).toISOString();
+      const plan = (jahr, opts) => {
+        opts = opts || {};
+        const plants = opts.nullZuerst
+          ? [{ name: 'Lauch', sow_date: null }, { name: 'Tomate', sow_date: jahr + '-03-15' }]
+          : (jahr ? [{ name: 'Tomate', sow_date: jahr + '-03-15', harvest_from: jahr + '-07-20' }] : [{ name: 'Tomate' }]);
+        return { id: 'pp_test_' + (jahr || 'ohne') + '_' + Math.random().toString(36).slice(2, 7),
+          created: opts.created || letztesJahr, title: 'Testplan ' + (jahr || 'ohne Datum'), plan: { plants } };
+      };
+      const vorher = localStorage.getItem('gs_garden_plans'), vorAus = localStorage.getItem('gs_planhinweis_aus');
+      const eOpen = window.gsPPopenSavedPlans, eLogin = window.sbIsLoggedIn;
+      const eDirty = (window.gsCloudSync && gsCloudSync.markDirty) || null;
+      let geoeffnet = 0;
+      const f = [];
+      const zeile = () => el.querySelector('[data-planjahr]');
+      const setze = (liste) => { localStorage.setItem('gs_garden_plans', JSON.stringify(liste)); window._gsPlanHinweisAusMem = null; gsRenderDayPlan(); };
+      try {
+        window.gsPPopenSavedPlans = function () { geoeffnet++; };
+        if (eDirty) gsCloudSync.markDirty = function () {};
+        localStorage.removeItem('gs_planhinweis_aus');
+        // 1 · zwei Pläne aus Vorjahren → Zeile mit dem NEUESTEN Jahr, Antippen öffnet „Meine Pläne"
+        setze([plan(J - 2), plan(J - 1)]);
+        const z1 = zeile();
+        if (!z1) f.push('zwei Pläne aus ' + (J - 2) + ' und ' + (J - 1) + ': keine Zeile im Tagesplan');
+        else {
+          if (z1.textContent.indexOf(String(J - 1)) < 0) f.push('die Zeile nennt nicht das neueste Plan-Jahr ' + (J - 1) + ' („' + z1.textContent.trim().slice(0, 80) + '")');
+          const knopf = z1.querySelector('button:not([data-planjahr-aus])');
+          if (knopf) knopf.click();
+          if (!geoeffnet) f.push('Antippen öffnet „Meine Pläne" nicht');
+        }
+        // 2 · ein Plan für dieses Jahr → keine Zeile
+        setze([plan(J - 1), plan(J)]);
+        if (zeile()) f.push('mit einem Plan für ' + J + ' steht die Zeile trotzdem da');
+        // 3 · nur ein Plan ohne Datum (angelegt letztes Jahr) → keine Zeile: das Jahr wird nie geraten
+        setze([plan(null)]);
+        if (zeile()) f.push('ein Plan ohne Datum löst die Zeile aus');
+        // 4 · ein alter Plan mit Datum und ein DIESES Jahr angelegter ohne Datum → keine Zeile
+        setze([plan(J - 1), plan(null, { created: new Date().toISOString() })]);
+        if (zeile()) f.push('ein dieses Jahr angelegter Plan ohne Datum: die Startseite behauptet trotzdem, alle Pläne seien alt');
+        // 5 · "sow_date": null vor einem echten Datum → das Jahr ist das echte, nicht 1970
+        const nullPlan = plan(J - 1, { nullZuerst: true });
+        setze([nullPlan]);
+        const z5 = zeile();
+        if (!z5) f.push('Plan mit "sow_date": null und einem Datum ' + (J - 1) + ': keine Zeile');
+        else if (z5.getAttribute('data-planjahr') !== String(J - 1)) f.push('Plan mit "sow_date": null: die Startseite rechnet das Jahr ' + z5.getAttribute('data-planjahr') + ' statt ' + (J - 1));
+        // 5b · dieselbe Regel in „Meine Pläne": die Kachel sagt das echte Plan-Jahr
+        window.gsPPopenSavedPlans = eOpen;
+        window.sbIsLoggedIn = function () { return false; };   // kein Cloud-Abgleich ohne Netz
+        try { await eOpen(); } catch (e) { f.push('„Meine Pläne" wirft: ' + e.message); }
+        const modal = document.getElementById('modal-saved-plans');
+        if (!modal) f.push('„Meine Pläne" ging nicht auf — die Kachel ist nicht gemessen');
+        else {
+          const kachel = modal.textContent;
+          if (/1970/.test(kachel)) f.push('die Kachel in „Meine Pläne" nennt 1970 („' + ((modal.querySelector('.pp-alt') || {}).textContent || '').trim() + '")');
+          if (kachel.indexOf('Plan-Jahr ' + (J - 1) + ' vorbei') < 0) f.push('die Kachel sagt nicht „Plan-Jahr ' + (J - 1) + ' vorbei"');
+          modal.remove();
+        }
+        window.sbIsLoggedIn = eLogin;
+        // 5c · und die Vorlage: aus dem Plan von J-1 wird eine Vorlage für J — nicht für 1971
+        window.gsPPopenSavedPlans = function () { geoeffnet++; };
+        let neu = null;
+        try { neu = gsPPvorlageNaechstesJahr(nullPlan.id); } catch (e) { f.push('gsPPvorlageNaechstesJahr wirft: ' + e.message); }
+        if (!neu) f.push('aus dem Plan mit "sow_date": null wurde keine Vorlage');
+        else if (String(neu.title || '').indexOf('Vorlage ' + J + ' ') !== 0) f.push('die Vorlage heisst „' + neu.title + '" statt „Vorlage ' + J + ' · …"');
+        // 6 · ausblenden gilt für dieses Jahr, ein Vorjahres-Ausblenden nicht
+        localStorage.setItem('gs_planhinweis_aus', String(J - 1));
+        setze([plan(J - 1)]);
+        const z6 = zeile();
+        if (!z6) f.push('ein „ausblenden" aus ' + (J - 1) + ' hält die Zeile in ' + J + ' zurück');
+        else {
+          const weg = z6.querySelector('[data-planjahr-aus]');
+          if (!weg) f.push('die Zeile lässt sich nicht ausblenden');
+          else {
+            weg.click();
+            if (zeile()) f.push('nach „ausblenden" steht die Zeile noch da');
+            if (localStorage.getItem('gs_planhinweis_aus') !== String(J)) f.push('„ausblenden" ist nicht gespeichert (' + localStorage.getItem('gs_planhinweis_aus') + ')');
+          }
+        }
+      } finally {
+        window.gsPPopenSavedPlans = eOpen;
+        window.sbIsLoggedIn = eLogin;
+        if (eDirty) gsCloudSync.markDirty = eDirty;
+        window._gsPlanHinweisAusMem = null;
+        if (vorher === null) localStorage.removeItem('gs_garden_plans'); else localStorage.setItem('gs_garden_plans', vorher);
+        if (vorAus === null) localStorage.removeItem('gs_planhinweis_aus'); else localStorage.setItem('gs_planhinweis_aus', vorAus);
+        try { const m = document.getElementById('modal-saved-plans'); if (m) m.remove(); } catch (_) {}
+        try { gsRenderDayPlan(); } catch (_) {}
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Vorjahre → Zeile mit ' + (J - 1) + ', öffnet „Meine Pläne" · Plan für ' + J + ', ohne Datum, frisch angelegt, ausgeblendet → keine Zeile · "sow_date": null → ' + (J - 1) + ' auf Startseite, Kachel und Vorlage (' + J + ')' };
     },
   },
   {
@@ -2290,6 +4030,1252 @@ const FAELLE = [
     },
   },
 
+  // ── Hauptfunktionen · Scanner 1/2/3/7 (11.11.2026) ───────────────────
+  //
+  // Vier Punkte aus docs/HAUPTFUNKTIONEN.md „Offen — Scanner", alle vorher in
+  // der laufenden App nachgemessen: eine gewaehlte Alternative schrieb einen
+  // zweiten Scan (Cloud immer, Verlauf nach zehn Sekunden), zeigte die
+  // Merkmale der verworfenen Art, eine Korrektur aenderte nichts Sichtbares,
+  // und „Nochmal versuchen" vergass „Trotzdem bestimmen".
+  {
+    name: 'H1 · Alternative wählen: ein Scan bleibt EIN Scan — Verlauf umbenannt, kein zweiter Upload; ein NEUER Scan zählt weiter',
+    lauf: async () => {
+      const altP = window.gsScanPersistToCloud; let persist = [];
+      window.gsScanPersistToCloud = (r) => { persist.push(r.name); return Promise.resolve(true); };
+      const hist = () => JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
+      const scan = () => ({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 62, edible: true, toxic: false, toxicity: 0, description: 'x',
+        alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 30 }] });
+      try {
+        localStorage.setItem('gs_scan_history', '[]'); window._gsLastScanIdInfo = null;
+        showScanResult(scan());
+        if (hist().length !== 1 || persist.length !== 1) return { ok: false, warum: 'der Fall stellt den Zustand nicht her: nach dem Scan ' + hist().length + ' Einträge, ' + persist.length + ' Uploads' };
+        // elf Sekunden spaeter — die alte Kennung galt nur zehn
+        if (window._gsLastScanIdInfo) window._gsLastScanIdInfo.ts -= 11000;
+        const key = Object.keys(window._gsAltCandidates || {}).filter(k => /maigl/i.test(window._gsAltCandidates[k].name))[0];
+        if (!key) return { ok: false, warum: 'keine Alternative auf der Karte — der Fall misst nichts' };
+        gsPickAlternative(key);
+        const h = hist();
+        if (h.length !== 1) return { ok: false, warum: 'nach der Wahl stehen ' + h.length + ' Einträge im Verlauf: ' + h.map(x => x.name).join(' · ') };
+        if (h[0].name !== 'Maiglöckchen') return { ok: false, warum: 'der Verlauf heisst weiter „' + h[0].name + '"' };
+        if (h[0].ki_name !== 'Bärlauch') return { ok: false, warum: 'der Eintrag weiss nicht mehr, was die KI gesagt hatte (ki_name = ' + h[0].ki_name + ')' };
+        if (!(h[0].tox >= 3) || h[0].edible) return { ok: false, warum: 'der Verlauf trägt die Sicherheitsangaben der verworfenen Art (tox ' + h[0].tox + ', essbar ' + h[0].edible + ')' };
+        if (persist.length !== 1) return { ok: false, warum: 'die Wahl hat einen zweiten Scan hochgeladen: ' + persist.join(' · ') };
+        // zurueck zur ersten Antwort: wieder ein Eintrag, nichts mehr „geaendert"
+        const k2 = Object.keys(window._gsAltCandidates || {}).filter(k => /rlauch/i.test(window._gsAltCandidates[k].name)).pop();
+        if (!k2) return { ok: false, warum: 'die erste Bestimmung steht nicht bei den Alternativen — kein Weg zurück' };
+        gsPickAlternative(k2);
+        const hz = hist();
+        if (hz.length !== 1 || hz[0].name !== 'Bärlauch' || hz[0].ki_name) return { ok: false, warum: 'zurück zur KI-Bestimmung: ' + JSON.stringify(hz.map(x => [x.name, x.ki_name])) };
+        // Gegenrichtung: ein NEUER Scan ist ein neuer Eintrag und ein neuer Upload
+        showScanResult({ name: 'Löwenzahn', latin: 'Taraxacum officinale', confidence: 90, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+        if (hist().length !== 2 || persist.length !== 2) return { ok: false, warum: 'ein neuer Scan zählt nicht mehr: ' + hist().length + ' Einträge, ' + persist.length + ' Uploads' };
+        return { ok: true, info: 'Wahl nach 11 s: 1 Eintrag, umbenannt, KI-Name gemerkt, 1 Upload · zurück: wieder der erste · neuer Scan: 2/2' };
+      } finally { window.gsScanPersistToCloud = altP; }
+    },
+  },
+  {
+    name: 'H2 · Alternative wählen: nichts von der verworfenen Art bleibt stehen — und die Karte sagt, dass gewählt wurde',
+    lauf: () => {
+      const r = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 62, edible: true, toxic: false, toxicity: 0,
+        description: 'Breite Blätter mit Knoblauchduft.', tips: 'Reibtest-Tipp-der-alten-Art', uses: 'Pesto-der-alten-Art', warning: 'Warnung-der-alten-Art',
+        diagnostic_features: ['Knoblauchgeruch beim Zerreiben', 'Einzelblatt mit Stiel'], next_photo_hint: 'Blattunterseite-matt-Hinweis',
+        _gegenprobe: { name: 'Bärlauch', einig: true }, _tox_korrigiert: { von: 0, auf: 1 },
+        alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 30 }, { name: 'Fantasiekraut', latin: 'Planta ficta', confidence: 12 }] };
+      localStorage.setItem('gs_scan_history', '[]'); window._gsLastScanIdInfo = null;
+      showScanResult(r);
+      const karte = () => (document.getElementById('scan-result').textContent || '').replace(/\s+/g, ' ');
+      // der Fall weist nach, dass die Merkmale VORHER dastehen
+      if (!/Knoblauchgeruch beim Zerreiben/.test(karte()) || !/Blattunterseite-matt-Hinweis/.test(karte())) return { ok: false, warum: 'die Karte der ersten Bestimmung zeigt Merkmale und Foto-Hinweis gar nicht — der Fall misst nichts' };
+      const kand = window._gsAltCandidates || {};
+      gsPickAlternative(Object.keys(kand).filter(k => /maigl/i.test(kand[k].name))[0]);
+      const t = karte(), n = _lastScanResult, klagen = [];
+      ['Knoblauchgeruch beim Zerreiben', 'Blattunterseite-matt-Hinweis', 'Reibtest-Tipp-der-alten-Art', 'Pesto-der-alten-Art', 'Warnung-der-alten-Art'].forEach(x => { if (t.indexOf(x) >= 0) klagen.push('auf der Karte steht weiter „' + x + '"'); });
+      if (n.diagnostic_features || n.next_photo_hint || n._gegenprobe || n._tox_korrigiert && n._tox_korrigiert.von === 0 && n._tox_korrigiert.auf === 1) klagen.push('das Ergebnis trägt Felder der verworfenen Art');
+      if (!n._scanId || n._scanId !== r._scanId) klagen.push('die Kennung der Aufnahme ging verloren');
+      if (n.confidence !== 30) klagen.push('Sicherheit ' + n.confidence + ' statt der 30, die die KI für diese Art nannte');
+      if (!(n.toxicity >= 3) || n.edible) klagen.push('Maiglöckchen: tox ' + n.toxicity + ', essbar ' + n.edible + ' — nicht aus unserer Artenliste');
+      if (!/Von dir gewählt/.test(t) || !/Die KI hatte „Bärlauch“ erkannt \(62 %\)/.test(t)) klagen.push('die Karte sagt nicht, dass gewählt wurde und was die KI gesagt hatte');
+      // eine Art, die unsere Liste nicht kennt: keine Zusage, ein Vorbehalt
+      const k3 = Object.keys(window._gsAltCandidates || {}).filter(k => /Fantasie/.test(window._gsAltCandidates[k].name))[0];
+      if (!k3) klagen.push('die zweite Alternative ist nach der Wahl verschwunden');
+      else {
+        gsPickAlternative(k3);
+        const t3 = karte(), n3 = _lastScanResult;
+        if (n3.edible === true || /✅ Essbar/.test(t3)) klagen.push('unbekannte Art erbt „essbar"');
+        if (!/nicht geprüft/.test(t3)) klagen.push('unbekannte Art ohne den Vorbehalt „nicht geprüft"');
+        if (/Breite Blätter mit Knoblauchduft/.test(t3)) klagen.push('unbekannte Art erbt die Beschreibung der ersten');
+        if (n3._ki_name !== 'Bärlauch') klagen.push('nach zwei Wechseln ist die erste KI-Antwort „' + n3._ki_name + '"');
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'vorher 2 Merkmale + Foto-Hinweis sichtbar, nach der Wahl 0 von 5 Resten · 30 % statt 60 · tox ' + n.toxicity + ' aus der Liste · unbekannte Art ungeprüft' };
+    },
+  },
+  {
+    name: 'H3 · Korrektur gilt: Ergebnis und Verlauf tragen den gemeldeten Namen, gemeldet wird gegen die ERSTE KI-Antwort',
+    lauf: async () => {
+      const altS = window._gsKorrekturSenden, altP = window.gsScanPersistToCloud; let gesendet = [], persist = 0;
+      window.gsScanPersistToCloud = () => { persist++; return Promise.resolve(true); };
+      const hist = () => JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
+      const name = () => ((document.querySelector('#scan-result .sr2-hero-name') || {}).textContent || '');
+      const karte = () => (document.getElementById('scan-result').textContent || '').replace(/\s+/g, ' ');
+      const klagen = [];
+      try {
+        for (const antwort of ['ok', 'abgelehnt']) {
+          window._gsKorrekturSenden = async (s) => { gesendet.push(s); return antwort; };
+          localStorage.setItem('gs_scan_history', '[]'); window._gsLastScanIdInfo = null; gesendet = []; persist = 0;
+          showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 62, edible: true, toxic: false, toxicity: 0, description: 'x',
+            diagnostic_features: ['Knoblauchgeruch beim Zerreiben'], alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 30 }] });
+          // gleicher Name → nichts aendert sich (Gegenrichtung)
+          gsReportScanMistake(); document.getElementById('scan-fix-name').value = 'bärlauch';
+          await gsSubmitScanMistake();
+          if (name() !== 'Bärlauch' || hist()[0].ki_name) klagen.push(antwort + ': derselbe Name hat etwas geändert');
+          // zuerst eine Alternative waehlen, DANN korrigieren
+          const kand = window._gsAltCandidates || {};
+          gsPickAlternative(Object.keys(kand).filter(k => /maigl/i.test(kand[k].name))[0]);
+          gesendet = [];
+          gsReportScanMistake(); document.getElementById('scan-fix-name').value = 'Herbstzeitlose';
+          await gsSubmitScanMistake();
+          const h = hist(), n = _lastScanResult, t = karte();
+          if (name() !== 'Herbstzeitlose') klagen.push(antwort + ': auf der Karte steht weiter „' + name() + '"');
+          if (h.length !== 1 || h[0].name !== 'Herbstzeitlose' || h[0].ki_name !== 'Bärlauch') klagen.push(antwort + ': Verlauf ' + JSON.stringify(h.map(x => [x.name, x.ki_name])));
+          if (!(n.toxicity >= 5) || n.edible !== false) klagen.push(antwort + ': Herbstzeitlose mit tox ' + n.toxicity + ', essbar ' + n.edible);
+          if (!/Colchicum/.test(n.latin || '')) klagen.push(antwort + ': das Binomen aus der Artenliste fehlt');
+          if (/Knoblauchgeruch beim Zerreiben/.test(t)) klagen.push(antwort + ': die Merkmale der verworfenen Art stehen weiter da');
+          if (!/Von dir korrigiert/.test(t) || !/Die KI hatte „Bärlauch“/.test(t)) klagen.push(antwort + ': die Karte sagt nicht, dass korrigiert wurde');
+          if (/\b0\s?%/.test((document.querySelector('#scan-result .sr2-conf-card') || {}).textContent || '')) klagen.push(antwort + ': eine erfundene Sicherheit „0 %" steht neben der eigenen Angabe');
+          const g = gesendet[gesendet.length - 1] || {};
+          const txt = JSON.stringify(g);
+          if (!/Bärlauch/.test(txt) || /Maiglöckchen/.test(JSON.stringify([g.ai_name, g.ai_species, g.original_name].filter(Boolean)))) klagen.push(antwort + ': gemeldet wurde nicht gegen die erste KI-Antwort: ' + txt.slice(0, 160));
+          if (persist !== 1) klagen.push(antwort + ': ' + persist + ' Uploads für eine Aufnahme');
+        }
+      } finally { window._gsKorrekturSenden = altS; window.gsScanPersistToCloud = altP; try { closeModal('detail-modal'); } catch (_) {} }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Server sagt ja UND nein: Karte + Verlauf „Herbstzeitlose" (tox 5 aus der Liste), KI-Name gemerkt, 1 Eintrag, 1 Upload · gleicher Name ändert nichts' };
+    },
+  },
+  {
+    name: 'H3b · Korrektur-Feld schlägt Arten vor: Umlaute, je Art einmal, Deckel mit „+N weitere", fremder Text bleibt Text',
+    lauf: () => {
+      const klagen = [];
+      const t1 = _gsKorrekturTreffer('barlau');
+      if (!t1.liste.some(sp => /Bärlauch/.test(sp.name))) klagen.push('„barlau" findet den Bärlauch nicht');
+      const t2 = _gsKorrekturTreffer('b');
+      if (t2.liste.length) klagen.push('ein einzelner Buchstabe liefert ' + t2.liste.length + ' Vorschläge');
+      const t3 = _gsKorrekturTreffer('am');
+      if (t3.liste.length !== GS_KORREKTUR_VORSCHLAEGE_MAX || !(t3.mehr > 0)) klagen.push('„am": ' + t3.liste.length + ' Vorschläge, +' + t3.mehr + ' — Deckel oder Rest fehlt');
+      const lats = _gsKorrekturTreffer('holunder').liste.map(sp => _gsNormLat(sp.lat));
+      if (lats.length !== new Set(lats).size) klagen.push('dieselbe Art steht mehrfach in den Vorschlägen');
+      if (_gsKorrekturTreffer('qqqxyz').liste.length) klagen.push('Unsinn liefert Vorschläge');
+      // Anzeige: aus dem gerenderten Formular
+      window.__pwned = 0;
+      window._lastScanResult = null;
+      _lastScanResult = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 62, _scanId: 'x',
+        alternatives: [{ name: 'O\'Neill <img src=x onerror="window.__pwned=1">', latin: 'Bella "donna"', confidence: 20 }] };
+      gsReportScanMistake();
+      const box = document.getElementById('scan-fix-vorschlaege');
+      if (!box) { klagen.push('das Formular hat kein Vorschlagsfeld'); }
+      else {
+        const b0 = box.querySelector('button');
+        if (!b0 || !/hielt auch für möglich/.test(box.textContent)) klagen.push('vor dem Tippen stehen die Alternativen der KI nicht da');
+        else {
+          if (b0.querySelector('img')) klagen.push('der Name der Alternative wurde als HTML gebaut');
+          try { new Function(b0.getAttribute('onclick')); } catch (e) { klagen.push('onclick der Alternative parst nicht: ' + e.message); }
+          b0.click();
+          if (document.getElementById('scan-fix-name').value.indexOf("O'Neill <img") !== 0) klagen.push('Antippen füllt den Namen nicht wörtlich: „' + document.getElementById('scan-fix-name').value + '"');
+          if (document.getElementById('scan-fix-latin').value !== 'Bella "donna"') klagen.push('Antippen füllt das Binomen nicht wörtlich');
+        }
+        const inp = document.getElementById('scan-fix-name'); inp.value = 'am'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+        if (box.querySelectorAll('button').length !== GS_KORREKTUR_VORSCHLAEGE_MAX || !/\+\d+ weitere/.test(box.textContent)) klagen.push('getippt „am": ' + box.querySelectorAll('button').length + ' Knöpfe, „+N weitere" ' + (/\+\d+ weitere/.test(box.textContent) ? 'da' : 'fehlt'));
+        inp.value = 'qqqxyz'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+        if (box.querySelector('button') || !/trotzdem absenden/.test(box.textContent)) klagen.push('ohne Treffer fehlt der Satz, dass man trotzdem absenden kann');
+        inp.value = 'barlau'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+        const bb = Array.from(box.querySelectorAll('button')).filter(b => /Bärlauch/.test(b.textContent))[0];
+        if (!bb) klagen.push('getippt „barlau": kein Knopf für den Bärlauch');
+        else { bb.click(); if (!/Allium ursinum/.test(document.getElementById('scan-fix-latin').value)) klagen.push('der gewählte Vorschlag füllt das Binomen nicht'); }
+      }
+      try { closeModal('detail-modal'); } catch (_) {}
+      if (window.__pwned) klagen.push('fremder Text wurde ausgeführt');
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '„barlau" → Bärlauch · „am": ' + t3.liste.length + ' + ' + t3.mehr + ' weitere · je Art einmal · Alternative mit Apostroph und <img> bleibt Text' };
+    },
+  },
+  {
+    name: 'H3c · Cloud-Abgleich: die verworfene Bestimmung kommt nicht als zweiter Eintrag zurück — ein anderer Scan schon',
+    lauf: async () => {
+      const altF = window.sbFetch, altL = window.sbIsLoggedIn, altP = window.gsScanPersistToCloud;
+      const hist = () => JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
+      let gefragt = 0;
+      try {
+        window.gsScanPersistToCloud = () => Promise.resolve(true);
+        localStorage.setItem('gs_scan_history', '[]'); window._gsLastScanIdInfo = null;
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 62, edible: true, toxic: false, toxicity: 0, description: 'x',
+          alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 30 }] });
+        const kand = window._gsAltCandidates || {};
+        gsPickAlternative(Object.keys(kand).filter(k => /maigl/i.test(kand[k].name))[0]);
+        const ts = _gsScanZeit(hist()[0]);
+        if (!ts) return { ok: false, warum: 'der Eintrag hat keine Zeit — der Fall stellt den Zustand nicht her' };
+        window.sbIsLoggedIn = () => true;
+        if (!gsStore.get('gs_sb_uid', null)) gsStore.set('gs_sb_uid', 'pruef-uid');
+        window.sbFetch = async () => { gefragt++; return { data: [
+          // die Zeile der ERSTEN Bestimmung, 40 s spaeter angelegt (nach dem Foto-Upload)
+          { created_at: new Date(ts + 40000).toISOString(), species_name: 'Bärlauch', species_latin: 'Allium ursinum', category: 'wildpflanze', confidence: 62, toxicity: 0, edible: true, thumb: 'https://beispiel.invalid/foto.jpg', context: {} },
+          // ein ANDERER Bärlauch-Scan von gestern
+          { created_at: new Date(ts - 86400000).toISOString(), species_name: 'Bärlauch', species_latin: 'Allium ursinum', category: 'wildpflanze', confidence: 91, toxicity: 0, edible: true, thumb: '', context: {} },
+        ], error: null }; };
+        await gsLoadCloudScans();
+        if (!gefragt) return { ok: false, warum: 'der Abgleich hat den Server nicht gefragt — der Fall misst nichts' };
+        const h = hist();
+        const heute = h.filter(x => Math.abs(_gsScanZeit(x) - ts) < 120000);
+        if (heute.length !== 1) return { ok: false, warum: 'die verworfene Bestimmung steht wieder da: ' + heute.map(x => x.name).join(' · ') };
+        if (heute[0].name !== 'Maiglöckchen') return { ok: false, warum: 'der Abgleich hat die Wahl überschrieben: „' + heute[0].name + '"' };
+        if (heute[0].photoUrl !== 'https://beispiel.invalid/foto.jpg') return { ok: false, warum: 'das Foto aus der Cloud ging beim Zusammenführen verloren' };
+        if (h.length !== 2 || !h.some(x => x.name === 'Bärlauch' && x.conf === 91)) return { ok: false, warum: 'der Scan von gestern fehlt (' + h.length + ' Einträge) — der Riegel verschluckt zu viel' };
+        return { ok: true, info: 'Cloud-Zeile der ersten Bestimmung (+40 s) geht im umbenannten Eintrag auf, Foto übernommen · der Scan von gestern bleibt' };
+      } finally { window.sbFetch = altF; window.sbIsLoggedIn = altL; window.gsScanPersistToCloud = altP; }
+    },
+  },
+  {
+    name: 'H3d · Korrektur aus dem Verlauf: der Eintrag trägt danach den gemeldeten Namen — abgebrochen ändert nichts',
+    lauf: async () => {
+      const altS = window._gsKorrekturSenden, altM = window.gsPromptModal;
+      const hist = () => JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
+      let gesendet = [];
+      try {
+        window._gsKorrekturSenden = async (s) => { gesendet.push(s); return 'ok'; };
+        localStorage.setItem('gs_scan_history', JSON.stringify([{ id: 'scan_h3d', ts: Date.now() - 5000, name: 'Bärlauch', latin: 'Allium ursinum', conf: 62, tox: 0, edible: true, warning: '', category: 'wildpflanze' }]));
+        window.gsPromptModal = async () => null;
+        await gsScanHistoryReportWrong(0);
+        if (hist()[0].name !== 'Bärlauch' || gesendet.length) return { ok: false, warum: 'abgebrochen, und trotzdem geändert oder gesendet' };
+        window.gsPromptModal = async () => 'Herbstzeitlose';
+        await gsScanHistoryReportWrong(0);
+        const h = hist()[0];
+        const modal = document.getElementById('scan-detail-modal');
+        const mt = modal ? modal.textContent.replace(/\s+/g, ' ') : '';
+        if (modal) modal.style.display = 'none';
+        if (gesendet.length !== 1) return { ok: false, warum: gesendet.length + ' Meldungen statt einer' };
+        if (h.name !== 'Herbstzeitlose' || h.ki_name !== 'Bärlauch') return { ok: false, warum: 'Verlauf: „' + h.name + '", KI-Name ' + h.ki_name };
+        if (!(h.tox >= 5) || h.edible) return { ok: false, warum: 'der Eintrag behält die Sicherheitsangaben der alten Art (tox ' + h.tox + ', essbar ' + h.edible + ')' };
+        if (!/Herbstzeitlose/.test(mt) || !/die KI hatte „Bärlauch“ erkannt/.test(mt)) return { ok: false, warum: 'das Verlaufsdetail zeigt die Änderung nicht: „' + mt.slice(0, 120) + '"' };
+        return { ok: true, info: 'abgebrochen: unverändert, 0 gesendet · gemeldet: „Herbstzeitlose", tox ' + h.tox + ', Detail nennt die KI-Antwort' };
+      } finally { window._gsKorrekturSenden = altS; window.gsPromptModal = altM; }
+    },
+  },
+  {
+    name: 'H7 · „Nochmal versuchen" behält „Trotzdem bestimmen" — ohne die Wahl kommt die Rückfrage weiter',
+    lauf: async () => {
+      const flach = (() => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d'); g.fillStyle = '#7a8a6a'; g.fillRect(0, 0, 160, 160); return c.toDataURL('image/jpeg', 0.9).split(',')[1]; })();
+      const q = await gsBildQualitaetVonB64(flach, 'image/jpeg');
+      if (!q.messbar || !gsQualitaetZuSchlecht(q)) return { ok: false, warum: 'Prüfbild gilt als lesbar — der Fall stellt den Zustand nicht her' };
+      // Was der Fall ersetzt, gibt er zurück — sonst bleibt z. B. gsResetScanner für jeden späteren Fall tot (gefunden 19.11.2026 an AB1).
+      const _vor = ['getApiConfig', 'stopCamera', 'gsResetScanner', '_gsScanDHash', '_gsScanCacheGet', '_gsScanCachePut', 'gsBuildScanContext', 'callVisionAI'].map((n) => [n, window[n]]);
+      try {
+        window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
+        window._gsScanDHash = async () => 'hash-h7'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+        window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
+        let rufe = 0, scheitern = true;
+        window.callVisionAI = async () => { rufe++; if (scheitern) throw new Error('Zeitüberschreitung'); return JSON.stringify({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }); };
+        const karte = () => (document.getElementById('scan-result').textContent || '').replace(/\s+/g, ' ');
+        window._gsLastScanPayload = null;
+        // Gegenrichtung zuerst: ohne „Trotzdem" → Rückfrage, kein Aufruf
+        await analyzeImage(flach, 'image/jpeg');
+        if (rufe !== 0 || !/schwer zu lesen/.test(karte())) return { ok: false, warum: 'ohne „Trotzdem" kam keine Rückfrage (' + rufe + ' KI-Aufrufe)' };
+        gsQualTrotzdem();
+        for (let i = 0; i < 80 && !/fehlgeschlagen/.test(karte()); i++) await new Promise(r => setTimeout(r, 50));
+        if (rufe < 1 || !/fehlgeschlagen/.test(karte())) return { ok: false, warum: 'der gestellte Fehlschlag kam nicht an (' + rufe + ' Aufrufe) — der Fall stellt den Zustand nicht her' };
+        const vorher = rufe; scheitern = false;
+        await _gsRetryLastScan();
+        const t = karte();
+        if (/schwer zu lesen/.test(t)) return { ok: false, warum: '„Nochmal versuchen" fragt wieder nach der Bildqualität — die Wahl „Trotzdem bestimmen" ging verloren' };
+        if (rufe !== vorher + 1) return { ok: false, warum: 'der erneute Versuch hat die KI ' + (rufe - vorher) + '× gerufen statt 1×' };
+        if (!/Bärlauch/.test(t)) return { ok: false, warum: 'nach dem erneuten Versuch steht kein Ergebnis da' };
+        return { ok: true, info: 'ohne Wahl: Rückfrage, 0 Aufrufe · Trotzdem → Fehlschlag → Nochmal: 1 Aufruf, Ergebnis ohne zweite Rückfrage' };
+      } finally { _vor.forEach(([n, f]) => { window[n] = f; }); }
+    },
+  },
+
+  {
+    name: 'H5 · Fehlerkarte: ganze Sätze statt Rohtext, Modellname und Rohmeldung nur für Admins, eine kaputte Antwort ist kein Schlüsselfehler',
+    lauf: async () => {
+      const altA = window.gsIsAdmin, altL = window.sbIsLoggedIn;
+      // Was der Fall ersetzt, gibt er zurück — sonst bleibt z. B. gsResetScanner für jeden späteren Fall tot (gefunden 19.11.2026 an AB1).
+      const _vor = ['getApiConfig', 'stopCamera', 'gsResetScanner', '_gsScanDHash', '_gsScanCacheGet', '_gsScanCachePut', 'gsBuildScanContext', 'callVisionAI'].map((n) => [n, window[n]]);
+      window.getApiConfig = () => ({ key: 'k' }); window.stopCamera = () => {}; window.gsResetScanner = () => {};
+      window._gsScanDHash = async () => null; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR' });
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+      g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160); g.strokeStyle = '#3f9142'; g.lineWidth = 2;
+      for (let i = 0; i < 12; i++) { g.beginPath(); g.moveTo(10 + i * 12, 150); g.lineTo(60 + i * 8, 20); g.stroke(); }
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+      // die Meldungen, die callVisionAI wirklich wirft — ueber die echte Uebersetzung
+      const faelle = {
+        kaputt:  { ki: async () => 'Das sieht aus wie Bärlauch, aber {name: ...', status: /Nicht geklappt/ },
+        h400:    { ki: async () => { throw new Error(_gsFriendlyApiError(400, 'messages.0.content.0.image.source.base64: image exceeds 5 MB maximum')); }, status: /Nicht geklappt/ },
+        h404:    { ki: async () => { throw new Error(_gsFriendlyApiError(404, 'model: claude-sonnet-4-20250514')); }, status: /Nicht geklappt/ },
+        h429:    { ki: async () => { throw new Error(_gsFriendlyApiError(429, 'rate_limit_error')); }, status: /Nicht geklappt/ },
+        fremd:   { ki: async () => { throw new Error(_gsFriendlyApiError(418, 'overloaded_error: something odd')); }, status: /Nicht geklappt/ },
+        prog:    { ki: async () => { null.x; }, status: /Nicht geklappt/ },
+        keinMod: { ki: async () => { throw new Error('Kein KI-Modell erfolgreich. Bitte API-Key prüfen.'); }, status: /Nicht geklappt/ },
+        fetch:   { ki: async () => { throw new TypeError('Failed to fetch'); }, status: /Keine Verbindung/ },
+        h401:    { ki: async () => { throw new Error(_gsFriendlyApiError(401, 'invalid x-api-key')); }, status: /KI gerade nicht erreichbar/ },
+      };
+      const JARGON = /gsTestApiKey|claude-|Cannot read|Failed to fetch|exceeds|model:|API.?Key|JSON|\bretry\b|Rate-Limit|overloaded|messages\.0|\{name/i;
+      const karte = () => (document.getElementById('scan-result').textContent || '').replace(/\s+/g, ' ');
+      const klagen = []; let gesehen = 0;
+      try {
+        for (const admin of [false, true]) {
+          window.gsIsAdmin = () => admin; window.sbIsLoggedIn = () => true;
+          for (const k of Object.keys(faelle)) {
+            window.callVisionAI = faelle[k].ki;
+            await analyzeImage(b64, 'image/jpeg', '', null, { trotzdem: true });
+            const t = karte();
+            if (!/Scan fehlgeschlagen/.test(t)) { klagen.push(k + ': keine Fehlerkarte — der Fall stellt den Zustand nicht her'); continue; }
+            gesehen++;
+            const satz = ((document.querySelector('#scan-result p:nth-of-type(2)') || {}).textContent || '').trim();
+            if (!admin) {
+              if (JARGON.test(t)) klagen.push(k + ': Rohtext auf der Karte: „' + (t.match(JARGON) || [''])[0] + '"');
+              if (/Modell:|Meldung:/.test(t)) klagen.push(k + ': die Admin-Zeile steht für jede Person da');
+              if (!/[.!?]$/.test(satz) || satz.length < 30) klagen.push(k + ': kein ganzer Satz: „' + satz + '"');
+              const st = (document.getElementById('scan-status') || {}).textContent || '';
+              if (!faelle[k].status.test(st)) klagen.push(k + ': Statuszeile „' + st + '"');
+            } else if (!/Modell:/.test(t) || !/Meldung:/.test(t)) klagen.push(k + ' (Admin): die Rohmeldung fehlt');
+          }
+        }
+      } finally { window.gsIsAdmin = altA; window.sbIsLoggedIn = altL; _vor.forEach(([n, f]) => { window[n] = f; }); }
+      // eine kaputte Antwort zeigt keinen Anmelde- oder Schluessel-Kasten
+      window.gsIsAdmin = () => false; window.sbIsLoggedIn = () => true;
+      window.callVisionAI = faelle.kaputt.ki;
+      await analyzeImage(b64, 'image/jpeg', '', null, { trotzdem: true });
+      if (/KI gerade nicht erreichbar|Anmelden für die KI|API-Key/.test(karte())) klagen.push('kaputte Antwort: der Schlüssel-Kasten steht da');
+      window.gsIsAdmin = altA; window.sbIsLoggedIn = altL;
+      if (klagen.length) return { ok: false, warum: klagen.slice(0, 6).join(' · ') + (klagen.length > 6 ? ' · +' + (klagen.length - 6) + ' weitere' : '') };
+      return { ok: true, info: gesehen + ' Fehlerkarten (9 Meldungen × Person/Admin): Person ohne Rohtext, mit ganzem Satz und passender Statuszeile; Admin mit Modell und Rohmeldung' };
+    },
+  },
+  {
+    name: 'H5b · „In einer Minute nochmal": zählt sichtbar herunter, antippen bricht ab, ohne Karte kein Versuch im Hintergrund',
+    lauf: async () => {
+      const altR = window._gsRetryLastScan; let versuche = 0;
+      window._gsRetryLastScan = async () => { versuche++; };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const rd = document.getElementById('scan-result');
+      const knopf = () => { rd.style.display = 'block'; rd.innerHTML = '<button id="scan-warte-btn" onclick="gsScanSpaeterVersuchen(2)">⏱️ In einer Minute nochmal</button>'; return document.getElementById('scan-warte-btn'); };
+      const klagen = [];
+      try {
+        // 1 · zaehlt herunter und versucht genau einmal
+        let b = knopf(); b.click();
+        const t0 = b.textContent;
+        if (!/Nochmal in 2 s/.test(t0)) klagen.push('kein Countdown nach dem Antippen: „' + t0 + '"');
+        await warte(1150);
+        if (!/Nochmal in 1 s/.test(b.textContent)) klagen.push('zählt nicht herunter: „' + b.textContent + '"');
+        await warte(1300);
+        if (versuche !== 1) klagen.push('nach Ablauf ' + versuche + ' Versuche statt 1');
+        await warte(1200);
+        if (versuche !== 1) klagen.push('nach Ablauf läuft der Zähler weiter: ' + versuche + ' Versuche');
+        // 2 · antippen bricht ab
+        versuche = 0; b = knopf(); b.click(); await warte(200); b.click();
+        if (window._gsScanWarteTimer) klagen.push('abgebrochen, aber der Zähler läuft weiter');
+        if (!/In einer Minute nochmal/.test(b.textContent)) klagen.push('nach dem Abbruch steht „' + b.textContent + '"');
+        await warte(2400);
+        if (versuche) klagen.push('trotz Abbruch ' + versuche + '× versucht');
+        // 3 · Karte weg (neues Foto, Zurueck) → kein Versuch
+        versuche = 0; b = knopf(); b.click(); rd.innerHTML = '';
+        await warte(2400);
+        if (versuche) klagen.push('ohne Karte im Hintergrund ' + versuche + '× versucht');
+        if (window._gsScanWarteTimer) klagen.push('ohne Karte läuft der Zähler weiter');
+        // 4 · zweimal gestartet: EIN Zaehler
+        // (lang genug, dass ein verwaister zweiter Zaehler ein zweites Mal zuschlaegt)
+        versuche = 0; b = knopf(); gsScanSpaeterVersuchen(2); gsScanSpaeterVersuchen(2);
+        await warte(4300);
+        if (versuche !== 1) klagen.push('zweimal gestartet → ' + versuche + ' Versuche');
+      } finally { window._gsRetryLastScan = altR; try { _gsScanWarteStopp(); } catch (_) {} rd.innerHTML = ''; rd.style.display = 'none'; }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '2 → 1 → Versuch (genau 1) · Abbruch: 0 Versuche · Karte weg: 0 · doppelt gestartet: 1' };
+    },
+  },
+  {
+    // SCANNER-6. Der Verlauf ordnete einen Scan der Artenliste mit einem Namensvergleich zu
+    // (`DB.find(name === …)`), die Ergebniskarte mit gsMatchScanToDb (Binomen vor Name). Gemessen
+    // 16.11.2026: 189 deutsche Namen stehen fuer mehrere Arten; in 11 Faellen oeffnete „In Datenbank
+    // oeffnen" eine ungiftige Art, obwohl eine giftige gescannt war (Hahnenfuss / Ranunculus acer,
+    // Stufe 3 → Batrachium hederaceum, Stufe 0). Der Fall SUCHT sich so einen Namen in der Liste,
+    // statt ihn festzuschreiben, und haelt den Verlauf gegen die Karte desselben Scans.
+    name: 'SV1 · Scan-Verlauf ordnet die Art zu wie die Ergebniskarte: ein mehrdeutiger Name öffnet die gescannte Art, ein fremder Name mit bekanntem Binomen steht „in DB" — und ohne Treffer verspricht nichts einen Vorschlag',
+    lauf: async () => {
+      const altP = window.gsScanPersistToCloud;
+      window.gsScanPersistToCloud = () => Promise.resolve(true);
+      const klagen = [];
+      const norm = (s) => String(s || '').toLowerCase().trim();
+      const nach = {};
+      for (const s of DB) { if (s && s.name && s.lat) (nach[norm(s.name)] = nach[norm(s.name)] || []).push(s); }
+      let fall = null;
+      for (const k of Object.keys(nach)) {
+        const v = nach[k], erst = v[0];
+        const s = v.find(x => _gsNormLat(x.lat) !== _gsNormLat(erst.lat) && (Number(x.tox) || 0) > (Number(erst.tox) || 0));
+        if (s) { fall = { name: s.name, latin: s.lat, tox: Number(s.tox) || 0, erst }; break; }
+      }
+      if (!fall) return { ok: false, warum: 'kein deutscher Name mit einer giftigeren zweiten Art in der Liste — der Fall misst nichts' };
+      const scans = [
+        { schl: 'mehrdeutig', r: { name: fall.name, latin: fall.latin, confidence: 77, edible: false, toxic: true, toxicity: fall.tox } },
+        { schl: 'fremdname',  r: { name: 'Wilder Knoblauch (Testname)', latin: 'Allium ursinum', confidence: 81, edible: true, toxic: false, toxicity: 0 } },
+        { schl: 'zweitname',  r: { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90, edible: true, toxic: false, toxicity: 0 } },
+        { schl: 'unbekannt',  r: { name: 'Fantasiekraut', latin: 'Planta ficta', confidence: 70, edible: false, toxic: false, toxicity: 0 } },
+      ];
+      const idAus = (el) => { const m = el && /openDetail\('([^']+)'\)/.exec(el.getAttribute('onclick') || ''); return m ? m[1] : null; };
+      const karteId = {};
+      try {
+        localStorage.setItem('gs_scan_history', '[]'); localStorage.setItem('gs_confirmed_species', '[]');
+        for (const s of scans) {
+          window._gsLastScanIdInfo = null;
+          showScanResult(Object.assign({ alternatives: [], description: 'x' }, s.r));
+          karteId[s.schl] = idAus(document.querySelector('#scan-result .sr2-cta-primary[onclick*="openDetail"]'));
+        }
+        if (!karteId.mehrdeutig || !karteId.fremdname) return { ok: false, warum: 'die Karte selbst findet die Art nicht (' + JSON.stringify(karteId) + ') — der Fall misst nichts' };
+        if (karteId.unbekannt) return { ok: false, warum: 'die Karte findet „Planta ficta" in der Liste — der Fall misst nichts' };
+        const geoeffnet = DB.find(x => x.id === karteId.mehrdeutig);
+        if (!geoeffnet || _gsNormLat(geoeffnet.lat) !== _gsNormLat(fall.latin)) return { ok: false, warum: 'die Karte öffnet zu „' + fall.latin + '" eine andere Art — der Fall misst nichts' };
+        const hist = JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
+        if (hist.length !== 4) return { ok: false, warum: 'der Fall stellt den Zustand nicht her: ' + hist.length + ' Einträge im Verlauf' };
+        // 1 · Detail: dieselbe Art wie die Karte
+        const detail = (schl) => {
+          const i = hist.findIndex(h => h.name === scans.find(s => s.schl === schl).r.name && h.latin === scans.find(s => s.schl === schl).r.latin);
+          gsScanHistoryOpen('h_' + i);
+          const m = document.getElementById('scan-detail-modal');
+          const o = { text: m ? m.textContent.replace(/\s+/g, ' ') : '', id: m ? idAus(m.querySelector('[onclick*="openDetail"]')) : null };
+          closeScanDetail();
+          return o;
+        };
+        const dM = detail('mehrdeutig');
+        if (dM.id !== karteId.mehrdeutig) {
+          const x = DB.find(s => s.id === dM.id);
+          klagen.push('„' + fall.name + ' / ' + fall.latin + '" (Stufe ' + fall.tox + '): der Verlauf öffnet ' + (x ? '„' + x.lat + '" (Stufe ' + (x.tox | 0) + ')' : 'nichts') + ', die Karte ' + karteId.mehrdeutig);
+        }
+        const dF = detail('fremdname');
+        if (dF.id !== karteId.fremdname) klagen.push('fremder Name mit bekanntem Binomen: der Verlauf öffnet ' + (dF.id || 'nichts') + ', die Karte ' + karteId.fremdname);
+        if (/nicht in (der|unserer) (Datenbank|Artenliste)/i.test(dF.text)) klagen.push('fremder Name mit bekanntem Binomen: der Verlauf nennt die Art unbekannt');
+        const dU = detail('unbekannt');
+        if (dU.id) klagen.push('unbekannte Art: der Verlauf öffnet ' + dU.id);
+        if (/vorgeschlagen|zur Prüfung/i.test(dU.text)) klagen.push('unbekannte Art: der Verlauf verspricht einen Vorschlag, den niemand nachgesehen hat');
+        if (!/nicht in unserer Artenliste/.test(dU.text)) klagen.push('unbekannte Art: der Verlauf sagt nicht, dass sie nicht in der Liste steht');
+        // 2 · Liste: Kopfzahlen, Abzeichen, Filter
+        openScanHistoryFull();
+        const kopf = (document.getElementById('scan-history-stats') || {}).textContent || '';
+        const zahl = (re) => { const m = re.exec(kopf.replace(/\s+/g, ' ')); return m ? +m[1] : null; };
+        if (zahl(/(\d+) in DB/) !== 3) klagen.push('Kopf: „' + zahl(/(\d+) in DB/) + ' in DB" statt 3');
+        if (zahl(/(\d+) Arten/) !== 3) klagen.push('Kopf: „' + zahl(/(\d+) Arten/) + ' Arten" statt 3 — zwei Namen für Allium ursinum zählen als zwei Arten');
+        const zeilen = () => [...document.querySelectorAll('#scan-history-list [data-uid]')].map(z => z.textContent.replace(/\s+/g, ' '));
+        const mitDb = zeilen().filter(t => /in DB/.test(t)).length;
+        if (mitDb !== 3) klagen.push('Abzeichen „in DB" an ' + mitDb + ' von 3 bekannten Scans');
+        gsScanHistSetFilter('indb');
+        if (zeilen().length !== 3) klagen.push('Filter „in DB": ' + zeilen().length + ' Zeilen statt 3');
+        gsScanHistSetFilter('unknown');
+        const unb = zeilen();
+        if (unb.length !== 1 || !/Fantasiekraut/.test(unb[0] || '')) klagen.push('Filter „unbekannt": ' + unb.length + ' Zeilen (' + unb.map(t => t.slice(0, 24)).join(' · ') + ')');
+        gsScanHistSetFilter('all');
+      } finally {
+        window.gsScanPersistToCloud = altP;
+        try { closeScanDetail(); } catch (_) {}
+        try { closeScanHistoryFull(); } catch (_) {}
+        localStorage.setItem('gs_scan_history', '[]');
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '„' + fall.name + ' / ' + fall.latin + '" (Stufe ' + fall.tox + ') öffnet dieselbe Art wie die Karte, nicht „' + fall.erst.lat + '" · fremder Name mit Binomen: in DB · unbekannt: kein Versprechen · Kopf 3 in DB, 3 Arten bei 4 Scans' };
+    },
+  },
+  {
+    // SCANNER-6, zweite Haelfte: die Karte sagt zu 60 % „Möglich", der Verlauf sagte „Unsicher";
+    // zu 72 % „Wahrscheinlich" gegen „Plausibel". Gelesen wird das WORT auf der echten Karte, nicht
+    // eine Tabelle im Pruefstand — und die Farbe des Wortes muss dieselbe sein.
+    name: 'SV2 · Scan-Verlauf: die Trefferquote trägt dasselbe Wort und dieselbe Textfarbe wie die Ergebniskarte — bei 60 %, 72 % und 90 %',
+    lauf: async () => {
+      const altP = window.gsScanPersistToCloud;
+      window.gsScanPersistToCloud = () => Promise.resolve(true);
+      const klagen = []; const gesehen = [];
+      try {
+        for (const c of [60, 72, 90]) {
+          localStorage.setItem('gs_scan_history', '[]'); localStorage.setItem('gs_confirmed_species', '[]'); window._gsLastScanIdInfo = null;
+          showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: c, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+          const kEl = document.querySelector('#scan-result .sr2-conf-val');
+          const wort = kEl ? kEl.textContent.trim() : '';
+          if (!wort) { klagen.push(c + ' %: die Karte zeigt kein Wort — der Fall misst nichts'); continue; }
+          const kFarbe = getComputedStyle(kEl).color;
+          gsScanHistoryOpen('h_0');
+          const m = document.getElementById('scan-detail-modal');
+          if (!m) { klagen.push(c + ' %: der Verlauf öffnet keinen Eintrag'); continue; }
+          const t = m.textContent.replace(/\s+/g, ' ');
+          const vEl = [...m.querySelectorAll('div')].find(d => d.children.length === 0 && d.textContent.trim() === wort);
+          gesehen.push(c + ' % „' + wort + '"');
+          if (t.indexOf(c + '%') < 0) klagen.push(c + ' %: die Zahl fehlt im Verlauf');
+          if (!vEl) klagen.push(c + ' %: die Karte sagt „' + wort + '", der Verlauf nicht (' + (t.match(/Trefferquote.{0,40}/) || [''])[0] + ')');
+          else if (getComputedStyle(vEl).color !== kFarbe) klagen.push(c + ' %: „' + wort + '" in ' + getComputedStyle(vEl).color + ' statt ' + kFarbe + ' wie auf der Karte');
+          closeScanDetail();
+        }
+      } finally { window.gsScanPersistToCloud = altP; try { closeScanDetail(); } catch (_) {} localStorage.setItem('gs_scan_history', '[]'); }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: gesehen.join(' · ') + ' — Karte und Verlauf gleich, in derselben Farbe' };
+    },
+  },
+  {
+    // SCANNER-6, die zweite Detailansicht (aus der Foto-Galerie, openScanHistoryDetail). Sie las die
+    // Sicherheit aus dem GESPEICHERTEN Scan: ein alter Eintrag oder eine Cloud-Zeile mit „essbar" der
+    // KI stand dort als „🥗 Essbar", auch fuer eine Art, die unsere Liste als toedlich fuehrt — und
+    // „In DB öffnen" nahm den ersten Eintrag mit diesem Namen.
+    name: 'SV3 · Galerie-Detail eines Scans: Giftstufe und „Essbar" kommen aus der Artenliste, nie aus dem gespeicherten Scan — ein KI-„Essbar" ohne Gegenprobe steht nicht da, eine KI-Warnung schon',
+    lauf: async () => {
+      const klagen = [];
+      const altP = window.gsScanPersistToCloud;
+      window.gsScanPersistToCloud = () => Promise.resolve(true);
+      const text = () => { const m = document.getElementById('scan-detail-modal'); return m ? m.textContent.replace(/\s+/g, ' ') : ''; };
+      const idAus = (el) => { const m = el && /openDetail\('([^']+)'\)/.exec(el.getAttribute('onclick') || ''); return m ? m[1] : null; };
+      const zu = () => { const m = document.getElementById('scan-detail-modal'); if (m) m.remove(); };
+      // ein mehrdeutiger Name, wie in SV1 aus der Liste gesucht
+      const norm = (s) => String(s || '').toLowerCase().trim(); const nach = {};
+      for (const s of DB) { if (s && s.name && s.lat) (nach[norm(s.name)] = nach[norm(s.name)] || []).push(s); }
+      let fall = null;
+      for (const k of Object.keys(nach)) { const v = nach[k], erst = v[0]; const s = v.find(x => _gsNormLat(x.lat) !== _gsNormLat(erst.lat) && (Number(x.tox) || 0) > (Number(erst.tox) || 0)); if (s) { fall = s; break; } }
+      const herbst = gsMatchScanToDb('Herbstzeitlose', 'Colchicum autumnale');
+      if (!fall || !herbst || !((_gsArtAnzeige(herbst).tox | 0) >= 4)) return { ok: false, warum: 'die Liste trägt die Fälle nicht (mehrdeutiger Name / Herbstzeitlose ≥ 4) — der Fall misst nichts' };
+      const jetzt = Date.now();
+      localStorage.setItem('gs_scan_history', JSON.stringify([
+        // 0 · ein alter Eintrag mit dem, was die KI damals sagte
+        { id: 'sv3_a', ts: jetzt - 1000, name: 'Herbstzeitlose', latin: 'Colchicum autumnale', conf: 72, tox: 0, edible: true, warning: '', category: 'wildpflanze' },
+        // 1 · eine Art, die die Liste nicht kennt — „essbar" nur von der KI, dazu eine Warnung der KI
+        { id: 'sv3_b', ts: jetzt - 2000, name: 'Fantasiekraut', latin: 'Planta ficta', conf: 88, tox: 2, edible: true, warning: '', category: 'wildpflanze' },
+        // 2 · ein mehrdeutiger deutscher Name
+        { id: 'sv3_c', ts: jetzt - 3000, name: fall.name, latin: fall.lat, conf: 90, tox: Number(fall.tox) || 0, edible: false, warning: '', category: 'wildpflanze' },
+      ]));
+      try {
+        openScanHistoryDetail(0);
+        const tA = text();
+        if (!tA) return { ok: false, warum: 'das Galerie-Detail geht nicht auf — der Fall misst nichts' };
+        if (/Essbar/.test(tA)) klagen.push('Herbstzeitlose (Liste: Stufe ' + _gsArtAnzeige(herbst).tox + '): das Detail zeigt „Essbar" aus dem gespeicherten Scan');
+        if (!/Stark giftig/.test(tA)) klagen.push('Herbstzeitlose: das Detail nennt die Giftstufe der Liste nicht');
+        // dasselbe Wort zur Sicherheit wie die Ergebniskarte (72 % → „Wahrscheinlich")
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 72, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+        const wort = ((document.querySelector('#scan-result .sr2-conf-val') || {}).textContent || '').trim();
+        localStorage.setItem('gs_scan_history', JSON.stringify(JSON.parse(localStorage.getItem('gs_scan_history') || '[]').filter(h => /^sv3_/.test(h.id))));
+        if (wort && tA.indexOf(wort) < 0) klagen.push('72 %: die Karte sagt „' + wort + '", das Galerie-Detail nicht');
+        zu();
+        openScanHistoryDetail(1);
+        const tB = text(); zu();
+        if (/Essbar/.test(tB)) klagen.push('unbekannte Art: „Essbar" der KI ohne Gegenprobe steht da');
+        if (!/Giftig/.test(tB)) klagen.push('unbekannte Art: die Warnung der KI (Stufe 2) fehlt');
+        openScanHistoryDetail(2);
+        const m = document.getElementById('scan-detail-modal');
+        const id = idAus(m && m.querySelector('[onclick*="openDetail"]')); zu();
+        const soll = gsMatchScanToDb(fall.name, fall.lat);
+        if (!soll || id !== soll.id) { const x = DB.find(s => s.id === id); klagen.push('„' + fall.name + ' / ' + fall.lat + '": „In DB öffnen" führt zu ' + (x ? '„' + x.lat + '" (Stufe ' + (x.tox | 0) + ')' : 'nichts') + ' statt ' + (soll && soll.id)); }
+      } finally { window.gsScanPersistToCloud = altP; zu(); localStorage.setItem('gs_scan_history', '[]'); }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Herbstzeitlose mit altem „essbar": „Stark giftig", kein „Essbar" · unbekannt: Warnung ja, „Essbar" nein · mehrdeutiger Name → die gescannte Art · 72 % wie auf der Karte' };
+    },
+  },
+  {
+    // SCANNER-10. Die Vorschau im Verlauf und das Foto fuer „Zu meinen Pflanzen" wurden aus dem
+    // LAUFENDEN Video gezeichnet — aber analyzeImage stoppt die Kamera, sobald die Analyse beginnt
+    // (v23.71). Bei der Ergebniskarte war srcObject immer null: thumb leer, _lastScanThumb null.
+    // Und lief die Kamera doch, haette sie den Moment NACH dem Foto gezeigt, nicht das Foto.
+    name: 'SB1 · Scan-Foto im Verlauf und in „Zu meinen Pflanzen": aus dem ANALYSIERTEN Bild, nicht aus dem (gestoppten) Video — und nie das Foto des vorigen Scans',
+    lauf: async () => {
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const bild = (farbe) => { const c = document.createElement('canvas'); c.width = 320; c.height = 240; const g = c.getContext('2d'); g.fillStyle = farbe; g.fillRect(0, 0, 320, 240); return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
+      const mitte = (src) => new Promise((ok) => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'); c.width = i.width; c.height = i.height; const g = c.getContext('2d'); g.drawImage(i, 0, 0); const d = g.getImageData(i.width >> 1, i.height >> 1, 1, 1).data; ok([d[0], d[1], d[2]]); }; i.onerror = () => ok(null); i.src = src; });
+      const rotGruen = (p) => p && p[0] > 180 && p[1] < 80 && p[2] < 80, blau = (p) => p && p[2] > 180 && p[0] < 80 && p[1] < 80;
+      const sichern = { p: window.gsScanPersistToCloud, ort: window.gsPickScanLocation, li: window.sbIsLoggedIn, st: window.switchTab, mp: JSON.stringify(myPlants) };
+      const klagen = [];
+      try {
+        window.gsScanPersistToCloud = () => Promise.resolve(true);
+        const v = document.getElementById('video'); if (v) v.srcObject = null;      // wie nach analyzeImage
+        localStorage.setItem('gs_scan_history', '[]');
+        // 1 · erster Scan (rot): Verlauf und _lastScanThumb tragen DIESES Foto
+        window._gsLastScanIdInfo = null;
+        window._gsLastScanB64 = bild('#e01010'); window._gsLastScanMt = 'image/jpeg';
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+        await warte(600);
+        const h1 = JSON.parse(localStorage.getItem('gs_scan_history') || '[]')[0] || {};
+        if (!/^data:image\//.test(h1.thumb || '')) klagen.push('Verlauf: kein Vorschaubild („' + String(h1.thumb || '').slice(0, 20) + '")');
+        else if (!rotGruen(await mitte(h1.thumb))) klagen.push('Verlauf: das Vorschaubild zeigt nicht das gescannte Foto');
+        if (!/^data:image\//.test(String(window._lastScanThumb || ''))) klagen.push('kein Foto für „Zu meinen Pflanzen" (_lastScanThumb ' + (window._lastScanThumb === null ? 'null' : typeof window._lastScanThumb) + ')');
+        // 2 · zweiter Scan (blau): SOFORT danach traegt _lastScanThumb nicht mehr das rote Foto
+        window._gsLastScanIdInfo = null;
+        window._gsLastScanB64 = bild('#1010e0');
+        showScanResult({ name: 'Löwenzahn', latin: 'Taraxacum officinale', confidence: 90, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+        if (window._lastScanThumb && rotGruen(await mitte(window._lastScanThumb))) klagen.push('direkt nach dem zweiten Scan trägt _lastScanThumb das Foto des ERSTEN');
+        // „Zu meinen Pflanzen" gleich danach: es wartet auf das Foto dieses Scans
+        window.gsPickScanLocation = async () => 'indoor'; window.sbIsLoggedIn = () => false; window.switchTab = () => {};
+        const vorher = myPlants.length;
+        await gsAddScanToMyPlants();
+        const neu = myPlants.length > vorher ? myPlants[myPlants.length - 1] : null;
+        if (!neu) klagen.push('„Zu meinen Pflanzen" legt keine Pflanze an — der Fall misst nichts');
+        else if (!/^data:image\//.test(String(neu.photo || ''))) klagen.push('die neue Pflanze hat kein Foto („' + String(neu.photo || '').slice(0, 20) + '")');
+        else if (!blau(await mitte(neu.photo))) klagen.push('die neue Pflanze trägt nicht das Foto des zweiten Scans');
+      } finally {
+        // gsAddScanToMyPlants wechselt 350 ms später auf „Meine Pflanzen" (setTimeout). Erst abwarten, dann die echte
+        // switchTab zurückgeben — sonst landet der Wechsel im NÄCHSTEN Fall (gefunden 19.11.2026: AB1 mass einen
+        // ausgeblendeten Scanner, der Knopf war 0 px hoch).
+        await warte(450);
+        window.gsScanPersistToCloud = sichern.p; window.gsPickScanLocation = sichern.ort; window.sbIsLoggedIn = sichern.li; window.switchTab = sichern.st;
+        try { myPlants.length = 0; JSON.parse(sichern.mp).forEach(x => myPlants.push(x)); savePlantsToStorage(); } catch (_) {}
+        localStorage.setItem('gs_scan_history', '[]');
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Verlauf und „Zu meinen Pflanzen" tragen das gescannte Foto · nach einem neuen Scan nie das alte' };
+    },
+  },
+
+  // ── v33.64 Pilz-Scanner (Brett 2026-11-11-2714): der Bildschirm mit dem höchsten Einsatz hatte keinen
+  // einzigen Fall. Gerendert wird die ECHTE gsMushroomRenderResult mit Antworten in der Form der Function
+  // (mushroom-identify), gemessen am Text des Bildschirms — nicht am Objekt.
+  {
+    name: 'PZ1 · Pilz tödlich: rotes Vollbild mit 145, Kopfzeile TÖDLICH, Notruf und Verwechslungs-Warnung — auch OHNE safety_color',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt — der Fall misst nichts' };
+      const weg = () => { const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove(); box.innerHTML = ''; };
+      const antwort = (farbe) => ({
+        matched_slug: 'amanita_phalloides', confidence: 92, reasoning: 'Grünlicher Hut, weisse Lamellen, Knolle mit Scheide.',
+        mushroom: { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', family: 'Amanitaceae', edibility: 'toedlich', symptoms_if_toxic: 'Nach 6–24 h Brechdurchfall, danach Leberversagen.', emergency_action: 'Sofort Tox-Info anrufen.' },
+        edibility: 'toedlich', safety_color: farbe, safety_advice: 'Tödlich giftig.',
+        lookalikes: [{ edible_slug: 'russula_virescens', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', edible_common_name: 'Grasgrüner Täubling', visual_differences: 'Täublinge haben keine Knolle.' }],
+        vapko_required: true, vapko_kontrollstelle: 'Pilzkontrolle Zürich', vapko_phone: '044 000 00 00',
+      });
+      const klagen = [];
+      for (const farbe of ['red', null]) {
+        weg();
+        await gsMushroomRenderResult(antwort(farbe));
+        const ov = document.getElementById('gs-mushroom-danger');
+        const t = box.textContent || '';
+        const kopf = (box.querySelector('div > div') || {}).textContent || '';
+        const was = 'safety_color ' + JSON.stringify(farbe) + ': ';
+        if (!ov) klagen.push(was + 'kein rotes Vollbild');
+        else {
+          if (!/TÖDLICH GIFTIG/.test(ov.textContent)) klagen.push(was + 'Vollbild ohne „TÖDLICH GIFTIG"');
+          if (!ov.querySelector('a[href="tel:145"]')) klagen.push(was + 'Vollbild ohne Anruf 145');
+        }
+        if (!/TÖDLICH/.test(kopf)) klagen.push(was + 'Kopfzeile „' + kopf.slice(0, 50) + '" statt TÖDLICH');
+        if (/Vorsicht|Speisepilz/.test(kopf)) klagen.push(was + 'Kopfzeile verharmlost: „' + kopf.slice(0, 50) + '"');
+        if (!box.querySelector('a[href="tel:145"]')) klagen.push(was + 'kein Notruf 145 auf der Karte');
+        if (!/VERWECHSLUNGS-RISIKO/.test(t) || !/LEBENSGEFAHR/.test(t)) klagen.push(was + 'Verwechslungs-Warnung fehlt');
+        if (!/ersetzt KEINE offizielle Pilzkontrolle/.test(t)) klagen.push(was + 'Hinweis „ersetzt keine Pilzkontrolle" fehlt');
+      }
+      weg();
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'rot und ohne safety_color: Vollbild „TÖDLICH GIFTIG" + tel:145 · Kopfzeile TÖDLICH · Notruf · Lebensgefahr-Verwechsler · VAPKO-Hinweis' };
+    },
+  },
+  {
+    name: 'PZ2 · Pilz unsicher: unter der Schwelle des Servers (70 %) „NICHT essen" statt einer Essbarkeit — Kandidaten mit Namen, ein tödlicher mit Warnung, nie ein roher Slug',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const weg = () => { const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove(); box.innerHTML = ''; };
+      const klagen = [];
+      // a · kein Treffer, Kandidaten in der neuen Form (alternative_arten, Essbarkeit aus dem Register)
+      weg();
+      await gsMushroomRenderResult({ matched_slug: null, confidence: 40, mushroom: null, reasoning: 'Merkmale nicht eindeutig.', alternatives: ['amanita_phalloides', 'boletus_edulis'],
+        alternative_arten: [{ slug: 'amanita_phalloides', name: 'Grüner Knollenblätterpilz', edibility: 'toedlich' }, { slug: 'boletus_edulis', name: 'Steinpilz', edibility: 'speisepilz' }], vapko_required: true });
+      let t = box.textContent || '';
+      if (!/UNSICHERE Identifikation/.test(t) || !/NICHT essen/.test(t)) klagen.push('a: „unsicher / NICHT essen" fehlt');
+      if (!/Grüner Knollenblätterpilz\s*☠️\s*TÖDLICH/.test(t)) klagen.push('a: der tödliche Kandidat trägt keine Warnung („' + (t.match(/Möglicher Kandidat:[^\n]*/) || [''])[0].slice(0, 90) + '")');
+      if (/Steinpilz\s*[☠⚠]/.test(t)) klagen.push('a: der Speisepilz trägt eine Warnung');
+      if (/[a-z]+_[a-z]+/.test(t)) klagen.push('a: roher Slug auf dem Bildschirm (' + t.match(/[a-z]+_[a-z]+/)[0] + ')');
+      if (document.getElementById('gs-mushroom-danger')) klagen.push('a: Vollbild ohne Treffer');
+      // b · ältere Function: nur Slugs → lesbare Namen, kein Unterstrich
+      weg();
+      await gsMushroomRenderResult({ matched_slug: null, confidence: 35, mushroom: null, alternatives: ['amanita_phalloides', 'roehrling_flockenstielig'], vapko_required: true });
+      t = box.textContent || '';
+      if (!/Amanita phalloides/.test(t) || !/Roehrling flockenstielig/.test(t)) klagen.push('b: Slugs nicht lesbar gemacht („' + (t.match(/Möglicher Kandidat:[^\n]*/) || [''])[0].slice(0, 90) + '")');
+      if (/_/.test(t)) klagen.push('b: Unterstrich auf dem Bildschirm');
+      // c · Treffer bei 65 %: der Server verlangt die Kontrolle — die Karte darf nicht „Speisepilz" sagen
+      weg();
+      await gsMushroomRenderResult({ matched_slug: 'boletus_edulis', confidence: 65, mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green', vapko_required: true });
+      t = box.textContent || '';
+      if (/Speisepilz/.test(t) && !/UNSICHERE/.test(t)) klagen.push('c: bei 65 % steht „Speisepilz" (der Server verlangt die Kontrolle unter 70 %)');
+      if (!/NICHT essen/.test(t)) klagen.push('c: bei 65 % fehlt „NICHT essen"');
+      // d · Gegenrichtung: 70 % ist eine Bestimmung — sonst wäre ein Scanner, der IMMER „unsicher" sagt, grün
+      weg();
+      await gsMushroomRenderResult({ matched_slug: 'boletus_edulis', confidence: 70, mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green', vapko_required: false });
+      t = box.textContent || '';
+      if (!/Speisepilz/.test(t) || /UNSICHERE/.test(t)) klagen.push('d: bei 70 % keine Bestimmung („' + t.slice(0, 60) + '")');
+      if (typeof GS_PILZ_SICHER_AB === 'undefined' || GS_PILZ_SICHER_AB !== 70) klagen.push('GS_PILZ_SICHER_AB ist ' + (typeof GS_PILZ_SICHER_AB === 'undefined' ? 'nicht definiert' : GS_PILZ_SICHER_AB));
+      weg();
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '40 %: NICHT essen, Kandidat „Grüner Knollenblätterpilz ☠️ TÖDLICH", Steinpilz ohne Warnung · alte Form: „Amanita phalloides" statt Slug · 65 %: unsicher · 70 %: Speisepilz' };
+    },
+  },
+  {
+    name: 'PZ3 · Pilz essbar: grüne Karte mit Zubereitung, kein Vollbild — und der Hinweis „ersetzt keine Pilzkontrolle" steht trotzdem da',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const o0 = document.getElementById('gs-mushroom-danger'); if (o0) o0.remove();
+      box.innerHTML = '';
+      await gsMushroomRenderResult({ matched_slug: 'boletus_edulis', confidence: 90, reasoning: 'Netz am Stiel, weisse Poren.', mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', family: 'Boletaceae', edibility: 'speisepilz', cooking_preparation: 'Braten oder trocknen.' },
+        edibility: 'speisepilz', safety_color: 'green', vapko_required: false, vapko_kontrollstelle: 'Pilzkontrolle Bern', lookalikes: [] });
+      const t = box.textContent || '', klagen = [];
+      const kopf = (box.querySelector('div > div') || {}).textContent || '';
+      if (!/Speisepilz/.test(kopf)) klagen.push('Kopfzeile „' + kopf.slice(0, 40) + '"');
+      if (document.getElementById('gs-mushroom-danger')) klagen.push('Vollbild bei einem Speisepilz');
+      if (!/Zubereitung/.test(t)) klagen.push('Zubereitung fehlt');
+      if (!/ersetzt KEINE offizielle Pilzkontrolle/.test(t)) klagen.push('Hinweis „ersetzt keine Pilzkontrolle" fehlt');
+      if (!/Pilzkontrolle Bern/.test(t)) klagen.push('Kontrollstelle fehlt');
+      box.innerHTML = '';
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'Kopfzeile Speisepilz · kein Vollbild · Zubereitung · Kontrollstelle · Hinweis „ersetzt keine Pilzkontrolle"' };
+    },
+  },
+  // ── Pilz-Scanner (19.11.2026): ein Ergebnis gehört zu seinem Foto. Gemessen auf v33.66: ein neues Foto liess das
+  // Ergebnis des vorigen stehen; nach Schliessen und neuem Öffnen stand der Knopf auf „⏳ Identifiziere…", und die
+  // Antwort zum alten Foto erschien unter dem neuen — bei einem Giftpilz mit Vollbild-Warnung; nach dem Schliessen
+  // legte sich die Warnung später über die App. Stehen hier VOR PZ4 (die Fälle hinter PZ4 gehören zu #336).
+  {
+    name: 'PZ5 · Pilz-Scan: ein Ergebnis gehört zu seinem Foto — ein neues Foto räumt das alte Ergebnis, Schliessen und neues Öffnen lösen die laufende Bestimmung ab, ihre Antwort kommt nicht unter das neue Foto',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      const knopf = () => document.getElementById('mushroom-submit-btn');
+      if (!box || !knopf() || typeof gsMushroomLoadPhoto !== 'function') return { ok: false, warum: 'Pilz-Fenster, Knopf oder gsMushroomLoadPhoto fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);   // ein haengender Lauf meldet sich als Befund
+      const s = { f: window._gsFetch, tok: window._gsFreshToken, toast: window.showProfileToast, ohne: window._gsFotoOhneMeta, ov: window.gsShowMushroomDangerOverlay, kt: knopf().textContent };
+      const klagen = [], loeser = [];
+      let vollbild = 0;
+      const speise = { matched_slug: 'boletus_edulis', confidence: 92, mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green', vapko_required: false };
+      const tod = { matched_slug: 'amanita_phalloides', confidence: 95, mushroom: { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' }, edibility: 'toedlich', safety_color: 'red', vapko_required: true };
+      const antwort = (body) => ({ ok: true, status: 200, json: async () => body });
+      const foto = async (n) => { await gsMushroomLoadPhoto({ files: [new File([new Uint8Array([255, 216, 255, n])], 'pilz' + n + '.jpg', { type: 'image/jpeg' })] }); };
+      const text = () => (box.textContent || '').replace(/\s+/g, ' ');
+      const ohneVollbild = () => { const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove(); };
+      try {
+        window._gsFreshToken = async () => 'tok';
+        window.showProfileToast = () => {};
+        window._gsFotoOhneMeta = async (f) => 'data:image/jpeg;base64,FOTO' + String(f.name).replace(/\D/g, '');
+        window.gsShowMushroomDangerOverlay = function () { vollbild++; return s.ov.apply(this, arguments); };
+        window._gsFetch = (url, o, t) => (/mushroom-identify/.test(String(url)) ? new Promise((res) => loeser.push(res)) : s.f(url, o, t));
+        // 1 · ein fertiges Ergebnis, dann ein neues Foto: das alte Urteil bleibt nicht unter dem neuen Pilz stehen
+        openMushroomModal(); await foto(1);
+        const l1 = gsMushroomRunScan(); await warte(50);
+        if (loeser.length !== 1) return { ok: false, warum: 'die Bestimmung hat den Server nicht gefragt — der Fall misst nichts' };
+        loeser[0](antwort(speise)); await fertig(l1);
+        if (!/Speisepilz/.test(text())) return { ok: false, warum: 'das erste Ergebnis erscheint nicht — der Fall stellt den Zustand nicht her' };
+        await foto(2);
+        if (/Speisepilz/.test(text())) klagen.push('1: nach einem neuen Foto steht „Speisepilz" des vorigen weiter da');
+        // 2 · eine Bestimmung läuft, dann ein neues Foto im selben Fenster
+        await foto(3);
+        const l2 = gsMushroomRunScan(); await warte(50);
+        await foto(4);
+        if (knopf().disabled) klagen.push('2: nach dem neuen Foto ist der Knopf gesperrt („' + knopf().textContent.trim() + '")');
+        loeser[1](antwort(speise)); await fertig(l2); await warte(50);
+        if (/Speisepilz/.test(text())) klagen.push('2: die Antwort zum vorigen Foto („Speisepilz") steht unter dem neuen');
+        if (knopf().disabled) klagen.push('2: nach der verworfenen Antwort ist der Knopf gesperrt');
+        // Gegenprobe: die Bestimmung des neuen Fotos kommt an — tödlich, mit Vollbild
+        const l3 = gsMushroomRunScan(); await warte(50);
+        loeser[2](antwort(tod)); await fertig(l3);
+        if (!/TÖDLICH/.test(text()) || vollbild !== 1) klagen.push('Gegenprobe: die Bestimmung des neuen Fotos kommt nicht an (Vollbild ' + vollbild + '×) — der Fall misst nichts');
+        ohneVollbild();
+        // 3 · läuft, Fenster zu, neu öffnen, neues Foto: Knopf frei — und kommt die alte (tödliche) Antwort, während
+        // schon die NEUE Bestimmung läuft: keine Karte, kein Vollbild, und der Knopf bleibt gesperrt
+        await foto(5);
+        const l4 = gsMushroomRunScan(); await warte(50);                       // loeser[3]
+        closeModal('modal-mushroom'); openMushroomModal(); await foto(6);
+        if (knopf().disabled || /Identifiziere/.test(knopf().textContent)) klagen.push('3: nach dem neuen Öffnen steht der Knopf auf „' + knopf().textContent.trim() + '" (gesperrt: ' + knopf().disabled + ')');
+        const l4b = gsMushroomRunScan(); await warte(50);                      // loeser[4]
+        const vb = vollbild;
+        loeser[3](antwort(tod)); await fertig(l4); await warte(50);
+        if (/TÖDLICH|Knollenblätterpilz/.test(text())) klagen.push('3: die Antwort zum alten Foto steht unter dem neuen');
+        if (vollbild !== vb) klagen.push('3: die alte Antwort legt eine Vollbild-Warnung über das neue Foto');
+        if (!knopf().disabled) klagen.push('3: die alte Antwort gibt den Knopf frei, während die neue Bestimmung läuft');
+        loeser[4](antwort(speise)); await fertig(l4b);
+        if (!/Speisepilz/.test(text())) klagen.push('3: die neue Bestimmung kommt danach nicht an');
+        ohneVollbild();
+        // 3b · läuft, und das Fenster wird neu geöffnet, OHNE vorher zu schliessen und OHNE neues Foto (sonst
+        // deckte dessen Schutz den Fall mit — eine Gegenprobe ohne den Schutz am Öffnen blieb so grün)
+        const l5a = gsMushroomRunScan(); await warte(50);                      // loeser[5]
+        openMushroomModal();
+        if (knopf().disabled) klagen.push('3b: neu geöffnet ohne Schliessen — der Knopf steht auf „' + knopf().textContent.trim() + '"');
+        const vb3 = vollbild;
+        loeser[5](antwort(tod)); await fertig(l5a); await warte(50);
+        if (/TÖDLICH|Knollenblätterpilz/.test(text()) || vollbild !== vb3) klagen.push('3b: neu geöffnet ohne Schliessen — die alte Antwort kommt in das frische Fenster');
+        ohneVollbild();
+        // 4 · läuft, Fenster zu (ohne neues Öffnen): später keine Vollbild-Warnung über der App
+        openMushroomModal(); await foto(7);
+        const l5 = gsMushroomRunScan(); await warte(50);                       // loeser[6]
+        closeModal('modal-mushroom');
+        const vb2 = vollbild;
+        loeser[6](antwort(tod)); await fertig(l5); await warte(50);
+        if (vollbild !== vb2 || document.getElementById('gs-mushroom-danger')) klagen.push('4: nach dem Schliessen legt sich die Vollbild-Warnung über die App');
+        // 5 · geschlossen, während noch der Zugangsschlüssel geholt wird: die Anfrage geht gar nicht hinaus
+        openMushroomModal(); await foto(9);
+        let tokLos = null;
+        window._gsFreshToken = () => new Promise((res) => { tokLos = res; });
+        const l7 = gsMushroomRunScan(); await warte(50);
+        const vorher = loeser.length;
+        closeModal('modal-mushroom');
+        if (tokLos) tokLos('tok'); await fertig(l7); await warte(50);
+        if (loeser.length !== vorher) klagen.push('5: abgebrochen, bevor die Anfrage hinausging — sie ging trotzdem an den Server');
+      } finally {
+        window._gsFetch = s.f; window._gsFreshToken = s.tok; window.showProfileToast = s.toast; window._gsFotoOhneMeta = s.ohne; window.gsShowMushroomDangerOverlay = s.ov;
+        ohneVollbild(); box.innerHTML = '';
+        try { closeModal('modal-mushroom'); } catch (_) {}
+        window._gsMushroomPhotoB64 = null;
+        const k = knopf(); if (k) { k.disabled = false; k.style.opacity = '1'; k.textContent = s.kt; }
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'neues Foto: altes Urteil weg · läuft + neues Foto: Knopf frei, alte Antwort verworfen · neu geöffnet: Knopf frei, die alte tödliche Antwort während der neuen Bestimmung ohne Karte, ohne Vollbild, Knopf bleibt gesperrt · neu geöffnet ohne Schliessen: ebenso · geschlossen: kein Vollbild · Gegenprobe: die neue Bestimmung kommt an' };
+    },
+  },
+  {
+    name: 'PZ6 · Pilz-Scan: nach der Bestimmung trägt der Knopf wieder SEINE Beschriftung — nicht fest „🔍 Pilz identifizieren" in jeder Sprache',
+    lauf: async () => {
+      const k = document.getElementById('mushroom-submit-btn');
+      if (!k) return { ok: false, warum: 'Knopf fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const s = { f: window._gsFetch, tok: window._gsFreshToken, toast: window.showProfileToast, kt: k.textContent, foto: window._gsMushroomPhotoB64 };
+      const box = document.getElementById('mushroom-result');
+      let waehrend = '', nachher = '';
+      try {
+        window._gsFreshToken = async () => 'tok'; window.showProfileToast = () => {};
+        window._gsFetch = async () => { waehrend = k.textContent.trim(); return { ok: true, status: 200, json: async () => ({ matched_slug: null, confidence: 20, mushroom: null }) }; };
+        // so setzt die Sprachschicht die Beschriftung auf Französisch
+        k.textContent = '🔍 Identifier le champignon';
+        window._gsMushroomPhotoB64 = 'data:image/jpeg;base64,AAAA';
+        await Promise.race([gsMushroomRunScan(), warte(3000)]);
+        nachher = k.textContent.trim();
+      } finally {
+        window._gsFetch = s.f; window._gsFreshToken = s.tok; window.showProfileToast = s.toast; window._gsMushroomPhotoB64 = s.foto;
+        k.disabled = false; k.style.opacity = '1'; k.textContent = s.kt; if (box) box.innerHTML = '';
+      }
+      if (!/Identifiziere/.test(waehrend)) return { ok: false, warum: 'während der Bestimmung stand „' + waehrend + '" — der Fall misst nichts' };
+      if (nachher !== '🔍 Identifier le champignon') return { ok: false, warum: 'nach der Bestimmung steht „' + nachher + '" statt der Beschriftung von vorher' };
+      return { ok: true, info: 'während: „' + waehrend + '" · danach wieder „' + nachher + '"' };
+    },
+  },
+  // ── Pilz-Scanner, Nachtrag (gegnerische Prüfung, 24.11.2026). PZ5 lief nur auf Deutsch — und nur dort
+  // zeichnet gsMushroomRenderResult ohne Warten. In fr/it/en/es wartet es auf die Übersetzung (bis zu zwei
+  // Abfragen), NACH der Prüfung in gsMushroomRunScan, und RunScan wartete nicht auf die Anzeige: unter einem
+  // neuen Foto erschien „✅ Speisepilz" des alten, sogar über einem neueren „TÖDLICH". Dazu drei Ränder, die
+  // kein Fall sah: der catch-Zweig einer abgelösten Bestimmung, zwei sich überholende Foto-Ladevorgänge, und
+  // das stille Schliessen (ein Tipp auf den dunklen Rand brach ab, ohne dass etwas es sagte).
+  {
+    name: 'PZ7 · Pilz-Scan in einer anderen Sprache: wer auf die Übersetzung wartet, zeichnet nur, wenn die Bestimmung noch gilt — ein älteres „Speisepilz" kommt nie über ein neueres „TÖDLICH"; ein abgelöster Fehler bleibt still; ein langsames älteres Foto verdrängt kein neueres; Schliessen sagt, dass abgebrochen ist',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      const knopf = () => document.getElementById('mushroom-submit-btn');
+      if (!box || !knopf() || !window.gsI18n) return { ok: false, warum: 'Pilz-Fenster, Knopf oder Sprachschicht fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);
+      const s = { f: window._gsFetch, tok: window._gsFreshToken, toast: window.showProfileToast, ohne: window._gsFotoOhneMeta, ov: window.gsShowMushroomDangerOverlay,
+        merge: window._gsMergeMushI18n, lang: gsI18n.getLang, t: gsI18n.t, sf: window.sbFetch, kt: knopf().textContent };
+      const klagen = [], loeser = [], mergeLoeser = [], toasts = [];
+      const speise = { matched_slug: 'boletus_edulis', confidence: 92, mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green', vapko_required: false };
+      const tod = { matched_slug: 'amanita_phalloides', confidence: 95, mushroom: { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' }, edibility: 'toedlich', safety_color: 'red', vapko_required: true };
+      const antwort = (body) => ({ ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(body)) });
+      const text = () => (box.textContent || '').replace(/\s+/g, ' ');
+      const ohneVollbild = () => { const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove(); };
+      const foto = async (n) => { await gsMushroomLoadPhoto({ files: [new File([new Uint8Array([255, 216, 255, n])], 'pilz' + n + '.jpg', { type: 'image/jpeg' })] }); };
+      try {
+        window._gsFreshToken = async () => 'tok';
+        window.showProfileToast = (t, typ) => toasts.push({ t: String(t), typ });
+        window._gsFotoOhneMeta = async (f) => 'data:image/jpeg;base64,FOTO' + String(f.name).replace(/\D/g, '');
+        window.gsShowMushroomDangerOverlay = function () { return s.ov.apply(this, arguments); };
+        window._gsFetch = (url, o, t) => (/mushroom-identify/.test(String(url)) ? new Promise((res, rej) => loeser.push({ res, rej })) : s.f(url, o, t));
+        // die Anzeige auf Französisch: sie wartet auf die Übersetzung des Pilzes (gestellt, freigegeben vom Fall)
+        gsI18n.getLang = () => 'fr';
+        window._gsMergeMushI18n = (m) => new Promise((res) => mergeLoeser.push(() => res(m)));
+        window.sbFetch = async () => ({ data: [], error: null });
+        gsI18n.t = (k, f) => (k === 'mush_identifiziere' ? '⏳ Identification…' : s.t(k, f));
+
+        // 1 · Gegenrichtung zuerst: ohne Wechsel kommt das Ergebnis an — und der Knopf bleibt gesperrt, solange es wartet
+        openMushroomModal(); await foto(1);
+        const l0 = gsMushroomRunScan(); await warte(40);
+        if (!/Identification/.test(knopf().textContent)) klagen.push('5: der Knopf trägt während der Bestimmung „' + knopf().textContent.trim() + '" — nicht die Sprachschicht');
+        loeser[0].res(antwort(speise)); await warte(60);
+        if (!mergeLoeser[0]) return { ok: false, warum: 'die Anzeige wartet nicht auf die Übersetzung — der Fall misst den deutschen Weg' };
+        if (!knopf().disabled) klagen.push('1: während die Anzeige auf die Übersetzung wartet, ist der Knopf schon frei');
+        mergeLoeser[0](); await fertig(l0);
+        if (!/Speisepilz|Steinpilz/.test(text())) return { ok: false, warum: 'ohne Wechsel kommt das Ergebnis nicht an — der Fall misst nichts' };
+
+        // 2 · ein neues Foto, während die Anzeige wartet: das alte Ergebnis kommt nicht darunter
+        await foto(2);
+        const l1 = gsMushroomRunScan(); await warte(40);
+        loeser[1].res(antwort(speise)); await warte(60);
+        await foto(3);
+        mergeLoeser[1](); await fertig(l1); await warte(30);
+        if (/Speisepilz|Steinpilz/.test(text())) klagen.push('2: nach dem neuen Foto steht „Speisepilz" des vorigen darunter');
+
+        // 3 · das ältere „Speisepilz" wartet noch, das neuere Foto kommt als TÖDLICH zurück — und bleibt TÖDLICH
+        const l2 = gsMushroomRunScan(); await warte(40);                 // Foto 3
+        loeser[2].res(antwort(speise)); await warte(60);                  // wartet auf mergeLoeser[2]
+        await foto(4);
+        const l3 = gsMushroomRunScan(); await warte(40);                 // Foto 4
+        loeser[3].res(antwort(tod)); await warte(60);
+        mergeLoeser[3](); await fertig(l3); await warte(30);
+        if (!/TÖDLICH|Knollenblätterpilz/.test(text())) klagen.push('3: das tödliche Ergebnis des neuen Fotos kommt nicht an — der Fall misst nichts');
+        mergeLoeser[2](); await fertig(l2); await warte(30);
+        if (/Speisepilz/.test(text()) || !/TÖDLICH|Knollenblätterpilz/.test(text())) klagen.push('3: ein älteres „Speisepilz" überschreibt das neuere „TÖDLICH" („' + text().slice(0, 80) + '")');
+        ohneVollbild();
+
+        // 4 · der catch-Zweig: eine abgelöste Bestimmung scheitert am Netz — unter dem neuen Foto steht kein Fehler
+        await foto(5);
+        const l4 = gsMushroomRunScan(); await warte(40);
+        await foto(6);
+        toasts.length = 0;
+        loeser[4].rej(new TypeError('Failed to fetch')); await fertig(l4); await warte(30);
+        if (toasts.some(x => x.typ === 'error')) klagen.push('4: die abgelöste Bestimmung meldet ihren Netzfehler unter dem neuen Foto („' + toasts.map(x => x.t).join(' | ') + '")');
+
+        // 5 · zwei Foto-Ladevorgänge überholen sich: das zuerst gewählte, langsamer kodierte Foto verdrängt das neuere nicht
+        const ladeLos = [];
+        window._gsFotoOhneMeta = (f) => new Promise((res) => ladeLos.push(() => res('data:image/jpeg;base64,FOTO' + String(f.name).replace(/\D/g, ''))));
+        const la = foto(7); await warte(20);
+        const lb = foto(8); await warte(20);
+        ladeLos[1](); await lb;
+        ladeLos[0](); await la; await warte(20);
+        if (!/FOTO8$/.test(String(window._gsMushroomPhotoB64 || ''))) klagen.push('5: nach dem späten Foto 7 ist „' + String(window._gsMushroomPhotoB64 || '').slice(-6) + '" das Foto — nicht das zuletzt gewählte 8');
+        const vb = document.querySelector('#mushroom-photo-preview img');
+        if (!vb || !/FOTO8/.test(vb.getAttribute('src') || '')) klagen.push('5: die Vorschau zeigt nicht das zuletzt gewählte Foto');
+        window._gsFotoOhneMeta = async (f) => 'data:image/jpeg;base64,FOTO' + String(f.name).replace(/\D/g, '');
+
+        // 6 · Schliessen sagt, dass abgebrochen ist — nach dem Absenden mit „kann zählen", davor ohne; ohne Lauf still
+        const l6 = gsMushroomRunScan(); await warte(40);                 // läuft, Anfrage ist hinaus
+        toasts.length = 0;
+        closeModal('modal-mushroom'); await warte(20);
+        const t6 = toasts.map(x => x.t).join(' | ');
+        if (!/abgebrochen/i.test(t6)) klagen.push('6: geschlossen, während die Bestimmung lief — kein Satz');
+        else if (!/unterwegs|zählen/.test(t6)) klagen.push('6: die Anfrage war schon hinaus, der Satz sagt es nicht („' + t6 + '")');
+        loeser[5].res(antwort(tod)); await fertig(l6); await warte(20);
+        if (document.getElementById('gs-mushroom-danger')) klagen.push('6: nach dem Schliessen kam doch eine Vollbild-Warnung');
+        ohneVollbild();
+        openMushroomModal(); await foto(9);
+        let tokLos = null; window._gsFreshToken = () => new Promise((r) => { tokLos = r; });
+        const l7 = gsMushroomRunScan(); await warte(30);
+        toasts.length = 0;
+        closeModal('modal-mushroom'); await warte(20);
+        const t7 = toasts.map(x => x.t).join(' | ');
+        if (!/abgebrochen/i.test(t7) || /unterwegs/.test(t7)) klagen.push('6: geschlossen, bevor die Anfrage hinausging — „' + t7 + '"');
+        if (tokLos) tokLos('tok'); await fertig(l7);
+        window._gsFreshToken = async () => 'tok';
+        // eine Bestimmung läuft GANZ durch, dann wird geschlossen: nichts lief mehr — kein „abgebrochen"
+        // (direkt geschlossen; ein neues Öffnen davor räumte den Laufzustand ohnehin ab und prüfte nichts)
+        openMushroomModal(); await foto(10);
+        const l8 = gsMushroomRunScan(); await warte(40);
+        loeser[loeser.length - 1].res(antwort(speise)); await warte(60);
+        if (mergeLoeser.length) mergeLoeser[mergeLoeser.length - 1]();
+        await fertig(l8); await warte(20);
+        toasts.length = 0;
+        closeModal('modal-mushroom'); await warte(20);
+        if (toasts.some(x => /abgebrochen/i.test(x.t))) klagen.push('6: geschlossen, nachdem die Bestimmung fertig war — trotzdem „abgebrochen"');
+      } finally {
+        window._gsFetch = s.f; window._gsFreshToken = s.tok; window.showProfileToast = s.toast; window._gsFotoOhneMeta = s.ohne; window.gsShowMushroomDangerOverlay = s.ov;
+        window._gsMergeMushI18n = s.merge; gsI18n.getLang = s.lang; gsI18n.t = s.t; window.sbFetch = s.sf;
+        ohneVollbild(); box.innerHTML = '';
+        try { closeModal('modal-mushroom'); } catch (_) {}
+        window._gsMushroomPhotoB64 = null;
+        const k = knopf(); if (k) { k.disabled = false; k.style.opacity = '1'; k.textContent = s.kt; }
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'fr: ohne Wechsel da, Knopf gesperrt bis gezeichnet · neues Foto während der Übersetzung: nichts darunter · älteres „Speisepilz" nach neuerem „TÖDLICH": TÖDLICH bleibt · abgelöster Netzfehler still · Foto 8 vor dem späten Foto 7 bleibt · Schliessen: Satz mit und ohne „unterwegs", ohne Lauf still · Knopf über die Sprachschicht' };
+    },
+  },
+  {
+    name: 'PZ4 · Pilz-Scan: ein Fehler ist ein Satz (nie „rate_limited" oder „invalid token"), der feste Satz des Servers bleibt — und eine Antwort nach dem Abmelden kommt nicht auf den Bildschirm',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const s = { f: window._gsFetch, tok: window._gsFreshToken, toast: window.showProfileToast, li: window.sbIsLoggedIn, foto: window._gsMushroomPhotoB64 };
+      const toasts = [];
+      const klagen = [];
+      const tod = { matched_slug: 'amanita_phalloides', confidence: 92, mushroom: { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' }, edibility: 'toedlich', safety_color: 'red', vapko_required: true };
+      const lauf = async (status, body, waehrend) => {
+        toasts.length = 0; box.innerHTML = '';
+        const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove();
+        window._gsFetch = async () => { if (waehrend) waehrend(); return { ok: status >= 200 && status < 300, status, json: async () => { if (body === 'html') throw new SyntaxError('Unexpected token <'); return body; } }; };
+        await gsMushroomRunScan();
+        window.sbIsLoggedIn = s.li;
+        return toasts.filter(x => x.typ === 'error').map(x => x.text).join(' | ');
+      };
+      try {
+        window._gsFreshToken = async () => 'tok';
+        window.showProfileToast = (text, typ) => toasts.push({ text: String(text), typ });
+        window._gsMushroomPhotoB64 = 'data:image/jpeg;base64,AAAA';
+        if (!(typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) || !_gsPerson()) return { ok: false, warum: 'keine angemeldete Sitzung — der Fall misst nichts' };
+        let t = await lauf(429, { error: 'rate_limited', message: 'Zu viele Pilz-Scans in kurzer Zeit — bitte etwas später erneut.' });
+        if (!/Zu viele Pilz-Scans/.test(t) || /rate_limited/.test(t)) klagen.push('429: „' + t + '"');
+        t = await lauf(401, { error: 'invalid token' });
+        if (/invalid token/.test(t) || !/Sitzung/.test(t)) klagen.push('401: „' + t + '"');
+        t = await lauf(429, { error: 'Tageslimit für diese KI-Funktion erreicht. Morgen geht es weiter — oder mit einem Abo mehr.', code: 'quota_exceeded' });
+        if (!/Tageslimit für diese KI-Funktion erreicht/.test(t)) klagen.push('KI-Tor: der feste Satz fehlt („' + t + '")');
+        t = await lauf(502, 'html');
+        if (!t || /Unexpected token/.test(t)) klagen.push('502 ohne JSON: „' + t + '"');
+        // Abmelden WÄHREND der Bestimmung: die (tödliche) Antwort gehört der Person, die gefragt hat
+        t = await lauf(200, tod, () => { window.sbIsLoggedIn = () => false; });
+        if ((box.textContent || '').trim() || document.getElementById('gs-mushroom-danger')) klagen.push('nach dem Abmelden: die Antwort steht auf dem Bildschirm');
+        // Gegenprobe: ohne Abmelden kommt sie an — sonst wäre ein Lauf, der nie zeichnet, grün
+        t = await lauf(200, tod);
+        if (!document.getElementById('gs-mushroom-danger') || !/TÖDLICH/.test(box.textContent || '')) klagen.push('Gegenprobe: ohne Abmelden kommt die Antwort nicht an');
+      } finally {
+        window._gsFetch = s.f; window._gsFreshToken = s.tok; window.showProfileToast = s.toast; window.sbIsLoggedIn = s.li; window._gsMushroomPhotoB64 = s.foto;
+        const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove();
+        box.innerHTML = '';
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: '429 → „Zu viele Pilz-Scans …" · 401 → Sitzung · Satz des KI-Tors bleibt · 502 ohne JSON → Satz · abgemeldet: nichts gezeichnet · Gegenprobe: angemeldet gezeichnet' };
+    },
+  },
+
+  // ── Hauptfunktionen · Scanner 4 (19.11.2026): einen laufenden Scan abbrechen. Gemessen auf v33.64: auf der
+  // Wartefläche waren nur Glocke und Hauptmenü antippbar; ein zweiter Scan bekam den Zähler und die spätere
+  // Antwort des ersten; nach einem Fehler liefen über der Kamera fünf erfundene Meldungen. Abgebrochen wird
+  // die FOLGE, nicht der Aufruf (callVisionAI kennt kein Abbruchsignal) — gemessen wird deshalb, was danach
+  // gezeichnet und gespeichert wird.
+  {
+    name: 'AB1 · Abbrechen, während die KI rechnet: der Knopf ist da und frei, zurück zur Kamera — die späte Antwort wird weder gezeigt noch gespeichert, ein später Fehler legt keine Karte über die Kamera',
+    lauf: async () => {
+      if (typeof analyzeImage !== 'function') return { ok: false, warum: 'analyzeImage fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const bis = async (pr) => { for (let i = 0; i < 80; i++) { if (pr()) return true; await warte(50); } return false; };
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);   // ein haengender Scan meldet sich als Befund, nicht als Haenger
+      const f = [], toasts = [];
+      const e = { ai: window.callVisionAI, pc: window.gsScanPersistToCloud, qo: window.gsQueueOffline, cfg: window.getApiConfig,
+        cam: window.stopCamera, init: window.initScanner, hi: window.gsAddToScanHistory, to: window.gsToast };
+      let gespeichert = 0, verlauf = 0, kiGefragt = 0, loese = null, wirf = null;
+      const sr = () => document.getElementById('scan-result');
+      const offen = () => !!(sr() && sr().style.display !== 'none');
+      const bild = () => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+        g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160); g.fillStyle = '#3f9142'; g.beginPath(); g.ellipse(80, 74, 50, 30, -0.5, 0, Math.PI * 2); g.fill();
+        return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
+      const antwort = (n) => JSON.stringify({ name: n, latin: 'Bellis perennis', confidence: 91, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      try {
+        window.getApiConfig = () => ({ key: 'k' });
+        window.stopCamera = () => {}; window.initScanner = () => {};
+        window.gsAddToScanHistory = () => { verlauf++; };
+        window.gsScanPersistToCloud = () => { gespeichert++; return Promise.resolve(true); };
+        window.gsQueueOffline = async () => { gespeichert++; };
+        window.gsToast = (m) => { toasts.push(String(m)); };
+        window.callVisionAI = () => { kiGefragt++; return new Promise((res, rej) => { loese = res; wirf = rej; }); };
+        if (typeof switchTab === 'function') switchTab('scanner');
+        await warte(300);
+        // 1 · Abbrechen, während die KI rechnet
+        const lauf = analyzeImage(bild(), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => kiGefragt === 1))) return { ok: false, warum: 'die KI wurde nie gefragt — der Fall misst nichts' };
+        await warte(450);   // die Eintritts-Animation der Wartefläche (v32.32): erst danach vermessen
+        const k = sr() && sr().querySelector('.gs-scan-abbruch');
+        if (!k) return { ok: false, warum: 'auf der Wartefläche gibt es keinen Knopf „Abbrechen" (antippbar sind nur Glocke und Hauptmenü)' };
+        const r = k.getBoundingClientRect();
+        const oben = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        if (!(oben === k || k.contains(oben))) f.push('der Knopf ist verdeckt (oben liegt ' + (oben ? (oben.id || oben.className || oben.tagName) : 'nichts') + ')');
+        if (r.height < 44) f.push('der Knopf ist nur ' + Math.round(r.height) + ' px hoch');
+        if (!/Abbrechen/.test(k.textContent)) f.push('der Knopf sagt „' + k.textContent.trim() + '"');
+        k.click();
+        await warte(100);
+        if (offen()) f.push('nach dem Abbrechen steht die Wartefläche noch da');
+        if (!toasts.some((t) => /zur KI unterwegs/.test(t))) f.push('kein Satz, dass das Foto schon unterwegs war und zählen kann (Meldungen: ' + JSON.stringify(toasts) + ')');
+        loese(antwort('SPAET-ABGEBROCHEN')); await fertig(lauf); await warte(200);
+        if (sr() && /SPAET-ABGEBROCHEN/.test(sr().innerHTML)) f.push('die späte Antwort wird nach dem Abbrechen gezeichnet');
+        if (offen()) f.push('die späte Antwort öffnet das Ergebnis wieder über der Kamera');
+        if (_lastScanResult && _lastScanResult.name === 'SPAET-ABGEBROCHEN') f.push('die späte Antwort steht als letztes Ergebnis da');
+        if (verlauf) f.push('die späte Antwort steht im Verlauf (' + verlauf + '×)');
+        if (gespeichert) f.push('die späte Antwort wird gespeichert (' + gespeichert + '×)');
+        // 2 · Abbrechen, und die KI scheitert danach: keine Fehlerkarte über der Kamera
+        const lauf2 = analyzeImage(bild(), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => kiGefragt === 2))) return { ok: false, warum: 'der zweite Scan hat die KI nie gefragt' + (f.length ? ' · ' + f.join(' · ') : '') };
+        const k2 = sr() && sr().querySelector('.gs-scan-abbruch');
+        if (!k2) return { ok: false, warum: 'beim zweiten Scan fehlt der Knopf' };
+        k2.click(); await warte(50);
+        wirf(new Error('Zeitüberschreitung')); await fertig(lauf2); await warte(200);
+        if (offen() || /fehlgeschlagen/.test((sr() && sr().innerText) || '')) f.push('ein Fehler NACH dem Abbrechen legt die Fehlerkarte über die Kamera');
+        // 3 · Gegenprobe: ohne Abbrechen wird gezeichnet und gespeichert — sonst misst der Fall nur stille Attrappen
+        const lauf3 = analyzeImage(bild(), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => kiGefragt === 3))) return { ok: false, warum: 'der dritte Scan hat die KI nie gefragt' };
+        loese(antwort('OHNE-ABBRUCH')); await fertig(lauf3); await warte(200);
+        if (!(sr() && /OHNE-ABBRUCH/.test(sr().innerHTML))) f.push('Gegenprobe: ohne Abbrechen wird das Ergebnis nicht gezeichnet — der Fall misst nichts');
+        if (!verlauf) f.push('Gegenprobe: ohne Abbrechen kommt nichts in den Verlauf');
+      } finally {
+        window.callVisionAI = e.ai; window.gsScanPersistToCloud = e.pc; window.gsQueueOffline = e.qo; window.getApiConfig = e.cfg;
+        window.stopCamera = e.cam; window.initScanner = e.init; window.gsAddToScanHistory = e.hi; window.gsToast = e.to;
+        const s = sr(); if (s) { s.style.display = 'none'; s.innerHTML = ''; }
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Knopf frei, ≥ 44 px · zurück zur Kamera · Satz „schon unterwegs" · späte Antwort: nicht gezeichnet, nicht im Verlauf, nicht gespeichert · später Fehler: keine Karte · Gegenprobe ohne Abbrechen: gezeichnet und im Verlauf' };
+    },
+  },
+  {
+    name: 'AB2 · Abbrechen, bevor die KI gefragt wurde: sie wird nicht mehr gefragt, die Kamera bleibt an, und der Satz sagt, dass nichts unterwegs war',
+    lauf: async () => {
+      if (typeof analyzeImage !== 'function') return { ok: false, warum: 'analyzeImage fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const bis = async (pr) => { for (let i = 0; i < 80; i++) { if (pr()) return true; await warte(50); } return false; };
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);   // ein haengender Scan meldet sich als Befund, nicht als Haenger
+      const f = [], toasts = [];
+      const e = { ai: window.callVisionAI, cfg: window.getApiConfig, cam: window.stopCamera, init: window.initScanner, fa: window.gsBildFarbenVonB64, to: window.gsToast };
+      let kiGefragt = 0, kameraAus = 0, farben = null;
+      const sr = () => document.getElementById('scan-result');
+      const bild = () => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+        g.fillStyle = '#3f9142'; g.fillRect(0, 0, 160, 160); return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
+      try {
+        window.getApiConfig = () => ({ key: 'k' });
+        window.initScanner = () => {};
+        window.stopCamera = () => { kameraAus++; };
+        window.gsToast = (m) => { toasts.push(String(m)); };
+        // Die Farbmessung hält den Scan VOR der KI an — genau dort wird abgebrochen.
+        window.gsBildFarbenVonB64 = () => new Promise((res) => { farben = res; });
+        window.callVisionAI = () => { kiGefragt++; return new Promise(() => {}); };
+        if (typeof switchTab === 'function') switchTab('scanner');
+        await warte(200);
+        const lauf = analyzeImage(bild(), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => !!farben))) return { ok: false, warum: 'die Farbmessung lief nie — der Fall stellt den Zustand vor der KI nicht her' };
+        const k = sr() && sr().querySelector('.gs-scan-abbruch');
+        if (!k) return { ok: false, warum: 'auf der Wartefläche gibt es keinen Knopf „Abbrechen"' };
+        k.click(); await warte(50);
+        farben({ messbar: false, liste: [] }); await fertig(lauf); await warte(100);
+        if (kiGefragt) f.push('die KI wurde nach dem Abbrechen noch gefragt (' + kiGefragt + '×)');
+        if (kameraAus) f.push('die Kamera wurde nach dem Abbrechen ausgeschaltet (' + kameraAus + '×)');
+        if (!toasts.some((t) => /nichts an die KI/.test(t))) f.push('kein Satz, dass nichts geschickt wurde (Meldungen: ' + JSON.stringify(toasts) + ')');
+        // Gegenprobe: ohne Abbrechen fragt derselbe Weg die KI und schaltet die Kamera aus
+        farben = null;
+        analyzeImage(bild(), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => !!farben))) return { ok: false, warum: 'Gegenprobe: die Farbmessung lief nie' };
+        farben({ messbar: false, liste: [] });
+        if (!(await bis(() => kiGefragt === 1))) f.push('Gegenprobe: ohne Abbrechen wird die KI nicht gefragt — der Fall misst nichts');
+        if (!kameraAus) f.push('Gegenprobe: ohne Abbrechen bleibt die Kamera an');
+        const k2 = sr() && sr().querySelector('.gs-scan-abbruch');   // die Gegenprobe wartet ewig — aufräumen
+        if (k2) k2.click();
+      } finally {
+        window.callVisionAI = e.ai; window.getApiConfig = e.cfg; window.stopCamera = e.cam; window.initScanner = e.init;
+        window.gsBildFarbenVonB64 = e.fa; window.gsToast = e.to;
+        const s = sr(); if (s) { s.style.display = 'none'; s.innerHTML = ''; }
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'abgebrochen vor der KI: 0 Anfragen, Kamera bleibt an, Satz „nichts geschickt" · Gegenprobe: ohne Abbrechen 1 Anfrage, Kamera aus' };
+    },
+  },
+  {
+    name: 'AB3 · Ein neuer Scan ersetzt den laufenden: nur sein Zähler läuft, nur seine Antwort steht da und im Verlauf — in beiden Reihenfolgen der Antworten',
+    lauf: async () => {
+      if (typeof analyzeImage !== 'function') return { ok: false, warum: 'analyzeImage fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const bis = async (pr) => { for (let i = 0; i < 80; i++) { if (pr()) return true; await warte(50); } return false; };
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);   // ein haengender Scan meldet sich als Befund, nicht als Haenger
+      const f = [], verlauf = [], loeser = [], ki = [];
+      const e = { ai: window.callVisionAI, pc: window.gsScanPersistToCloud, cfg: window.getApiConfig, cam: window.stopCamera, init: window.initScanner,
+        hi: window.gsAddToScanHistory, sch: window.gsSchritt };
+      const sr = () => document.getElementById('scan-result');
+      const bild = (farbe) => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+        g.fillStyle = farbe; g.fillRect(0, 0, 160, 160); g.fillStyle = '#1d5c22'; g.fillRect(40, 40, 80, 60); return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
+      const antwort = (n, l) => JSON.stringify({ name: n, latin: l, confidence: 91, edible: false, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      try {
+        window.getApiConfig = () => ({ key: 'k' });
+        window.stopCamera = () => {}; window.initScanner = () => {};
+        window.gsScanPersistToCloud = () => Promise.resolve(true);
+        window.gsAddToScanHistory = (r) => { verlauf.push(r && r.name); };
+        window.callVisionAI = () => new Promise((res) => { loeser.push(res); });
+        // jede Zeile, die in den KI-Schritt der Wartefläche geschrieben wird
+        window.gsSchritt = function (id, z, erg) { if (id === 'ki') ki.push(String(erg)); return e.sch.apply(this, arguments); };
+        if (typeof switchTab === 'function') switchTab('scanner');
+        await warte(200);
+        // Reihenfolge 1 · A rechnet, B ersetzt A; B antwortet zuerst, dann A
+        const a = analyzeImage(bild('#3f9142'), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => loeser.length === 1))) return { ok: false, warum: 'Scan A hat die KI nie gefragt' };
+        await warte(1300);                              // A's Zähler hat geschrieben („1 s")
+        const b = analyzeImage(bild('#8d6e63'), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => loeser.length === 2))) return { ok: false, warum: 'Scan B hat die KI nie gefragt' };
+        const ab = ki.lastIndexOf('0 s');
+        await warte(2300);                              // B schreibt „1 s", „2 s" — ein zweiter Zähler schriebe dazwischen
+        const zahlen = ki.slice(ab).filter((x) => /^\d+ s$/.test(x)).map((x) => parseInt(x, 10));
+        for (let i = 1; i < zahlen.length; i++) if (zahlen[i] < zahlen[i - 1]) { f.push('zwei Zähler schreiben in dieselbe Wartefläche: ' + zahlen.join(' · ') + ' s'); break; }
+        if (zahlen.length < 2) f.push('der Zähler des neuen Scans läuft nicht (' + JSON.stringify(ki.slice(ab)) + ')');
+        loeser[1](antwort('ERSATZ-B', 'Bellis perennis')); await fertig(b); await warte(200);
+        loeser[0](antwort('ALT-A', 'Taraxacum officinale')); await fertig(a); await warte(200);
+        if (!/ERSATZ-B/.test(sr().innerHTML)) f.push('das Ergebnis des neuen Scans steht nicht da');
+        if (/ALT-A/.test(sr().innerHTML)) f.push('die spätere Antwort des ersetzten Scans legt sich über das neuere Ergebnis');
+        const antworten = ki.filter((x) => /^Antwort nach/.test(x));
+        if (antworten.length !== 1) f.push('„Antwort nach …" steht ' + antworten.length + '× in der Wartefläche: ' + antworten.join(' · '));
+        // Reihenfolge 2 · A rechnet, B ersetzt A; A antwortet zuerst — B rechnet weiter, dann B
+        const a2 = analyzeImage(bild('#3f9142'), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => loeser.length === 3))) return { ok: false, warum: 'Scan A2 hat die KI nie gefragt' + (f.length ? ' · ' + f.join(' · ') : '') };
+        const b2 = analyzeImage(bild('#8d6e63'), 'image/jpeg', '', null, { trotzdem: true });
+        if (!(await bis(() => loeser.length === 4))) return { ok: false, warum: 'Scan B2 hat die KI nie gefragt' };
+        loeser[2](antwort('ALT-A2', 'Taraxacum officinale')); await fertig(a2); await warte(200);
+        if (/ALT-A2/.test(sr().innerHTML)) f.push('die Antwort des ersetzten Scans wird gezeichnet, während der neue noch rechnet');
+        if (!sr().querySelector('#schritt-ki')) f.push('die Wartefläche des neuen Scans ist weg, obwohl er noch rechnet');
+        loeser[3](antwort('ERSATZ-B2', 'Bellis perennis')); await fertig(b2); await warte(200);
+        if (!/ERSATZ-B2/.test(sr().innerHTML)) f.push('das Ergebnis des neuen Scans fehlt, nachdem der ersetzte zuerst antwortete');
+        const alt = verlauf.filter((n) => /^ALT-/.test(n));
+        if (alt.length) f.push('der ersetzte Scan steht im Verlauf: ' + alt.join(', '));
+        if (!verlauf.includes('ERSATZ-B') || !verlauf.includes('ERSATZ-B2')) f.push('Gegenprobe: der neue Scan fehlt im Verlauf (' + verlauf.join(', ') + ') — der Fall misst nichts');
+      } finally {
+        window.callVisionAI = e.ai; window.gsScanPersistToCloud = e.pc; window.getApiConfig = e.cfg; window.stopCamera = e.cam; window.initScanner = e.init;
+        window.gsAddToScanHistory = e.hi; window.gsSchritt = e.sch;
+        const s = sr(); if (s) { s.style.display = 'none'; s.innerHTML = ''; }
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'ein Zähler je Wartefläche · B vor A: B steht da · A vor B: A nicht gezeichnet, B rechnet weiter und steht da · Verlauf nur B' };
+    },
+  },
+  {
+    name: 'AB4 · Über den Auslöser: nach einem Fehler und nach dem Abbrechen wechseln über der Kamera keine erfundenen Meldungen („Prüfe Merkmale…"), und die Scan-Linie steht still',
+    lauf: async () => {
+      if (typeof shutterAndScan !== 'function' || typeof gsResetScanner !== 'function') return { ok: false, warum: 'shutterAndScan oder gsResetScanner fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const bis = async (pr) => { for (let i = 0; i < 80; i++) { if (pr()) return true; await warte(50); } return false; };
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);   // ein haengender Scan meldet sich als Befund, nicht als Haenger
+      const f = [];
+      const e = { ai: window.callVisionAI, cfg: window.getApiConfig, cam: window.stopCamera, init: window.initScanner, wv: window._gsWaitForVideoReady,
+        gf: window._gsGrabFrame, qc: window.gsScannerQualityCheck, pc: window.gsScanPersistToCloud, hi: window.gsAddToScanHistory, ms: window._gsMultiShots,
+        zs: window.gsQualitaetZuSchlecht };
+      const video = document.getElementById('video');
+      let kiGefragt = 0, loese = null, wirf = null;
+      const sr = () => document.getElementById('scan-result');
+      const MELDUNG = /Analysiere Struktur|Vergleiche mit Datenbank|Prüfe Merkmale|Berechne Konfidenz|Fast fertig/;
+      const status = () => ((document.getElementById('scan-status') || {}).textContent || '').trim();
+      const bild = () => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+        g.fillStyle = '#3f9142'; g.fillRect(0, 0, 160, 160); return c.toDataURL('image/jpeg', 0.9).split(',')[1]; };
+      try {
+        if (!video || !document.getElementById('scan-status')) return { ok: false, warum: 'Video oder Statusbalken fehlt' };
+        // ein Sucher, der läuft: srcObject wahr, ohne echten Stream (wie kamera_check)
+        Object.defineProperty(video, 'srcObject', { configurable: true, get: () => ({ attrappe: true }), set: () => {} });
+        window._gsWaitForVideoReady = async () => true;
+        window._gsGrabFrame = () => bild();
+        window.gsScannerQualityCheck = () => ({ ok: true, warnings: [], quality: 80 });
+        window.getApiConfig = () => ({ key: 'k' });
+        window.stopCamera = () => {}; window.initScanner = () => {};
+        window.gsScanPersistToCloud = () => Promise.resolve(true); window.gsAddToScanHistory = () => {};
+        window.callVisionAI = () => { kiGefragt++; return new Promise((res, rej) => { loese = res; wirf = rej; }); };
+        window._gsMultiShots = [];   // gesammelte Fotos lenken den Auslöser in die Sammlung statt in den Scan
+        window.gsQualitaetZuSchlecht = () => false;   // die Rückfrage bei unscharfen Fotos ist hier nicht die Frage
+        if (typeof switchTab === 'function') switchTab('scanner');
+        await warte(200);
+        // 1 · Auslösen, die KI scheitert, zurück zur Kamera
+        const lauf = shutterAndScan();
+        if (!(await bis(() => kiGefragt === 1))) return { ok: false, warum: 'der Auslöser hat die KI nie gefragt — der Fall misst nichts' };
+        wirf(new Error('Zeitüberschreitung')); await fertig(lauf); await warte(100);
+        if (!/fehlgeschlagen/.test((sr() && sr().innerText) || '')) return { ok: false, warum: 'die Fehlerkarte erscheint nicht — der Fall stellt den Fehler nicht her' };
+        gsResetScanner();
+        const s1 = []; for (let i = 0; i < 3; i++) { await warte(700); s1.push(status()); }
+        if (s1.some((t) => MELDUNG.test(t))) f.push('nach einem Fehler wechseln über der Kamera erfundene Meldungen: ' + s1.join(' → '));
+        // 2 · Auslösen, Abbrechen, während die KI rechnet
+        const lauf2 = shutterAndScan();
+        if (!(await bis(() => kiGefragt === 2))) return { ok: false, warum: 'der zweite Auslöser hat die KI nie gefragt' + (f.length ? ' · ' + f.join(' · ') : '') };
+        const k = sr() && sr().querySelector('.gs-scan-abbruch');
+        if (!k) f.push('auf der Wartefläche gibt es keinen Knopf „Abbrechen"');
+        else {
+          k.click(); await warte(50);
+          const wrap = document.querySelector('.scan-wrap');
+          if (wrap && wrap.classList.contains('scanning')) f.push('nach dem Abbrechen läuft die Scan-Linie weiter, als würde gescannt');
+          const s2 = []; for (let i = 0; i < 3; i++) { await warte(700); s2.push(status()); }
+          if (s2.some((t) => MELDUNG.test(t))) f.push('nach dem Abbrechen wechseln über der Kamera erfundene Meldungen: ' + s2.join(' → '));
+        }
+        loese(JSON.stringify({ name: 'NACH-ABBRUCH', latin: 'Bellis perennis', confidence: 90, edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' }));
+        await fertig(lauf2); await warte(150);
+        if (k && sr() && /NACH-ABBRUCH/.test(sr().innerHTML)) f.push('über den Auslöser wird die späte Antwort nach dem Abbrechen gezeichnet');
+      } finally {
+        try { delete video.srcObject; } catch (_) {}
+        window.callVisionAI = e.ai; window.getApiConfig = e.cfg; window.stopCamera = e.cam; window.initScanner = e.init; window._gsWaitForVideoReady = e.wv;
+        window._gsGrabFrame = e.gf; window.gsScannerQualityCheck = e.qc; window.gsScanPersistToCloud = e.pc; window.gsAddToScanHistory = e.hi;
+        window._gsMultiShots = e.ms; window.gsQualitaetZuSchlecht = e.zs;
+        const s = sr(); if (s) { s.style.display = 'none'; s.innerHTML = ''; }
+      }
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'nach Fehler und nach Abbrechen: keine erfundene Meldung in 2,1 s · Scan-Linie aus · späte Antwort über den Auslöser nicht gezeichnet' };
+    },
+  },
 ];
 
 (async () => {
@@ -2313,6 +5299,29 @@ const FAELLE = [
     window.gsAddToScanHistory = () => {};
     window.gsHaptic = () => {};
     window.__QUELLE = jetzt.quelle;
+    // HOME-2: dieselben Wetterwerte in BEIDEN Formaten von Open-Meteo — `current` (loadHomeWeather)
+    // und `current_weather` (Zwischenspeicher, gsApplyWeatherToWidget). Stunden ab heute 00:00
+    // Ortszeit, wie Open-Meteo sie liefert; `aendern(d)` stellt einzelne Werte um.
+    window.__wetterDaten = function (aendern) {
+      const pad = (n) => String(n).padStart(2, '0');
+      const lokal = (x) => x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()) + 'T' + pad(x.getHours()) + ':00';
+      const heute = new Date(); const tag0 = new Date(heute.getFullYear(), heute.getMonth(), heute.getDate());
+      const zeiten = [], tage = [];
+      for (let i = 0; i < 48; i++) zeiten.push(lokal(new Date(tag0.getTime() + i * 3600000)));
+      for (let i = 0; i < 4; i++) { const t = new Date(tag0.getTime() + i * 86400000); tage.push(t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate())); }
+      const d = { temp: 1.4, code: 3, wind: 12, feucht: 81, uv: 1, mins: [-1, 0, 1, 2], maxs: [6, 7, 8, 9], tageCode: [3, 61, 0, 2],
+                  stundenCode: zeiten.map(() => 3), stundenWind: zeiten.map(() => 12), stundenRegen: zeiten.map(() => 10) };
+      if (typeof aendern === 'function') aendern(d);
+      const voll = (w) => zeiten.map(() => w);
+      return {
+        neu: { current: { temperature_2m: d.temp, weather_code: d.code, wind_speed_10m: d.wind, relative_humidity_2m: d.feucht, uv_index: d.uv },
+               hourly: { time: zeiten, weather_code: d.stundenCode, wind_speed_10m: d.stundenWind, precipitation_probability: d.stundenRegen },
+               daily: { time: tage, weather_code: d.tageCode, temperature_2m_max: d.maxs, temperature_2m_min: d.mins } },
+        alt: { current_weather: { temperature: d.temp, weathercode: d.code, windspeed: d.wind },
+               hourly: { time: zeiten, relativehumidity_2m: voll(d.feucht), uv_index: voll(d.uv), weathercode: d.stundenCode, windspeed_10m: d.stundenWind, precipitation_probability: d.stundenRegen },
+               daily: { time: tage, weathercode: d.tageCode, temperature_2m_max: d.maxs, temperature_2m_min: d.mins } },
+      };
+    };
   }, {
     normal:  Array.from(baueJpegMitExif({ datum: '2026:07:14 09:33:12', lat: 46.8182, lng: 8.2275 })),
     zukunft: Array.from(baueJpegMitExif({ datum: '2099:01:01 00:00:00', lat: 46.8182, lng: 8.2275 })),
@@ -2330,8 +5339,40 @@ const FAELLE = [
     if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
     else { kaputt++; console.log('  !!   ' + f.name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }
   }
+  // HK2 braucht eine EIGENE Seite: die zuletzt gezeigte Karte steht im sessionStorage, und gelesen
+  // wird sie beim Bau der Reihe — also beim Laden. Gegnerische Prüfung (16.11.2026): die Reihe wird
+  // gebaut, bevor Saison-Tipp und „Wusstest du?" gefüllt sind; eine gemerkte Karte 3 wurde verworfen.
+  {
+    const name = 'HK2 · Kartenreihe: die zuletzt gezeigte Karte kommt nach dem Neuladen wieder — auch wenn sie erst nach dem Bau der Reihe gefüllt wird';
+    let r;
+    try {
+      const p2 = await ctx.newPage();
+      await p2.route('**', (rr) => rr.request().url().startsWith('file:') ? rr.continue() : rr.abort());
+      await p2.addInitScript(SEED);
+      await p2.addInitScript(() => {
+        try { sessionStorage.setItem('gs_home_widget_idx', '3'); } catch (_) {}
+        // N beim Bau mitschreiben — so ist sichtbar, ob der Fall den Zustand herstellt, den er prüft
+        let echt;
+        Object.defineProperty(window, 'gsBuildWidgetStack', { configurable: true, get() { return echt; }, set(fn) { echt = function () { const x = fn.apply(this, arguments); if (window.__nBau == null && window._gsWStackBuilt) window.__nBau = window._gsWStackN; return x; }; } });
+      });
+      await p2.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+      await p2.waitForTimeout(6000);
+      r = await p2.evaluate(() => {
+        const nBau = window.__nBau, n = window._gsWStackN || 0;
+        const aktiv = [].slice.call(document.querySelectorAll('#gs-wstack-dots .gs-wdot')).findIndex((d) => d.getAttribute('aria-selected') === 'true');
+        if (nBau == null) return { ok: false, warum: 'die Reihe wurde nicht gebaut — der Fall misst nichts' };
+        if (n < 4) return { ok: false, warum: 'nach dem Laden nur ' + n + ' Karten — Karte 4 gibt es nicht, der Fall misst nichts' };
+        if (nBau > 3) return { ok: false, warum: 'beim Bau schon ' + nBau + ' Karten — der Fall stellt den Zustand nicht her, den er prüft' };
+        if (aktiv !== 3) return { ok: false, warum: 'gemerkt war Karte 4 (Index 3), beim Bau gab es ' + nBau + ' Karten, jetzt ' + n + ' — gezeigt wird Index ' + aktiv };
+        return { ok: true, info: 'gemerkt Index 3 · beim Bau ' + nBau + ' Karten, jetzt ' + n + ' · gezeigt Index ' + aktiv };
+      });
+      await p2.close();
+    } catch (e) { r = { ok: false, warum: 'Ausnahme: ' + e.message.split('\n')[0] }; }
+    if (r && r.ok) console.log('  ok   ' + name + (r.info ? '   [' + r.info + ']' : ''));
+    else { kaputt++; console.log('  !!   ' + name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }
+  }
   console.log('  ---');
-  console.log('  Fälle geprueft: ' + FAELLE.length + ' · davon kaputt: ' + kaputt);
+  console.log('  Fälle geprueft: ' + (FAELLE.length + 1) + ' · davon kaputt: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
   process.exitCode = (kaputt || !da) ? 1 : 0;

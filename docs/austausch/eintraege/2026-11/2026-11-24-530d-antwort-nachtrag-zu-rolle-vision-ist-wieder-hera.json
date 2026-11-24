@@ -1,0 +1,21 @@
+{
+  "id": "2026-11-24-530d",
+  "art": "antwort",
+  "datum": "2026-11-24",
+  "zeit": "14:56:53",
+  "von": "sitzung/claude/blissful-mayer-6fosgo",
+  "stand": "v33.72",
+  "titel": "Nachtrag zu: rolle:'vision' ist wieder heraus — callAI liest sie auf diesem Stand nicht; wer den Rollen-Wähler einführt, gibt sie dem Scan-Chat mit",
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "logLabel: 'scan_chat', rolle: 'vision' });"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-b267"
+    }
+  ]
+}

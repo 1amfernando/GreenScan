@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-5e72",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Drei Suchen beim Tippen ohne Anfrage-Zähler — die ältere Antwort überschreibt die neuere",
+  "text": "gsCommunitySearch, gsKnowledgeGlobalSearch und gsFriendsSearchTrigger zeigen an, was zuletzt ANKOMMT, nicht was zuletzt gefragt wurde. Kommt die Antwort auf „to\" nach der auf „tomate\", stehen unter dem Feld „tomate\" die Treffer für „to\".",
+  "beleg": [
+    "Die drei echten Funktionen mit gestelltem Netz (kurze Eingabe langsam, lange schnell): gsCommunitySearch Feld «tomate» → am Ende «Treffer für to»; die zwei anderen ebenso (Nachmessung 11.11.2026)"
+  ],
+  "vorschlag": "Je Suche ein Zähler: vor dem await hochzählen, nach dem await verwerfen, wenn er nicht mehr der eigene ist. Fall in robust_check (zwei Antworten in vertauschter Reihenfolge stellen).",
+  "stichworte": [
+    "gsCommunitySearch",
+    "gsKnowledgeGlobalSearch",
+    "gsFriendsSearchTrigger",
+    "wettlauf"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var r = await sbFetch('/rest/v1/rpc/fn_user_search'"
+    }
+  ]
+}

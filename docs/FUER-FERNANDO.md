@@ -1,6 +1,6 @@
 # Für Fernando — was nur du machen kannst
 
-> Stand **11.11.2026** (Abschnitte bis §30) · geschrieben von Seros.
+> Stand **24.11.2026** (Abschnitte bis §32) · geschrieben von Seros.
 >
 > **Neu und zuerst zu lesen: §30** — die Sicherheitsreparatur v33.59. Von ihr ist auf
 > der Live-Datenbank NICHTS angewandt und keine Edge-Function ausgeliefert; §30 sagt,
@@ -1488,7 +1488,6 @@ anderen fünf). Ein Commit ist eine Prüfsumme — was läuft, ist Byte für Byt
 Prüfstand gefahren hat. Geladen wird beim Ausliefern, nicht zur Laufzeit. Wer sie später
 gewöhnlich ausliefern will: `supabase functions deploy <name>` aus dem Repo, das Ergebnis
 ist dasselbe.
-
 ## 30 · Die Sicherheitsreparatur (v33.59) — was auf dich wartet
 
 **Dein Auftrag (10.11.2026, wörtlich):** „Arbeite an dem Projekt. Verbesser alles
@@ -1572,6 +1571,24 @@ nachgebessert hat):
 Zwei neue Fragen an dich: brett:2026-11-16-adb3 (Lifetime-Kauf für ein gelöschtes Konto)
 und brett:2026-11-16-cfcd (Budget von `plan-iterate`).
 
+**Nachtrag vom 19.11.2026: was seit dem 16.11. live ist** (nur lesend nachgemessen, Brett
+`2026-11-19-c3f3`). Angewandt ist **eine** der sechs Migrationen —
+`20261110_sicherheit_ki_kontingent.sql` (16.11., 11:28 UTC). Danach, 11:29–11:32 UTC, sind die
+24 Functions ausgeliefert worden, die `AUSLIEFERUNG.json` damals als `ausliefern` bzw. `erst_nach`
+dieser Migration führte — in der richtigen Reihenfolge. **Noch nicht angewandt** sind die fünf
+anderen (`…_funktionen`, `…_quiz_punkte`, `…_community_markt`, `…_konto_speicher`,
+`feedback_stimmen_zaehlen`); was ihre Köpfe beschreiben, ist live weiter offen. Die vier
+Stripe-Functions hat #331 (v33.63) danach noch einmal geändert — live läuft die Fassung vom 16.11.
+(§30i, Modus-Prüfung). In den Logs der letzten Tage kam kein einziger Aufruf an die sechs
+KI-Functions an — weder ein Erfolg noch ein Fehler; **ein Scan oder eine Frage an Lina mit deinem
+Konto** zeigt, ob das Tor live richtig zählt (`feature_usage` bekommt dann eine Zeile `ki:…`).
+
+**Und v33.68 (Platzhalter) ist reine App-Arbeit — nichts für den Server:** eine Antwort, die nach
+dem Abmelden ankommt, landet nie mehr im Konto der nächsten Person (ein Tor in `sbFetch` und in der
+KI, dazu die Wege daneben), Abmelden leert auch den Bildschirm, und ein gescheitertes Lesen beim
+Plan-Speichern ersetzt den Garten-Blob in der Cloud nicht mehr. Für dich wichtig, wenn ihr ein
+Gerät teilt: nach dem Abmelden bleibt nichts vom vorigen Konto stehen.
+
 **Drei Fragen an dich stehen auf dem Brett** (jede bündelt die Zeilen aus 30f):
 brett:2026-11-11-a814 (Quiz: Antwortschlüssel, Battles, Deckel, das Jahr Pro am 31.12.),
 brett:2026-11-11-293d (Plan- und Bezahl-Versprechen: KI-Grenzen gegen „unbegrenzt",
@@ -1610,7 +1627,8 @@ Widerspruch geprüft. Jede Migration ist idempotent (zweimal eingespielt schadet
    `plant-doctor-diagnose`, `pest-identify` und `mushroom-identify` **allen** Nutzern mit
    503 — auch der Pilz-Scanner. (Die Live-Fassungen von §29 haben dieses Tor noch nicht und
    laufen bis dahin weiter.)
-3. **Die Edge-Functions ausliefern** — nach `supabase/functions/AUSLIEFERUNG.json` (30d):
+3. **Die Edge-Functions ausliefern** — nach `supabase/functions/AUSLIEFERUNG.json` (30d).
+   **Die vier Stripe-Functions erst nach Schritt 0 in 30i** (Stripe-Modus prüfen, v33.63):
    18 stehen auf `ausliefern` (keine Migration als Voraussetzung), die sechs KI-Functions
    auf `erst_nach` Schritt 2, `device-ingest` auf `erst_nach` der Geräte-Migration aus
    Schritt 10. Vier stehen auf `nicht`: `daily-push` und `push-test` lesen Spalten, die es
@@ -1775,11 +1793,11 @@ ohne `plan_antwort.mjs` nicht**); `push_helfer.mjs`, `sensor_push_regeln.mjs`,
 | `feedback-triage` | Feedback-Texte gedeckelt und als Daten abgegrenzt (eine Anweisung im Feedback ist Inhalt), Antwort des Modells nur für den gesendeten Stapel |
 | `key-health-check`, `species-search` | nur die Versionen festgelegt |
 | `i18n-translate`, `send-push` | vergleichen ihr Geheimnis über `_shared/auth_vergleich.mjs` (vorher je eine eigene Kopie) |
-| `stripe-webhook` | Erstattung und Rückbuchung entziehen eine Lifetime; eine Zahlung setzt nie mehr „vom Experten verifiziert"; der Fehler, der live jedes Abo-Ereignis mit 500 beantwortet hätte, ist behoben; ein Schreibfehler eines PFLICHT-Schritts (Abo, Lifetime, Verkäufer-Status, Experten-Zahlung) wird gelesen — der Webhook antwortet dann nicht mehr mit 200, und Stripe stellt erneut zu; Nebenwege (Protokoll, Erinnerung, E-Mail) melden nur. Seit der Gesamtprüfung (16.11.) schliesst er ein Abo- oder Rechnungsereignis eines GELÖSCHTEN Kontos mit 200 ab und vermerkt es in `system_events` (`stripe_webhook` · `abo_ohne_konto`) — vorher hätte Stripe es Tag für Tag erneut zugestellt; ein Lifetime-Kauf ohne Konto bleibt bewusst 500 (Geld ohne Gegenwert, von Hand erstatten — Frage brett:2026-11-16-adb3) |
-| `stripe-checkout`, `stripe-portal` | Rückkehr nur auf eigene Adressen, Gratistage nur bei sicher beantworteter Vorgeschichte, Deckel des Startangebots am Server. **Achtung:** der Branch `claude/zahlungsweg-nachgemessen-011L7G` hat dieselben drei Stripe-Functions (mit `stripe-webhook`) unabhängig neu geschrieben und kann, was diese Fassung nicht kann (kein zweites Abo neben einem laufenden oder neben Lifetime, verzögerte Zahlungsarten). Wer als Zweiter gemergt wird, führt zusammen; erst dann ist die Fassung vollständig (STATUS §2) |
+| `stripe-webhook` | **Seit v33.63 vereint mit PR #329 — erst nach Schritt 0 in 30i ausliefern** (dazu: verzögerte Zahlungsarten, Zeitraum und Rechnung in beiden API-Formen, Lifetime beendet ein laufendes Abo, `processed = true`, ein Satz bei Live-Ereignis an Test-Schlüssel). Erstattung und Rückbuchung entziehen eine Lifetime; eine Zahlung setzt nie mehr „vom Experten verifiziert"; der Fehler, der live jedes Abo-Ereignis mit 500 beantwortet hätte, ist behoben; ein Schreibfehler eines PFLICHT-Schritts (Abo, Lifetime, Verkäufer-Status, Experten-Zahlung) wird gelesen — der Webhook antwortet dann nicht mehr mit 200, und Stripe stellt erneut zu; Nebenwege (Protokoll, Erinnerung, E-Mail) melden nur. Seit der Gesamtprüfung (16.11.) schliesst er ein Abo- oder Rechnungsereignis eines GELÖSCHTEN Kontos mit 200 ab und vermerkt es in `system_events` (`stripe_webhook` · `abo_ohne_konto`) — vorher hätte Stripe es Tag für Tag erneut zugestellt; ein Lifetime-Kauf ohne Konto bleibt bewusst 500 (Geld ohne Gegenwert, von Hand erstatten — Frage brett:2026-11-16-adb3) |
+| `stripe-checkout`, `stripe-portal` | Rückkehr nur auf eigene Adressen, Gratistage nur bei sicher beantworteter Vorgeschichte, Deckel des Startangebots am Server. **Seit v33.63 mit PR #329 zu EINER Fassung vereint** (kein `automatic_payment_methods` mehr, kein zweites Abo neben einem laufenden oder neben Lifetime, Portal kündigt nur ein echtes Abo) — **erst nach Schritt 0 in 30i ausliefern** |
 | `stripe-expert-checkout` | nur der Autor zahlt, nie für sich selbst, Betrag fest |
 | `stripe-create-connect-account` | ein fremdes Stripe-Konto wird abgewiesen |
-| `stripe-bootstrap`, `stripe-admin-extend-webhook` | Admin-Geheimnis konstantzeitig; die zweite abonniert zusätzlich `charge.refunded` |
+| `stripe-bootstrap`, `stripe-admin-extend-webhook` | Admin-Geheimnis konstantzeitig; die zweite abonniert seit v33.63 alle Ereignisse, die `stripe-webhook` behandelt (u. a. `charge.refunded`, `checkout.session.async_payment_succeeded`) — erst nach dem vereinten `stripe-webhook` und nach 30i |
 | `delete-user` | räumt alle Buckets mit Nutzerordnern (vorher nur einen Teil) und kündigt ein laufendes Abo bei Stripe; scheitert die Abfrage nach eigenen Organisationen, löscht sie NICHT (409 `org_pruefung`) statt ein halbes Konto stehen zu lassen |
 | `marketplace-publish` | ein gesperrtes Konto kann nicht mehr über diesen Weg veröffentlichen |
 | `daily-push-checker`, `weather-alert-checker`, `engagement-push-checker`, `send-push` | Push nur an bekannte Push-Dienste, Frist je Versand, Frost-Abfrage mit gerundetem Ort |
@@ -1942,6 +1960,228 @@ in CLAUDE.md). Nach Merge und Auslieferung bitte:
 - Die App selbst lässt sich wie jede Auslieferung über einen Revert-PR zurücknehmen; Schritt 4
   aus 30b sollte dann zuerst wieder heraus, sonst trifft die alte App auf den neuen
   Bild-Wächter.
+
+### 30i · Der Zahlungsweg, vereint (v33.63) — zuerst Schritt 0: Stripe-Modus prüfen
+
+**Was sich geändert hat.** Es gab zwei Fassungen des Zahlungswegs — die aus v33.59 und die aus
+PR #329. Seit v33.63 gibt es EINE (`supabase/functions/_shared/zahlung_regeln.mjs`, STATUS (jk)).
+Das Wichtigste daran: **die Fassung, die live läuft (`stripe-checkout` v8 vom 14.06.2026), schickt
+Stripe einen Parameter, den es beim Checkout nicht gibt** (`automatic_payment_methods`). Laut
+Stripes API-Referenz lehnt Stripe so eine Anfrage ab — dann scheitert **jeder** Kauf. Das ist aus
+der Referenz gefolgert, nicht gegen Stripe gemessen; du siehst es in Schritt 6 unten in zwei
+Minuten. Die vereinte Fassung schickt nur Parameter, die es gibt, und ein Prüfstand passt seither
+darauf auf.
+
+**Bevor irgendeine Stripe-Function ausgeliefert wird, braucht es Schritt 0.** In
+`supabase/functions/AUSLIEFERUNG.json` tragen `stripe-checkout`, `stripe-portal`, `stripe-webhook`
+und `stripe-admin-extend-webhook` deshalb die Bedingung „erst nach der Modus-Prüfung durch
+Fernando". Ob GreenScan im Live- oder im Testmodus von Stripe arbeitet, ist im Repo **nicht
+belegt** — STATUS sagte „Live-Mode seit v26.40", aber die Einträge von damals führen den Umstieg
+selbst als offen, und es kam nie ein einziges Webhook-Ereignis an.
+
+#### Schritt 0 · Nachsehen (ohne Code, ca. 15 Minuten)
+
+**Bitte nichts ändern — nur nachsehen und aufschreiben. Keinen Schlüssel kopieren, aufdecken oder
+in einen Chat schreiben.**
+
+1. Auf **dashboard.stripe.com** mit dem GreenScan-Konto anmelden. Oben gibt es einen Schalter
+   **„Testmodus"** bzw. **„Sandbox"**. Zuerst den **Live-Bereich** öffnen (Testmodus aus / Sandbox
+   verlassen). Steht oben ein Hinweis wie **„Konto aktivieren"**? → aufschreiben (ja/nein).
+2. **Entwickler → API-Schlüssel.** Beim **Geheimschlüssel** steht **„Zuletzt verwendet"**. Datum
+   aufschreiben. Dasselbe im Testmodus/Sandbox. (Der Schlüssel, den GreenScan benutzt, zeigt ein
+   Datum, an dem jemand in der App „Abo kaufen" angetippt hat.)
+3. **Entwickler → Webhooks** (Live). Gibt es einen Eintrag, dessen Adresse auf
+   **`/functions/v1/stripe-webhook`** endet? Aufschreiben: aktiv oder deaktiviert, die
+   **API-Version** beim Eintrag, und ob in der Ereignisliste **`charge.refunded`** steht.
+4. Den Eintrag öffnen → **Zustellungen / Event deliveries**. Gibt es überhaupt Versuche? Welche
+   Antwort steht dabei — **200** (angekommen), **400** (Unterschrift passt nicht), **500/503**?
+   Ein, zwei Beispiele aufschreiben.
+5. Schritte 3 und 4 im **Testmodus/Sandbox** wiederholen.
+6. **Entwickler → Protokolle (Logs)**, Live. Im Suchfeld **`checkout/sessions`** eingeben.
+   Gibt es Einträge? Mit welchem Status? Bei **400** einen anklicken: steht in der Meldung
+   **„automatic_payment_methods"** oder **„unknown parameter"**? Dasselbe im Testmodus.
+7. Live: **Zahlungen** und **Abonnements** — gibt es echte Zahlungen oder Abos? Unter **Kunden** —
+   wie viele? (Nur die Zahl.)
+8. Live: **Produktkatalog** — gibt es die drei Angebote (Pro monatlich CHF 7.90, Pro jährlich
+   CHF 79, Lifetime CHF 45.60)? Einen Preis öffnen: die Kennung beginnt mit **`price_…`**.
+   Dann in **Supabase → Table Editor → Tabelle `stripe_prices` → Spalte `id`** nachsehen:
+   stehen dort dieselben Kennungen wie im **Live**-Katalog — oder die aus dem **Test**-Katalog?
+9. **Supabase → Edge Functions → Secrets:** stehen dort die Namen **`STRIPE_SECRET_KEY`** und
+   **`STRIPE_WEBHOOK_SECRET`**? Nur ja/nein — keine Werte.
+10. Die Antworten aus 1–9 als kurze Liste zurückschicken. **Nicht** tun: Schlüssel neu erzeugen,
+    Webhook-Geheimnis „rollen", Modus umstellen, Preise anlegen — das kommt danach, in der
+    richtigen Reihenfolge.
+
+**Was die Antworten bedeuten:** Alles in Live (Schlüssel, Preise, Webhook) → STATUS stimmt im
+Grundsatz, `pk_test_` ist Altlast. Schlüssel nur im Test benutzt → GreenScan war nie live,
+STATUS wird berichtigt, der Umstieg ist ein eigener Schritt. Gemischt (z. B. Live-Schlüssel, Preise
+nur im Test) → jeder Kauf scheitert zusätzlich schon an den Preisen. 400 mit
+„automatic_payment_methods" in Schritt 6 → der Fehler oben ist bestätigt.
+
+#### Danach (erst mit deiner Antwort, in dieser Reihenfolge)
+
+1. Die vier Stripe-Functions ausliefern — nur im Modus aus Schritt 0, `stripe-webhook` zuerst.
+2. Am Webhook-Endpunkt zusätzlich **`checkout.session.async_payment_succeeded`** abonnieren (für
+   verzögerte Zahlungsarten) — oder einmal `stripe-admin-extend-webhook` laufen lassen: es
+   abonniert seit v33.63 alles, was `stripe-webhook` behandelt (ergänzt nur, entfernt nichts).
+3. Eine Testzahlung im richtigen Modus; danach lese ich nur lesend nach, ob das Ereignis in
+   `stripe_webhook_events` mit `processed = true` steht.
+
+**Deine Entscheidungen dazu** (Empfehlungen aus dem Bericht P-C): Rückbuchung entzieht Lifetime
+automatisch, der Admin schaltet bei gewonnenem Fall frei (so gebaut, W2) · eine Datumsschranke in
+`v_user_entitlements`, damit eine alte Probezeit-Zeile nicht für immer Pro bleibt (Frage 7f36,
+noch nicht gebaut) · Netlify-Rückkehr: Netlify abschalten statt aufnehmen (so gebaut, W4).
+
+## 31 · Pilz-Scanner: die KI kennt live nur 200 von 276 Pilzarten (v33.64)
+
+**Was live ist** (nur lesend nachgesehen am 19.11.2026): `mushroom-identify` v5 lädt den Code
+von v33.59 (Commit `57a7acf`, ausgeliefert am 16.11.). Er gibt dem Modell das Pilz-Register mit
+`.limit(200)` nach Slug mit — 76 der 276 Arten fehlen, **19 davon giftig**: Satansröhrling,
+Tiger-Ritterling, Grünling, Käppchenmorchel, beide Kartoffelboviste, sechs weitere Ritterlinge,
+vier Täublinge … (alles ab „pluteus_salicinus"). Das Modell darf nur eine Art aus seiner Liste
+nennen; eine giftige, die es nicht kennt, kann es nicht nennen — es nennt die ähnlichste, die es
+kennt, und das ist oft der essbare Doppelgänger (Käppchenmorchel → Morchel).
+
+**Was im Repo behoben ist:** alle Arten gehen ans Modell (`_shared/pilz_wissen.mjs`, neu); muss
+je gekürzt werden, fallen zuerst Speisepilze, nie eine giftige. Ohne Register antwortet die
+Function mit 503, bevor ein Kontingent gebucht wird. Die Kandidaten kommen mit Namen und
+Essbarkeit zurück. Kosten: rund 258'000 statt 190'000 Zeichen Wissen je Scan, mit dem schnellen
+Modell grob 2 Rappen mehr pro Scan (geschätzt, nicht gemessen).
+
+**Was du tun musst — nach dem Merge:** `mushroom-identify` neu ausliefern, wie v5: die eine Zeile
+`import "https://raw.githubusercontent.com/1amfernando/GreenScan/<commit>/supabase/functions/mushroom-identify/index.ts";`
+mit dem Merge-Commit von `main` — der Commit enthält dann auch `_shared/pilz_wissen.mjs`, das die
+Function relativ lädt. Oder `supabase functions deploy mushroom-identify` aus dem Repo. Keine
+Migration, kein neues Secret. Die App funktioniert mit der alten und der neuen Function (sie liest
+`alternative_arten`, wenn es sie gibt, sonst die Slugs).
+
+**Zum Prüfen danach:** ein Scan eines Fotos, das sicher kein Pilz ist, muss „unsicher" sagen; in
+den Logs der Function darf „Wissensbasis gekuerzt" nicht auftauchen.
+
+**Dabei nachgezogen:** `AUSLIEFERUNG.json` führte die sechs KI-Functions von v33.59 noch als
+„erst_nach" der Kontingent-Migration. Nachgesehen am 19.11.2026 (nur lesend, `get_edge_function`):
+alle sechs laufen seit dem 16.11. mit dem Code von `57a7acf` — `ai-proxy` v4, `plan-iterate` v6,
+`garden-scan-analyze` v12, `plant-doctor-diagnose` v7, `pest-identify` v5 stehen jetzt auf „live"
+(das Repo ist dort unverändert), `mushroom-identify` v5 auf „ausliefern" (dieses Paket).
+
+## 32 · Der grosse Durchgang (v33.72) — was du tun musst, und was noch offen ist
+
+**Für die App selbst musst du nichts einspielen.** Keine Migration, keine
+Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.
+
+**Was sich für dich sichtbar ändert:**
+
+- Wer sich auf einem neuen Gerät anmeldet (oder in der Android-App), behält
+  seine Gärten und Pflanzungen. Vorher ersetzte die App sie dort durch einen
+  leeren „Mein Garten" — und schob das beim nächsten Abgleich hoch. **Wenn dir
+  oder jemandem genau das schon passiert ist:** die App legt je Sitzung einen
+  Stand in `user_state_snapshots` ab (v33.26) — darin kann der Garten von
+  vorher noch stehen. Sag Bescheid, bevor du etwas versuchst; ich sehe mit dir
+  nach, welcher Stand der richtige ist.
+- Die Fragen „Wirklich löschen?" sind im Dunkelmodus wieder lesbar — ebenso
+  der Hinweis „Noch kein Standort" im Standort-Fenster (war hellgrün auf fast
+  weiss) und die Unterzeile im Kopf der Beet-Layouts.
+- Symbole und Verwechslungshinweise der Arten sind bei jedem Start da, nicht
+  nur beim allerersten.
+- **Die Kopfleiste ist 17 px höher** (56 statt 39 px) und füllt jetzt ihren
+  Platz — so wollte das CSS sie immer; ein Schreibfehler (`calc()` ohne
+  Leerraum um das Plus) hat die Angabe ungültig gemacht. Bitte einmal auf
+  deinem Telefon ansehen, auch auf einem iPhone mit Kerbe: gemessen habe ich
+  nur im Browser bei 412 px Breite.
+- **Auf „Rezepte" und „Heilmittel" steht unten rechts ein Plus-Knopf.** Den
+  gab es schon immer — er stand wegen desselben Schreibfehlers rund 10'000 px
+  unter dem Bildschirm. Eigene Rezepte liessen sich bisher gar nicht anlegen.
+- **Ein Rezept zeigt seine Warnung** („Verwechslung mit Herbstzeitlose"), ein
+  Heilmittel seine Gegenanzeigen und seine Dosierung. Beides stand in den
+  Daten, aber nicht auf dem Bildschirm.
+- **Im Registrierformular** öffnen die Links „Datenschutzerklärung" und
+  „Nutzungsbedingungen" die Texte jetzt wirklich. Vorher ging das Fenster
+  unsichtbar auf — wer sich registrierte, konnte nicht lesen, was er ankreuzt.
+- Startseite und Planer-Kalender zeigen die richtige Kalenderwoche (sie lagen
+  2026 von Montag bis Mittwoch eine Woche zurück).
+
+**Bitte einmal gegenlesen — die Datenschutzerklärung** (`privacy.html`,
+Tabelle in §2). Dort stand „Anonyme Nutzungs- & Fehlerdaten". Beide tragen
+aber deine Konto-Kennung. Das haben zwei Sitzungen parallel berichtigt; seit
+dem Merge vom 24.11. gilt der Satz von `main` („pseudonym"). Dort stehen seit
+v33.59 auch Netlify und Wikipedia unter den Empfängern, und Google Fonts ist
+keiner mehr (die Schriften liegen jetzt selbst im Repo). §8 nennt keine Frist
+für Nutzungsdaten, und
+das Stand-Datum („17. Juni 2026") habe ich nicht angefasst. Das ist dein Text
+— sag mir, wie du ihn haben willst (auf dem Brett: `brett:2026-11-11-5bef`).
+
+**Die Landingpage** (`install.html`) versprach vier Dinge, die es nicht gibt:
+„funktioniert ohne Account", „gsBrain", „iNaturalist-Bridge" und „alle Daten
+in der EU". Sie sagt jetzt, was stimmt (kostenloses Konto nötig; Lina; Fotos
+zur Bestimmung gehen an Anthropic in den USA).
+
+**Die Edge-Functions — sieben von zehn sind im Repo behoben, live keiner.**
+Der Audit hat dort zehn Fehler gefunden und jeden gegengeprüft; behoben habe
+ich hier keinen (Zahlungs- und Anmeldecode, den ich nicht ausführen kann).
+Seit dem Merge vom 24.11. trägt dieser Branch die Sicherheitsreparatur von
+`main` (v33.59/v33.63) — und die schliesst **sieben** davon, darunter die zwei,
+die Geld betreffen (`delete-user` kündigt jetzt bei Stripe, bevor es löscht;
+der Stripe-Webhook antwortet bei einem Datenbankfehler mit 500, damit Stripe es
+noch einmal versucht), und die **zwei ausnutzbaren** (abgeglichen mit den
+Einzelheiten aus der Übergabe-Datei; im Repo stehen sie weiter nicht). Jeder
+dieser sieben ist auf dem Brett nachgemessen und geschlossen.
+
+**Wichtig: live ist davon NICHTS.** Ausgeliefert wird eine Edge-Function nur
+von dir — was wann, steht in `supabase/functions/AUSLIEFERUNG.json` und in §30.
+Bis dahin gilt: wenn jemand mit Abo sein Konto löscht, das Abo bitte im
+Stripe-Dashboard von Hand beenden.
+
+Offen sind drei, alle in `daily-push-checker` (Frost-Warnung zur falschen
+Nacht, Dublettensperre je Nutzer statt je Gerät, „Tagesquiz wartet" auch an
+alle, die schon gespielt haben). Sie stehen in `docs/AUDIT-2026-11-11.md`
+(edge-4, edge-7, edge-9) und auf dem Brett.
+
+**Die Android-App:** vier kleine Fehler in der Hülle und im Bau-Skript sind
+behoben (der Bau brach bei einem Übersetzungsfehler nicht ab; das Passwort des
+Release-Schlüssels stand auf der Kommandozeile — es wird jetzt aus der
+Umgebung gelesen, `GS_APK_KS_PASS` setzt du wie bisher). Drei weitere brauchen
+ein Telefon und stehen auf dem Brett; der wichtigste: „Kamera" im
+Pflanzendoktor, Pilz-Check, Tagebuch und Schädlings-Check öffnet in der APK
+die Bildauswahl statt der Kamera.
+
+**Drei Dinge über die Arbeit selbst:** diese Scheibe hiess v33.57, dann v33.59,
+dann v33.70, jetzt v33.72 — jedes Mal hatte `main` die Nummer inzwischen vergeben. Heute
+(24.11.) ist sie auf `main` v33.68 nachgezogen und heisst weiter **v33.72, als
+Platzhalter**: die endgültige Nummer vergibt, wer am Kopf der Merge-Reihe steht.
+Zusammengeführt mit v33.67 waren es 76 Konfliktstellen in 20 Dateien, mit v33.68
+noch drei. Die Sicherheitsreparatur auf `main` hatte mehrere Funde aus meinem
+Audit parallel behoben (Passwort im Bau-Skript, Datenschutz-Satz, noindex,
+Mikrofon-/Sensor-Freigabe, Garten-Pull); dort gilt jetzt ihre Fassung, was nur
+diese Scheibe hatte, bleibt daneben stehen. Einzeln steht das in STATUS (Eintrag
+„(jv) - v33.72", Absatz „Auf `main` nachgezogen"). Und: einen Pull Request habe
+ich NICHT geöffnet (du hast keinen verlangt). Der Stand liegt auf dem Branch
+`ccr-dce5a17c-2xzhvi`; die Prüfung auf GitHub läuft erst mit einem PR. **Wenn du
+ihn willst, sag „öffne den PR"** — dann ziehe ich vorher auf den dann aktuellen
+Stand von `main` nach.
+
+**Deine private Mailadresse stand in einer ausgelieferten Datei.** Ein Prüfstand
+(`scripts/robust_check.js`) sollte sicherstellen, dass sie nirgends im Code
+steht — und trug sie dafür selbst wörtlich. Die Datei liefern beide Hoster aus
+(nicht auffindbar, aber abrufbar). Das ist jetzt weg: der Prüfstand zählt jede
+Freemail-Adresse im Code, ohne eine zu nennen. Zwei Dinge bleiben, und die
+entscheidest du: zwei alte, längst angewandte Migrationen
+(`supabase/migrations/v26_91_…` und `v28_18_…`) nennen die Adresse in einer
+Policy, und in der Git-Geschichte steht sie weiter. Eine angewandte Migration
+habe ich nicht umgeschrieben.
+
+**Das Gegenlesen der fertigen Scheibe** ist am 11.11. zweimal am Ausgabenlimit
+gescheitert und am 16.11. gelaufen (vier Agenten lesen, je ein zweiter versucht
+zu widerlegen). Fünfzehn Stellen, alle behoben. Die wichtigsten für dich: der
+Filter „Giftig" fragt jetzt die Art (Wacholder stand unter „Ungiftig"); zwei
+Stichworte an den vertraulichen Brett-Einträgen zeigten auf die Stelle der Lücke
+und sind entfernt; und im Audit-Protokoll zeigte der Satz „zusammen mit Fund 4
+ausliefern" auf den falschen Fund — gemeint ist edge-5, die Reihenfolge ist dort
+sicherheitsrelevant.
+
+**Auf GitHub:** die Prüfung an jedem Pull Request installiert jetzt zusätzlich
+ESLint (über `scripts/package.json` und das eingecheckte Lockfile, `npm ci`).
+Dafür ist nichts zu tun. `npm audit` meldet dazu zwei mittlere Lücken in
+`minimatch`, das ESLint mitbringt — es läuft nur in den Prüfständen, nie in der App.
 
 ## Und wenn etwas schiefgeht
 

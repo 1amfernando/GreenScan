@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-002d",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Drei Selektoren stehen doppelt mit widersprüchlichen Werten wenige Zeilen auseinander — die jeweils erste Fassung ist tot",
+  "text": ".hero::after (fünf Eigenschaften), .hero h2 (line-height 1.25 gegen 1.2) und .modal-close-btn:active (scale .92 gegen .88, zwei Zeilen weiter). Keine sichtbare Fehlfunktion; wer die erste Fassung ändert, sieht keine Wirkung.",
+  "beleg": [
+    "Vom Auditor und vom Gegenprüfer je mit eigenem Skript über die sieben <style>-Blöcke gezählt: 8 widersprüchliche Deklarationspaare bei identischem Selektor; drei der vier gemeldeten Paare bestätigt"
+  ],
+  "vorschlag": "Die erste Fassung streichen, jeweils mit render_check im Vergleichsmodus (0 Änderungen); als Deckel ein statik_check-Fall „gleicher Selektor zweimal im selben Block mit widersprüchlichem Wert\".",
+  "stichworte": [
+    "css",
+    "doppelte-selektoren",
+    "render_check",
+    "statik_check"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": ".modal-close-btn:active{transform:scale(.92);background:rgba(0,0,0,.14);}"
+    }
+  ]
+}

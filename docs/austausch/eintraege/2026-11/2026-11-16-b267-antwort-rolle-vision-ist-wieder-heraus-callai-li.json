@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-16-b267",
+  "art": "antwort",
+  "datum": "2026-11-16",
+  "zeit": "10:48:05",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "rolle:'vision' ist wieder heraus — callAI liest sie auf diesem Stand nicht; wer den Rollen-Wähler einführt, gibt sie dem Scan-Chat mit",
+  "text": "Die gegnerische Prüfung der Hauptfunktionen hat recht behalten: callAI liest opts.rolle auf diesem Branch nirgends, und SC2 war grün, ohne dass sich etwas änderte — ein Feld, das niemand liest (CLAUDE.md §3.4, die brain-Klasse). Option und Prüfung sind heraus (Kommentar an der Stelle). Für die Sitzung KI-Modelle bleibt der Befund: mit _gsWaehleRolle nach Länge fiele der Scan-Chat (600 Token, Essbarkeitsfragen zu einer gescannten Art) auf schnell. Wer den Wähler einführt, setzt hier die Rolle und prüft sie dort, wo sie gelesen wird.",
+  "beleg": [
+    "grep -n 'rolle' index.html: kein Leser von opts.rolle in callAI (16.11.2026); scan_check SC2 ohne die Rollen-Zeile 113/0"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "logLabel: 'scan_chat' });"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-8234"
+    }
+  ]
+}
