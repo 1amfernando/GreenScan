@@ -64627,15 +64627,18 @@ function initDefaultGarden() {
   // zweiter Tab). Liegen dort Gaerten, werden sie uebernommen — „Mein Garten"
   // entsteht nur, wenn es wirklich keinen gibt. Ohne das schrieb die Zeile
   // darunter eine leere Liste ueber einen gefuellten Speicher (sync_check).
-  // Seit dem Merge mit main (v33.59): durch den EINEN Eingang — Sieb, Speicher und Variable
-  // zusammen (_gsListeEinspielen), wie jeder andere Schreiber dieser Listen.
+  // Seit dem Merge mit main (v33.59): gesiebt wie jeder andere Schreiber dieser Listen
+  // (Klassenwaechter, sicherheit_check 98_schluss_e) — aber NUR die Variable, ohne Schreiben.
+  // Der Rueckweg ueber _gsListeEinspielen haette bei vollem Speicher nichts gesetzt, und die
+  // Zeilen darunter haetten „Mein Garten" UEBER die vorhandenen Gaerten geschrieben
+  // (Gegenlesen des Merges, 24.11.2026). Das return bleibt deshalb unbedingt.
   try {
     var _lsG = _gsListeLesen('gs_gardens');
     if (_lsG && _lsG.length) {
-      _gsListeEinspielen('gs_gardens', _lsG);
+      gardens = _gsSiebListe(_lsG, 'g_');
       var _lsP = _gsListeLesen('gs_plantings');
-      if (_lsP && _lsP.length && (!Array.isArray(plantings) || !plantings.length)) _gsListeEinspielen('gs_plantings', _lsP);
-      if (Array.isArray(gardens) && gardens.length) return;
+      if (_lsP && _lsP.length && (!Array.isArray(plantings) || !plantings.length)) plantings = _gsSiebListe(_lsP, 'pl_');
+      return;
     }
   } catch (_) {}
   const now = new Date().toISOString();

@@ -436,9 +436,21 @@ const FAELLE = [
           await new Promise(res => setTimeout(res, 400));
           const mc = document.getElementById('modal-content');
           const t = mc ? mc.textContent : '';
-          return { da: !!mc, pw: window.__pwned, fremd: mc ? mc.querySelectorAll('img, b, i, u, s').length : -1,
+          const erst = { da: !!mc, pw: window.__pwned, fremd: mc ? mc.querySelectorAll('img, b, i, u, s').length : -1,
             em: mc ? mc.querySelectorAll('em').length : -1,
             text: /<img src=x onerror=/.test(t) && /Solanum <b>lyco<\/b>/.test(t) && /<u>April<\/u>/.test(t) && /<s>Basilikum<\/s>/.test(t) };
+          // Die KI liefert das Feld auch als TEXT statt als Liste (das Schema verlangt eine Liste,
+          // halten tut es niemand): das Fenster muss trotzdem aufgehen (main hatte [].concat;
+          // beim Aufloesen des Merges verloren und wiederhergestellt, Gegenlesen 24.11.2026).
+          try { if (typeof gsGardenScanCloseDetail === 'function') gsGardenScanCloseDetail(); } catch (_) {}
+          window._gsGardenScan.analysis.recommended_plants[0].incompatible_plants = 'Kartoffel, Fenchel';
+          window._gsGardenScan.analysis.recommended_plants[0].companion_plants = 'Basilikum';
+          let fehler = null;
+          try { gsGardenScanShowPlant(0); } catch (e) { fehler = e.message; }
+          await new Promise(res => setTimeout(res, 300));
+          const mc2 = document.getElementById('modal-content');
+          erst.textFeld = { fehler, ok: !!mc2 && /Kartoffel, Fenchel/.test(mc2.textContent) && /Basilikum/.test(mc2.textContent) };
+          return erst;
         } finally { window._gsGardenScan = alt; try { if (typeof gsGardenScanCloseDetail === 'function') gsGardenScanCloseDetail(); } catch (_) {} try { closeModal('detail-modal'); } catch (_) {} delete window.__pwned; }
       });
       if (r.fehlt) return { ok: false, warum: 'gsGardenScanShowPlant fehlt' };
@@ -447,7 +459,8 @@ const FAELLE = [
       if (r.fremd) return { ok: false, warum: r.fremd + ' Element(e) aus der KI-Antwort im Dokument (img/b/i/u/s)' };
       if (!r.text) return { ok: false, warum: 'die Werte stehen nicht als sichtbarer Text da — ein Escaper, der den Text verschluckt, waere auch „sicher"' };
       if (r.em !== 1) return { ok: false, warum: 'der lateinische Name steht nicht mehr kursiv da (' + r.em + ' <em>)' };
-      return { ok: true, info: 'fuenf Felder mit Tags → 0 fremde Elemente, alles als Text sichtbar · lat. Name weiter kursiv (das <em> setzt die Ausgabe)' };
+      if (!r.textFeld || !r.textFeld.ok) return { ok: false, warum: 'ein KI-Feld als TEXT statt Liste: das Fenster zeigt es nicht (' + JSON.stringify(r.textFeld) + ')' };
+      return { ok: true, info: 'fuenf Felder mit Tags → 0 fremde Elemente, alles als Text sichtbar · lat. Name weiter kursiv (das <em> setzt die Ausgabe) · ein Feld als Text statt Liste: Fenster geht auf' };
     },
   },
   {
