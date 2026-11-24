@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-24 · **Branch**: `main` · **Version**: `v33.75` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
+**Stand**: 2026-11-24 · **Branch**: `main` · **Version**: `v33.76` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
 
 ---
 
@@ -16,15 +16,24 @@
 
 **Auftrag:** die Punkte 1–4 aus der Prüfung von #347 (Koordinator-Liste vom 24.11.2026), gemessen vor dem Bau.
 
-**Gemessen** (26 Sätze, eigene Pflanzen Lilli = Maiglöckchen, Basi, Hecke = Eibe, Olli = Oleander): 5 von 13 Zusagen über giftige
-Arten kamen ohne Warnung durch — „Tollkirschen kannst du essen.", „Die Blätter des Gefleckten Schierlings sind essbar.", „Ja,
-Herbstzeitlosen kannst du roh essen.", „Ja, Oleanderblätter sind essbar." und „Kann ich Tollkirschen essen?" → „Ja, die kannst du
-essen." (`_gsArtenTreffer` sucht ganze Namen). 10 von 13 harmlosen Sätzen warnten: Pflegesätze („Lilli geniesst die Morgensonne.",
-„Du kannst Lilli bedenkenlos zurückschneiden." — „geniess", „bedenkenlos", „unbedenklich" galten allein als Zusage) und
-Gegensatz-Sätze („Basilikum ist essbar, das Maiglöckchen hingegen ist sehr giftig."). Dazu: die Gegenprobe prüfte nur zwei eigene
-Pflanzen einer Frage (`GS_LINA_DETAIL_PFLANZEN`, gedacht für die Detailzeilen), „die Pflanze im Wohnzimmer" löste nichts auf, und
-die drei Schreiber ins Cloud-Tagebuch (Schädlings-Scanner, Dünge-Coach, Tagebuch-Formular) legten nichts in den Spiegel, den Lina
-liest — ein eben notierter Schädling kam erst nach einem Neustart an, und „kein Schädling" stand als geprüft da.
+**Gemessen** — dieselben Sätze vorher (v33.76 ohne Lina 11, `b3f6a03`) und nachher, mit eigenen Pflanzen Lilli = Maiglöckchen,
+Basi = Basilikum, Hecke = Eibe, Olli = Oleander und einer Tollkirsche im Garten „Balkon"; jeder Satz steht in `sensor_check` „Lina 11":
+
+| Gruppe | soll | vorher | nachher |
+|---|---|---|---|
+| Mehrzahl, Fall, Zusammensetzung („Tollkirschen kannst du essen.", „des Gefleckten Schierlings", „Oleanderblätter", „Kann ich Tollkirschen essen?") | warnen | 1 von 5 | 5 von 5 |
+| drei eigene Pflanzen in einer Frage, „Pflanze im Wohnzimmer", „auf dem Balkon", „Lilli auch.", „Lilli ist nicht giftig, … dagegen" | warnen | 1 von 5 | 5 von 5 |
+| Zusagen, die schon vorher warnten (v33.32-Sätze in vier Sprachen, „wie Bärlauch", „aber gekocht" …) | warnen | 15 von 15 | 15 von 15 |
+| giftige Lebensmittel („Ja, X kannst du essen.": Kirschlorbeer, Eiben, Efeu, Fingerhut, Tollkirschen, Herbstzeitlosen, Maiglöckchen, Oleanderblätter) | warnen | 4 von 8 | 8 von 8 |
+| Pflegesätze („geniesst die Morgensonne", „bedenkenlos zurückschneiden", „Dünger … unbedenklich" …) | still | 7 von 11 warnten | 0 von 11 |
+| Gegensatz-Sätze (hingegen, jedoch, während ×2, dagegen) | still | 4 von 5 warnten | 0 von 5 |
+| harmlose Lebensmittel und Wildkräuter (Holunderblüten, Mohnsamen, Bärlauch, Giersch … 28) und zwei Kräuter-Sätze | still | 0 von 30 | 0 von 30 |
+
+**Falsch-negativ nimmt nicht zu:** keine Zusage, die vorher warnte, ist still geworden (15 von 15; dazu die älteren Fälle in
+`sensor_check` — v33.32-Zusagen, Familien-Zug, die vier Löcher, Einblick ehrlich — alle grün). Dazu kamen die Lücken: die Gegenprobe
+prüfte nur zwei eigene Pflanzen einer Frage (`GS_LINA_DETAIL_PFLANZEN`, gedacht für die Detailzeilen), und die drei Schreiber ins
+Cloud-Tagebuch legten nichts in den Spiegel, den Lina liest — ein eben notierter Schädling kam erst nach einem Neustart an, und
+„kein Schädling" stand als geprüft da.
 
 **Gebaut:** EIN Leser für Frage und Antwort, `_gsLinaGiftGenannt`: die giftigen Arten (Stufe ≥ 3 an der Art, `_gsLinaGiftArten`,
 198 Arten) als Muster mit Mehrzahl, Fällen, Adjektiv-Endungen, „…blätter/…beeren" und ohne Bindestrich; ein Name zählt nur, wenn
@@ -17444,9 +17453,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.75` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.74) · SW-Cache `gs-v33.75` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.76` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.75) · SW-Cache `gs-v33.76` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **103'379 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.75; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **602 Einträge** — mit dem Parser gezählt (24.11.2026, v33.75); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.54).
+- **Frontend:** `index.html` **103'529 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.76; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **602 Einträge** — mit dem Parser gezählt (24.11.2026, v33.75); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.54).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **48** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.72: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 48** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (jv). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
