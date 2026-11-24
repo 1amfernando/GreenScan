@@ -22675,62 +22675,108 @@ function gsInitDynamicFacts(){
 }
 
 
-var _wCache={};
+var _wCache={}, _wMeta={};
+// ── Scanner 12 (24.11.2026): das Bild einer Art wird an EINER Stelle geholt ───────────────
+// Zwei Anzeigen fragen „welches Bild zeigt diese Art?": die Artenansicht (gsLoadSpeciesImage →
+// gsLoadWikiImage) und der Vergleich im Scan-Ergebnis (gsScanVergleichOeffnen). Geholt wird hier,
+// jede Anzeige zeichnet selbst. Ergebnis: {src, seite, datei} oder null.
+// Zwei Regeln: (1) ein Bild kommt nur aus dem Bildlager von Wikimedia (upload.wikimedia.org) —
+// die Antwort ist fremde Eingabe; (2) ein NETZFEHLER wird nicht als „kein Bild" gemerkt (bis
+// v33.69 tat er das: wer ohne Empfang eine Art öffnete, sah sie bis zum Neuladen ohne Bild).
+// Gemerkt wird nur, was Wikipedia selbst sagt: kein Artikel (404) oder kein Bild.
+function _gsWikiBildHolen(lat){
+  lat = String(lat || '').trim();
+  if (!lat || _wCache[lat] === 'none') return Promise.resolve(null);
+  if (_wCache[lat]) { var m0 = _wMeta[lat] || {}; return Promise.resolve({ src: _wCache[lat], seite: m0.seite || null, datei: m0.datei || null }); }
+  var name = lat.split(' ').slice(0, 2).join(' ');
+  return (window._gsFetch || fetch)('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(name), {}, 8000)
+    .then(function (r) {
+      if (!r || !r.ok) { if (r && r.status === 404) _wCache[lat] = 'none'; return null; }
+      return r.json().then(function (d) {
+        var src = (d && d.thumbnail && typeof d.thumbnail.source === 'string') ? d.thumbnail.source.replace(/\/\d+px-/, '/400px-') : null;
+        if (src && src.indexOf('https://upload.wikimedia.org/') !== 0) src = null;
+        _wCache[lat] = src || 'none';
+        if (!src) return null;
+        var meta = { seite: _gsWikiSeite(d), datei: _gsWikiDateiSeite(src) };
+        _wMeta[lat] = meta;
+        return { src: src, seite: meta.seite, datei: meta.datei };
+      });
+    })
+    .catch(function () { return null; });
+}
+// Die Artikelseite aus der Antwort — nur eine Adresse auf en.wikipedia.org, sonst null.
+function _gsWikiSeite(d) {
+  var u = d && d.content_urls && d.content_urls.desktop && d.content_urls.desktop.page;
+  u = (typeof u === 'string') ? u : '';
+  return u.indexOf('https://en.wikipedia.org/wiki/') === 0 ? u.replace(/["'<>\\\s]/g, '') : null;
+}
+// Die DATEISEITE eines Bildes (dort stehen Urheber und Lizenz — ein Bild von Wikimedia ist frei,
+// aber nicht ohne Nachweis). Aus …/wikipedia/commons/thumb/a/ab/Name.jpg/400px-Name.jpg wird
+// https://commons.wikimedia.org/wiki/File:Name.jpg; ein Bild aus der englischen Wikipedia selbst
+// bekommt deren Dateiseite. Alles andere: null (dann verweist der Nachweis auf den Artikel).
+function _gsWikiDateiSeite(src) {
+  var m = /^https:\/\/upload\.wikimedia\.org\/wikipedia\/(commons|en)\/(?:thumb\/)?[0-9a-f]\/[0-9a-f]{2}\/([^\/?#]+)/.exec(String(src || ''));
+  if (!m) return null;
+  var datei = m[2];
+  try { datei = decodeURIComponent(datei); } catch (_) { return null; }
+  return (m[1] === 'commons' ? 'https://commons.wikimedia.org/wiki/File:' : 'https://en.wikipedia.org/wiki/File:') + encodeURIComponent(datei);
+}
 function gsLoadWikiImage(lat,cid){
   if(!lat||!cid) return;
   var el=document.getElementById(cid);
   if(!el) return;
   if(_wCache[lat]==='none') return;
-  if(_wCache[lat]){
+  var zeichne=function(c, src, nachSchimmer){
     var img=document.createElement('img');
-    img.src=_wCache[lat]; img.alt='';
+    img.src=src; img.alt='';
     img.style.cssText='width:100%;height:160px;object-fit:cover;border-radius:var(--r-md);display:block;';
-    img.onerror=function(){el.style.display='none';};
-    el.innerHTML=''; el.appendChild(img); return;
-  }
+    img.onerror=function(){c.style.display='none';};
+    if(nachSchimmer) c.style.cssText='';
+    c.innerHTML=''; c.appendChild(img);
+  };
+  if(_wCache[lat]){ zeichne(el, _wCache[lat], false); return; }
   el.style.cssText='width:100%;height:120px;background:var(--surface2);border-radius:var(--r-md);animation:shimmer 1.5s ease infinite;background-image:linear-gradient(90deg,var(--surface2) 25%,var(--border) 50%,var(--surface2) 75%);background-size:200%;';
-  (window._gsFetch || fetch)('https://en.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(lat.split(' ').slice(0,2).join(' ')), {}, 8000)
-    .then(function(r){return r.json();})
-    .then(function(d){
-      var src=d.thumbnail?d.thumbnail.source.replace(/\/\d+px-/,'/400px-'):null;
-      _wCache[lat]=src||'none';
-      var c=document.getElementById(cid);
-      if(!c) return;
-      if(src){
-        var img=document.createElement('img');
-        img.src=src; img.alt='';
-        img.style.cssText='width:100%;height:160px;object-fit:cover;border-radius:var(--r-md);display:block;';
-        img.onerror=function(){c.style.display='none';};
-        c.style.cssText=''; c.innerHTML=''; c.appendChild(img);
-      } else c.style.display='none';
-    })
-    .catch(function(){_wCache[lat]='none'; var c=document.getElementById(cid); if(c) c.style.display='none';});
+  _gsWikiBildHolen(lat).then(function(w){
+    var c=document.getElementById(cid);
+    if(!c) return;
+    if(w) zeichne(c, w.src, true); else c.style.display='none';
+  });
 }
 
 // ══ v29.26 Block A: ARTEN-BILD (Community-Beitrag bevorzugt, Wikipedia-Fallback) ══
 var _spImgCache = {};
+// Scanner 12 (24.11.2026): die freigegebenen Community-Fotos einer Art an EINER Stelle holen — die
+// Artenansicht (gsLoadSpeciesImage) und der Vergleich im Scan-Ergebnis zeichnen sie nur. Immer eine
+// Liste (nie ein Wurf). v33.59 (Sicherheit): fn_contribute_species_image nimmt jede http(s)-Adresse
+// an — gezeigt wird nur, was im eigenen Speicher liegt (sonst zaehlt ein fremder Host jeden Besuch
+// mit und kann das Bild nach der Freigabe austauschen). Eine abgelehnte oder gescheiterte Abfrage
+// wird nicht als „keine Fotos" gemerkt.
+async function _gsCommunityBilderHolen(spId){
+  if (!spId || typeof sbFetch !== 'function') return [];
+  var rows = _spImgCache[spId];
+  if (!rows) {
+    var res = null;
+    try {
+      res = await sbFetch('/rest/v1/rpc/fn_species_images', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ p_species_id: spId })
+      });
+    } catch (_) { res = null; }
+    if (!res || res.error) return [];
+    rows = (Array.isArray(res.data) ? res.data : []).filter(function(rw){ return rw && _gsFremdBild(rw.url); });
+    _spImgCache[spId] = rows;
+  }
+  // v33.59: nur Fotos aus dem eigenen Speicher — auch aus einem Zwischenspeicher, den jemand anders befuellt hat
+  return (Array.isArray(rows) ? rows : []).filter(function(r){ return r && _gsFremdBild(r.url); });
+}
 async function gsLoadSpeciesImage(spId, lat, cid){
   if (!cid) return;
   var el = document.getElementById(cid);
   if (!el) return;
-  // 1) Community-Bild (approved) via fn_species_images
+  // 1) Community-Bild (approved) via fn_species_images — geholt in _gsCommunityBilderHolen
   try {
     if (typeof sbFetch === 'function') {
-      var rows = _spImgCache[spId];
-      if (!rows) {
-        var res = await sbFetch('/rest/v1/rpc/fn_species_images', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ p_species_id: spId })
-        });
-        rows = (res && res.data) || [];
-        // v33.59 (Sicherheit): fn_contribute_species_image nimmt jede http(s)-Adresse an —
-        // gezeigt wird nur, was im eigenen Speicher liegt (sonst zaehlt ein fremder Host
-        // jeden Besuch mit und kann das Bild nach der Freigabe austauschen).
-        rows = (Array.isArray(rows) ? rows : []).filter(function(rw){ return rw && _gsFremdBild(rw.url); });
-        _spImgCache[spId] = rows;
-      }
-      // v33.59: nur Fotos aus dem eigenen Speicher — sonst leere <img>-Kaesten statt Wikipedia-Rueckfall
-      rows = (Array.isArray(rows) ? rows : []).filter(function(r){ return r && _gsFremdBild(r.url); });
+      var rows = await _gsCommunityBilderHolen(spId);
       if (rows && rows.length) {
         var primary = rows.filter(function(r){ return r.is_primary; })[0] || rows[0];
         var c = document.getElementById(cid);
@@ -36108,6 +36154,264 @@ function gsPickAlternative(altKey) {
   showProfileToast(_gsSatz('✓ Bestimmung auf "{1}" geändert', alt.name));
 }
 
+// ── Hauptfunktionen · Scanner 12 (24.11.2026): „Mit Bildern vergleichen" ─────────────────────
+//
+// Eine Bestimmung prüfen heisst: das eigene Foto neben ein Bild der genannten Art halten — und
+// neben die Alternativen. Bilder gab es bis hierher nur in der Artenansicht und im Verlauf, nicht
+// dort, wo man die Bestimmung liest. Der Vergleich zeigt dein Foto, die erkannte Art und bis zu
+// drei Alternativen, je mit Referenzbild (freigegebenes Community-Foto, sonst Wikipedia), mit der
+// Marke aus dem Streifen (_gsAltMarke) und dem Unterscheidungsmerkmal; „Das ist es" wählt wie ein
+// Tipp auf die Alternative (gsPickAlternative).
+//
+// Drei Regeln:
+// (1) Geladen wird erst auf Antippen — die Datenschutzerklärung nennt Wikipedia „wenn du eine Art
+//     öffnest"; ein Bild bei JEDEM Scan wäre ein neuer Anlass.
+// (2) Was der Vergleich zeigt, wird beim ZEICHNEN der Karte gemerkt (_gsVglMerken), nicht beim
+//     Antippen — dazwischen kann ein anderer Scan laufen; dann gehört dessen Foto nicht hierher.
+// (3) Jede Öffnung hat eine Nummer; ein Bild, das für eine frühere ankommt, wird verworfen
+//     (CLAUDE.md §3.6: eine Antwort gehört ihrem Vorgang). Die Kasten-Ids tragen die Nummer.
+// Prüfstand: scan_check VG1–VG7.
+var _gsVglStand = null, _gsVglNr = 0, _gsVglOffen = 0;
+function _gsVglMerken(r, foto, t, alts) {
+  r = r || {};
+  _gsVglStand = {
+    scanId: r._scanId || null,
+    foto: (typeof foto === 'string' && /^data:image\//.test(foto)) ? foto : '',
+    haupt: {
+      name: String(r.name || ''), latin: String(r.latin || ''),
+      conf: r._ohneKiZahl ? null : (Number(r.confidence) || 0),
+      gewaehlt: !!r._userPicked,
+      marke: t ? { sym: String(t.sym || ''), label: String(t.label || ''), bg: String(t.bg || ''), color: String(t.color || '') } : null,
+      merkmale: Array.isArray(r.diagnostic_features) ? r.diagnostic_features.filter(Boolean).slice(0, 3).map(String) : []
+    },
+    alts: (Array.isArray(alts) ? alts : []).slice(0, 3)
+  };
+}
+function gsScanVergleichOeffnen() {
+  var st = _gsVglStand;
+  var akt = (typeof _lastScanResult !== 'undefined') ? _lastScanResult : null;
+  if (!st || !akt || (st.scanId && akt._scanId && st.scanId !== akt._scanId)) {
+    try { gsToast(_gsSatz('Zu diesem Ergebnis gibt es nichts mehr zu vergleichen.'), 'warning', 4000); } catch (_) {}
+    return false;
+  }
+  try { var schon = document.getElementById('gs-vergleich'); if (schon) gsDismissOverlay(schon); } catch (_) {}
+  var nr = ++_gsVglNr;
+  _gsVglOffen = nr;
+  var w = document.createElement('div');
+  w.id = 'gs-vergleich';
+  w.setAttribute('role', 'dialog');
+  w.setAttribute('aria-modal', 'true');
+  w.setAttribute('aria-label', _gsSatz('Mit Bildern vergleichen'));
+  w.style.cssText = 'position:fixed;inset:0;z-index:var(--z-image-overlay,99999);background:var(--g-bg);display:flex;flex-direction:column;';
+  var kopf = document.createElement('div');
+  kopf.style.cssText = 'flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 8px;background:var(--card);border-bottom:1px solid var(--border);';
+  var zu = document.createElement('button');
+  zu.type = 'button';
+  zu.setAttribute('data-gs-close', '1');
+  zu.setAttribute('aria-label', _gsSatz('Schliessen'));
+  zu.textContent = '✕';
+  zu.style.cssText = 'flex:0 0 44px;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-lg);line-height:1;cursor:pointer;font-family:inherit;';
+  var titel = document.createElement('div');
+  titel.style.cssText = 'font-weight:800;font-size:var(--fs-lg);color:var(--text);';
+  titel.textContent = '🔍 ' + _gsSatz('Mit Bildern vergleichen');
+  kopf.appendChild(zu);
+  kopf.appendChild(titel);
+  w.appendChild(kopf);
+  // Dein Foto steht fest über den Karten — so bleibt es beim Blättern neben jedem Referenzbild.
+  if (st.foto) {
+    var band = document.createElement('div');
+    band.style.cssText = 'flex:0 0 auto;padding:8px 12px;background:var(--g-bg);border-bottom:1px solid var(--border);';
+    var bl = document.createElement('div');
+    bl.className = 'sr2-card-lbl';
+    bl.textContent = '📷 ' + _gsSatz('Dein Foto');
+    var bi = document.createElement('img');
+    bi.alt = _gsSatz('Dein Foto');
+    bi.style.cssText = 'display:block;width:100%;height:130px;object-fit:contain;border-radius:var(--r-md);background:var(--surface2);cursor:zoom-in;';
+    bi.addEventListener('click', function () { try { gsFotoAnsicht(bi.src, bi.alt); } catch (_) {} });
+    bi.src = st.foto;
+    band.appendChild(bl);
+    band.appendChild(bi);
+    w.appendChild(band);
+  }
+  var feld = document.createElement('div');
+  feld.style.cssText = 'flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:12px 12px calc(env(safe-area-inset-bottom,0px) + 18px);';
+  var liste = [{ art: st.haupt, haupt: true }];
+  st.alts.forEach(function (e, i) {
+    var a = e && window._gsAltCandidates && window._gsAltCandidates[e.key];
+    if (a) liste.push({ art: a, key: e.key, marke: e.marke || null, i: i + 1 });
+  });
+  liste.forEach(function (k, idx) { feld.appendChild(_gsVglKarte(nr, idx, k)); });
+  var fuss = document.createElement('div');
+  fuss.style.cssText = 'font-size:var(--fs-xs);color:var(--muted);line-height:1.5;margin-top:4px;padding:0 2px;';
+  fuss.textContent = _gsSatz('Bilder: freigegebene Community-Fotos, sonst Wikipedia. Geladen erst jetzt, weil du den Vergleich geöffnet hast — Wikipedia erfährt dabei nur den Artnamen.');
+  feld.appendChild(fuss);
+  w.appendChild(feld);
+  document.body.appendChild(w);
+  zu.addEventListener('click', function () { gsDismissOverlay(w); });
+  gsRegisterOverlay(w, function () { if (_gsVglOffen === nr) _gsVglOffen = 0; try { gsReleaseFocusTrap(w); } catch (_) {} });
+  try { gsTrapFocus(w); } catch (_) {}
+  // Regel 1: erst jetzt laden
+  liste.forEach(function (k, idx) {
+    var sp = null;
+    try { sp = (typeof gsMatchScanToDb === 'function') ? gsMatchScanToDb(k.art.name, k.art.latin) : null; } catch (_) { sp = null; }
+    _gsVglBildLaden(nr, idx, sp, (sp && sp.lat) || k.art.latin || '', k.art.name || '');
+  });
+  return true;
+}
+function _gsVglKarte(nr, idx, k) {
+  var a = k.art || {};
+  var karte = document.createElement('div');
+  karte.className = 'sr2-card gs-vgl-karte';
+  karte.setAttribute('data-vgl', k.haupt ? 'haupt' : ('alt' + k.i));
+  var lbl = document.createElement('div');
+  lbl.className = 'sr2-card-lbl';
+  var conf = k.haupt ? a.conf : (Number(a.confidence) || 0);
+  lbl.textContent = (k.haupt ? (a.gewaehlt ? _gsSatz('Deine Wahl') : _gsSatz('Erkannt')) : _gsSatz('Alternative {1}', k.i)) +
+    ((typeof conf === 'number' && isFinite(conf)) ? ' · ' + conf + ' %' : '');
+  karte.appendChild(lbl);
+  var reihe = document.createElement('div');
+  reihe.style.cssText = 'display:flex;gap:10px;align-items:flex-start;';
+  var bild = document.createElement('div');
+  bild.id = 'gs-vgl-' + nr + '-' + idx;
+  bild.className = 'gs-vgl-bild';
+  bild.setAttribute('role', 'status');
+  bild.style.cssText = 'flex:0 0 44%;aspect-ratio:1/1;border-radius:var(--r-md);background:var(--surface2);overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;box-sizing:border-box;color:var(--text2);font-size:var(--fs-xs);line-height:1.4;';
+  bild.textContent = _gsSatz('Bild wird geladen …');
+  var text = document.createElement('div');
+  text.style.cssText = 'flex:1;min-width:0;';
+  var name = document.createElement('div');
+  name.className = 'gs-vgl-name';
+  name.style.cssText = 'font-weight:800;font-size:var(--fs-md);color:var(--text);line-height:1.35;overflow-wrap:anywhere;';
+  name.textContent = a.name || _gsSatz('Unbekannt');
+  text.appendChild(name);
+  if (a.latin) {
+    var lat = document.createElement('div');
+    lat.style.cssText = 'font-style:italic;font-size:var(--fs-sm);color:var(--text2);overflow-wrap:anywhere;';
+    lat.textContent = a.latin;
+    text.appendChild(lat);
+  }
+  var marke = null;
+  if (k.haupt && a.marke) {
+    marke = document.createElement('span');
+    marke.className = 'scan-tox-badge';
+    marke.style.background = a.marke.bg;
+    marke.style.color = a.marke.color;
+    marke.textContent = (a.marke.sym ? a.marke.sym + ' ' : '') + a.marke.label;
+  } else if (!k.haupt && k.marke) {
+    marke = document.createElement('span');
+    marke.className = k.marke.klasse;
+    marke.textContent = k.marke.text;
+  }
+  if (marke) {
+    var mz = document.createElement('div');
+    mz.className = 'gs-vgl-marke';
+    mz.style.cssText = 'margin-top:4px;';
+    mz.appendChild(marke);
+    text.appendChild(mz);
+  }
+  var mm = k.haupt ? (a.merkmale || []).join(' · ') : String(a.distinguishing_feature || '');
+  if (mm) {
+    var md = document.createElement('div');
+    md.className = 'gs-vgl-merkmal';
+    md.style.cssText = 'margin-top:6px;font-size:var(--fs-sm);color:var(--text2);line-height:1.45;overflow-wrap:anywhere;';
+    md.textContent = (k.haupt ? _gsSatz('Im Foto gesehen:') + ' ' : '→ ') + mm;
+    text.appendChild(md);
+  }
+  var nw = document.createElement('div');
+  nw.id = 'gs-vgl-' + nr + '-' + idx + '-q';
+  nw.className = 'gs-vgl-nachweis';
+  nw.style.cssText = 'margin-top:6px;font-size:var(--fs-xs);color:var(--text2);overflow-wrap:anywhere;';
+  text.appendChild(nw);
+  reihe.appendChild(bild);
+  reihe.appendChild(text);
+  karte.appendChild(reihe);
+  if (k.haupt) {
+    var ist = document.createElement('div');
+    ist.style.cssText = 'margin-top:8px;font-size:var(--fs-sm);font-weight:700;color:var(--text2);';
+    ist.textContent = '✓ ' + _gsSatz('Aktuelle Bestimmung');
+    karte.appendChild(ist);
+  } else {
+    var knopf = document.createElement('button');
+    knopf.type = 'button';
+    knopf.className = 'sr2-cta sr2-cta-secondary gs-vgl-wahl';
+    knopf.style.cssText = 'width:100%;margin-top:10px;';
+    knopf.textContent = _gsSatz('Das ist es: {1}', a.name || '');
+    knopf.addEventListener('click', function () { gsScanVergleichWaehlen(k.key); });
+    karte.appendChild(knopf);
+  }
+  return karte;
+}
+async function _gsVglBildLaden(nr, idx, sp, latin, name) {
+  var rows = [];
+  try { rows = sp ? await _gsCommunityBilderHolen(sp.id) : []; } catch (_) { rows = []; }
+  if (nr !== _gsVglOffen) return;                 // Regel 3: dieser Vergleich ist zu oder abgelöst
+  var q = null;
+  if (rows.length) {
+    var p = rows.filter(function (x) { return x && x.is_primary; })[0] || rows[0];
+    q = { src: _gsFremdBild(p.url), nachweis: '📸 ' + (p.attribution ? String(p.attribution) : _gsSatz('Community-Foto')), href: null };
+  } else if (latin) {
+    var wb = null;
+    try { wb = await _gsWikiBildHolen(latin); } catch (_) { wb = null; }
+    if (nr !== _gsVglOffen) return;
+    if (wb && wb.src) q = { src: wb.src, nachweis: '📷 ' + _gsSatz('Wikipedia — Urheber und Lizenz'), href: wb.datei || wb.seite || null };
+  }
+  var el = document.getElementById('gs-vgl-' + nr + '-' + idx);
+  if (!el) return;
+  if (!q || !q.src) {
+    el.textContent = (navigator.onLine === false) ? _gsSatz('Ohne Empfang kein Vergleichsbild.') : _gsSatz('Kein Vergleichsbild gefunden.');
+    return;
+  }
+  var img = document.createElement('img');
+  img.alt = _gsSatz('Vergleichsbild: {1}', name || latin);
+  img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in;';
+  // Laedt das Bild nicht, bleibt das <img> (ausgeblendet, mit seiner Adresse) und ein Satz steht daneben —
+  // kein zerbrochenes Bildsymbol.
+  img.addEventListener('error', function () {
+    try {
+      img.style.display = 'none';
+      var t = document.createElement('span');
+      t.className = 'gs-vgl-bildfehler';
+      t.textContent = (navigator.onLine === false) ? _gsSatz('Ohne Empfang kein Vergleichsbild.') : _gsSatz('Dieses Bild liess sich nicht laden.');
+      el.style.padding = '6px';
+      el.appendChild(t);
+    } catch (_) {}
+  });
+  img.addEventListener('click', function () { try { gsFotoAnsicht(img.src, img.alt); } catch (_) {} });
+  el.textContent = '';
+  el.style.padding = '0';
+  el.removeAttribute('role');
+  el.appendChild(img);
+  img.src = q.src;
+  var nw = document.getElementById('gs-vgl-' + nr + '-' + idx + '-q');
+  if (nw) {
+    var ziel = q.href ? _gsSafeLink(q.href) : '';
+    if (ziel) {
+      var ln = document.createElement('a');
+      ln.href = ziel;
+      ln.target = '_blank';
+      ln.rel = 'noopener';
+      ln.style.cssText = 'color:var(--g-dark);';
+      ln.textContent = q.nachweis;
+      nw.appendChild(ln);
+    } else {
+      nw.textContent = q.nachweis;
+    }
+  }
+}
+// „Das ist es" im Vergleich: dasselbe wie ein Tipp auf die Alternative im Streifen — und nur,
+// solange die Karte, zu der der Vergleich gehört, noch steht.
+function gsScanVergleichWaehlen(key) {
+  var w = document.getElementById('gs-vergleich');
+  var gibt = !!(key && window._gsAltCandidates && window._gsAltCandidates[key]);
+  if (w) { try { gsDismissOverlay(w); } catch (_) { try { w.remove(); } catch (__) {} } }
+  if (!gibt) {
+    try { gsToast(_gsSatz('Dieses Ergebnis hat sich inzwischen geändert.'), 'warning', 4000); } catch (_) {}
+    return false;
+  }
+  gsPickAlternative(key);
+  return true;
+}
+
 // ── Hauptfunktionen · Scanner 1–3: EINE Funktion fuer „es ist eine andere Art" ──
 //
 // Zwei Wege fuehren hierher: eine Alternative antippen (`wahl`) und eine
@@ -37761,6 +38065,18 @@ function _gsAltTox(a) {
   if (vomModell == null && ausDB == null) return null;
   return Math.max(vomModell == null ? -1 : vomModell, ausDB == null ? -1 : ausDB);
 }
+// Die Marke am Namen einer Alternative — EINE Regel fuer den Streifen im Ergebnis und den Vergleich
+// (Scanner 12). Die Giftigkeit steht am Namen, nicht in einer Fussnote. „essbar" ist eine Zusage:
+// sie kommt aus der LISTE (essbar und ungiftig, geprueft), nie allein aus dem Feld der KI — gemessen
+// am 11.11.2026: „Zzz Fantasiekraut 🍽️ essbar" (die Art gibt es nicht) und „Edelweiss 🍽️ essbar"
+// (Liste: nicht essbar). scan_check V8. Rueckgabe {klasse, text} (feste Texte) oder null.
+function _gsAltMarke(a) {
+  if (!a) return null;
+  var atox = _gsAltTox(a);
+  if (atox != null && atox >= 3) return { klasse: 'sr2-alt-gift', text: atox >= 5 ? '\u2620\ufe0f t\u00f6dlich' : atox >= 4 ? '\u2620\ufe0f stark giftig' : '\u26a0\ufe0f giftig' };
+  if (atox === 0 && a.edible === true && _gsListeZumEssen({ name: a.name, latin: a.latin }).zustand === 'essbar') return { klasse: 'sr2-alt-ok', text: '\ud83c\udf7d\ufe0f essbar' };
+  return null;
+}
 // Die gefaehrlichste der ersten drei Alternativen.
 function _gsAltGefahr(res) {
   var g = 0;
@@ -37974,6 +38290,12 @@ function showScanResult(r, opts){
         '<div style="margin-top:3px;"><span class="scan-tox-badge" style="background:' + t.bg + ';color:' + t.color + ';">' + t.sym + ' ' + esc(t.label) + '</span></div>' +
       '</div>' +
     '</div>' +
+    // Scanner 12: die Bestimmung am Bild pruefen — Referenzbilder erst auf Antippen (Datenschutz:
+    // Wikipedia erfaehrt den Artnamen nur, „wenn du eine Art oeffnest").
+    ((r.name || r.latin)
+      ? '<button type="button" class="sr2-cta sr2-cta-secondary gs-vgl-knopf" onclick="gsScanVergleichOeffnen()" style="width:100%;margin-top:10px;">\ud83d\udd0d ' +
+          esc(_gsSatz((r.alternatives && r.alternatives.length) ? 'Mit Bildern vergleichen' : 'Mit einem Bild vergleichen')) + '</button>'
+      : '') +
   '</div>';
 
   // v23.69: Body neu strukturiert — klarer roter Faden
@@ -38317,6 +38639,7 @@ function showScanResult(r, opts){
   }
 
   // Alternative Arten (im neuen Card-Design)
+  var _vglAlts = [];   // Scanner 12: die Schluessel der Alternativen DIESER Karte, fuer den Vergleich
   if (r.alternatives && r.alternatives.length) {
     body += '<div style="margin:14px 0 8px;">' +
       '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px;padding:0 2px;">Top-Alternativen · tippen zum Wechseln</div>';
@@ -38363,19 +38686,17 @@ function showScanResult(r, opts){
       window._gsAltCandidates = window._gsAltCandidates || {};
       var altKey = 'alt_' + Date.now() + '_' + idx;
       window._gsAltCandidates[altKey] = alt;
+      // EINE Rechnung fuer die Marke — der Vergleich (Scanner 12) zeigt genau, was dieser Streifen zeigt
+      // (die rohe Antwort `a` traegt auch `toxic`, das `alt` nicht mehr hat).
+      var _marke = _gsAltMarke(a);
+      _vglAlts.push({ key: altKey, marke: _marke });
       body += '<div class="sr2-alt-card" onclick="gsPickAlternative(\'' + _gsOcStr(altKey) + '\')">' +
         '<div class="sr2-alt-emoji">' + catEmoji + '</div>' +
         '<div class="sr2-alt-info">' +
           '<div class="sr2-alt-name">' + esc(alt.name) +
-            // Die Giftigkeit steht AM NAMEN, nicht in einer Fussnote.
-            (atox != null && atox >= 3
-              ? ' <span class="sr2-alt-gift">' + (atox >= 5 ? '\u2620\ufe0f t\u00f6dlich' : atox >= 4 ? '\u2620\ufe0f stark giftig' : '\u26a0\ufe0f giftig') + '</span>'
-              // \u201eessbar" ist eine Zusage: sie kommt aus der LISTE (essbar und
-              // ungiftig, geprueft), nie allein aus dem Feld der KI. Gemessen am
-              // 11.11.2026: \u201eZzz Fantasiekraut \ud83c\udf7d\ufe0f essbar" (die Art gibt es nicht)
-              // und \u201eEdelweiss \ud83c\udf7d\ufe0f essbar" (Liste: nicht essbar). scan_check V8.
-              : (atox === 0 && a.edible === true && _gsListeZumEssen({ name: a.name, latin: a.latin }).zustand === 'essbar'
-                  ? ' <span class="sr2-alt-ok">\ud83c\udf7d\ufe0f essbar</span>' : '')) +
+            // Die Giftigkeit steht AM NAMEN, nicht in einer Fussnote — EINE Regel fuer
+            // diesen Streifen und den Vergleich (_gsAltMarke, Scanner 12).
+            (_marke ? ' <span class="' + _marke.klasse + '">' + _marke.text + '</span>' : '') +
           '</div>' +
           (alt.latin ? '<div class="sr2-alt-lat">' + esc(alt.latin) + '</div>' : '') +
           (alt.distinguishing_feature ? '<div class="sr2-alt-reason">→ ' + esc(alt.distinguishing_feature) + '</div>' : '') +
@@ -38385,6 +38706,10 @@ function showScanResult(r, opts){
     });
     body += '</div>';
   }
+
+  // Scanner 12: was der Vergleich zeigt, gehoert zu DIESER Karte (Foto, Art, Alternativen) —
+  // gemerkt beim Zeichnen, nicht beim Antippen: bis dahin kann ein anderer Scan laufen.
+  try { _gsVglMerken(r, _scanPhotoSrc, t, _vglAlts); } catch (_) {}
 
   // Nächstes Foto Empfehlung — v30.74: bei niedriger Konfidenz ein 2. Foto KOMBINIEREN (nicht nur neu scannen).
   if ((r.next_photo_hint && conf < 85) || (conf > 0 && conf < 60)) {

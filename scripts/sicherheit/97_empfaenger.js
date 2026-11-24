@@ -78,7 +78,9 @@ const HOSTS = {
   '{s}.tile.opentopomap.org': { name: 'OpenTopoMap' },
   '{s}.tile.openstreetmap.org': { name: 'OpenStreetMap' },
   'en.wikipedia.org': { name: 'Wikipedia' },
+  'upload.wikimedia.org': { name: 'Wikipedia' },   // Bildlager von Wikipedia: die Bilder der Artenansicht und des Vergleichs (seit Scanner 12 als Host im Code)
   'de.wikipedia.org': { link: 'Suche auf Wikipedia (Knopf im Scan-Ergebnis)' },
+  'commons.wikimedia.org': { link: 'Bildnachweis im Vergleich des Scan-Ergebnisses (Dateiseite mit Urheber und Lizenz, nur auf Antippen)' },
   'www.openstreetmap.org': { link: 'Fundort auf der OSM-Karte ansehen (Knopf im Scan-Ergebnis)' },
   'console.anthropic.com': { link: 'Hinweis, wo man einen eigenen Schluessel holt' },
   'dashboard.stripe.com': { link: 'Verkaeufer-Dashboard (window.open auf Knopfdruck)' },

@@ -77,6 +77,18 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     Bestimmung schliesst (ein Tipp auf den dunklen Rand genügt), bekommt einen Satz statt Stille, und „⏳ Identifiziere…"
     geht durch die Sprachschicht.
 
+12. ✅ v33.7x (`scan_check` VG1–VG7, gebaut 24.11.) — **Die Bestimmung lässt sich nicht am Bild prüfen.** Referenzbilder
+    gab es nur in der Artenansicht und im Scan-Verlauf; auf der Ergebniskarte, wo man die Bestimmung liest, keines —
+    und keines für die Alternativen. Jetzt „🔍 Mit Bildern vergleichen" unter der KI-Sicherheit: dein Foto steht fest
+    oben, darunter die erkannte Art und bis zu drei Alternativen, je mit Referenzbild (freigegebenes Community-Foto aus
+    dem eigenen Speicher, sonst Wikipedia), der Marke aus dem Streifen (`_gsAltMarke`, EINE Rechnung) und dem
+    Unterscheidungsmerkmal; „Das ist es" wählt wie ein Tipp auf die Alternative. **Geladen wird erst auf Antippen** — die
+    Datenschutzerklärung nennt Wikipedia „wenn du eine Art öffnest". Das Bild einer Art holen jetzt zwei Funktionen an
+    EINER Stelle (`_gsWikiBildHolen`, `_gsCommunityBilderHolen`); die Artenansicht zeichnet sie wie bisher. Dabei
+    behoben: ein Netzfehler galt als „kein Bild" (bis zum Neuladen blieb die Art ohne Bild), und ein Bild aus der
+    Wikipedia-Antwort wurde von jedem Host genommen (jetzt nur `upload.wikimedia.org`). Jedes Wikipedia-Bild trägt
+    seinen Nachweis (Dateiseite auf Commons: Urheber und Lizenz).
+
 ## Offen — Lina
 
 1. ✅ v33.61 — **KI fällt aus, Gerät ist online:** nur „versuch es nochmal". `getSmartAnswer` greift nur

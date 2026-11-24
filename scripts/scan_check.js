@@ -1464,6 +1464,302 @@ const FAELLE = [
       return { ok: true, info: 'unbekannt: keine Marke · Edelweiss: keine Marke · Schnittlauch: „🍽️ essbar"' };
     },
   },
+
+  // ── Scanner 12 (24.11.2026): „Mit Bildern vergleichen" ──────────────────────────────────
+  // Gemessen vorher: Referenzbilder gab es nur in der Artenansicht und im Verlauf — dort, wo man die
+  // Bestimmung liest, keines. Jeder Fall stellt Wikipedia und die Community-Fotos selbst (_gsFetch,
+  // sbFetch) und räumt danach auf; geprüft wird, was im FENSTER steht und welche Anfragen hinausgehen.
+  {
+    name: 'VG1 · Vergleich · der Knopf zeigt dein Foto, die Art und ihre Alternativen mit derselben Marke wie der Streifen — vor dem Antippen fragt niemand Wikipedia',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch, rufe = [];
+      const c = document.createElement('canvas'); c.width = c.height = 8;
+      // gezählt werden nur Anfragen an Wikipedia — über _gsFetch laufen auch sbFetch-Aufrufe (fn_achievements_bump)
+      window._gsFetch = function (u) {
+        if (/wikipedia\.org/.test(String(u))) rufe.push(String(u));
+        const n = rufe.length;
+        return Promise.resolve(new Response(JSON.stringify({ thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Bild_' + n + '.jpg/320px-Bild_' + n + '.jpg' }, content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/Bild_' + n } } }), { status: 200 }));
+      };
+      window.sbFetch = async function (pfad) { if (/fn_species_images/.test(pfad)) return { data: [], error: null }; return es.apply(this, arguments); };
+      try {
+        _wCache = {}; _wMeta = {}; _spImgCache = {};
+        window._gsLastScanB64 = c.toDataURL('image/jpeg').split(',')[1]; window._gsLastScanMt = 'image/jpeg';
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 72, toxicity: 0, description: 'x',
+          diagnostic_features: ['breite Blätter', 'weisse Doldenblüte'], alternatives: [
+          { name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 18, toxicity: 4, distinguishing_feature: 'kein Knoblauchgeruch' },
+          { name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 10, toxicity: 5, distinguishing_feature: 'Blätter ohne Stiel' },
+          // nur `toxic`, keine Zahl, nicht in der Liste: die Marke kommt allein aus der rohen Antwort
+          { name: 'Zzz Giftkraut', latin: 'Zzzus toxicus', confidence: 5, toxic: true } ] });
+        const knopf = document.querySelector('#scan-result .gs-vgl-knopf');
+        if (!knopf) return { ok: false, warum: 'kein Knopf „Mit Bildern vergleichen" im Ergebnis' };
+        const streifen = [...document.querySelectorAll('#scan-result .sr2-alt-card .sr2-alt-name')].map(e => (e.textContent || '').replace(/\s+/g, ' ').trim());
+        if (rufe.length) return { ok: false, warum: 'vor dem Antippen schon ' + rufe.length + ' Anfrage(n): ' + rufe.join(' · ') };
+        knopf.click();
+        const dlg = document.getElementById('gs-vergleich');
+        if (!dlg) return { ok: false, warum: 'der Knopf öffnet kein Fenster' };
+        await new Promise(r => setTimeout(r, 200));
+        const klagen = [];
+        const karten = [...dlg.querySelectorAll('.gs-vgl-karte')];
+        const namen = karten.map(k => k.getAttribute('data-vgl') + ':' + ((k.querySelector('.gs-vgl-name') || {}).textContent || ''));
+        if (namen.join('|') !== 'haupt:Bärlauch|alt1:Maiglöckchen|alt2:Herbstzeitlose|alt3:Zzz Giftkraut') klagen.push('Karten: ' + namen.join(' · '));
+        const foto = dlg.querySelector('img[alt="Dein Foto"]');
+        if (!foto || String(foto.getAttribute('src') || '').indexOf('data:image/jpeg;base64,' + window._gsLastScanB64) !== 0) klagen.push('dein Foto fehlt oder ist ein anderes');
+        // dieselbe Marke wie im Streifen — eine Rechnung, zwei Anzeigen
+        [1, 2, 3].forEach(i => {
+          const m = karten[i] && karten[i].querySelector('.gs-vgl-marke');
+          const mt = m ? m.textContent.trim() : '';
+          const st = streifen[i - 1] || '';
+          if (!mt || st.indexOf(mt) < 0) klagen.push('Alternative ' + i + ': Marke im Vergleich „' + mt + '", im Streifen „' + st + '"');
+        });
+        const erwartet = ['Allium ursinum', 'Convallaria majalis', 'Colchicum autumnale', 'Zzzus toxicus'];
+        const gefragt = erwartet.filter(l => rufe.some(u => u.indexOf(encodeURIComponent(l)) >= 0));
+        if (gefragt.length !== 4 || rufe.length !== 4) klagen.push('Wikipedia gefragt nach ' + gefragt.length + ' von 4 Arten, ' + rufe.length + ' Anfragen');
+        const bilder = karten.map(k => { const im = k.querySelector('.gs-vgl-bild img'); return im ? im.getAttribute('src') : ''; });
+        if (bilder.filter(b => /^https:\/\/upload\.wikimedia\.org\/.*\/400px-Bild_\d\.jpg$/.test(b)).length !== 4) klagen.push('Referenzbilder: ' + bilder.join(' · '));
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '0 Anfragen vor dem Antippen · danach 4 (je Art eine) · Karten ' + namen.join(' · ') + ' · Marken wie im Streifen (auch „nur toxic")' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
+  {
+    name: 'VG2 · Vergleich · ein Wikipedia-Bild trägt seinen Nachweis (Dateiseite mit Urheber und Lizenz) — ein Bild von einem fremden Host wird nicht gezeigt',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch;
+      window._gsFetch = function (u) {
+        const fremd = /Convallaria/.test(String(u));
+        const src = fremd ? 'https://zaehler.example/pixel.jpg' : 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Allium_ursinum_Blatt.jpg/320px-Allium_ursinum_Blatt.jpg';
+        return Promise.resolve(new Response(JSON.stringify({ thumbnail: { source: src }, content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/Allium_ursinum' } } }), { status: 200 }));
+      };
+      window.sbFetch = async function (pfad) { if (/fn_species_images/.test(pfad)) return { data: [], error: null }; return es.apply(this, arguments); };
+      try {
+        _wCache = {}; _wMeta = {}; _spImgCache = {};
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 72, toxicity: 0, description: 'x', alternatives: [
+          { name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 18, toxicity: 4 } ] });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 200));
+        const dlg = document.getElementById('gs-vergleich');
+        if (!dlg) return { ok: false, warum: 'kein Fenster' };
+        const k0 = dlg.querySelector('[data-vgl="haupt"]'), k1 = dlg.querySelector('[data-vgl="alt1"]');
+        const klagen = [];
+        const a0 = k0 && k0.querySelector('.gs-vgl-nachweis a');
+        if (!a0) klagen.push('Bärlauch: kein Bildnachweis');
+        else if (a0.getAttribute('href') !== 'https://commons.wikimedia.org/wiki/File:Allium_ursinum_Blatt.jpg') klagen.push('Bärlauch: Nachweis zeigt auf ' + a0.getAttribute('href'));
+        if (a0 && a0.getAttribute('rel') !== 'noopener') klagen.push('Nachweis ohne rel=noopener');
+        const im1 = k1 && k1.querySelector('.gs-vgl-bild img');
+        if (im1) klagen.push('Maiglöckchen: ein Bild von ' + im1.getAttribute('src') + ' wird gezeigt — nur upload.wikimedia.org ist erlaubt');
+        const t1 = k1 ? (k1.querySelector('.gs-vgl-bild') || {}).textContent || '' : '';
+        if (!/Kein Vergleichsbild/.test(t1)) klagen.push('Maiglöckchen: statt eines Satzes steht „' + t1.trim() + '"');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Nachweis → commons File:Allium_ursinum_Blatt.jpg · fremder Host: kein Bild, „' + t1.trim() + '"' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
+  {
+    name: 'VG3 · Vergleich · ein freigegebenes Community-Foto aus dem eigenen Speicher geht vor Wikipedia — eines von einem fremden Host nicht',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch, rufe = [];
+      const baer = gsMatchScanToDb('Bärlauch', 'Allium ursinum'), maig = gsMatchScanToDb('Maiglöckchen', 'Convallaria majalis');
+      if (!baer || !maig) return { ok: false, warum: 'Aufbau: Bärlauch oder Maiglöckchen fehlt in der Artenliste' };
+      const eigen = SB_URL_DEFAULT + '/storage/v1/object/public/species-images/vg3.jpg';
+      window._gsFetch = function (u) { rufe.push(String(u)); return Promise.resolve(new Response(JSON.stringify({ thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/X.jpg/320px-X.jpg' } }), { status: 200 })); };
+      window.sbFetch = async function (pfad, opt) {
+        if (/fn_species_images/.test(pfad)) {
+          const id = JSON.parse((opt && opt.body) || '{}').p_species_id;
+          if (id === baer.id) return { data: [{ url: eigen, is_primary: true, attribution: 'Anna Muster' }], error: null };
+          if (id === maig.id) return { data: [{ url: 'https://zaehler.example/m.jpg', is_primary: true, attribution: 'X' }], error: null };
+          return { data: [], error: null };
+        }
+        return es.apply(this, arguments);
+      };
+      try {
+        _wCache = {}; _wMeta = {}; _spImgCache = {};
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 72, toxicity: 0, description: 'x', alternatives: [
+          { name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 18, toxicity: 4 } ] });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 200));
+        const dlg = document.getElementById('gs-vergleich');
+        const klagen = [];
+        const im0 = dlg && dlg.querySelector('[data-vgl="haupt"] .gs-vgl-bild img');
+        if (!im0 || im0.getAttribute('src') !== eigen) klagen.push('Bärlauch zeigt ' + (im0 ? im0.getAttribute('src') : 'kein Bild') + ' statt des Community-Fotos');
+        const nw0 = dlg && dlg.querySelector('[data-vgl="haupt"] .gs-vgl-nachweis');
+        if (!nw0 || nw0.textContent.indexOf('Anna Muster') < 0) klagen.push('Bärlauch: Nachweis „' + (nw0 ? nw0.textContent : '') + '" nennt die Fotografin nicht');
+        if (rufe.some(u => /Allium/.test(u))) klagen.push('für Bärlauch wurde trotz Community-Foto Wikipedia gefragt');
+        const im1 = dlg && dlg.querySelector('[data-vgl="alt1"] .gs-vgl-bild img');
+        if (!im1 || !/^https:\/\/upload\.wikimedia\.org\//.test(im1.getAttribute('src') || '')) klagen.push('Maiglöckchen: das fremde Community-Foto wird nicht übergangen (Bild: ' + (im1 ? im1.getAttribute('src') : 'keines') + ')');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'eigener Speicher vor Wikipedia (Nachweis „Anna Muster", 0 Wikipedia-Anfragen dafür) · fremder Host → Wikipedia' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
+  {
+    name: 'VG4 · Vergleich · ohne Empfang stehen Namen, Marken und Merkmale da und ein Satz statt eines Bildes — und mit Empfang kommt das Bild beim nächsten Öffnen',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch;
+      let netz = false;
+      window._gsFetch = function () {
+        if (!netz) return Promise.reject(new TypeError('Failed to fetch'));
+        return Promise.resolve(new Response(JSON.stringify({ thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Y.jpg/320px-Y.jpg' } }), { status: 200 }));
+      };
+      window.sbFetch = async function (pfad) { if (/fn_species_images/.test(pfad)) return netz ? { data: [], error: null } : { data: null, error: { message: 'Failed to fetch' } }; return es.apply(this, arguments); };
+      try {
+        _wCache = {}; _wMeta = {}; _spImgCache = {};
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 72, toxicity: 0, description: 'x', alternatives: [
+          { name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 18, toxicity: 4, distinguishing_feature: 'kein Knoblauchgeruch' } ] });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 200));
+        let dlg = document.getElementById('gs-vergleich');
+        const klagen = [];
+        const k1 = dlg && dlg.querySelector('[data-vgl="alt1"]');
+        const t1 = k1 ? k1.textContent : '';
+        if (!/Maiglöckchen/.test(t1) || !/kein Knoblauchgeruch/.test(t1) || !(k1 && k1.querySelector('.gs-vgl-marke'))) klagen.push('ohne Empfang fehlt Name, Merkmal oder Marke: „' + t1.replace(/\s+/g, ' ').trim() + '"');
+        if (dlg && dlg.querySelector('.gs-vgl-bild img')) klagen.push('ohne Empfang steht ein Bild da');
+        const satz = dlg ? ((dlg.querySelector('[data-vgl="haupt"] .gs-vgl-bild') || {}).textContent || '') : '';
+        if (!/Vergleichsbild/.test(satz)) klagen.push('statt eines Satzes: „' + satz.trim() + '"');
+        try { gsDismissOverlay(dlg); } catch (_) {}
+        netz = true;
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 200));
+        dlg = document.getElementById('gs-vergleich');
+        const n = dlg ? dlg.querySelectorAll('.gs-vgl-bild img').length : 0;
+        if (n !== 2) klagen.push('mit Empfang wieder geöffnet: ' + n + ' von 2 Bildern — ein Netzfehler wurde als „kein Bild" gemerkt');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'ohne Empfang: „' + satz.trim() + '", Name · Marke · Merkmal da · danach 2 von 2 Bildern' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
+  {
+    name: 'VG5 · Vergleich · eine späte Bildantwort landet nie im Vergleich eines neuen Ergebnisses — und wer schliesst, bevor die Community-Abfrage zurück ist, schickt Wikipedia nichts mehr',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch, offen = {}, rufe = [];
+      let sbHalt = null;
+      window._gsFetch = function (u) {
+        u = String(u); rufe.push(u);
+        return new Promise(res => { offen[u] = () => res(new Response(JSON.stringify({ thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/' + (/Allium/.test(u) ? 'ALT' : 'NEU') + '.jpg/320px-' + (/Allium/.test(u) ? 'ALT' : 'NEU') + '.jpg' } }), { status: 200 })); });
+      };
+      window.sbFetch = async function (pfad) {
+        if (/fn_species_images/.test(pfad)) { if (sbHalt) return sbHalt; return { data: [], error: null }; }
+        return es.apply(this, arguments);
+      };
+      try {
+        _wCache = {}; _wMeta = {}; _spImgCache = {};
+        const klagen = [];
+        // (a) alte Antwort, neues Ergebnis
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 72, toxicity: 0, description: 'x' });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 120));
+        try { gsDismissOverlay(document.getElementById('gs-vergleich')); } catch (_) {}
+        showScanResult({ name: 'Löwenzahn', latin: 'Taraxacum officinale', category: 'wildpflanze', confidence: 80, toxicity: 0, description: 'x' });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 120));
+        Object.keys(offen).filter(u => /Allium/.test(u)).forEach(u => offen[u]());
+        await new Promise(r => setTimeout(r, 120));
+        const dlg = document.getElementById('gs-vergleich');
+        const vorher = dlg ? [...dlg.querySelectorAll('.gs-vgl-bild img')].map(i => i.getAttribute('src')) : [];
+        if (vorher.some(s => /ALT/.test(s))) klagen.push('das Bild des Bärlauchs steht im Vergleich des Löwenzahns');
+        Object.keys(offen).filter(u => /Taraxacum/.test(u)).forEach(u => offen[u]());
+        await new Promise(r => setTimeout(r, 120));
+        const nachher = dlg ? [...dlg.querySelectorAll('.gs-vgl-bild img')].map(i => i.getAttribute('src')) : [];
+        if (!(nachher.length === 1 && /NEU/.test(nachher[0]))) klagen.push('der Löwenzahn bekommt sein eigenes Bild nicht (' + nachher.join(' · ') + ')');
+        try { gsDismissOverlay(dlg); } catch (_) {}
+        // (b) schliessen, bevor die Community-Abfrage zurück ist → kein Wikipedia-Aufruf mehr
+        let lass = null;
+        sbHalt = new Promise(res => { lass = () => res({ data: [], error: null }); });
+        _wCache = {};
+        const vorB = rufe.length;
+        showScanResult({ name: 'Brennnessel', latin: 'Urtica dioica', category: 'wildpflanze', confidence: 80, toxicity: 0, description: 'x' });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 60));
+        try { gsDismissOverlay(document.getElementById('gs-vergleich')); } catch (_) {}
+        lass();
+        await new Promise(r => setTimeout(r, 150));
+        const nachB = rufe.slice(vorB).filter(u => /Urtica/.test(u)).length;
+        if (nachB) klagen.push('nach dem Schliessen ging noch ' + nachB + ' Anfrage an Wikipedia (Urtica dioica)');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'alte Antwort verworfen · neues Bild kommt an · nach dem Schliessen 0 Anfragen an Wikipedia' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
+  {
+    name: 'VG6 · Vergleich · „Das ist es" wählt die Alternative wie ein Tipp im Streifen und schliesst den Vergleich',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch;
+      window._gsFetch = () => Promise.reject(new TypeError('Failed to fetch'));
+      window.sbFetch = async function (pfad) { if (/fn_species_images/.test(pfad)) return { data: [], error: null }; return es.apply(this, arguments); };
+      try {
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 72, toxicity: 0, description: 'x', alternatives: [
+          { name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 18, toxicity: 4 } ] });
+        const id0 = _lastScanResult && _lastScanResult._scanId;
+        gsScanVergleichOeffnen();
+        const k = document.querySelector('#gs-vergleich [data-vgl="alt1"] .gs-vgl-wahl');
+        if (!k) return { ok: false, warum: 'kein Knopf „Das ist es" an der Alternative' };
+        k.click();
+        await new Promise(r => setTimeout(r, 120));
+        const klagen = [];
+        if (document.getElementById('gs-vergleich')) klagen.push('der Vergleich bleibt offen');
+        const r = _lastScanResult || {};
+        if (r.name !== 'Maiglöckchen' || r._userPicked !== true || r._geaendert !== 'wahl') klagen.push('Ergebnis danach: ' + r.name + ' · gewählt ' + r._userPicked + ' · ' + r._geaendert);
+        if (r._scanId !== id0) klagen.push('es entstand eine neue Aufnahme (' + r._scanId + ') statt derselben');
+        const kopf = (document.querySelector('#scan-result .sr2-hero-name') || {}).textContent || '';
+        if (kopf !== 'Maiglöckchen') klagen.push('die Karte zeigt „' + kopf + '"');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Maiglöckchen gewählt · dieselbe Aufnahme · Vergleich zu · Karte neu gezeichnet' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
+  {
+    name: 'VG7 · Vergleich · Namen, Merkmale und Nachweise aus fremder Hand kommen als Text an, nie als Code',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch;
+      const BOESE = '<img src=x onerror="window.__pwned=1">';
+      window.__pwned = 0;
+      window._gsFetch = () => Promise.resolve(new Response(JSON.stringify({ thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Z.jpg/320px-Z.jpg' }, content_urls: { desktop: { page: 'javascript:window.__pwned=1' } } }), { status: 200 }));
+      window.sbFetch = async function (pfad) { if (/fn_species_images/.test(pfad)) return { data: [], error: null }; return es.apply(this, arguments); };
+      try {
+        _wCache = {}; _wMeta = {}; _spImgCache = {};
+        showScanResult({ name: 'Kraut ' + BOESE, latin: 'Zzzus ' + BOESE, category: 'wildpflanze', confidence: 50, toxicity: 0, description: 'x',
+          diagnostic_features: ['Merkmal ' + BOESE], alternatives: [ { name: 'Alt ' + BOESE, latin: 'Zzzus altera', confidence: 20, distinguishing_feature: 'Merkmal ' + BOESE } ] });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 400));
+        const dlg = document.getElementById('gs-vergleich');
+        const klagen = [];
+        if (window.__pwned) klagen.push('window.__pwned wurde gesetzt');
+        const txt = dlg ? dlg.textContent : '';
+        if (txt.indexOf('Kraut ' + BOESE) < 0 || txt.indexOf('Alt ' + BOESE) < 0 || txt.indexOf('Merkmal ' + BOESE) < 0) klagen.push('der Wert steht nicht als Text da');
+        const js = dlg ? [...dlg.querySelectorAll('a')].filter(a => /^javascript:/i.test(a.getAttribute('href') || '')) : [];
+        if (js.length) klagen.push(js.length + ' Nachweis-Link(s) mit javascript:');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '__pwned unberührt · Name, Merkmal, Alternative als Text · kein javascript:-Link' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
   // ── v32.11 · Netz, Fokuszonen, Phasen, Enthüllung ────────────────────
   {
     name: 'Netz · Linien und Fokuszonen kommen aus dem echten Bild',

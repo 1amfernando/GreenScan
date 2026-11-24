@@ -51,6 +51,53 @@ das bezeichnet, was er ist: heute schreibt ihn kein Weg der App.
 **Offen:** nichts — brett:2026-11-24-6bbf ist mit diesem Paket geschlossen; der Wortlaut der Datenschutztexte wartet auf Fernando (FUER-FERNANDO §33).
 **Nicht geprüft:** ein echtes Telefon; eine echte KI-Antwort (gestellt); ob das Cloud-Tagebuch live `pest_observation`-Zeilen so liefert wie gestellt (nur die Spalten, die `gsCloudTagebuchLaden` holt).
 
+### 2026-11-24 (Kennung folgt) - v33.7x: Scanner 12 — die Bestimmung am Bild prüfen („Mit Bildern vergleichen")
+
+**Auftrag:** Fernando, 24.11.2026: „Die Agenten müssen die App auf ein next höheres Niveau bringen … Fortschritt zu langsam."
+Die Arbeitsliste der vier Hauptfunktionen war abgearbeitet (offen nur, was an anderen hängt); gesucht war die Lücke mit der
+grössten Wirkung für die Person. Gebaut in einem eigenen Arbeitsbaum, während v33.70 in der Reihe wartete.
+
+**Gemessen:** Referenzbilder gab es in der Artenansicht (`gsLoadSpeciesImage`) und im Scan-Verlauf, auf der Ergebniskarte
+keines — weder für die erkannte Art noch für die Alternativen. Wer wissen wollte, ob „Bärlauch" stimmt oder ob es die tödliche
+Herbstzeitlose aus dem Streifen darunter ist, musste die Karte verlassen. Dazu zwei vorbestehende Fehler im Bildholen: ein
+NETZFEHLER wurde als „kein Bild" gemerkt (`_wCache[lat] = 'none'` im `catch` — wer ohne Empfang eine Art öffnete, sah sie bis
+zum Neuladen ohne Bild), und das Bild aus der Wikipedia-Antwort wurde von jedem Host genommen. **Nicht der nächste Schritt:**
+die Suche — sie verzeiht Tippfehler und Umlaute schon offline (`_gsSucheRang` mit `_gsLeven`); ohne diese Toleranz ist nur die
+Vorschlagsliste in „Pflanze hinzufügen" (gemessen: 7 von 8 üblichen Schreibweisen finden offline nichts — Brett 66d7, „Meine
+Pflanzen").
+
+**Gebaut:** „🔍 Mit Bildern vergleichen" unter der KI-Sicherheit (`gsScanVergleichOeffnen`). Dein Foto steht fest oben, darunter
+die erkannte Art und bis zu drei Alternativen, je mit Referenzbild (freigegebenes Community-Foto aus dem eigenen Speicher, sonst
+Wikipedia), der Marke aus dem Streifen und dem Unterscheidungsmerkmal; „Das ist es" wählt wie ein Tipp auf die Alternative
+(`gsScanVergleichWaehlen` → `gsPickAlternative`). Drei Regeln: **erst auf Antippen** (die Datenschutzerklärung nennt Wikipedia
+„wenn du eine Art öffnest" — ein Bild bei jedem Scan wäre ein neuer Anlass); **was der Vergleich zeigt, wird beim Zeichnen der
+Karte gemerkt** (`_gsVglMerken`), nicht beim Antippen; **jede Öffnung hat eine Nummer** — eine späte Bildantwort landet nie in
+einem neuen Vergleich, und wer schliesst, bevor die Community-Abfrage zurück ist, schickt Wikipedia nichts mehr. Das Bild einer
+Art holen jetzt zwei Funktionen an EINER Stelle (`_gsWikiBildHolen`, `_gsCommunityBilderHolen`), die Artenansicht zeichnet wie
+bisher. Die Marke einer Alternative ist EINE Rechnung (`_gsAltMarke`) für Streifen und Vergleich — die rohe KI-Antwort trägt
+auch `toxic`, das die gespeicherte Kopie nicht mehr hat. Jedes Wikipedia-Bild trägt seinen Nachweis (`_gsWikiDateiSeite`:
+Dateiseite auf Commons mit Urheber und Lizenz; `commons.wikimedia.org` steht als Link in `97_empfaenger`). Und `upload.wikimedia.org` ist dort jetzt als Empfänger
+„Wikipedia" eingeordnet: Empfänger war er schon (die Bilder der Artenansicht kommen von dort), als Host im Code stand er
+erst mit der neuen Prüfung — der Empfänger-Fall hat ihn sofort gemeldet. Doku: CLAUDE.md §3.3
+(Zeile „Referenzbild einer ART"), `docs/memory/03-daten-eigner.md`, `docs/HAUPTFUNKTIONEN.md` Scanner 12.
+
+**Prüfstände:** Im Arbeitsbaum gefahren: `sicherheit_check` markt · arten · q1 · empfaenger (die Fälle, die `gsLoadSpeciesImage`
+und die Empfänger prüfen) 26/0 nach der Einordnung, `robust_check` 33/0, `i18n_check` und `wiring_check` grün. `scan_check` VG1–VG7 (Knopf, Inhalt und 0 Anfragen an Wikipedia vor dem Antippen · Nachweis und fremder
+Bild-Host · Community-Foto zuerst, fremdes übergangen · ohne Empfang Name, Marke, Merkmal und ein Satz, danach das Bild ·
+späte Antwort und Schliessen vor dem Laden · „Das ist es" · Fremdtext als Text). Gegen den alten Stand rot (es gab keinen
+Vergleich). Neun Gegenproben, je eine Schutzzeile ausgebaut, jede am richtigen Fall rot: erst auf Antippen →
+VG1 · nur `upload.wikimedia.org` → VG2 · Community nur aus dem eigenen Speicher → VG3 · Netzfehler nicht gemerkt → VG4 ·
+nach dem Schliessen keine Anfrage → VG5 · alte Antwort (Nummer in Prüfung UND Kasten-Id) → VG5 · „Das ist es" wählt → VG6 ·
+Text statt Code → VG7 · EINE Rechnung der Marke → VG1 (die Alternative mit nur `toxic` verlor ihr „⚠️ giftig"). Beim Bau selbst gelernt: die Prüfstände kappen das Netz, also schlägt jedes Bild fehl —
+der erste Fehler-Zweig ersetzte das `<img>` durch einen Satz, und drei Fälle sahen „kein Bild", wo eines gesetzt war. Das
+`<img>` bleibt jetzt ausgeblendet mit seiner Adresse stehen, der Satz kommt daneben: für die Person dasselbe, für den Fall
+messbar.
+
+**Offen:** brett:2026-11-24-66d7 (Vorschlagsliste „Pflanze hinzufügen", für „Meine Pflanzen").
+**Nicht geprüft:** ein echtes Telefon; echte Wikipedia-Antworten (das Netz ist hier gekappt — die Form ist die der
+REST-Schnittstelle, die `gsLoadWikiImage` schon las, `content_urls` dazu); wie oft Wikipedia für eine Art der Liste überhaupt ein
+Bild hat; der Pilz-Scanner hat einen eigenen Ergebnisweg und ist nicht angeschlossen.
+
 ### 2026-11-24 (jv) - v33.72: Ein grosser Durchgang — 18 Agenten in drei Läufen, zwei neue Prüfstände, und der Garten überlebt das neue Gerät
 
 Fernandos Auftrag: „Checke alle Fehler, unschöne Programmierungen und
