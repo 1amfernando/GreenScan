@@ -995,7 +995,7 @@ const melde = (frage, ok, wie) => {
     window.sbFetch = async function (pfad, opts) {
       opts = opts || {}; const m = (opts.method || 'GET').toUpperCase(); const p = String(pfad);
       if (!netz) return { data: null, error: { message: 'Failed to fetch', status: 0 }, status: 0 };
-      if (/\/rpc\/fn_add_xp/.test(p)) { let n = null; try { const bd = JSON.parse(opts.body || '{}'); n = bd.p_amount != null ? bd.p_amount : (bd.amount != null ? bd.amount : bd); } catch (_) {} raus.rpc.push(n); return { data: profil.xp, error: null, status: 200 }; }
+      if (/\/rpc\/fn_add_xp/.test(p)) { let n = null; try { const bd = JSON.parse(opts.body || '{}'); n = bd.p_amount != null ? bd.p_amount : (bd.amount != null ? bd.amount : bd); } catch (_) {} raus.rpc.push(n); profil.xp += (Number(n) || 0); return { data: [{ xp: profil.xp, level: profil.level }], error: null, status: 200 }; }
       if (/\/rest\/v1\/profiles/.test(p) && m === 'GET') return { data: [profil], error: null, status: 200 };
       return { data: [], error: null, status: 200 };
     };
@@ -1021,12 +1021,18 @@ const melde = (frage, ok, wie) => {
       raus.ungelesen = !!(p1 && p1._ungelesen);
       await gsXpBootSync();
       raus.vorgemerkt = window._gsXpPending || 0;
+      // Scheibe 1: im Offline-Fenster 10 XP verdient — der Flush scheitert und legt die 10 in den Puffer
+      // zurueck; die lokale XP enthaelt sie schon. Nach dem Nachlesen darf GENAU 10 gebucht werden.
+      const altToast = window.showProfileToast; window.showProfileToast = () => {};
+      try { gsAddXP(10, ''); await gsXpCloudFlush(); } finally { window.showProfileToast = altToast; }
+      raus.puffer = window._gsXpPending || 0;
       // Der Empfang kommt zurueck: der naechste Abgleich holt das Profil nach.
       netz = true;
       window._gsBlobGelesen = {}; window._gsInitialSyncDone = false;
       await gsSyncUserDataOnLogin();
       await warte(1200);
-      raus.gelesen = !!(_sbProfile && !_sbProfile._ungelesen && _sbProfile.xp === 1200);
+      raus.gelesen = !!(_sbProfile && !_sbProfile._ungelesen);
+      raus.cloudXp = profil.xp;
       raus.vorgemerkt2 = window._gsXpPending || 0;
       raus.lokal = gsGetXP();
     } catch (e) { raus.fehler = String(e && e.stack || e).split('\n').slice(0, 3).join(' | '); }
@@ -1040,17 +1046,123 @@ const melde = (frage, ok, wie) => {
     return raus;
   });
   {
-    const ok = !h12.fehler && h12.ungelesen === true && h12.vorgemerkt === 0 && h12.gelesen === true && h12.vorgemerkt2 === 0 && h12.rpc.length === 0 && h12.lokal === 1200;
-    melde('H12 · ein ungelesenes Profil ist kein Cloud-Stand: nach einem Start ohne Empfang wird die lokale XP NICHT noch einmal gebucht (0 Aufrufe fn_add_xp), und der naechste gelungene Abgleich liest das Profil nach',
+    const summe = h12.rpc.reduce((a, n) => a + (Number(n) || 0), 0);
+    const ok = !h12.fehler && h12.ungelesen === true && h12.vorgemerkt === 0 && h12.puffer === 10 && h12.gelesen === true && h12.vorgemerkt2 === 0
+      && summe === 10 && h12.cloudXp === 1210 && h12.lokal === 1210;
+    melde('H12 · ein ungelesenes Profil ist kein Cloud-Stand: nach einem Start ohne Empfang wird die lokale XP NICHT noch einmal gebucht, der naechste gelungene Abgleich liest das Profil nach — und 10 XP aus dem Offline-Fenster kommen genau einmal an (Cloud 1210, nicht 1220)',
       ok,
-      ok ? 'ohne Empfang: Ersatzprofil ungelesen, nichts vorgemerkt · mit Empfang: Profil gelesen (1200 XP), 0 Buchungen'
+      ok ? 'ohne Empfang: Ersatzprofil ungelesen, 0 vorgemerkt, nach +10 XP im Puffer 10 · mit Empfang: Profil gelesen, gebucht ' + JSON.stringify(h12.rpc) + ', Cloud 1210 = lokal'
         : h12.fehler ? 'Ausnahme: ' + h12.fehler
-          : 'ungelesen=' + h12.ungelesen + ' · vorgemerkt ohne Empfang: ' + h12.vorgemerkt + ' XP (erwartet 0) · nach dem Abgleich gelesen=' + h12.gelesen + ' · vorgemerkt: ' + h12.vorgemerkt2 + ' · Buchungen: ' + JSON.stringify(h12.rpc) + ' · lokale XP: ' + h12.lokal);
+          : 'ungelesen=' + h12.ungelesen + ' · vorgemerkt ohne Empfang: ' + h12.vorgemerkt + ' XP (erwartet 0) · Puffer nach +10: ' + h12.puffer + ' · nach dem Abgleich gelesen=' + h12.gelesen + ' · vorgemerkt: ' + h12.vorgemerkt2 + ' · Buchungen: ' + JSON.stringify(h12.rpc) + ' (erwartet Summe 10) · Cloud: ' + h12.cloudXp + ' · lokale XP: ' + h12.lokal);
+  }
+
+  // ── SPEICHER-V2 Scheibe 1 · H13: ein aufgezeichneter Track bleibt ──
+  // _gsTrackSaveTrack schrieb gs_gpx_tracks, ohne den Garten-Bereich vorzumerken. Der naechste Abgleich
+  // hielt die Cloud deshalb fuer massgeblich und ersetzte die Track-Liste durch ihre — die eben
+  // aufgezeichnete Wanderung war weg, sobald das Konto schon eine Zeile in user_gardens hatte.
+  const h13 = await page.evaluate(async () => {
+    const raus = {};
+    const warte = (ms) => new Promise(r2 => setTimeout(r2, ms));
+    const echt = { fetch: window.sbFetch, login: window.sbIsLoggedIn, raw: window.fetch, toast: window.showProfileToast, agent: window.gsAgentScheduleNotifications };
+    const exp0 = localStorage.getItem('gs_sb_expires'), tok0 = localStorage.getItem('gs_sb_token');
+    const TAB = /\/rest\/v1\/(user_plants|user_gardens|user_app_state)/;
+    const cloud = {};
+    const nimm = (tab, body) => { try { cloud[tab] = { data: JSON.parse(body).data, updated_at: new Date().toISOString() }; } catch (_) {} };
+    window.sbFetch = async function (pfad, opts) {
+      opts = opts || {}; const m = (opts.method || 'GET').toUpperCase();
+      const tab = (String(pfad).match(TAB) || [])[1];
+      if (tab && (m === 'POST' || m === 'PATCH')) { nimm(tab, opts.body); return { data: [{}], error: null, status: 200 }; }
+      if (tab && m === 'GET') return cloud[tab] ? { data: [cloud[tab]], error: null, status: 200 } : { data: [], error: null, status: 200 };
+      return { data: [], error: null, status: 200 };
+    };
+    window.fetch = async function (url, opts) {
+      const tab = (String(url).match(TAB) || [])[1];
+      if (tab && opts && opts.body) { nimm(tab, opts.body); return new Response('[{}]', { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+      return echt.raw.apply(this, arguments);
+    };
+    window.sbIsLoggedIn = () => true;
+    window.showProfileToast = () => {};
+    window.gsAgentScheduleNotifications = async () => {};
+    localStorage.setItem('gs_sb_expires', String(Date.now() + 3600e3));
+    if (!tok0) localStorage.setItem('gs_sb_token', 'x.y.z');
+    const lies = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+    const tss = (a) => (a || []).map(x => x && x.ts).sort().join(',');
+    try {
+      const alt = { ts: 1767225600000, end: 1767229200000, points: [] };
+      const stand = { gardens: [{ id: 'g_c', name: 'Hochbeet' }], plantings: [], plans: [], current: null, gpx_tracks: [alt] };
+      cloud.user_gardens = { data: JSON.parse(JSON.stringify(stand)), updated_at: '2026-11-01T08:00:00.000Z' };
+      ['gs_sync_dirty', 'gs_sync_dirty_at_garden', 'gs_sync_dirty_at_state', 'gs_garden_plan_current', 'gs_geloescht', 'gs_garden_plans'].forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('gs_sb_uid', 'nutzer-H13'); localStorage.setItem('gs_last_active_uid', 'nutzer-H13');
+      localStorage.setItem('gs_gardens', JSON.stringify(stand.gardens)); localStorage.setItem('gs_plantings', '[]');
+      localStorage.setItem('gs_gpx_tracks', JSON.stringify(stand.gpx_tracks));
+      localStorage.setItem('gs_sync_synced_at_garden', '2026-11-01T08:00:00.000Z'); localStorage.setItem('gs_sync_synced_at_state', '2026-11-01T08:00:00.000Z');
+      gardens = stand.gardens.slice(); plantings = [];
+      window._gsBlobGelesen = {}; window._gsInitialSyncDone = false;
+      // Eine Wanderung, gespeichert ueber die EINE Stelle, durch die jeder fertige Track geht.
+      const T0 = 1767484800000;
+      const punkte = []; for (let i = 0; i < 6; i++) punkte.push({ ll: [47.37 + i * 0.001, 8.54 + i * 0.001], alt: 400 + i, t: T0 + i * 60000 });
+      raus.idx = _gsTrackSaveTrack({ ts: T0, end: T0 + 300000, points: punkte });
+      raus.l1 = tss(lies('gs_gpx_tracks'));
+      raus.vorgemerkt = localStorage.getItem('gs_sync_dirty_at_garden') ? 'ja' : 'nein';
+      // Der naechste Abgleich (alle 2 Minuten und bei jedem Fokus).
+      await gsSyncUserDataOnLogin();
+      await warte(1500);
+      raus.l2 = tss(lies('gs_gpx_tracks'));
+      raus.c2 = tss((cloud.user_gardens.data || {}).gpx_tracks);
+      raus.neu = String(T0);
+    } catch (e) { raus.fehler = String(e && e.stack || e).split('\n').slice(0, 3).join(' | '); }
+    finally {
+      window.sbFetch = echt.fetch; window.sbIsLoggedIn = echt.login; window.fetch = echt.raw; window.showProfileToast = echt.toast; window.gsAgentScheduleNotifications = echt.agent;
+      if (exp0 == null) localStorage.removeItem('gs_sb_expires'); else localStorage.setItem('gs_sb_expires', exp0);
+      if (tok0 == null) localStorage.removeItem('gs_sb_token');
+    }
+    return raus;
+  });
+  {
+    const beide = '1767225600000,1767484800000';
+    const ok = !h13.fehler && h13.idx >= 0 && h13.l1 === beide && h13.l2 === beide && h13.c2 === beide;
+    melde('H13 · ein aufgezeichneter Track bleibt: nach dem Speichern ueber _gsTrackSaveTrack steht er nach dem naechsten Abgleich noch auf dem Geraet UND in der Cloud (vorher ersetzte die Cloud-Liste die lokale)',
+      ok,
+      ok ? 'gespeichert, vorgemerkt: ' + h13.vorgemerkt + ' · nach dem Abgleich: Geraet und Cloud je 2 Tracks'
+        : h13.fehler ? 'Ausnahme: ' + h13.fehler
+          : 'Index ' + h13.idx + ' · nach dem Speichern lokal: ' + h13.l1 + ' · vorgemerkt: ' + h13.vorgemerkt + ' · nach dem Abgleich lokal: „' + h13.l2 + '“ · Cloud: „' + h13.c2 + '“ (erwartet beide: ' + beide + ')');
   }
 
   await b.close();
 
   // ── Bericht ────────────────────────────────────────────────────────────
+  // ── SPEICHER-V2 Scheibe 1 · die Gegenrichtung: kein Rueckweg ohne Hinweg ──
+  // BLOB_KEYS liest die Schluessel aus den drei Blob-BAUERN (Hinweg) — ein Schluessel, der nur im
+  // RUECKWEG (stateMap) steht, fiel deshalb nie auf: gs_geraete und gs_geraete_regeln kommen seit v32.48
+  // aus der Cloud zurueck, wurden aber nie hochgeladen, und zwei Dokumente behaupteten, sie reisten.
+  // Gelesen wird die stateMap aus dem Quelltext; was bewusst (noch) nicht reist, steht mit Grund hier.
+  {
+    const OHNE_HINWEG = {
+      gs_geraete: 'reist noch nicht: als ganze Liste im state-Blob wuerde ein Geraet die Geraete des anderen ersetzen (jedes legt z. B. sein eigenes Wetter-Geraet an) — braucht die Regel je Eintrag aus SPEICHER-V2 Scheibe 4',
+      gs_geraete_regeln: 'wie gs_geraete — Regeln gehoeren zu Geraeten und reisen mit ihnen',
+    };
+    const i0 = QUELLE.indexOf('var stateMap = {');
+    const i1 = i0 < 0 ? -1 : QUELLE.indexOf('// Wichtig: temporär den setItem-Patch umgehen', i0);
+    const stueck = (i0 >= 0 && i1 > i0) ? QUELLE.slice(i0, i1) : '';
+    const rueck = Array.from(new Set(
+      [...stueck.matchAll(/^\s*'([A-Za-z0-9_]+)'\s*:/gm)].map(m => m[1])
+        .concat([...stueck.matchAll(/stateMap\['([A-Za-z0-9_]+)'\]\s*=/g)].map(m => m[1]))
+    ));
+    const ohne = rueck.filter(k => BLOB_KEYS.indexOf(k) < 0);
+    const unerklaert = ohne.filter(k => !Object.prototype.hasOwnProperty.call(OHNE_HINWEG, k));
+    const ueberholt = Object.keys(OHNE_HINWEG).filter(k => ohne.indexOf(k) < 0);
+    // Gegenprobe im Fall: ein erfundener Schluessel im Rueckweg MUSS auffallen.
+    const probe = ['gs_erfunden_nur_rueckweg'].filter(k => BLOB_KEYS.indexOf(k) < 0 && !Object.prototype.hasOwnProperty.call(OHNE_HINWEG, k)).length === 1;
+    const ok = rueck.length >= 25 && unerklaert.length === 0 && ueberholt.length === 0 && probe;
+    melde('Kein Rueckweg ohne Hinweg: jeder Schluessel, den der Abgleich aus dem state-Blob zurueckschreibt, wird auch hochgeladen — oder steht mit Grund als „reist noch nicht" da',
+      ok,
+      ok ? rueck.length + ' Schluessel im Rueckweg · ' + ohne.length + ' ohne Hinweg, beide mit Grund (' + ohne.join(', ') + ')'
+        : rueck.length < 25 ? 'die stateMap wurde im Quelltext nicht gefunden (' + rueck.length + ' Schluessel) — der Fall misst nichts'
+          : unerklaert.length ? 'kommt zurueck, wird aber nie hochgeladen: ' + unerklaert.join(', ')
+            : ueberholt.length ? 'als „reist noch nicht" gefuehrt, hat aber inzwischen einen Hinweg — Eintrag streichen: ' + ueberholt.join(', ')
+              : 'die Gegenprobe (erfundener Schluessel) fiel nicht auf');
+  }
+
   const dreiTabellen = r.tabellen.length === 3;
   melde('Alle drei Blobs gehen überhaupt hinaus', dreiTabellen,
     dreiTabellen ? r.tabellen.join(' · ')
@@ -1094,7 +1206,7 @@ const melde = (frage, ok, wie) => {
       : 'ungeprüft, weil kein Probewert eingetragen: ' + ohneProbe.join(', '));
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 22 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 24 · davon rot: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (fehler.length ? fehler.slice(0, 3).join(' | ') : 'keine'));
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;
 })();

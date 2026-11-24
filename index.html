@@ -23327,6 +23327,7 @@ async function gsXpCloudFlush() {
   window._gsXpPending = 0;
   if (!amt) return;
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') { window._gsXpPending += amt; return; }
+  window._gsXpFlushLaeuft = true;   // gsXpBootSync rechnet nicht, solange ein Betrag unterwegs ist
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_add_xp', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -23347,7 +23348,7 @@ async function gsXpCloudFlush() {
   } catch(e) {
     window._gsXpPending += amt;
     console.warn('[GS] fn_add_xp:', e && e.message);
-  }
+  } finally { window._gsXpFlushLaeuft = false; }
 }
 // Beim Verlassen ungeflushte Deltas noch wegschreiben (best-effort; sonst holt Boot-Sync sie).
 try { window.addEventListener('pagehide', function(){ if (window._gsXpPending) gsXpCloudFlush(); }); } catch(_){}
@@ -23383,8 +23384,14 @@ async function gsXpBootSync() {
     if (profile._ungelesen) return;
     var cloud = profile.xp || 0;
     var local = gsGetXP();
+    // SPEICHER-V2 Scheibe 1 (Befund des Koordinators, nachgemessen): seit v33.69 laeuft dieser Abgleich
+    // auch MITTEN in der Sitzung (_gsProfilNachlesen). Dann ist der Puffer nicht leer — ein gescheiterter
+    // Flush legt seinen Betrag zurueck, und die lokale XP enthaelt ihn schon. `Puffer + (lokal − Cloud)`
+    // zaehlte ihn doppelt; die Differenz allein ist am Start dieselbe Zahl und mitten in der Sitzung die
+    // richtige (sync_check H12). Ist ein Betrag gerade unterwegs, kennt das gelesene Profil ihn noch nicht.
+    if (window._gsXpFlushLaeuft) return;
     if (local > cloud) {
-      window._gsXpPending = (window._gsXpPending || 0) + (local - cloud);
+      window._gsXpPending = local - cloud;
       await gsXpCloudFlush();
     } else if (cloud > local) {
       try { gsStore.set(GS_XP_KEY, String(cloud)); } catch(_){}
@@ -55148,7 +55155,22 @@ function _gsRecipeOverlayDefaults(x) {
   x.type = d.type;
   return x;
 }
+// SPEICHER-V2 Scheibe 1: eigene Rezepte und Heilmittel (Id r_<13 Ziffern> / rem_<13 Ziffern>) tragen ihr
+// Konto (`uid`). gs_recipes / gs_remedies bleiben beim Abmelden liegen (Zwischenspeicher der Vorgaben) —
+// bis hier sah das naechste Konto auf dem Geraet die selbst geschriebenen Rezepte des vorigen, und sie
+// wanderten in dessen Cloud-Backup (user_recipes). Loeschen waere Datenverlust (sie liegen nur hier und im
+// Backup): sie bleiben im Speicher, gezeigt und gesichert werden sie nur ihrem Konto. Derselbe Entscheid
+// wie beim Garten-Zwilling (gsTwinGet). Eintraege ohne Stempel (Bestand) stempelt das Abmelden.
+function _gsRezeptEigen(x) { return !!(x && typeof x.id === 'string' && /^(r|rem)_\d{13}$/.test(x.id)); }
+var _gsRezepteFremd = { gs_recipes: [], gs_remedies: [] };
+function _gsRezeptWer() {
+  // Direkt aus dem Speicher: diese Funktion laeuft schon beim Parsen (recipesData wird gleich unten
+  // gelesen), bevor die Sitzungs-Variablen stehen. sbClearSession entfernt gs_sb_uid beim Abmelden.
+  try { return localStorage.getItem('gs_sb_uid') || null; } catch (_) { return null; }
+}
 function _gsLoadRecipeStore(key, wantRem) {
+  var _wer = _gsRezeptWer();
+  _gsRezepteFremd[key] = [];
   var defaults = wantRem
     ? DEFAULT_REMEDIES.filter(_gsIsRemedyType).concat(DEFAULT_RECIPES.filter(_gsIsRemedyType))
     : DEFAULT_RECIPES.filter(function(r){ return !_gsIsRemedyType(r); });
@@ -55159,6 +55181,7 @@ function _gsLoadRecipeStore(key, wantRem) {
   arr.forEach(function(x){
     if (!x || !x.id || seen[x.id]) return;
     seen[x.id] = 1;
+    if (_gsRezeptEigen(x) && typeof x.uid === 'string' && x.uid && x.uid !== _wer) { _gsRezepteFremd[key].push(x); return; }
     _gsRecipeOverlayDefaults(x);
     if (_gsIsRemedyType(x) === wantRem) out.push(x);
   });
@@ -55174,10 +55197,31 @@ let editingRecipeId = null;
 
 function saveRecipesData() {
   try {
-    localStorage.setItem('gs_recipes',  JSON.stringify(recipesData));
-    localStorage.setItem('gs_remedies', JSON.stringify(remediesData));
+    // die eigenen Eintraege ANDERER Konten bleiben im Speicher (nicht gezeigt, nicht verloren)
+    localStorage.setItem('gs_recipes',  JSON.stringify(recipesData.concat(_gsRezepteFremd.gs_recipes || [])));
+    localStorage.setItem('gs_remedies', JSON.stringify(remediesData.concat(_gsRezepteFremd.gs_remedies || [])));
   } catch(_){}
 }
+// Beim Abmelden: was ohne Stempel ist, gehoert der Person, die geht. Danach (und nach dem Anmelden)
+// liest _gsRezepteNeuLaden die Listen fuer die Person, die JETZT da ist.
+function _gsRezepteStempeln(uid) {
+  if (!uid || typeof uid !== 'string') return 0;
+  var n = 0;
+  try {
+    [recipesData, remediesData].forEach(function (liste) {
+      (liste || []).forEach(function (x) { if (_gsRezeptEigen(x) && !x.uid) { x.uid = uid; n++; } });
+    });
+    if (n) saveRecipesData();
+  } catch (_) {}
+  return n;
+}
+function _gsRezepteNeuLaden() {
+  try {
+    recipesData  = _gsLoadRecipeStore('gs_recipes', false);
+    remediesData = _gsLoadRecipeStore('gs_remedies', true);
+  } catch (_) {}
+}
+window._gsRezepteStempeln = _gsRezepteStempeln; window._gsRezepteNeuLaden = _gsRezepteNeuLaden;
 
 // v24.32: Cloud-Pull aus public.recipes — mappt ins existing Format + dedupliziert
 window.gsLoadCloudRecipes = async function() {
@@ -55778,6 +55822,7 @@ function saveRecipe() {
   } else {
     data.id = (isRemedy ? 'rem' : 'r') + '_' + Date.now();
     data.created = Date.now();
+    var _rw = _gsRezeptWer(); if (_rw) data.uid = _rw;   // SPEICHER-V2 Scheibe 1: ein eigenes Rezept traegt sein Konto
     if (isRemedy) remediesData.unshift(data);
     else recipesData.unshift(data);
   }
@@ -61023,6 +61068,10 @@ function _gsTrackSaveTrack(track) {
     return -1;
   }
   _gsTrackCommitTotals(before, rec);
+  // SPEICHER-V2 Scheibe 1: der Track reist im Garten-Blob — ohne Vormerkung hielt der naechste Abgleich
+  // die Cloud fuer massgeblich und ersetzte die Liste durch ihre (der eben aufgezeichnete Track war weg,
+  // sync_check H13). Der Auto-Track fuer diesen Schluessel wirkt nicht (der setItem-Wrapper verdeckt ihn).
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('garden'); } catch(_){}
   return saved.length - 1;
 }
 
@@ -87433,6 +87482,8 @@ function gsOnLoginSuccess() {
       return;
     }
     window._gsLoginDoneForUid = _uid;
+    // SPEICHER-V2 Scheibe 1: die eigenen Rezepte DIESES Kontos wieder zeigen (sie lagen gestempelt im Speicher)
+    try { if (typeof _gsRezepteNeuLaden === 'function') _gsRezepteNeuLaden(); } catch(_){}
   } catch(_){}
   localStorage.setItem(GS_ONBOARDING_KEY, 'logged_in');
   localStorage.removeItem(GS_GUEST_MODE_KEY);
@@ -87921,6 +87972,11 @@ function gsClearUserDataKeys(){
     // 19.11.2026 (Brett a6d6): zuerst der Bildschirm — Fenster zu, Felder auf den Ausgangswert.
     _gsAbmeldenFenster();
     _gsAbmeldenFelder();
+    // SPEICHER-V2 Scheibe 1: eigene Rezepte ohne Stempel gehoeren der Person, die geht.
+    try {
+      var _rzWer = null; try { _rzWer = localStorage.getItem('gs_last_active_uid') || gsStore.get('gs_sb_uid', null); } catch(_){}
+      if (typeof _gsRezepteStempeln === 'function') _gsRezepteStempeln(_rzWer);
+    } catch(_){}
     // v33.59: nur lokal gespeicherte Plaene warten gestempelt (gs_plans_wartend), statt mit gs_plans_v2 zu gehen.
     // v33.59: parken() sagt, ob es geschrieben hat (-1 = nein). Dann bleibt gs_plans_v2 zuerst
     // liegen: die uebrigen Schluessel geben Platz frei, und es wird noch einmal geparkt.
@@ -88018,6 +88074,8 @@ function gsClearUserDataKeys(){
     // `let` statt `var`: ein `typeof` in der zeitlichen Totzone WIRFT, ein
     // eigenes try/catch je Zuweisung ist deshalb Pflicht.
     try { marketListings = []; } catch(_){}
+    // SPEICHER-V2 Scheibe 1: die Rezept-Listen fuer niemanden neu lesen (die eigenen von A sind jetzt gestempelt)
+    try { if (typeof _gsRezepteNeuLaden === 'function') _gsRezepteNeuLaden(); } catch(_){}
     try { farmState = (typeof _gsFarmDefault === 'function') ? _gsFarmDefault() : farmState; } catch(_){}
     try { if (typeof _gsDev !== 'undefined' && _gsDev) _gsDev.registry = {}; } catch(_){}
     // v33.55: ein geteiltes Foto, das noch nicht abgeholt wurde, gehoert der

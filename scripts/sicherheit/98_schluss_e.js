@@ -996,4 +996,68 @@ module.exports = [
       return { ok: true, info: 'Tagesquiz offen · nach dem Abmelden und 1,5 s spaeter kein Nutzerschluessel' + (r.spaeter.length ? ' (ausgenommen mit Grund: ' + r.spaeter.join(', ') + ')' : '') };
     },
   },
+  {
+    // SPEICHER-V2 Scheibe 1: gs_recipes / gs_remedies bleiben beim Abmelden liegen (Zwischenspeicher der
+    // Vorgaben, GS_KEEP_ON_LOGOUT) — und mit ihnen die SELBST geschriebenen Rezepte (Id r_<13 Ziffern>).
+    // Das naechste Konto sah sie, und sein Cloud-Backup (user_recipes) nahm sie mit. Jetzt tragen sie ihr
+    // Konto: nicht geloescht (sie liegen nur hier und im Backup), aber nur ihrem Konto gezeigt.
+    name: 'Abmelden · eigene Rezepte und Heilmittel von A sieht das naechste Konto nicht, sein Backup nimmt sie nicht mit — und A findet sie nach dem Wiederanmelden vor (nicht geloescht)',
+    lauf: async (seite, h) => {
+      await vorbereiten(seite);
+      const r = await seite.evaluate(async () => {
+        const A = localStorage.getItem('gs_sb_uid') || localStorage.getItem('gs_last_active_uid');
+        const B = '44444444-4444-4444-8444-444444444444';
+        const eigen = (a) => (a || []).filter(x => x && /^(r|rem)_\d{13}$/.test(String(x.id))).map(x => x.id).sort().join(',');
+        const sicht = () => ({ rezepte: eigen(recipesData), heil: eigen(remediesData) });
+        const backup = () => { try { const st = gsSnapshotBuildState(); return { rezepte: eigen(st.user_recipes), heil: eigen(st.user_remedies) }; } catch (e) { return { fehler: e.message }; } };
+        const altFetch = window.sbFetch;
+        window.sbFetch = async function (pfad, opts) { return ((opts && opts.method) || 'GET').toUpperCase() === 'GET' ? { data: [], error: null, status: 200 } : { data: [{}], error: null, status: 200 }; };
+        let wurf = null; const raus = { A };
+        try {
+          // A hat zwei eigene Eintraege: einen aus dem Bestand (ohne Stempel) und ein Heilmittel.
+          recipesData.unshift({ id: 'r_1700000000001', type: 'recipes', title: 'Omas Bärlauchsuppe', plant: '', ingredients: 'Bärlauch', steps: 'kochen', created: 1700000000001 });
+          remediesData.unshift({ id: 'rem_1700000000002', type: 'remedies', title: 'Mein Hustentee', plant: '', ingredients: 'Thymian', steps: 'ziehen lassen', created: 1700000000002 });
+          saveRecipesData();
+          const vorgaben = recipesData.length;
+          raus.vorher = sicht(); raus.vorgaben = vorgaben;
+          await sbLogout();
+          raus.abgemeldet = sicht();
+          raus.speicher = { rezepte: eigen(JSON.parse(localStorage.getItem('gs_recipes') || '[]')), heil: eigen(JSON.parse(localStorage.getItem('gs_remedies') || '[]')) };
+          raus.stempel = JSON.parse(localStorage.getItem('gs_recipes') || '[]').filter(x => x && x.id === 'r_1700000000001').map(x => x.uid).join(',');
+          // B meldet sich an.
+          localStorage.setItem('gs_sb_token', 'pruef.konto.b'); localStorage.setItem('gs_sb_uid', B); localStorage.setItem('gs_sb_expires', String(Date.now() + 864e5));
+          _gsRezepteNeuLaden();
+          raus.b = sicht(); raus.b_backup = backup(); raus.b_vorgaben = recipesData.length;
+          // B schreibt selbst eines — und speichert: die von A duerfen dabei nicht verloren gehen.
+          recipesData.unshift({ id: 'r_1700000000003', type: 'recipes', title: 'Rezept von B', uid: B, created: 1700000000003 });
+          saveRecipesData();
+          raus.speicher2 = eigen(JSON.parse(localStorage.getItem('gs_recipes') || '[]'));
+          // A kommt zurueck.
+          localStorage.setItem('gs_sb_uid', A);
+          _gsRezepteNeuLaden();
+          raus.a2 = sicht(); raus.a2_backup = backup();
+        } catch (e) { wurf = String(e && e.stack || e).split('\n').slice(0, 2).join(' | '); }
+        finally { window.sbFetch = altFetch; }
+        raus.wurf = wurf;
+        return raus;
+      });
+      await h.frisch();
+      if (r.wurf) return { ok: false, warum: 'Ausnahme im Ablauf: ' + r.wurf };
+      if (!r.A) return { ok: false, warum: 'Fall nicht hergestellt: kein Konto A angemeldet' };
+      if (r.vorher.rezepte !== 'r_1700000000001' || r.vorher.heil !== 'rem_1700000000002') return { ok: false, warum: 'Fall nicht hergestellt: die eigenen Eintraege von A stehen vor dem Abmelden nicht in den Listen (' + JSON.stringify(r.vorher) + ')' };
+      const f = [];
+      if (r.abgemeldet.rezepte || r.abgemeldet.heil) f.push('nach dem Abmelden stehen die eigenen Eintraege von A noch in den Listen: ' + JSON.stringify(r.abgemeldet));
+      if (r.b.rezepte || r.b.heil) f.push('Konto B sieht die eigenen Eintraege von A: ' + JSON.stringify(r.b));
+      if (r.b_backup.fehler) f.push('gsSnapshotBuildState wirft: ' + r.b_backup.fehler);
+      else if (r.b_backup.rezepte || r.b_backup.heil) f.push('das Backup von B nimmt die eigenen Eintraege von A mit: ' + JSON.stringify(r.b_backup));
+      if (r.speicher.rezepte !== 'r_1700000000001' || r.speicher.heil !== 'rem_1700000000002') f.push('gutartig: die Eintraege von A sind nach dem Abmelden nicht mehr im Speicher — geloescht statt verborgen (' + JSON.stringify(r.speicher) + ')');
+      if (r.stempel !== r.A) f.push('gutartig: der Bestands-Eintrag traegt nach dem Abmelden nicht das Konto von A (' + JSON.stringify(r.stempel) + ')');
+      if (r.speicher2 !== 'r_1700000000001,r_1700000000003') f.push('gutartig: nach dem Speichern durch B fehlt im Speicher ein Eintrag (' + r.speicher2 + ')');
+      if (r.a2.rezepte !== 'r_1700000000001' || r.a2.heil !== 'rem_1700000000002') f.push('gutartig: A findet nach dem Wiederanmelden nicht genau die eigenen Eintraege vor (' + JSON.stringify(r.a2) + ')');
+      if (!r.a2_backup.fehler && (r.a2_backup.rezepte !== 'r_1700000000001' || r.a2_backup.heil !== 'rem_1700000000002')) f.push('gutartig: das Backup von A enthaelt nicht genau die eigenen Eintraege (' + JSON.stringify(r.a2_backup) + ')');
+      if (r.b_vorgaben < r.vorgaben - 1) f.push('gutartig: B sieht weniger Vorgaben-Rezepte als A (' + r.b_vorgaben + ' statt ' + (r.vorgaben - 1) + ')');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'abgemeldet und fuer B: 0 eigene von A · im Speicher verborgen mit Stempel · A nach dem Wiederanmelden: beide da, B sieht ' + r.b_vorgaben + ' Vorgaben' };
+    },
+  },
 ];

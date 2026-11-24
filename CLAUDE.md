@@ -3573,8 +3573,12 @@ Startbestand, elf Groessen); **bei vollem Speicher sagt es die Funktion**
 (`kind = 'manual'`): derselbe Weg vom Wert bis ins Dashboard und in den
 Kalender (`messung`/`alarm`), den spaeter ein Sensor nimmt. Neue Schluessel
 `gs_geraete`/`gs_geraete_regeln`/`gs_messwerte` stehen in `GS_USER_KEYS`,
-`gs_metric_catalog` in `GS_KEEP_ON_LOGOUT`; Geraete und Regeln reisen im
-`state`-Blob, Messwerte nicht (dafuer ist die Tabelle da — Stufe 1).
+`gs_metric_catalog` in `GS_KEEP_ON_LOGOUT`; Geraete und Regeln ~~reisen im
+`state`-Blob~~, Messwerte nicht (dafuer ist die Tabelle da — Stufe 1).
+*Berichtigt am 24.11.2026 (nachgezaehlt):* Geraete und Regeln reisen NICHT —
+es gibt nur den Rueckweg (`stateMap`), nie einen Hinweg (`_buildStateBlob`).
+`sync_check` „Kein Rueckweg ohne Hinweg“ fuehrt beide mit Grund als „reist noch
+nicht“; die Regel je Eintrag ist `docs/SPEICHER-V2.md` Scheibe 4.
 
 **Seit v32.49 liest `gsTagebuchAlle()` DREI Quellen** — Gartentagebuch,
 Pflanzentagebuecher und den Spiegel des Cloud-Tagebuchs
