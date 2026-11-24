@@ -1360,7 +1360,14 @@ const melde = (frage, ok, wie) => {
     for (const m of ohneKommentar(QUELLE).matchAll(/gsCapWithArchive\(\s*'([^']+)'\s*,[^,]+,\s*(\d+)/g)) (deckel[m[1]] = deckel[m[1]] || new Set()).add(+m[2]);
     const F = Object.assign({}, regFakten, { hinweg, pull, snapBau, snapRueck, snapState, deckel });
 
-    const REGELN = ['eintrag_stempel', 'eintrag_marke', 'ganz', 'vereinigung', 'verbund'];
+    const REGELN = ['eintrag_stempel', 'eintrag_marke', 'ganz', 'vereinigung', 'vereinigung_uebernahme', 'verbund'];
+    // Gegenpruefung (24.11.2026): „der Abgleich schreibt ihn zurueck“ war mit einer blossen NENNUNG erfuellt —
+    // ps_favs steht dort auch als safeGetItem('ps_favs'), gs_gardens als Lese-Waechter. Verlangt wird eine
+    // SCHREIB-Form: ein Eintrag der stateMap, _gsListeEinspielen, setItem / gsStore.set, oder das Paar der Merge-Schleife.
+    const schreibt = (t, k) => new RegExp("'" + k + "'\\s*:").test(t) || t.indexOf("stateMap['" + k + "'] =") >= 0
+      || t.indexOf("_gsListeEinspielen('" + k + "'") >= 0
+      || new RegExp("(?:setItem|gsStore\\.set|gsStore\\.setJSON)\\(\\s*'" + k + "'").test(t)
+      || new RegExp("\\[\\s*'[a-z_]+'\\s*,\\s*'" + k + "'").test(t);
     const pruefe = (F) => {
       const f = [], R = F.register || {}, K = Object.keys(R);
       const menge = (a) => a.slice().sort().join(',');
@@ -1378,7 +1385,7 @@ const melde = (frage, ok, wie) => {
           if (!F.ueber[e.ueber]) f.push(k + ': der Uebernehmer ' + e.ueber + ' ist keine Funktion');
           if (F.pull.indexOf(e.ueber + '(') < 0) f.push(k + ': der Abgleich ruft den Uebernehmer ' + e.ueber + ' nicht');
           if (e.blob === 'state' && F.snapState.indexOf(e.ueber + '(') < 0) f.push(k + ': der Backup-Rueckweg ruft den Uebernehmer ' + e.ueber + ' nicht');
-        } else if (F.pull.indexOf("'" + k + "'") < 0) f.push(k + ': der Abgleich schreibt ihn nie zurueck (kein Rueckweg)');
+        } else if (!schreibt(F.pull, k)) f.push(k + ': der Abgleich schreibt ihn nie zurueck (kein Rueckweg)');
         if (e.regel === 'verbund' && !e.ueber) f.push(k + ': Regel „verbund“ ohne Uebernehmer');
         // 3 · Backup
         if (e.hinweg !== false) {
@@ -1386,6 +1393,9 @@ const melde = (frage, ok, wie) => {
             if (F.snapBau.indexOf("'" + k + "'") < 0) f.push(k + ': fehlt im Backup (gsSnapshotBuildState)');
             if (F.snapRueck.indexOf("_gsRestoreKey('" + k + "'") < 0) f.push(k + ': das Backup bringt ihn nicht zurueck (gsSnapshotRestore)');
           } else if (!e.ueber && F.zurueck && F.zurueck[k] !== true && (F.ohneProbe || []).indexOf(k) < 0) f.push(k + ': der Backup-Rueckweg (_gsApplyStateBlob) schreibt ihn nicht zurueck');
+        } else if (F.snapBau.indexOf("'" + k + "'") >= 0 && F.snapRueck.indexOf("_gsRestoreKey('" + k + "'") < 0) {
+          // Gegenpruefung: wer im Abgleich (noch) nicht hochgeht, kann trotzdem im Backup liegen — dann muss es ihn auch zurueckbringen
+          f.push(k + ': das Backup nimmt ihn mit (gsSnapshotBuildState) und bringt ihn nie zurueck');
         }
         // 4 · Abmelden
         const geht = F.userKeys.indexOf(k) >= 0, bleibt = F.keep.indexOf(k) >= 0;
@@ -1415,7 +1425,7 @@ const melde = (frage, ok, wie) => {
     const funde = regFakten.fehler ? ['Ausnahme beim Lesen des Registers: ' + regFakten.fehler] : pruefe(F);
     // Gegenproben mit verbogenen Fakten: jede MUSS genau ihre Klage ausloesen.
     const kopie = () => JSON.parse(JSON.stringify(regFakten));
-    const mit = (aendern) => { const g = kopie(); aendern(g); return pruefe(Object.assign({}, g, { hinweg, pull, snapBau, snapRueck, snapState, deckel })); };
+    const mit = (aendern, quelle) => { const g = kopie(); aendern(g); return pruefe(Object.assign({}, g, { hinweg, pull, snapBau, snapRueck, snapState, deckel }, quelle || {})); };
     const proben = regFakten.fehler ? [] : [
       ['erfundener Schluessel im Register', mit(g => { g.register.gs_erfunden = { blob: 'state', feld: 'erfunden', regel: 'ganz', abmelden: 'geht' }; }), /gs_erfunden: steht im Register, aber kein Blob-Bauer/],
       ['Eintrag fehlt im Register', mit(g => { delete g.register.gs_kal_filter; }), /gs_kal_filter: wird hochgeladen .* nicht im Register/],
@@ -1425,11 +1435,14 @@ const melde = (frage, ok, wie) => {
       ['Deckel verstellt', mit(g => { g.register.gs_garden_plans.deckel = 50; }), /gs_garden_plans: Deckel 50 im Register, im Quelltext 30/],
       ['Backup-Rueckweg vergisst einen Schluessel', mit(g => { g.zurueck.gs_kal_filter = false; }), /gs_kal_filter: der Backup-Rueckweg/],
       ['Bereich weicht ab', mit(g => { g.stateKeys.ps_myplants = 'state'; }), /ps_myplants: Bereich state statt plants/],
+      // …und zwei, die den QUELLTEXT verbiegen: der Schluessel bleibt genannt (als Lesestelle), nur das Schreiben fehlt
+      ['Rueckweg nur noch gelesen', mit(() => {}, { pull: pull.replace("'ps_favs': sd.favs,", '') }), /ps_favs: der Abgleich schreibt ihn nie zurueck/],
+      ['Backup nimmt mit, bringt nicht zurueck', mit(() => {}, { snapRueck: snapRueck.replace("_gsRestoreKey('gs_geraete',", "_gsNix('gs_geraete',") }), /gs_geraete: das Backup nimmt ihn mit/],
     ];
     const stumm = proben.filter(p => !p[1].some(z => p[2].test(z))).map(p => p[0]);
     const n = Object.keys(regFakten.register || {}).length;
     const ok = funde.length === 0 && stumm.length === 0 && n >= 51 && Object.keys(hinweg).length >= 49;
-    melde('Register: jeder reisende Schluessel steht genau einmal in GS_SPEICHER — und Hinweg, Rueckweg, Backup, Abmelde-Listen, Stempel- und Marken-Listen, Deckel und Bereich sagen dasselbe (acht Gegenproben)',
+    melde('Register: jeder reisende Schluessel steht genau einmal in GS_SPEICHER — und Hinweg, Rueckweg, Backup, Abmelde-Listen, Stempel- und Marken-Listen, Deckel und Bereich sagen dasselbe (zehn Gegenproben)',
       ok,
       ok ? n + ' Schluessel im Register · ' + Object.keys(hinweg).length + ' im Hinweg gelesen · Backup-Rueckweg wirklich gefahren · ' + proben.length + ' Gegenproben, jede mit ihrer Klage'
         : funde.length ? funde.length + ' Abweichung(en): ' + funde.slice(0, 8).join(' · ')

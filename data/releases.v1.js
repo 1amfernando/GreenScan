@@ -30,6 +30,27 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.56', date: '22.10.2026',
+      headline: 'Teilen → GreenScan auch in der Android-App',
+      summary: 'Bis v33.55 stand die Android-App nicht im Teilen-Menü: die Hülle liest das Manifest der Web-App nicht und hatte keinen ACTION_SEND-Filter. Jetzt nimmt sie Fotos an (dieselben vier Typen wie die Web-App), kopiert sie in ein Fach im Arbeitsspeicher und stösst die Seite an; die Seite holt das Foto selbst ab und zeigt dieselbe Vorschau wie im Browser — bestimmt wird erst nach dem Antippen. Ohne JavaScript-Brücke: zwei Adressen unter dem eigenen Ursprung (holen, quittieren), mit eigenem Kopfzeilen-Wert. Neu für beide: „Bestimmen“ nimmt erst nach 0,7 Sekunden an, und ein Bild mit mehr als 200 Megapixeln wird am Dateikopf abgelehnt. Eine gegnerische Prüfung fand zwölf Lücken — acht von unabhängigen Gegenprüfern bestätigt (Reihenfolge zweier Teilen, eine hängende Kopie, GIF- und JPEG-Bomben …), vier Prüfstands-Lücken von mir nachgeprüft, weil ihre Gegenprüfer am Nutzungslimit ausfielen. Alle vor dem Ausliefern geschlossen.',
+      user_summary: 'In der Android-App steht GreenScan jetzt im Teilen-Menü der Galerie: ein Foto erscheint als Vorschau und wird bestimmt, wenn du tippst — wie in der Browser-App. Damit kein Tipp aus Versehen einen Scan auslöst, nimmt „Dieses Foto bestimmen“ erst nach einem kurzen Moment an.',
+      user_items: [
+        {emoji:'📤', bold:'Teilen → GreenScan in der App:', text:' ein Foto aus der Galerie oder einer anderen App kommt als Vorschau an; bestimmt wird erst, wenn du tippst.'},
+        {emoji:'⏳', bold:'Kein Tipp aus Versehen:', text:' „Dieses Foto bestimmen“ nimmt erst nach einem kurzen Moment an und ist nicht vorausgewählt.'},
+        {emoji:'🛡️', bold:'Keine Riesenbilder:', text:' ein Bild mit mehr als 200 Megapixeln wird abgelehnt, bevor die App es öffnet — so stürzt sie nicht ab.'},
+        {emoji:'💬', bold:'Ehrliche Sätze:', text:' kommt ein Foto nicht an, ist es zu gross, im HEIC-Format oder nicht mehr da, sagt die App genau das.'},
+        {emoji:'📱', bold:'Ein Unterschied bleibt:', text:' in der App wartet ein geteiltes Foto nur, solange die App läuft — beendet Android sie vorher, einfach noch einmal teilen.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' die Hülle hatte keinen ACTION_SEND-Filter und stand im Teilen-Menü gar nicht; GS_HUELLE_ANDERS sagte das als „teilen“.'},
+        {emoji:'🧮', bold:'Die Rechnung in Geteilt.java:', text:' Quelle (nur content://, nie die eigene App), Typ an den Bytes, Kopie mit Deckel 15 MiB, EIN Fach mit Nummern und Fristen, die Weiche mit eigenem Kopfzeilen-Wert, die ganze Annahme — ohne Android, im Prüfstand übersetzt und ausgeführt (G1–G9).'},
+        {emoji:'🔁', bold:'Zwei Schritte:', text:' GET /__huelle/geteilt/holen liefert das Foto und verbraucht nichts, quittieren?n= leert nur das gezeigte Foto — in der Hülle bleibt die Seite über mehrere Teilen geladen, ohne Nummer räumte das Ende eines Scans ein neueres Foto mit ab.'},
+        {emoji:'🔍', bold:'Gegnerische Prüfung, zwölf Funde:', text:' die Nummer vergibt jetzt der UI-Faden (Reihenfolge der Absichten), die Seite wird beim Start der Kopie angestossen, ein hängender Strom wird nach 60 s geschlossen, „kommt“ trägt die Nummer, ein Platz wird je Nummer einmal frei; GIF liest den ersten Bildrahmen, JPEG überspringt Fremdbytes wie libjpeg.'},
+        {emoji:'🧪', bold:'Prüfstände:', text:' apk_check G1–G9, R17 (Naht), R18 (Rand), B5 (Filter im gebauten Paket), R8 auch rückwärts, T0–T13 gegen ein echtes Fach im KanalFahrer; offline_check 39 → 41 (Antipp-Sperre in der Seite gemessen, Kopf-Bomben). 50 Brüche als Gegenprobe, jeder rot.'},
+        {emoji:'🧭', bold:'Bewusst nicht:', text:' setFilterTouchesWhenObscured — es schützte vor einer App mit Overlay-Recht, machte GreenScan aber für jede App mit Bildschirmfilter unbedienbar. Steht in android/README.md.'}
+      ]
+  },
+  {
     v: 'v33.55', date: '20.10.2026',
       headline: 'Ein Foto teilen — GreenScan zeigt es und bestimmt es auf Antippen',
       summary: 'Bis v33.54 nahm das Teilen-Ziel der installierten App nur Text und Links an (GET, keine Dateien); Android bot GreenScan für ein Foto gar nicht an, und wer einen Link teilte, las „Bild geteilt“, obwohl nie ein Bild ankam. Jetzt: POST /teilen mit dem Foto, der Service Worker legt es ab und leitet um, die App zeigt eine Vorschau und bestimmt erst nach dem Antippen — mit denselben Schritten wie die Galerie. Eine gegnerische Prüfung des Entwurfs und eine des fertigen Diffs haben sieben Lücken gezeigt, die vor dem Ausliefern geschlossen sind (Update beim Start, die App schliesst die Vorschau selbst, Anmeldebildschirm, fremde Seiten, kein Empfang, Kamera-Marke, Frist).',

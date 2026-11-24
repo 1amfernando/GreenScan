@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.76.20261124">
+<meta name="app-version" content="33.77.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -59623,19 +59623,28 @@ var GS_GELOESCHT_LISTEN = GS_STEMPEL_LISTEN.concat(['gs_garden_plans', 'gs_gpx_t
 var GS_GELOESCHT_TAGE = 90, GS_GELOESCHT_MAX = 300;
 
 // ═══ SPEICHER-V2 Scheibe 3 (docs/SPEICHER-V2.md): DAS REGISTER — ein Schluessel, ein Eintrag ═══
-// Jeder Schluessel des Geraetespeichers, der zwischen zwei Geraeten REIST, steht hier genau einmal:
+// Jeder Schluessel des Geraetespeichers, der im ABGLEICH zwischen zwei Geraeten reist (die drei Cloud-Zeilen
+// unten), steht hier genau einmal. Was nur im Backup liegt (_GS_SNAPSHOT_ONLY), gehoert nicht hierher.
 //   blob     in welcher Cloud-Zeile er reist: 'plants' (user_plants) · 'garden' (user_gardens) · 'state' (user_app_state)
 //   feld     unter welchem Namen im Blob ('ui.dark' = data.ui.dark, 'garten_prefs.bl_tab' = data.garten_prefs.bl_tab)
 //   regel    was HEUTE geschieht, wenn zwei Geraete denselben Schluessel tragen:
 //              'eintrag_stempel'  je Eintrag nach id — der spaetere Stempel gewinnt, Loeschmarken (_gsMergeEintraege)
 //              'eintrag_marke'    je Eintrag mit Loeschmarke, aber nur bei ungesendetem Stand; sonst gilt die Cloud
-//              'ganz'             der ganze Wert einer Seite gewinnt (die Cloud, ausser lokal ist ungesendet)
-//              'vereinigung'      beide Seiten werden vereinigt, nie ersetzt
+//              'ganz'             der ganze Wert einer Seite gewinnt (die Cloud, ausser lokal ist ungesendet).
+//                                 EINE Ausnahme im state-Blob: trifft ein ungesendeter Stand auf ein Geraet, das noch
+//                                 nie abgeglichen hat (kein gs_sync_synced_at_state), werden Listen und Objekte je
+//                                 Eintrag gemischt (_gsStateMischen, sync_check H11); Zahl und Text bleiben lokal.
+//              'vereinigung'      beide Seiten werden IMMER vereinigt, nie ersetzt — vor der Frage, wer gewinnt
+//              'vereinigung_uebernahme'  vereinigt nur, wenn der Cloud-Stand uebernommen (oder blind gemischt) wird;
+//                                 ist lokal ungesendet und das Geraet schon abgeglichen, gewinnt lokal ganz
+//            `regel` beschreibt den Weg ueber den BLOB. gs_gardens, gs_plantings und gs_gartentagebuch haben daneben
+//            den Tabellen-Spiegel gsGardenSync.pullAll (_gsMergeById: lokal gewinnt, ohne Stempel und Marke) — offen.
 //              'verbund'          nur zusammen mit seinen Geschwistern gueltig — ein eigener Uebernehmer (`ueber`)
 //   ueber    der Uebernehmer, der diesen Schluessel auf dem Rueckweg schreibt (statt der stateMap)
 //   abmelden 'geht' (GS_USER_KEYS) oder 'bleibt' (GS_KEEP_ON_LOGOUT) — bleibt etwas, das reist, steht der Grund dabei
 //   deckel   die Laenge, auf die gsCapWithArchive die Liste haelt
-//   hinweg   false = kommt aus der Cloud zurueck, wird aber (noch) nicht hochgeladen — mit Grund
+//   hinweg   false = der ABGLEICH wuerde ihn zurueckschreiben, laedt ihn aber (noch) nicht hoch — mit Grund.
+//            (Das Backup nimmt beide mit und bringt sie seit dieser Scheibe auch zurueck.)
 // Diese Stufe aendert KEIN Verhalten des Abgleichs: sie beschreibt, was gilt. Gelesen wird das Register von
 // (1) dem Pruefstand — sync_check „Register“ haelt Hinweg, Rueckweg, Backup, Abmelde-Listen, Stempel- und
 // Marken-Listen und Deckel dagegen, in beide Richtungen; (2) der Wiederherstellung aus dem Backup
@@ -59673,7 +59682,7 @@ var GS_SPEICHER = {
   'gs_quiz_streak':         { blob: 'state', feld: 'quiz_streak',         regel: 'ganz', abmelden: 'geht' },
   'gs_recipe_favs':         { blob: 'state', feld: 'recipe_favs',         regel: 'ganz', abmelden: 'geht' },
   'gs_recent_searches':     { blob: 'state', feld: 'recent_searches',     regel: 'ganz', abmelden: 'geht' },
-  'gs_wissen_read':         { blob: 'state', feld: 'wissen_read',         regel: 'vereinigung', abmelden: 'geht' },
+  'gs_wissen_read':         { blob: 'state', feld: 'wissen_read',         regel: 'vereinigung_uebernahme', abmelden: 'geht' },
   'ps_favs':                { blob: 'state', feld: 'favs',                regel: 'ganz', abmelden: 'geht' },
   'ps_votes':               { blob: 'state', feld: 'votes',               regel: 'ganz', abmelden: 'geht' },
   'gs_confirmed_species':   { blob: 'state', feld: 'confirmed_species',   regel: 'ganz', abmelden: 'geht' },
@@ -80680,6 +80689,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.77', date: '24.11.2026',
+      headline: 'Ein Register für alles, was zwischen deinen Geräten reist',
+      summary: 'Dritte Scheibe aus „Speicher, Abgleich, Verdrahtung“. Jeder Schlüssel des Gerätespeichers, der im Abgleich zwischen zwei Geräten reist, steht jetzt genau einmal in einem Register (51 Einträge): in welcher Cloud-Zeile er reist, welche Regel zwischen zwei Geräten gilt, ob er beim Abmelden geht oder bleibt, und sein Deckel. Zwei bisher von Hand gepflegte Listen lesen daraus. Beim Eintragen fielen zwei Lücken auf: die Filterwahl des Kalenders sowie Geräte und Sensor-Regeln lagen im Cloud-Backup und kamen beim Wiederherstellen nie zurück. Am Abgleich selbst ändert sich sonst nichts; ein neuer Prüfstandsfall hält Hinweg, Rückweg, Backup und Abmelde-Listen gegen das Register.',
+      user_summary: 'Stellst du deine Daten aus dem Cloud-Backup wieder her, kommen jetzt auch deine Filterwahl im Kalender, deine Geräte und deine Sensor-Regeln zurück. Der Rest ist Vorarbeit unter der Haube, damit beim Gerätewechsel nichts mehr vergessen wird.',
+      user_items: [
+        {emoji:'📅', bold:'Kalender-Filter im Backup:', text:' deine Wahl, was der Kalender zeigt, kam beim Wiederherstellen aus dem Cloud-Backup nicht zurück. Jetzt schon.'},
+        {emoji:'🌡️', bold:'Geräte im Backup:', text:' deine Geräte und Sensor-Regeln lagen im Cloud-Backup, wurden beim Wiederherstellen aber nicht zurückgeholt. Jetzt kommen sie mit — nur dort, wo auf dem Gerät noch nichts steht.'},
+        {emoji:'🧭', bold:'Unter der Haube:', text:' alles, was zwischen deinen Geräten abgeglichen wird, steht an einer Stelle — vergisst jemand einen Teil, fällt es sofort auf, statt erst beim nächsten Gerätewechsel.'}
+      ]
+    },
+  {
     v: 'v33.76', date: '24.11.2026',
       headline: 'Pflanze anlegen auch mit Tippfehlern — und mit der Giftstufe der Art',
       summary: 'Suche 11: die Vorschläge unter „Art / Name“ rechnen wie die Artensuche (Umlaute, Vertipper, Synonyme) und schlagen nur Namen vor — im Fliesstext nennen sich Verwechsler gegenseitig, „maigl“ hätte den Bärlauch vorgeschlagen; „giftig“ fragt wie der Filter an der Art und nennt die Stufe der Skala (58 Einträge mehr gewarnt, keiner weniger).',
@@ -81060,27 +81080,6 @@ window.GS_RELEASES = [
         {emoji:'🛠️', bold:'Datenbank (am 10.11.2026 angewandt):', text:' 20260907_global_api_key_nur_proxy, 20260831_rollen_leak_fix_v30_95 und 20260924_admin_grants; v31_36_mkt_views_auth_guard war schon seit dem 01.09.2026 in Kraft und wurde unverändert noch einmal eingespielt.'}
       ]
   },
-  {
-    v: 'v33.56', date: '22.10.2026',
-      headline: 'Teilen → GreenScan auch in der Android-App',
-      summary: 'Bis v33.55 stand die Android-App nicht im Teilen-Menü: die Hülle liest das Manifest der Web-App nicht und hatte keinen ACTION_SEND-Filter. Jetzt nimmt sie Fotos an (dieselben vier Typen wie die Web-App), kopiert sie in ein Fach im Arbeitsspeicher und stösst die Seite an; die Seite holt das Foto selbst ab und zeigt dieselbe Vorschau wie im Browser — bestimmt wird erst nach dem Antippen. Ohne JavaScript-Brücke: zwei Adressen unter dem eigenen Ursprung (holen, quittieren), mit eigenem Kopfzeilen-Wert. Neu für beide: „Bestimmen“ nimmt erst nach 0,7 Sekunden an, und ein Bild mit mehr als 200 Megapixeln wird am Dateikopf abgelehnt. Eine gegnerische Prüfung fand zwölf Lücken — acht von unabhängigen Gegenprüfern bestätigt (Reihenfolge zweier Teilen, eine hängende Kopie, GIF- und JPEG-Bomben …), vier Prüfstands-Lücken von mir nachgeprüft, weil ihre Gegenprüfer am Nutzungslimit ausfielen. Alle vor dem Ausliefern geschlossen.',
-      user_summary: 'In der Android-App steht GreenScan jetzt im Teilen-Menü der Galerie: ein Foto erscheint als Vorschau und wird bestimmt, wenn du tippst — wie in der Browser-App. Damit kein Tipp aus Versehen einen Scan auslöst, nimmt „Dieses Foto bestimmen“ erst nach einem kurzen Moment an.',
-      user_items: [
-        {emoji:'📤', bold:'Teilen → GreenScan in der App:', text:' ein Foto aus der Galerie oder einer anderen App kommt als Vorschau an; bestimmt wird erst, wenn du tippst.'},
-        {emoji:'⏳', bold:'Kein Tipp aus Versehen:', text:' „Dieses Foto bestimmen“ nimmt erst nach einem kurzen Moment an und ist nicht vorausgewählt.'},
-        {emoji:'🛡️', bold:'Keine Riesenbilder:', text:' ein Bild mit mehr als 200 Megapixeln wird abgelehnt, bevor die App es öffnet — so stürzt sie nicht ab.'},
-        {emoji:'💬', bold:'Ehrliche Sätze:', text:' kommt ein Foto nicht an, ist es zu gross, im HEIC-Format oder nicht mehr da, sagt die App genau das.'},
-        {emoji:'📱', bold:'Ein Unterschied bleibt:', text:' in der App wartet ein geteiltes Foto nur, solange die App läuft — beendet Android sie vorher, einfach noch einmal teilen.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen:', text:' die Hülle hatte keinen ACTION_SEND-Filter und stand im Teilen-Menü gar nicht; GS_HUELLE_ANDERS sagte das als „teilen“.'},
-        {emoji:'🧮', bold:'Die Rechnung in Geteilt.java:', text:' Quelle (nur content://, nie die eigene App), Typ an den Bytes, Kopie mit Deckel 15 MiB, EIN Fach mit Nummern und Fristen, die Weiche mit eigenem Kopfzeilen-Wert, die ganze Annahme — ohne Android, im Prüfstand übersetzt und ausgeführt (G1–G9).'},
-        {emoji:'🔁', bold:'Zwei Schritte:', text:' GET /__huelle/geteilt/holen liefert das Foto und verbraucht nichts, quittieren?n= leert nur das gezeigte Foto — in der Hülle bleibt die Seite über mehrere Teilen geladen, ohne Nummer räumte das Ende eines Scans ein neueres Foto mit ab.'},
-        {emoji:'🔍', bold:'Gegnerische Prüfung, zwölf Funde:', text:' die Nummer vergibt jetzt der UI-Faden (Reihenfolge der Absichten), die Seite wird beim Start der Kopie angestossen, ein hängender Strom wird nach 60 s geschlossen, „kommt“ trägt die Nummer, ein Platz wird je Nummer einmal frei; GIF liest den ersten Bildrahmen, JPEG überspringt Fremdbytes wie libjpeg.'},
-        {emoji:'🧪', bold:'Prüfstände:', text:' apk_check G1–G9, R17 (Naht), R18 (Rand), B5 (Filter im gebauten Paket), R8 auch rückwärts, T0–T13 gegen ein echtes Fach im KanalFahrer; offline_check 39 → 41 (Antipp-Sperre in der Seite gemessen, Kopf-Bomben). 50 Brüche als Gegenprobe, jeder rot.'},
-        {emoji:'🧭', bold:'Bewusst nicht:', text:' setFilterTouchesWhenObscured — es schützte vor einer App mit Overlay-Recht, machte GreenScan aber für jede App mit Bildschirmfilter unbedienbar. Steht in android/README.md.'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81291,7 +81290,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.76';
+var GS_VERSION = 'v33.77';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -90671,6 +90670,11 @@ async function gsSnapshotRestore(opts){
     _gsRestoreKey('gs_soil_profile', st.soil_profile);
     _gsRestoreKey('gs_pp_garden_location', st.pp_garden_location);
     _gsRestoreKey('gs_scan_corrections', st.scan_corrections);
+    // SPEICHER-V2 Scheibe 3 (Gegenpruefung): das Backup nahm Geraete und Sensor-Regeln mit (gsSnapshotBuildState)
+    // und brachte sie NIE zurueck. Dieselbe Klasse wie gs_kal_filter — und wie dort nur, wenn lokal nichts steht
+    // bzw. je id (lokal gewinnt). Durch das Sieb, wie der Abgleich (v33.59).
+    _gsRestoreKey('gs_geraete', Array.isArray(st.geraete) ? _gsSiebListe(st.geraete) : null);
+    _gsRestoreKey('gs_geraete_regeln', Array.isArray(st.geraete_regeln) ? _gsSiebListe(st.geraete_regeln) : null);
     _gsRestoreKey('gs_purchases', st.purchases);
     _gsRestoreKey('gs_my_bids', st.my_bids);
     _gsRestoreKey('gs_action_counts', st.action_counts);
