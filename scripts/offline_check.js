@@ -591,6 +591,117 @@ async function haertung(br, melde) {
              : (foto.hoch.length ? 'hochgeladen, aber ' + foto.nach + ' bleiben liegen'
                                  : 'kein einziger Upload versucht (' + foto.vor + ' warteten)')));
 
+  // ── 9b · Ein Tagebuch-Foto ohne Empfang (SPEICHER-V2 Scheibe 2) ───────
+  //
+  // Gelesen am 24.11.2026: scheitert der Upload eines Tagebuch-Fotos, legte
+  // gsAddDiaryEntry es als base64 in den Eintrag — also in `ps_myplants` (5 MB,
+  // dort liegen alle Pflanzen) und in den Pflanzen-Blob, der bei JEDER Aenderung
+  // ganz hochgeht. Fuer das Pflanzenfoto gilt seit v31.06 der Ausgangskorb; das
+  // Tagebuch kannte ihn nicht. Vier Fragen in einem Durchgang, alle ueber die
+  // echten Funktionen: (1) ohne Empfang landet KEIN base64 im Speicher, der
+  // Eintrag traegt einen Platzhalter; (2) der Flush laedt hoch und traegt die
+  // Adresse im EINTRAG nach; (3) ein Altbestand (base64 im Eintrag) wird
+  // nachgezogen — und bleibt unangetastet, wenn der Upload scheitert; (4) gibt
+  // der Flush nach acht Anlaeufen auf, liegt das Foto im Archiv statt im Nichts.
+  const tbFoto = await p.evaluate(async () => {
+    const zaehle = (store) => new Promise((fertig) => {
+      const rq = indexedDB.open('gs_offline', 3);
+      rq.onsuccess = () => {
+        try { const c = rq.result.transaction(store, 'readonly').objectStore(store).count(); c.onsuccess = () => fertig(c.result); c.onerror = () => fertig(-1); }
+        catch (e) { fertig(-1); }
+      };
+      rq.onerror = () => fertig(-1);
+    });
+    const aus = { klagen: [] };
+    localStorage.setItem('gs_sb_uid', 'nutzer-A');
+    window.sbIsLoggedIn = () => true;
+    window.gsToast = () => {}; window.showProfileToast = () => {};
+    const B64 = 'QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=';
+    const ALT = 'data:image/jpeg;base64,' + B64;
+    myPlants.push({ id: 'tbf1', name: 'Foto-Test', emoji: '🌿', added: new Date().toISOString(), tasks: {}, diary: [
+      { ts: 1700000000000, action: 'photo', title: 'Foto', note: 'Altbestand', photo: ALT }
+    ] });
+    try {
+      // (1) ohne Empfang: der Upload scheitert
+      let uploads = 0;
+      window.gsUploadPhotoToBucket = async () => { uploads++; throw new Error('upload_failed'); };
+      const vorKorb = await zaehle('pending_photos');
+      openPlantDiary('tbf1');
+      const sel = document.getElementById('diary-action'); if (sel) sel.value = 'photo';
+      window._gsDiaryPhotoB64 = B64;
+      await gsAddDiaryEntry('tbf1');
+      const pl = () => myPlants.find(x => x.id === 'tbf1');
+      const neu = (pl().diary || []).find(e => e && e.note !== 'Altbestand');
+      aus.neuFoto = neu ? String(neu.photo).slice(0, 24) : '(kein Eintrag)';
+      aus.korb = (await zaehle('pending_photos')) - vorKorb;
+      const gesp = JSON.parse(localStorage.getItem('ps_myplants') || '[]').find(x => x && x.id === 'tbf1') || {};
+      const gNeu = (gesp.diary || []).find(e => e && e.note !== 'Altbestand') || {};
+      if (!neu) aus.klagen.push('(1) der Eintrag wurde gar nicht angelegt');
+      else if (/^data:image/.test(String(neu.photo))) aus.klagen.push('(1) das Foto liegt als base64 im Eintrag — und damit im Pflanzen-Speicher und im Blob');
+      else if (!/^gsphoto:\/\/\d+$/.test(String(neu.photo))) aus.klagen.push('(1) der Eintrag trägt keinen Platzhalter aus dem Ausgangskorb, sondern „' + aus.neuFoto + '"');
+      if (/^data:image/.test(String(gNeu.photo))) aus.klagen.push('(1) im Speicher (ps_myplants) steht das Foto als base64');
+      if (aus.korb !== 1) aus.klagen.push('(1) im Ausgangskorb liegen ' + aus.korb + ' neue Fotos statt 1');
+      // …und der Blob, der in die Cloud geht, trägt weder base64 noch den lokalen Platzhalter
+      try {
+        const blob = (typeof window._gsBuildPlantsBlob === 'function') ? window._gsBuildPlantsBlob() : null;
+        if (blob) {
+          const bp = (blob.plants || []).find(x => x && x.id === 'tbf1') || {};
+          const be = (bp.diary || []).find(e => e && e.note !== 'Altbestand') || {};
+          aus.blob = be.photo === null ? 'null' : String(be.photo).slice(0, 16);
+          if (be.photo) aus.klagen.push('(1) der Pflanzen-Blob trägt für den neuen Eintrag „' + aus.blob + '" statt nichts');
+        } else aus.blob = 'nicht lesbar';
+      } catch (e) { aus.blob = 'Fehler: ' + e.message; }
+      // (2) Empfang ist zurück: der Flush lädt hoch und trägt die Adresse im Eintrag nach
+      const hoch = [];
+      window.gsUploadImage = async (b64, bucket, ext, key) => { hoch.push(bucket + '/' + key); return 'https://x/diary/' + hoch.length + '.jpg'; };
+      window.gsUploadPhotoToBucket = async () => { throw new Error('upload_failed'); };   // der Altbestand soll hier noch NICHT wandern
+      await window.gsFlushPhotoQueue();
+      await new Promise(r => setTimeout(r, 300));
+      const nach = (pl().diary || []).find(e => e && e.note !== 'Altbestand') || {};
+      aus.nachFoto = String(nach.photo);
+      aus.hoch = hoch.slice();
+      if (!hoch.some(h => /^garden-diary-photos\//.test(h))) aus.klagen.push('(2) der Flush hat kein Tagebuch-Foto hochgeladen (' + JSON.stringify(hoch) + ')');
+      if (!/^https:\/\/x\/diary\//.test(String(nach.photo))) aus.klagen.push('(2) der Eintrag trägt nach dem Flush „' + String(nach.photo).slice(0, 30) + '" statt der Adresse');
+      const gesp2 = JSON.parse(localStorage.getItem('ps_myplants') || '[]').find(x => x && x.id === 'tbf1') || {};
+      if (!(gesp2.diary || []).some(e => e && /^https:\/\/x\/diary\//.test(String(e.photo)))) aus.klagen.push('(2) die Adresse steht nur im Arbeitsspeicher, nicht in ps_myplants');
+      // (3) Altbestand: scheitert der Upload, bleibt das Bild, wie es ist …
+      const altE = () => (pl().diary || []).find(e => e && e.note === 'Altbestand') || {};
+      if (altE().photo !== ALT) aus.klagen.push('(3) der Altbestand wurde angefasst, obwohl sein Upload scheiterte: „' + String(altE().photo).slice(0, 30) + '"');
+      if (typeof window.gsDiaryFotosNachziehen !== 'function') aus.klagen.push('(3) es gibt keinen Nachzug für base64-Fotos im Tagebuch (gsDiaryFotosNachziehen)');
+      else {
+        const n0 = await window.gsDiaryFotosNachziehen();
+        if (altE().photo !== ALT) aus.klagen.push('(3) Upload gescheitert, und das alte Foto ist trotzdem weg/verändert');
+        window.gsUploadPhotoToBucket = async (bucket) => 'https://x/alt/' + bucket + '.jpg';
+        const n1 = await window.gsDiaryFotosNachziehen();
+        aus.nachzug = n0 + ' → ' + n1;
+        if (n0 !== 0 || n1 !== 1) aus.klagen.push('(3) Nachzug meldet ' + n0 + ' (Upload scheitert) und ' + n1 + ' (Upload gelingt) statt 0 und 1');
+        if (altE().photo !== 'https://x/alt/garden-diary-photos.jpg') aus.klagen.push('(3) der Altbestand trägt nach dem Nachzug „' + String(altE().photo).slice(0, 40) + '"');
+        if (/data:image/.test(localStorage.getItem('ps_myplants') || '')) aus.klagen.push('(3) in ps_myplants steht nach dem Nachzug noch ein base64-Bild');
+      }
+      // (4) aufgeben heisst archivieren, nicht wegwerfen
+      await window.gsQueuePhoto('garden-diary-photos', B64, { kind: 'diary', ref: 'tbf1|1' });
+      window.gsUploadImage = async () => null;
+      const archVor = await zaehle('dropped_entries');
+      for (let i = 0; i < 8; i++) { await window.gsFlushPhotoQueue(); await new Promise(r => setTimeout(r, 60)); }
+      await new Promise(r => setTimeout(r, 300));
+      aus.korbEnde = await zaehle('pending_photos');
+      aus.archiv = (await zaehle('dropped_entries')) - archVor;
+      if (aus.korbEnde !== vorKorb) aus.klagen.push('(4) nach acht Anläufen liegen noch ' + (aus.korbEnde - vorKorb) + ' Fotos im Korb');
+      if (aus.archiv !== 1) aus.klagen.push('(4) aufgegeben — und im Archiv liegen ' + aus.archiv + ' neue Einträge statt 1: das Foto ist weg');
+    } catch (e) { aus.klagen.push('Fehler im Fall: ' + String(e && e.message || e).slice(0, 160)); }
+    finally {
+      try { const m = document.getElementById('plant-diary-modal'); if (m) m.remove(); } catch (_) {}
+      for (let i = myPlants.length - 1; i >= 0; i--) if (myPlants[i] && myPlants[i].id === 'tbf1') myPlants.splice(i, 1);
+      try { savePlantsToStorage(); } catch (_) {}
+      window._gsDiaryPhotoB64 = null;
+    }
+    return aus;
+  });
+  const tbOk = !tbFoto.klagen.length;
+  melde('Ein Tagebuch-Foto ohne Empfang wartet im Ausgangskorb, nicht als base64 im Pflanzen-Speicher — der Flush trägt es nach, der Altbestand zieht nach, und Aufgeben heisst Archiv', tbOk,
+        tbOk ? 'Eintrag: ' + tbFoto.neuFoto + ' · Blob: ' + tbFoto.blob + ' · Flush: ' + (tbFoto.hoch || []).join(', ') + ' → ' + tbFoto.nachFoto + ' · Nachzug ' + tbFoto.nachzug + ' · aufgegeben: ' + tbFoto.archiv + ' im Archiv'
+             : tbFoto.klagen.join(' · '));
+
   // ── 10 · Wächst der Bild-Cache unbegrenzt? ───────────────────────────
   //
   // Regel 4 legt jedes Bild ab — Kartenkacheln eingeschlossen. Eine
@@ -1520,7 +1631,7 @@ async function haertung(br, melde) {
   await haertung(br, melde);
 
   console.log('  ---');
-  console.log('  Fragen geprueft: ' + (41 + HAERTUNG_FRAGEN) + ' · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: ' + (42 + HAERTUNG_FRAGEN) + ' · davon rot: ' + kaputt);
   console.log('  JS-Fehler im Offline-Start: ' + (fehler.length ? fehler.length + ' (' + fehler.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;

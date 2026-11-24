@@ -8206,10 +8206,39 @@ html, body{ scroll-behavior: smooth; }
 // gs_garden_plans und gs_gpx_tracks).
 // keep: 'head' = Anfang behalten (Liste ist neueste-zuerst)
 //       'tail' = Ende behalten  (Liste ist aelteste-zuerst)
+//       'zeit' = die AELTESTEN nach ihrem Zeitstempel fallen heraus, die
+//                Reihenfolge der uebrigen bleibt (SPEICHER-V2 Scheibe 2). Fuer
+//                Listen mit MEHREREN Schreibern: der Pflegeverlauf einer Pflanze
+//                wird vorn (Abhaken) UND hinten (Notiz) beschrieben — 'head' und
+//                'tail' warfen dort jeweils die NEUESTEN Eintraege des anderen
+//                Schreibers hinaus. Wer eine Liste deckelt, die nicht EINE
+//                Reihenfolge hat, nimmt 'zeit'.
+// Die Zeit eines Eintrags: `ts` als Zahl (ms), als Ziffernfolge oder als
+// ISO-Text — alle drei kommen vor (gsQuickDone schreibt ISO, gsAddDiaryEntry
+// eine Zahl). Unlesbar zaehlt als aeltestes: es wandert ins Archiv, nicht ins Nichts.
+var GS_PFLEGEVERLAUF_MAX = 200;   // Eintraege im Pflegeverlauf EINER Pflanze (p.diary) — ein Deckel fuer alle drei Schreiber
+window._gsEintragZeit = function(e){
+  var t = e && e.ts;
+  if (typeof t === 'number') return isFinite(t) ? t : 0;
+  if (typeof t === 'string') {
+    if (/^\d{9,}$/.test(t)) return Number(t);
+    var d = Date.parse(t);
+    return isFinite(d) ? d : 0;
+  }
+  return 0;
+};
 window.gsCapWithArchive = function(key, arr, cap, keep){
   if (!Array.isArray(arr) || arr.length <= cap) return arr;
   var kept, dropped;
-  if (keep === 'tail') { kept = arr.slice(-cap); dropped = arr.slice(0, arr.length - cap); }
+  if (keep === 'zeit') {
+    var _rang = arr.map(function(e, i){ return { i: i, t: window._gsEintragZeit(e) }; });
+    _rang.sort(function(a, b){ return (a.t - b.t) || (a.i - b.i); });
+    var _raus = {};
+    for (var _r = 0; _r < arr.length - cap; _r++) _raus[_rang[_r].i] = true;
+    kept = []; dropped = [];
+    arr.forEach(function(e, i){ (_raus[i] ? dropped : kept).push(e); });
+  }
+  else if (keep === 'tail') { kept = arr.slice(-cap); dropped = arr.slice(0, arr.length - cap); }
   else                 { kept = arr.slice(0, cap); dropped = arr.slice(cap); }
   try { if (typeof window.gsArchiveDropped === 'function') window.gsArchiveDropped(key, dropped); } catch(_){}
   // Einmal pro Schluessel und Sitzung Bescheid geben — nicht bei jedem Speichern nerven.
@@ -10386,8 +10415,9 @@ function gsQuickDone(plantId, taskKey) {
     if (!Array.isArray(p.diary)) p.diary = [];
     // v33.60: der Titel ohne das Arbeitswort „(Quick)“ — abgehakt heisst `source`, nicht der Titel (_gsTbAbgehakt).
     p.diary.unshift({ ts: nowIso, action: taskKey, title: (defQ.icon ? defQ.icon + ' ' : '') + (defQ.name||taskKey), source: 'quick_done' });
-    // Cap auf 200 Diary-Einträge pro Pflanze (sonst Blob-Bloat)
-    p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
+    // Cap auf 200 Diary-Einträge pro Pflanze (sonst Blob-Bloat) — nach ZEIT, nicht nach Listenplatz:
+    // gsAddDiaryEntry haengt hinten an, hier wird vorn angesetzt (kalender_check „Pflegeverlauf · der Deckel“).
+    p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit');
   } catch(_){}
   var _qok = (_f && _f.liste === 'plantings') ? saveGardenData() : savePlantsToStorage();
   if (_qok === false) {
@@ -10520,7 +10550,7 @@ function _gsDoneAllDueAusfuehren(faellig) {
       var defB = (typeof TASK_DEFS !== 'undefined' && TASK_DEFS[k]) ? TASK_DEFS[k] : {icon:'', name:k};
       if (!Array.isArray(p.diary)) p.diary = [];
       p.diary.unshift({ ts: new Date(basisMs - (count - 1)).toISOString(), action: k, title: (defB.icon ? defB.icon + ' ' : '') + (defB.name||k), source: 'done_all_due' });
-      p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
+      p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit');
     } catch(_){}
     // Zugehoerigkeit ueber die REFERENZ, nicht ueber die Id — zwei Listen, zwei Speicherwege
     listen[(Array.isArray(myPlants) && myPlants.indexOf(p) >= 0) ? 'myPlants' : 'plantings'] = true;
@@ -41571,36 +41601,64 @@ async function gsAddDiaryEntry(plantId) {
   var note = ((document.getElementById('diary-note')||{}).value || '').trim();
   // v30.35 (HL#10/#21): Foto in den Bucket laden statt base64 in den gesyncten user_plants-Blob zu legen
   // (sonst Quota-Bloat + jeder Plant-Edit re-pusht alle base64). Fallback base64 nur offline/guest/Upload-Fehler.
+  // SPEICHER-V2 Scheibe 2: scheitert der Upload (kein Empfang, Bucket lehnt ab), wartet das Foto im
+  // Ausgangskorb (IndexedDB, v31.06) und der Eintrag traegt den Platzhalter `gsphoto://<n>` — wie das
+  // Pflanzenfoto seit v31.06. Vorher lag es als base64 im Eintrag: in den 5 MB von ps_myplants und im
+  // Pflanzen-Blob, der bei JEDER Aenderung ganz hochgeht. base64 bleibt nur der Notnagel, wenn auch
+  // der Korb nicht schreibt. Pruefstand: offline_check „Ein Tagebuch-Foto ohne Empfang“.
   var photo = null;
-  if (window._gsDiaryPhotoB64) {
-    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof window.gsUploadPhotoToBucket === 'function') {
-      try { photo = await window.gsUploadPhotoToBucket('garden-diary-photos', window._gsDiaryPhotoB64); } catch(_){}
+  var _tbTs = Date.now();
+  var _tbWer = (typeof _gsPerson === 'function') ? _gsPerson() : null;   // vor dem ersten await (CLAUDE.md §3.6)
+  var _tbB64 = window._gsDiaryPhotoB64;
+  if (_tbB64) {
+    var _tbOnline = (typeof navigator === 'undefined' || navigator.onLine !== false);
+    if (_tbOnline && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof window.gsUploadPhotoToBucket === 'function') {
+      try { photo = await window.gsUploadPhotoToBucket('garden-diary-photos', _tbB64); } catch(_){}
     }
-    if (!photo) photo = 'data:image/jpeg;base64,' + window._gsDiaryPhotoB64;
+    if (!photo && typeof window.gsQueuePhoto === 'function') {
+      try { photo = await window.gsQueuePhoto('garden-diary-photos', _tbB64, { kind: 'diary', ref: plantId + '|' + _tbTs }); } catch(_){}
+    }
+    // Die Person hat waehrend des Uploads gewechselt: der Eintrag gehoert nicht in die Liste, die jetzt geladen ist.
+    if (typeof _gsPersonAnders === 'function' && _gsPersonAnders(_tbWer)) return;
+    if (!photo) photo = 'data:image/jpeg;base64,' + _tbB64;
+    // Die Liste kann waehrend des Wartens ersetzt worden sein (Abgleich) — die Pflanze neu suchen.
+    p = myPlants.find(function(x){ return x.id === plantId; });
+    if (!p) return;
+    if (!Array.isArray(p.diary)) p.diary = [];
   }
   if (!note && !photo && action === 'note') {
     if (typeof showProfileToast==='function') showProfileToast('Bitte Notiz oder Foto hinzufügen', 'warn');
     return;
   }
   var titles = {water:'Gegossen', fertilize:'Gedüngt', repot:'Umgetopft', prune:'Geschnitten', check:'Kontrolle', mist:'Besprüht', dust:'Abgestaubt', rotate:'Gedreht', note:'Notiz', photo:'Foto'};
+  // Den Stand VOR dem Eintrag merken — sagt der Speicher Nein, wird er zurueckgegeben (v33.66: erst schreiben, dann melden).
+  var _tbVor = { diary: p.diary.slice(), last: (p.tasks && p.tasks[action]) ? p.tasks[action].lastDone : undefined };
   p.diary.push({
-    ts: Date.now(),
+    ts: _tbTs,
     action: action,
     title: titles[action] || 'Eintrag',
     note: note || null,
     photo: photo
   });
-  p.diary = gsCapWithArchive('plant_diary', p.diary, 200, 'tail'); // v30.35 Cap, v31.08 jetzt mit Archiv
+  p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit'); // v30.35 Cap, v31.08 mit Archiv, Scheibe 2: nach Zeit
   // Auch lastDone der entsprechenden Aufgabe updaten falls action eine Pflege-Aktion ist
   if (p.tasks && p.tasks[action]) {
     p.tasks[action].lastDone = new Date().toISOString();
   }
-  savePlantsToStorage();
+  if (savePlantsToStorage() === false) {
+    p.diary = _tbVor.diary;
+    if (p.tasks && p.tasks[action]) { if (_tbVor.last === undefined) delete p.tasks[action].lastDone; else p.tasks[action].lastDone = _tbVor.last; }
+    // Fenster und Eingabe bleiben stehen: die Person kann Platz schaffen und es noch einmal versuchen.
+    if (typeof showProfileToast==='function') showProfileToast(_gsSatz('Nicht gespeichert — der Speicher ist voll. Der Eintrag steht noch im Formular; bitte alte Fotos oder Scans löschen.'), 'error');
+    return false;
+  }
   // Modal neu rendern für aktualisierten Stand
-  document.getElementById('plant-diary-modal').remove();
+  var _tbModal = document.getElementById('plant-diary-modal'); if (_tbModal) _tbModal.remove();
   window._gsDiaryPhotoB64 = null;
   openPlantDiary(plantId);
-  if (typeof showProfileToast==='function') showProfileToast({title:'📓 Eintrag gespeichert', body:titles[action] || 'Tagebuch aktualisiert', kind:'success', duration:1800});
+  var _tbWartet = (typeof photo === 'string' && photo.indexOf('gsphoto://') === 0);
+  if (typeof showProfileToast==='function') showProfileToast({title:'📓 Eintrag gespeichert', body: _tbWartet ? _gsSatz('Das Foto wird hochgeladen, sobald wieder Empfang da ist.') : (titles[action] || 'Tagebuch aktualisiert'), kind:'success', duration: _tbWartet ? 3200 : 1800});
+  return true;
 }
 async function gsDeleteDiaryEntry(plantId, ts) {
   var p = myPlants.find(function(x){ return x.id === plantId; });
@@ -83453,6 +83511,22 @@ function gsRegisterServiceWorker() {
         try { if (typeof renderMyPlants === 'function') renderMyPlants(); } catch(_){}
         return true;
       }
+      // SPEICHER-V2 Scheibe 2: ein Tagebuch-Foto. ref = '<Pflanzen-Id>|<ts des Eintrags>' — gesucht wird
+      // der EINTRAG nach seiner Zeit, nicht nach dem Platzhalter: nach einem Abgleich kann der Eintrag
+      // ohne Platzhalter zurueckgekommen sein (der Blob traegt ihn nie), und das Foto gehoert trotzdem dorthin.
+      if (target.kind === 'diary') {
+        if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return false;
+        var _dr = String(target.ref), _dt = _dr.indexOf('|');
+        if (_dt < 1) return false;
+        var _dp = myPlants.find(function(x){ return x && String(x.id) === _dr.slice(0, _dt); });
+        if (!_dp || !Array.isArray(_dp.diary)) return false;
+        var _de = _dp.diary.find(function(e){ return e && String(e.ts) === _dr.slice(_dt + 1); });
+        if (!_de) return false;               // Eintrag geloescht -> Foto verwerfen
+        var _dvor = _de.photo;
+        _de.photo = url;
+        if (typeof savePlantsToStorage === 'function' && savePlantsToStorage() === false) { _de.photo = _dvor; return false; }
+        return true;
+      }
     } catch(e){ console.warn('[_gsApplyPhotoUrl]', e); }
     return false;
   }
@@ -83496,7 +83570,14 @@ function gsRegisterServiceWorker() {
             it.tries = (it.tries || 0) + 1;
             if (it.tries >= 8) {
               console.warn('[gsFlushPhotoQueue] gebe auf nach 8 Versuchen:', it.key);
-              drop = true;
+              // SPEICHER-V2 Scheibe 2: aufgeben heisst ARCHIVIEREN, nicht wegwerfen. Das Foto liegt sonst
+              // nirgends mehr — der Korb war seine einzige Kopie. Im Archiv (Einstellungen → Speicher →
+              // Archiv sichern) laesst es sich als Datei holen. Nur wenn das Archiv es angenommen hat,
+              // verlaesst es den Korb; sonst bleibt es liegen und der naechste Flush gibt erneut auf.
+              var _arch = 0;
+              try { _arch = await window.gsArchiveDropped('pending_photos', [{ bucket: it.bucket, key: it.key, target: it.target, queued_at: it.queued_at, b64: it.b64 }]); } catch(_){}
+              drop = _arch > 0;
+              if (!drop) { it.tries = 8; try { db.transaction('pending_photos', 'readwrite').objectStore('pending_photos').put(it); } catch(_){} }
             } else {
               var utx = db.transaction('pending_photos', 'readwrite');
               utx.objectStore('pending_photos').put(it);
@@ -83513,7 +83594,56 @@ function gsRegisterServiceWorker() {
       if (done) console.log('[gsFlushPhotoQueue] ' + done + ' Foto(s) nachgetragen.');
     } catch(e){ console.warn('[gsFlushPhotoQueue]', e); }
     finally { window._gsPhotoFlushing = false; }
+    try { await window.gsDiaryFotosNachziehen(); } catch(_){}
     return done;
+  };
+
+  // SPEICHER-V2 Scheibe 2: der ALTBESTAND. Bis hierher legte gsAddDiaryEntry ein Foto, dessen Upload
+  // scheiterte, als base64 in den Eintrag. Diese Fotos liegen in ps_myplants und reisen bei jeder
+  // Aenderung im Pflanzen-Blob mit. Der Nachzug laedt sie hoch und setzt die Adresse ein — und zwar
+  // DIREKT, nicht ueber den Ausgangskorb: der Korb gibt nach acht Anlaeufen auf, und ein Bild, das
+  // heute sicher im Eintrag liegt, darf durch einen Umzug nicht unsicherer werden. Scheitert der
+  // Upload, bleibt der Eintrag, wie er ist, und der Lauf endet (kein Empfang gilt fuer alle).
+  // Hoechstens `max` Fotos je Lauf (Vorgabe 5): der Flush laeuft beim Start und bei jedem „online“.
+  window.gsDiaryFotosNachziehen = async function(max){
+    max = max || 5;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return 0;
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return 0;
+    if (typeof window.gsUploadPhotoToBucket !== 'function') return 0;
+    if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return 0;
+    if (window._gsDiaryNachzugLaeuft) return 0;
+    window._gsDiaryNachzugLaeuft = true;
+    var n = 0;
+    try {
+      var wer = _gsUid();                       // EINMAL merken, vor jeder Runde fragen (CLAUDE.md §3.6)
+      var ALT = /^data:image\/(jpeg|png|webp);base64,/;
+      var offen = [];
+      myPlants.forEach(function(p){
+        if (!p || !Array.isArray(p.diary)) return;
+        p.diary.forEach(function(e){ if (e && typeof e.photo === 'string' && ALT.test(e.photo)) offen.push({ pid: String(p.id), ts: String(e.ts), foto: e.photo }); });
+      });
+      var finde = function(o){
+        var p = myPlants.find(function(x){ return x && String(x.id) === o.pid; });
+        if (!p || !Array.isArray(p.diary)) return null;
+        return p.diary.find(function(e){ return e && String(e.ts) === o.ts && e.photo === o.foto; }) || null;
+      };
+      for (var i = 0; i < offen.length && n < max; i++) {
+        if (!wer || _gsUid() !== wer) break;
+        if (!finde(offen[i])) continue;          // inzwischen geloescht oder ersetzt
+        var url = null;
+        try { url = await window.gsUploadPhotoToBucket('garden-diary-photos', offen[i].foto.slice(offen[i].foto.indexOf(',') + 1)); } catch(_){}
+        if (_gsUid() !== wer) break;
+        if (!url) break;                         // nichts verloren: das Bild bleibt im Eintrag
+        var ein = finde(offen[i]);               // nach dem await neu suchen — die Liste kann ersetzt worden sein
+        if (!ein) continue;
+        ein.photo = url;
+        if (typeof savePlantsToStorage === 'function' && savePlantsToStorage() === false) { ein.photo = offen[i].foto; break; }
+        n++;
+      }
+      if (n) console.log('[gsDiaryFotosNachziehen] ' + n + ' Tagebuch-Foto(s) aus dem Pflanzen-Speicher in den Bucket gezogen.');
+    } catch(e){ console.warn('[gsDiaryFotosNachziehen]', e); }
+    finally { window._gsDiaryNachzugLaeuft = false; }
+    return n;
   };
 
   // Public API: gsFlushOfflineQueue — alle pending Items abarbeiten (wenn online)
@@ -88846,11 +88976,14 @@ window.gsCloudSync = (function(){
     return arr.map(function(o){
       if (!o || typeof o !== 'object') return o;
       var isRef = function(v){ return typeof v === 'string' && v.indexOf('gsphoto://') === 0; };
-      if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url)) return o;
+      // Scheibe 2: auch die Eintraege des Pflegeverlaufs (o.diary[].photo) koennen einen Platzhalter tragen.
+      var imVerlauf = Array.isArray(o.diary) && o.diary.some(function(e){ return e && isRef(e.photo); });
+      if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url) && !imVerlauf) return o;
       var c = Object.assign({}, o);
       if (isRef(c.photo))     c.photo = null;
       if (isRef(c.photoUrl))  c.photoUrl = null;
       if (isRef(c.photo_url)) c.photo_url = null;
+      if (imVerlauf) c.diary = o.diary.map(function(e){ return (e && isRef(e.photo)) ? Object.assign({}, e, { photo: null }) : e; });
       return c;
     });
   }
@@ -88952,6 +89085,7 @@ window.gsCloudSync = (function(){
   // v30.50: für das einheitliche Voll-Backup exponieren — der Snapshot renutzt EXAKT diesen State-Builder
   // (DRY + zukunftssicher: neue State-Keys landen automatisch auch im Backend-Snapshot).
   try { window._gsBuildStateBlob = _buildStateBlob; } catch(_){}
+  try { window._gsBuildPlantsBlob = _buildPlantsBlob; } catch(_){}   // Scheibe 2: offline_check liest, was wirklich hochginge
 
   async function _pushBlob(table, data, sync){
     var uid = _uid();
@@ -89315,11 +89449,14 @@ function _gsStripSnapPhotoRefs(arr){
   return arr.map(function(o){
     if (!o || typeof o !== 'object') return o;
     var isRef = function(v){ return typeof v === 'string' && v.indexOf('gsphoto://') === 0; };
-    if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url)) return o;
+    // Scheibe 2: auch die Eintraege des Pflegeverlaufs (o.diary[].photo) koennen einen Platzhalter tragen.
+    var imVerlauf = Array.isArray(o.diary) && o.diary.some(function(e){ return e && isRef(e.photo); });
+    if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url) && !imVerlauf) return o;
     var c = Object.assign({}, o);
     if (isRef(c.photo))     c.photo = null;
     if (isRef(c.photoUrl))  c.photoUrl = null;
     if (isRef(c.photo_url)) c.photo_url = null;
+    if (imVerlauf) c.diary = o.diary.map(function(e){ return (e && isRef(e.photo)) ? Object.assign({}, e, { photo: null }) : e; });
     return c;
   });
 }

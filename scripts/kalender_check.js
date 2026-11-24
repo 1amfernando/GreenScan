@@ -2245,6 +2245,57 @@ const FAELLE = [
       } finally { if (alt == null) localStorage.removeItem('gs_gartentagebuch'); else localStorage.setItem('gs_gartentagebuch', alt); try { gsTagebuchLoad(true); } catch (_) {} }
     },
   },
+  {
+    // SPEICHER-V2 Scheibe 2 · gelesen am 24.11.2026, hier gemessen: der Pflegeverlauf einer Pflanze
+    // (`p.diary`) hat DREI Schreiber und zwei Reihenfolgen. gsQuickDone und „Alle erledigt" setzen
+    // vorn an (neuestes zuerst) und behalten beim Deckel den ANFANG; gsAddDiaryEntry haengt hinten
+    // an (neuestes zuletzt) und behaelt das ENDE. In einer gemischten Liste wirft damit jeder
+    // Schreiber die NEUESTEN Eintraege des anderen hinaus: nach 200 Abhak-Eintraegen kostet eine
+    // Notiz das juengste Abhaken, nach 200 Notizen kostet ein Abhaken die juengste Notiz (mit Foto).
+    // Der Fall stellt beide Listen so her, wie die Schreiber sie schreiben, und ruft die ECHTEN
+    // Funktionen. Beide Richtungen, weil eine Regel „immer den Anfang behalten" nur eine heilt.
+    name: 'Pflegeverlauf · der Deckel wirft das ÄLTESTE hinaus, gleich wer schreibt: nach 200 Abhak-Einträgen bleibt bei einer Notiz das jüngste Abhaken stehen, nach 200 Notizen bleibt beim Abhaken die jüngste Notiz stehen',
+    lauf: async () => {
+      const jetzt = Date.now(), H = 3600e3, klagen = [];
+      const dA = [], dB = [];
+      for (let i = 0; i < 200; i++) dA.push({ ts: new Date(jetzt - (i + 1) * H).toISOString(), action: 'water', title: '💧 Giessen', source: 'quick_done' });
+      for (let i = 0; i < 200; i++) dB.push({ ts: jetzt - (200 - i) * H, action: 'note', title: 'Notiz', note: 'n' + i, photo: null });
+      const aJung = dA[0].ts, aAlt = dA[199].ts;
+      const mk = (id, d) => ({ id: id, name: 'Verlauf ' + id, emoji: '🌿', added: new Date(jetzt - 300 * 864e5).toISOString(),
+        tasks: { water: { active: true, intervalDays: 3, lastDone: new Date(jetzt - 4 * 864e5).toISOString() } }, diary: d });
+      myPlants.push(mk('pvA', dA), mk('pvB', dB));
+      try {
+        // A · eine Notiz ueber den echten Weg (Formular im Pflanzentagebuch)
+        openPlantDiary('pvA');
+        const feld = document.getElementById('diary-note');
+        if (!feld) return { ok: false, warum: 'das Pflanzentagebuch hat kein Notizfeld — Fall nicht hergestellt' };
+        feld.value = 'Neuer Trieb';
+        await gsAddDiaryEntry('pvA');
+        const a = (myPlants.find(x => x.id === 'pvA') || {}).diary || [];
+        if (!a.some(e => e && e.note === 'Neuer Trieb')) return { ok: false, warum: 'die Notiz steht nicht im Verlauf — der Fall misst nichts (' + a.length + ' Einträge)' };
+        if (a.length !== 200) klagen.push('A: ' + a.length + ' Einträge statt 200 nach dem Deckel');
+        if (!a.some(e => e && e.ts === aJung)) klagen.push('A: das JÜNGSTE Abhaken (vor 1 h) ist aus dem Verlauf gefallen, als die Notiz dazukam');
+        if (a.some(e => e && e.ts === aAlt)) klagen.push('A: das ÄLTESTE Abhaken (vor 200 h) steht noch da — herausgefallen ist ein jüngeres');
+        // B · ein Abhaken ueber gsQuickDone
+        const r = gsQuickDone('pvB', 'water');
+        const b = (myPlants.find(x => x.id === 'pvB') || {}).diary || [];
+        if (r !== true || !b.some(e => e && e.source === 'quick_done')) return { ok: false, warum: 'gsQuickDone hat keinen Verlaufseintrag geschrieben (Rückgabe ' + r + ') — der Fall misst nichts' };
+        if (b.length !== 200) klagen.push('B: ' + b.length + ' Einträge statt 200 nach dem Deckel');
+        if (!b.some(e => e && e.note === 'n199')) klagen.push('B: die JÜNGSTE Notiz (vor 1 h) ist aus dem Verlauf gefallen, als abgehakt wurde');
+        if (b.some(e => e && e.note === 'n0')) klagen.push('B: die ÄLTESTE Notiz (vor 200 h) steht noch da — herausgefallen ist eine jüngere');
+        // …und was im Speicher liegt, ist dasselbe (der Blob wird aus dem Speicher gebaut)
+        const gesp = JSON.parse(localStorage.getItem('ps_myplants') || '[]');
+        const gA = (gesp.find(x => x && x.id === 'pvA') || {}).diary || [];
+        if (!gA.some(e => e && e.ts === aJung)) klagen.push('Speicher: das jüngste Abhaken von A fehlt auch in ps_myplants');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'A: 200 Abhaken + 1 Notiz → 200, das älteste fiel heraus · B: 200 Notizen + 1 Abhaken → 200, die älteste fiel heraus' };
+      } finally {
+        try { const m = document.getElementById('plant-diary-modal'); if (m) m.remove(); } catch (_) {}
+        for (let i = myPlants.length - 1; i >= 0; i--) if (myPlants[i] && (myPlants[i].id === 'pvA' || myPlants[i].id === 'pvB')) myPlants.splice(i, 1);
+        try { savePlantsToStorage(); } catch (_) {}
+      }
+    },
+  },
 
 ];
 
