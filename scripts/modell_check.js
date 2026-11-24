@@ -582,7 +582,97 @@ const RAND = [
 ];
 
 // ══ QUELLTEXT ═════════════════════════════════════════════════════════════════
+// v33.74 (Koordination, Befund 2): die Regel „sicherheitsrelevant setzt die Stelle selbst" ist eine PRUEFUNG.
+// Jeder Aufruf von callAI / callVisionAI in index.html sagt seine Rolle — oder steht hier mit Grund.
+// Ein Eintrag ist ein Muster, das GENAU EINMAL im Quelltext steht (sonst ist er veraltet und rot).
+const GS_ROLLE_SCHNELL_BEWUSST = [
+  { muster: "callAI([{role:'user', content:prompt}], '', 400)",
+    grund: 'aiAnalyzePlant: Pflegetipps aus Wasser, Licht und den eigenen Aufgaben der Pflanze. Kein Essbarkeits- und kein Giftigkeitsurteil; die Ausgabe ist eine Anzeige, die die Person selbst liest. Ein schwacher Tipp kostet eine Giessrunde, kein Risiko.' },
+  { muster: "callAI([{role:'user', content: prompt}], '', 400)",
+    grund: '_gsFeedbackTriageOne: Einordnung eines Nutzer-Feedbacks (Status, Prioritaet). Die Antwort ist eine Bewertung am Feedback-Eintrag, kein Rat in einer Sachfrage und entscheidet nichts am Konto, an Freigaben oder an Zahlungen.' },
+];
+// Aufrufe, deren Tokenzahl zur Laufzeit feststeht, aber nicht als Zahl im Quelltext steht.
+const GS_ROLLE_VARIABEL = [
+  { muster: "callAI([{ role: 'user', content: userPrompt }], systemPrompt, maxTokens, { timeout: timeoutMs, retries: 0 })",
+    grund: 'maxTokens ist 2000 (Kompakt) oder 3500 (Pro) — immer ueber 600, also vision.' },
+];
+// Liest die Aufrufe aus einem Quelltext. Gibt die Verstoesse zurueck (leere Liste = alles in Ordnung).
+function rollenFunde(src) {
+  const funde = [];
+  const teile = (s) => {
+    const out = []; let tiefe = 0, q = null, a = 0;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (q) { if (c === '\\') { i++; continue; } if (c === q) q = null; continue; }
+      if (c === "'" || c === '"' || c === '`') { q = c; continue; }
+      if ('([{'.includes(c)) tiefe++; else if (')]}'.includes(c)) tiefe--;
+      else if (c === ',' && tiefe === 0) { out.push(s.slice(a, i).trim()); a = i + 1; }
+    }
+    if (s.slice(a).trim()) out.push(s.slice(a).trim());
+    return out;
+  };
+  const re = /(?<![\w.$])(callAI|callVisionAI)\s*\(/g;
+  let m;
+  while ((m = re.exec(src))) {
+    const name = m[1];
+    if (/function\s+$/.test(src.slice(Math.max(0, m.index - 12), m.index))) continue;   // die Definition selbst
+    const zeile = src.slice(0, m.index).split('\n').length;
+    const zeilenStart = src.lastIndexOf('\n', m.index) + 1;
+    if (/^\s*\/\//.test(src.slice(zeilenStart, m.index))) continue;                     // Kommentarzeile
+    let tiefe = 0, q = null, ende = -1;
+    for (let i = m.index + m[0].length - 1; i < src.length; i++) {
+      const c = src[i];
+      if (q) { if (c === '\\') { i++; continue; } if (c === q) q = null; continue; }
+      if (c === "'" || c === '"' || c === '`') { q = c; continue; }
+      if ('([{'.includes(c)) tiefe++;
+      else if (')]}'.includes(c)) { tiefe--; if (tiefe === 0) { ende = i; break; } }
+    }
+    if (ende < 0) { funde.push({ zeile, aufruf: src.slice(m.index, m.index + 60), warum: 'Klammer nicht geschlossen — die Pruefung kann den Aufruf nicht lesen' }); continue; }
+    const aufruf = src.slice(m.index, ende + 1);
+    const args = teile(src.slice(m.index + m[0].length, ende));
+    const explizit = /\brolle\s*:\s*['"](vision|schnell)['"]/.exec(aufruf);
+    const muster = (liste) => liste.find((e) => aufruf.includes(e.muster));
+    if (name === 'callVisionAI') continue;        // immer vision: callVisionAI waehlt festverdrahtet 'vision' (eigener Fall)
+    if (explizit && explizit[1] === 'vision') continue;
+    if (explizit && explizit[1] === 'schnell') {
+      if (!muster(GS_ROLLE_SCHNELL_BEWUSST)) funde.push({ zeile, aufruf: aufruf.slice(0, 90), warum: 'rolle: schnell ohne Eintrag in GS_ROLLE_SCHNELL_BEWUSST' });
+      continue;
+    }
+    const tok = args[2];
+    if (tok && /^\d+$/.test(tok)) {
+      if (Number(tok) > 600) continue;                                     // > 600 → vision (_gsWaehleRolle)
+      if (!muster(GS_ROLLE_SCHNELL_BEWUSST)) funde.push({ zeile, aufruf: aufruf.slice(0, 90), warum: 'kleine Tokenzahl (' + tok + ') ohne rolle — läuft auf Haiku, steht nicht in GS_ROLLE_SCHNELL_BEWUSST' });
+      continue;
+    }
+    if (!muster(GS_ROLLE_VARIABEL)) funde.push({ zeile, aufruf: aufruf.slice(0, 90), warum: 'Tokenzahl nicht als Zahl im Quelltext (' + (tok || 'fehlt') + ') — weder rolle noch Eintrag in GS_ROLLE_VARIABEL' });
+  }
+  return funde;
+}
+// Veraltete Eintraege: jedes Muster muss im echten Quelltext genau einmal vorkommen.
+function veralteteRollenEintraege(src) {
+  return GS_ROLLE_SCHNELL_BEWUSST.concat(GS_ROLLE_VARIABEL)
+    .map((e) => ({ e, n: src.split(e.muster).length - 1 }))
+    .filter((x) => x.n !== 1)
+    .map((x) => ({ zeile: 0, aufruf: x.e.muster, warum: 'Eintrag passt auf ' + x.n + ' Stellen (muss genau 1 sein) — veraltet' }));
+}
 const QUELLTEXT = [
+  {
+    name: 'Jede Aufrufstelle in index.html sagt ihre Rolle — ein kleiner Aufruf ohne rolle laeuft auf Haiku, und nur eine bewusste Liste darf das (Prüfung, keine Bitte)',
+    lauf: () => {
+      const src = fs.readFileSync(path.join(WURZEL, 'index.html'), 'utf8');
+      const schlecht = "const x = callAI([{role:'user', content:'a'}], '', 300);";
+      const gut = "const y = callAI([{role:'user', content:'a'}], '', 300, { rolle: 'vision' });";
+      if (rollenFunde(schlecht).length !== 1) return { ok: false, warum: 'Gegenprobe: ein Aufruf mit 300 Token ohne rolle wird NICHT gefunden' };
+      if (rollenFunde(gut).length !== 0) return { ok: false, warum: 'Gegenprobe: derselbe Aufruf mit rolle wird faelschlich gemeldet' };
+      const a = src.indexOf('async function callVisionAI(');
+      const cv = src.slice(a, src.indexOf('\n}\n', a));
+      if (!cv.includes("_gsPickClaudeModel('vision')")) return { ok: false, warum: 'callVisionAI waehlt nicht festverdrahtet „vision" — die Annahme der Pruefung stimmt nicht mehr' };
+      const funde = rollenFunde(src).concat(veralteteRollenEintraege(src));
+      if (funde.length) return { ok: false, warum: funde.length + ' Stelle(n) — ' + funde.slice(0, 5).map((f) => 'Zeile ' + f.zeile + ': ' + f.warum + ' [' + f.aufruf + ']').join(' · ') };
+      const alle = (src.match(/(?<![\w.$])(callAI|callVisionAI)\s*\(/g) || []).length;
+      return { ok: true, info: alle + ' Aufrufe gelesen · ' + GS_ROLLE_SCHNELL_BEWUSST.length + ' bewusst schnell (mit Grund) · ' + GS_ROLLE_VARIABEL.length + ' mit variabler Tokenzahl' };
+    },
+  },
   {
     name: 'Kein Modellname in einer Edge-Function · als Zeichenkette steht er nur in _shared/modelle.mjs (Kommentare zaehlen nicht) — und die Suche findet, was sie finden soll',
     lauf: () => {

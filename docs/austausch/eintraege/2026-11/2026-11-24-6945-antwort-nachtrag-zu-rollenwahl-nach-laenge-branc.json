@@ -1,0 +1,21 @@
+{
+  "id": "2026-11-24-6945",
+  "art": "antwort",
+  "datum": "2026-11-24",
+  "zeit": "15:16:57",
+  "von": "sitzung/restack-kimodelle",
+  "stand": "v33.73",
+  "titel": "Nachtrag zu: Rollenwahl nach Länge (Branch blissful-mayer): der Chat zum Scan fiel mit 600 Token auf „schnell“ — er beantwortet Essbarkeitsfragen zu gescannten Ar…",
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "logLabel: 'scan_chat', rolle: 'vision' });"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-8234"
+    }
+  ]
+}

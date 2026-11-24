@@ -30,6 +30,26 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.52', date: '06.10.2026',
+      headline: 'Vier Bestätigungen, die nur stimmten, wenn alles gut ging',
+      summary: 'Profil speichern, Freundschaft annehmen und zwei Foto-Wege sagten „gespeichert“, sobald der Server keinen Fehler meldete. Bei einer Änderung, die der Server nicht erlaubt, meldet er aber keinen Fehler — er ändert einfach null Zeilen. Jetzt zählt die App die Zeilen. Dazu eine Regel auf dem Server, die beim Annehmen von Freundschaften zu grosszügig war.',
+      user_summary: 'Wenn du dein Profil änderst, eine Freundschaft annimmst oder einem Fund ein Foto gibst, sagt die App „gespeichert“ jetzt erst, wenn der Server es wirklich gespeichert hat. Hat er nichts geändert, sagt sie das — statt so zu tun, als sei alles gut.',
+      user_items: [
+        {emoji:'✓', bold:'„Gespeichert“ heisst jetzt gespeichert:', text:' bei abgelaufener Anmeldung stand bisher „✓ Gespeichert“, obwohl dein Profil unverändert blieb.'},
+        {emoji:'🤝', bold:'Eine zurückgezogene Anfrage sagt es:', text:' „Diese Anfrage gibt es nicht mehr“ statt „✅ Verbunden!“ für niemanden.'},
+        {emoji:'📸', bold:'Fotos an Funden und Rezepten:', text:' die Bestätigung kommt erst, wenn der Eintrag das Foto wirklich hat.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen, nicht geschätzt:', text:' von 99 Schreibvorgängen (ohne RPC) sind 20 PATCH; vier davon versprachen Erfolg nach nur `.error` und schickten dazu return=minimal. v33.50 hatte „rund 176 Stellen“ genannt — das war eine Schätzung über alle `if (r.error)`, keine Messung dieser Klasse.'},
+        {emoji:'🧮', bold:'Warum nur PATCH:', text:' ein UPDATE, das RLS abweist, filtert still auf 0 Zeilen; ein abgewiesenes INSERT wirft einen Fehler (auch ein Upsert), ein DELETE mit 0 Zeilen heisst „war schon weg“. Live gemessen: alle vier Tabellen filtern UPDATE per USING.'},
+        {emoji:'🔧', bold:'Vier Stellen, eine Regel:', text:' gsSaveProfileField, gsFriendsAccept, _gsMyFindAddPhoto, gsRecipePhotoUpload — return=representation plus _gsSchreibOk, und bei 0 Zeilen ein eigener Satz.'},
+        {emoji:'🧪', bold:'versprechen_check:', text:' ein PATCH mit Versprechen braucht jetzt den Blick auf die Zeilen, und return=minimal ist dort rot. Gegen den alten Stand: genau die vier. save_check fährt zwei davon mit gestelltem Server zu Ende (Nein · leer · Ja).'},
+        {emoji:'🤝', bold:'Migration 20261006_friendships_nur_empfaenger.sql (nicht angewandt):', text:' live durfte der Absender die eigene Anfrage annehmen, jeder eine Zeile gleich als „accepted“ anlegen und beide Seiten user_id/friend_id umschreiben. Danach: Anfrage nur als pending, Annehmen nur durch den Empfänger, ändern nur die Spalte status.'},
+        {emoji:'🐘', bold:'naht_check spielt es nach:', text:' lokales Postgres mit dem Live-Stand, alle vier Wege reproduziert, Migration zweimal, danach jeder verweigert und der richtige Weg weiter offen; Gegenprobe ohne Spaltenrecht biegt wieder um.'},
+        {emoji:'📵', bold:'Grenze:', text:' live hat friendships 0 Zeilen, und nichts sonst liest den Status — eine erzwungene Freundschaft öffnet heute nichts. Die zwei Foto-Wege sind nur statisch geprüft (Datei-Auswahl).'}
+      ]
+  },
+  {
     v: 'v33.51', date: '25.09.2026',
       headline: 'Das Admin-Protokoll kennt jetzt jede Aktion',
       summary: 'Das Admin-Panel hat ein Protokoll auf dem Server — aber fünf von fünfzehn Aktionen kamen dort nie an, darunter das Freigeben und Ablehnen von Foto-Beiträgen und Arten-Vorschlägen. „Wer hat das abgelehnt, und wann?“ war nicht zu beantworten. Jetzt sagt jede Aktion, ob sie eine Spur hinterlässt, der Fuss unter dem Protokoll rechnet die Deckung, und eine Migration schliesst die drei Lücken.',

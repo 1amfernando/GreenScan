@@ -47,6 +47,14 @@ Installation — ein roter Prüfstand nimmt dem nächsten Lauf den Speicher nich
 **Offen:** brett:2026-11-18-cf93 (schliesst sich erst mit zwei gemessenen CI-Läufen am PR: einer ohne, einer mit Speicher), brett:2026-11-18-70cd (Punkt 2: die Branch-Regel für `zz-sicherung` kann nur Fernando in den Einstellungen setzen)
 **Nicht geprüft:** ob `actions/cache` in der CI trifft und wie viel Zeit es spart (erst der Lauf am PR); ein Fork-PR; die Unversehrtheit der Browser im Speicher (keine signierte Liste); der Wächter auf `main` (läuft erst nach dem Merge)
 
+### 2026-11-24 (jw) - v33.73: KI-Modelle — die Modellwahl richtet sich nach der Verwendung, Essbarkeit bleibt genau
+
+Kurze Texte (bis 600 Token) laufen auf dem schnellen Haiku, außer die Stelle sagt `rolle: 'vision'`; Fotos, Scan-Chat, Garten-Analyse, Quiz-Erklärung, Sprachfragen und die Pflanzen-Diagnose ohne Foto bleiben auf Sonnet (gepinnt). Bewusst Haiku mit Grund: Pflege-Tipps (`aiAnalyzePlant`) und Feedback-Einordnung (`_gsFeedbackTriageOne`). Die Zuordnung prüft `modell_check` (Fall „Jede Aufrufstelle … sagt ihre Rolle“). Der Proxy-Teil (das Feld `rolle`) ist NICHT ausgeliefert — FUER-FERNANDO §33.
+
+**Offen:** nichts im Brett (der Proxy-Teil wartet auf Fernando, FUER-FERNANDO §33)
+
+**Nicht geprüft:** ein echter Haiku-Aufruf durch das KI-Tor (seit 17.11. kein erfolgreicher Tor-Aufruf beobachtet); das Verhalten im echten Browser; Kosten (keine Zahl aus `ai_usage`).
+
 ### 2026-11-24 (jv) - v33.72: Ein grosser Durchgang — 18 Agenten in drei Läufen, zwei neue Prüfstände, und der Garten überlebt das neue Gerät
 
 Fernandos Auftrag: „Checke alle Fehler, unschöne Programmierungen und
