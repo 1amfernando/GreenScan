@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.76.20261124">
+<meta name="app-version" content="33.77.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -59621,6 +59621,120 @@ var GS_STEMPEL_LISTEN = ['ps_myplants', 'gs_gardens', 'gs_plantings'];
 // und ginge wieder hoch (sync_check H10). Schluessel bei Tracks: der Beginn `ts`.
 var GS_GELOESCHT_LISTEN = GS_STEMPEL_LISTEN.concat(['gs_garden_plans', 'gs_gpx_tracks']);
 var GS_GELOESCHT_TAGE = 90, GS_GELOESCHT_MAX = 300;
+
+// ═══ SPEICHER-V2 Scheibe 3 (docs/SPEICHER-V2.md): DAS REGISTER — ein Schluessel, ein Eintrag ═══
+// Jeder Schluessel des Geraetespeichers, der im ABGLEICH zwischen zwei Geraeten reist (die drei Cloud-Zeilen
+// unten), steht hier genau einmal. Was nur im Backup liegt (_GS_SNAPSHOT_ONLY), gehoert nicht hierher.
+//   blob     in welcher Cloud-Zeile er reist: 'plants' (user_plants) · 'garden' (user_gardens) · 'state' (user_app_state)
+//   feld     unter welchem Namen im Blob ('ui.dark' = data.ui.dark, 'garten_prefs.bl_tab' = data.garten_prefs.bl_tab)
+//   regel    was HEUTE geschieht, wenn zwei Geraete denselben Schluessel tragen:
+//              'eintrag_stempel'  je Eintrag nach id — der spaetere Stempel gewinnt, Loeschmarken (_gsMergeEintraege)
+//              'eintrag_marke'    je Eintrag mit Loeschmarke, aber nur bei ungesendetem Stand; sonst gilt die Cloud
+//              'ganz'             der ganze Wert einer Seite gewinnt (die Cloud, ausser lokal ist ungesendet).
+//                                 EINE Ausnahme im state-Blob: trifft ein ungesendeter Stand auf ein Geraet, das noch
+//                                 nie abgeglichen hat (kein gs_sync_synced_at_state), werden Listen und Objekte je
+//                                 Eintrag gemischt (_gsStateMischen, sync_check H11); Zahl und Text bleiben lokal.
+//              'vereinigung'      beide Seiten werden IMMER vereinigt, nie ersetzt — vor der Frage, wer gewinnt
+//              'vereinigung_uebernahme'  vereinigt nur, wenn der Cloud-Stand uebernommen (oder blind gemischt) wird;
+//                                 ist lokal ungesendet und das Geraet schon abgeglichen, gewinnt lokal ganz
+//            `regel` beschreibt den Weg ueber den BLOB. gs_gardens, gs_plantings und gs_gartentagebuch haben daneben
+//            den Tabellen-Spiegel gsGardenSync.pullAll (_gsMergeById: lokal gewinnt, ohne Stempel und Marke) — offen.
+//              'verbund'          nur zusammen mit seinen Geschwistern gueltig — ein eigener Uebernehmer (`ueber`)
+//   ueber    der Uebernehmer, der diesen Schluessel auf dem Rueckweg schreibt (statt der stateMap)
+//   abmelden 'geht' (GS_USER_KEYS) oder 'bleibt' (GS_KEEP_ON_LOGOUT) — bleibt etwas, das reist, steht der Grund dabei
+//   deckel   die Laenge, auf die gsCapWithArchive die Liste haelt
+//   hinweg   false = der ABGLEICH wuerde ihn zurueckschreiben, laedt ihn aber (noch) nicht hoch — mit Grund.
+//            (Das Backup nimmt beide mit und bringt sie seit dieser Scheibe auch zurueck.)
+// Diese Stufe aendert KEIN Verhalten des Abgleichs: sie beschreibt, was gilt. Gelesen wird das Register von
+// (1) dem Pruefstand — sync_check „Register“ haelt Hinweg, Rueckweg, Backup, Abmelde-Listen, Stempel- und
+// Marken-Listen und Deckel dagegen, in beide Richtungen; (2) der Wiederherstellung aus dem Backup
+// (_gsApplyStateBlob) und (3) der Zuordnung Schluessel → Bereich (_gsSpeicherBereiche). Wer einen reisenden
+// Schluessel anlegt, traegt ihn HIER ein; was er sonst noch vergessen hat, sagt der Pruefstand.
+// Anlass (gemessen 24.11.2026): neun Stellen von Hand je Schluessel — vergessen wurden gs_reminder_prefs
+// (v32.23), gs_dq_training (v33.28), gs_kal_filter (v33.35, im Backup-Rueckweg bis hierher), die Geraete.
+var _GS_SP_ANSICHT = 'Ansichts-Einstellung des Geraets, kein Inhalt einer Person';
+var GS_SPEICHER = {
+  // ── user_plants ──
+  'ps_myplants':            { blob: 'plants', feld: 'plants',         regel: 'eintrag_stempel', abmelden: 'geht' },
+  'gs_gartentagebuch':      { blob: 'plants', feld: 'diary',          regel: 'ganz',            abmelden: 'geht', deckel: 500 },
+  'gs_dead_plants':         { blob: 'plants', feld: 'dead_plants',    regel: 'ganz',            abmelden: 'geht' },
+  'gs_seed_inventory':      { blob: 'plants', feld: 'seed_inventory', regel: 'ganz',            abmelden: 'geht' },
+  // ── user_gardens ──
+  'gs_garden_plans':        { blob: 'garden', feld: 'plans',          regel: 'eintrag_marke',   abmelden: 'geht', deckel: 30 },
+  'gs_garden_plan_current': { blob: 'garden', feld: 'current',        regel: 'ganz',            abmelden: 'geht' },
+  'gs_gardens':             { blob: 'garden', feld: 'gardens',        regel: 'eintrag_stempel', abmelden: 'geht' },
+  'gs_plantings':           { blob: 'garden', feld: 'plantings',      regel: 'eintrag_stempel', abmelden: 'geht' },
+  'gs_gpx_tracks':          { blob: 'garden', feld: 'gpx_tracks',     regel: 'eintrag_marke',   abmelden: 'geht', deckel: 30 },
+  // ── user_app_state ──
+  'gs_streak':              { blob: 'state', feld: 'streak',              regel: 'verbund', ueber: '_gsStreakApplyCloud', abmelden: 'geht' },
+  'gs_streak_sig':          { blob: 'state', feld: 'streak_sig',          regel: 'verbund', ueber: '_gsStreakApplyCloud', abmelden: 'geht' },
+  'gs_streak_stamp':        { blob: 'state', feld: 'streak_stamp',        regel: 'verbund', ueber: '_gsStreakApplyCloud', abmelden: 'geht' },
+  'gs_last_active_day_iso': { blob: 'state', feld: 'last_active_day_iso', regel: 'verbund', ueber: '_gsStreakApplyCloud', abmelden: 'geht' },
+  'gs_login_streak':        { blob: 'state', feld: 'login_streak',        regel: 'verbund', ueber: '_gsLoginStreakApplyCloud', abmelden: 'geht' },
+  'gs_last_login':          { blob: 'state', feld: 'last_login',          regel: 'verbund', ueber: '_gsLoginStreakApplyCloud', abmelden: 'geht' },
+  'gs_geloescht':           { blob: 'state', feld: 'geloescht',           regel: 'vereinigung', ueber: '_gsGeloeschtEinlesen', abmelden: 'geht' },
+  'gs_doctor_history':      { blob: 'state', feld: 'doctor_history',      regel: 'ganz', abmelden: 'geht' },
+  'gs_ki_analyses':         { blob: 'state', feld: 'ki_analyses',         regel: 'ganz', abmelden: 'geht' },
+  'gs_dq_archive':          { blob: 'state', feld: 'dq_archive',          regel: 'ganz', abmelden: 'geht' },
+  'gs_dq_stats':            { blob: 'state', feld: 'dq_stats',            regel: 'ganz', abmelden: 'geht' },
+  'gs_dq_training':         { blob: 'state', feld: 'dq_training',         regel: 'ganz', abmelden: 'geht' },
+  'gs_kal_filter':          { blob: 'state', feld: 'kal_filter',          regel: 'ganz', abmelden: 'geht' },
+  'gs_quiz_streak':         { blob: 'state', feld: 'quiz_streak',         regel: 'ganz', abmelden: 'geht' },
+  'gs_recipe_favs':         { blob: 'state', feld: 'recipe_favs',         regel: 'ganz', abmelden: 'geht' },
+  'gs_recent_searches':     { blob: 'state', feld: 'recent_searches',     regel: 'ganz', abmelden: 'geht' },
+  'gs_wissen_read':         { blob: 'state', feld: 'wissen_read',         regel: 'vereinigung_uebernahme', abmelden: 'geht' },
+  'ps_favs':                { blob: 'state', feld: 'favs',                regel: 'ganz', abmelden: 'geht' },
+  'ps_votes':               { blob: 'state', feld: 'votes',               regel: 'ganz', abmelden: 'geht' },
+  'gs_confirmed_species':   { blob: 'state', feld: 'confirmed_species',   regel: 'ganz', abmelden: 'geht' },
+  'gs_achievements':        { blob: 'state', feld: 'achievements',        regel: 'ganz', abmelden: 'geht' },
+  'gs_reminder_prefs':      { blob: 'state', feld: 'reminder_prefs',      regel: 'ganz', abmelden: 'geht' },
+  'gs_sae_merkliste':       { blob: 'state', feld: 'sae_merkliste',       regel: 'ganz', abmelden: 'geht' },
+  'gs_push_settings':       { blob: 'state', feld: 'push_settings',       regel: 'ganz', abmelden: 'geht' },
+  'gs_sae_search':          { blob: 'state', feld: 'sae_search',          regel: 'ganz', abmelden: 'geht' },
+  'gs_region':              { blob: 'state', feld: 'region',              regel: 'ganz', abmelden: 'bleibt', grund: 'Region des Geraets — die naechste Person am selben Ort braucht dieselbe' },
+  'gs_user_location':       { blob: 'state', feld: 'user_location',       regel: 'ganz', abmelden: 'bleibt', grund: 'Standort des Geraets, nicht der Person' },
+  'gs_sae_cat':             { blob: 'state', feld: 'sae_cat',             regel: 'ganz', abmelden: 'bleibt', grund: _GS_SP_ANSICHT },
+  'gs_dark':                { blob: 'state', feld: 'ui.dark',             regel: 'ganz', abmelden: 'bleibt', grund: _GS_SP_ANSICHT },
+  'gs_theme_color':         { blob: 'state', feld: 'ui.theme_color',      regel: 'ganz', abmelden: 'bleibt', grund: _GS_SP_ANSICHT },
+  'gs_lang':                { blob: 'state', feld: 'ui.lang',             regel: 'ganz', abmelden: 'bleibt', grund: 'Sprache des Geraets — auch der Anmeldebildschirm spricht sie' },
+  'gs_bl_month':            { blob: 'state', feld: 'garten_prefs.bl_month',        regel: 'ganz', abmelden: 'bleibt', grund: _GS_SP_ANSICHT },
+  'gs_bl_tab':              { blob: 'state', feld: 'garten_prefs.bl_tab',          regel: 'ganz', abmelden: 'bleibt', grund: _GS_SP_ANSICHT },
+  'gs_bl_bee':              { blob: 'state', feld: 'garten_prefs.bl_bee',          regel: 'ganz', abmelden: 'bleibt', grund: _GS_SP_ANSICHT },
+  'gs_tb_filter':           { blob: 'state', feld: 'garten_prefs.tb_filter',       regel: 'ganz', abmelden: 'bleibt', grund: _GS_SP_ANSICHT },
+  'gs_tb_search':           { blob: 'state', feld: 'garten_prefs.tb_search',       regel: 'ganz', abmelden: 'geht' },
+  'gs_tb_cat_selected':     { blob: 'state', feld: 'garten_prefs.tb_cat_selected', regel: 'ganz', abmelden: 'bleibt', grund: _GS_SP_ANSICHT },
+  'gs_ernte_unit':          { blob: 'state', feld: 'garten_prefs.ernte_unit',      regel: 'ganz', abmelden: 'bleibt', grund: _GS_SP_ANSICHT },
+  'gs_ernte_view':          { blob: 'state', feld: 'garten_prefs.ernte_view',      regel: 'ganz', abmelden: 'bleibt', grund: _GS_SP_ANSICHT },
+  'gs_ernte_year':          { blob: 'state', feld: 'garten_prefs.ernte_year',      regel: 'ganz', abmelden: 'bleibt', grund: _GS_SP_ANSICHT },
+  // ── kommt zurueck, reist aber noch nicht hin ──
+  'gs_geraete':             { blob: 'state', feld: 'geraete',        regel: 'ganz', abmelden: 'geht', hinweg: false, grund: 'als ganze Liste wuerde ein Geraet die Geraete des anderen ersetzen — braucht die Regel je Eintrag (SPEICHER-V2 Scheibe 4)' },
+  'gs_geraete_regeln':      { blob: 'state', feld: 'geraete_regeln', regel: 'ganz', abmelden: 'geht', hinweg: false, grund: 'Regeln gehoeren zu Geraeten und reisen mit ihnen (SPEICHER-V2 Scheibe 4)' }
+};
+// Zuordnung Schluessel → Bereich ('plants' · 'garden' · 'state'), aus dem Register. Dazu zwei Schluessel, die
+// einen Bereich als geaendert vormerken, ohne selbst im Blob zu reisen.
+var GS_SPEICHER_NUR_VORMERKEN = {
+  'gs_weather_lastfetch': 'state',   // Wetter-Cache-Stempel (der Cache selbst reist nicht)
+  'gs_ernte_log': 'plants'           // lokaler Ernte-Spiegel — die Wahrheit liegt in garden_harvests
+};
+function _gsSpeicherBereiche() {
+  var m = {};
+  Object.keys(GS_SPEICHER).forEach(function (k) { m[k] = GS_SPEICHER[k].blob; });
+  Object.keys(GS_SPEICHER_NUR_VORMERKEN).forEach(function (k) { m[k] = GS_SPEICHER_NUR_VORMERKEN[k]; });
+  return m;
+}
+// Feld im state-Blob → Schluessel, fuer alles, was OHNE eigenen Uebernehmer zurueckgeschrieben wird.
+// praefix '' = die einfachen Felder (data.<feld>), 'garten_prefs.' = die Garten-Ansicht, 'ui.' = die drei UI-Werte.
+function _gsSpeicherStateFelder(praefix) {
+  var m = {}; praefix = praefix || '';
+  Object.keys(GS_SPEICHER).forEach(function (k) {
+    var e = GS_SPEICHER[k];
+    if (e.blob !== 'state' || e.ueber || e.hinweg === false) return;
+    var f = String(e.feld);
+    if (praefix) { if (f.indexOf(praefix) === 0) m[f.slice(praefix.length)] = k; }
+    else if (f.indexOf('.') < 0) m[f] = k;
+  });
+  return m;
+}
 function _gsGeloeschtBereinigen(o) {
   var aus = {}, grenze = Date.now() - GS_GELOESCHT_TAGE * 86400000;
   if (!o || typeof o !== 'object' || Array.isArray(o)) return aus;
@@ -80575,6 +80689,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.77', date: '24.11.2026',
+      headline: 'Ein Register für alles, was zwischen deinen Geräten reist',
+      summary: 'Dritte Scheibe aus „Speicher, Abgleich, Verdrahtung“. Jeder Schlüssel des Gerätespeichers, der im Abgleich zwischen zwei Geräten reist, steht jetzt genau einmal in einem Register (51 Einträge): in welcher Cloud-Zeile er reist, welche Regel zwischen zwei Geräten gilt, ob er beim Abmelden geht oder bleibt, und sein Deckel. Zwei bisher von Hand gepflegte Listen lesen daraus. Beim Eintragen fielen zwei Lücken auf: die Filterwahl des Kalenders sowie Geräte und Sensor-Regeln lagen im Cloud-Backup und kamen beim Wiederherstellen nie zurück. Am Abgleich selbst ändert sich sonst nichts; ein neuer Prüfstandsfall hält Hinweg, Rückweg, Backup und Abmelde-Listen gegen das Register.',
+      user_summary: 'Stellst du deine Daten aus dem Cloud-Backup wieder her, kommen jetzt auch deine Filterwahl im Kalender, deine Geräte und deine Sensor-Regeln zurück. Der Rest ist Vorarbeit unter der Haube, damit beim Gerätewechsel nichts mehr vergessen wird.',
+      user_items: [
+        {emoji:'📅', bold:'Kalender-Filter im Backup:', text:' deine Wahl, was der Kalender zeigt, kam beim Wiederherstellen aus dem Cloud-Backup nicht zurück. Jetzt schon.'},
+        {emoji:'🌡️', bold:'Geräte im Backup:', text:' deine Geräte und Sensor-Regeln lagen im Cloud-Backup, wurden beim Wiederherstellen aber nicht zurückgeholt. Jetzt kommen sie mit — nur dort, wo auf dem Gerät noch nichts steht.'},
+        {emoji:'🧭', bold:'Unter der Haube:', text:' alles, was zwischen deinen Geräten abgeglichen wird, steht an einer Stelle — vergisst jemand einen Teil, fällt es sofort auf, statt erst beim nächsten Gerätewechsel.'}
+      ]
+    },
+  {
     v: 'v33.76', date: '24.11.2026',
       headline: 'Pflanze anlegen auch mit Tippfehlern — und mit der Giftstufe der Art',
       summary: 'Suche 11: die Vorschläge unter „Art / Name“ rechnen wie die Artensuche (Umlaute, Vertipper, Synonyme) und schlagen nur Namen vor — im Fliesstext nennen sich Verwechsler gegenseitig, „maigl“ hätte den Bärlauch vorgeschlagen; „giftig“ fragt wie der Filter an der Art und nennt die Stufe der Skala (58 Einträge mehr gewarnt, keiner weniger).',
@@ -80955,27 +81080,6 @@ window.GS_RELEASES = [
         {emoji:'🛠️', bold:'Datenbank (am 10.11.2026 angewandt):', text:' 20260907_global_api_key_nur_proxy, 20260831_rollen_leak_fix_v30_95 und 20260924_admin_grants; v31_36_mkt_views_auth_guard war schon seit dem 01.09.2026 in Kraft und wurde unverändert noch einmal eingespielt.'}
       ]
   },
-  {
-    v: 'v33.56', date: '22.10.2026',
-      headline: 'Teilen → GreenScan auch in der Android-App',
-      summary: 'Bis v33.55 stand die Android-App nicht im Teilen-Menü: die Hülle liest das Manifest der Web-App nicht und hatte keinen ACTION_SEND-Filter. Jetzt nimmt sie Fotos an (dieselben vier Typen wie die Web-App), kopiert sie in ein Fach im Arbeitsspeicher und stösst die Seite an; die Seite holt das Foto selbst ab und zeigt dieselbe Vorschau wie im Browser — bestimmt wird erst nach dem Antippen. Ohne JavaScript-Brücke: zwei Adressen unter dem eigenen Ursprung (holen, quittieren), mit eigenem Kopfzeilen-Wert. Neu für beide: „Bestimmen“ nimmt erst nach 0,7 Sekunden an, und ein Bild mit mehr als 200 Megapixeln wird am Dateikopf abgelehnt. Eine gegnerische Prüfung fand zwölf Lücken — acht von unabhängigen Gegenprüfern bestätigt (Reihenfolge zweier Teilen, eine hängende Kopie, GIF- und JPEG-Bomben …), vier Prüfstands-Lücken von mir nachgeprüft, weil ihre Gegenprüfer am Nutzungslimit ausfielen. Alle vor dem Ausliefern geschlossen.',
-      user_summary: 'In der Android-App steht GreenScan jetzt im Teilen-Menü der Galerie: ein Foto erscheint als Vorschau und wird bestimmt, wenn du tippst — wie in der Browser-App. Damit kein Tipp aus Versehen einen Scan auslöst, nimmt „Dieses Foto bestimmen“ erst nach einem kurzen Moment an.',
-      user_items: [
-        {emoji:'📤', bold:'Teilen → GreenScan in der App:', text:' ein Foto aus der Galerie oder einer anderen App kommt als Vorschau an; bestimmt wird erst, wenn du tippst.'},
-        {emoji:'⏳', bold:'Kein Tipp aus Versehen:', text:' „Dieses Foto bestimmen“ nimmt erst nach einem kurzen Moment an und ist nicht vorausgewählt.'},
-        {emoji:'🛡️', bold:'Keine Riesenbilder:', text:' ein Bild mit mehr als 200 Megapixeln wird abgelehnt, bevor die App es öffnet — so stürzt sie nicht ab.'},
-        {emoji:'💬', bold:'Ehrliche Sätze:', text:' kommt ein Foto nicht an, ist es zu gross, im HEIC-Format oder nicht mehr da, sagt die App genau das.'},
-        {emoji:'📱', bold:'Ein Unterschied bleibt:', text:' in der App wartet ein geteiltes Foto nur, solange die App läuft — beendet Android sie vorher, einfach noch einmal teilen.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen:', text:' die Hülle hatte keinen ACTION_SEND-Filter und stand im Teilen-Menü gar nicht; GS_HUELLE_ANDERS sagte das als „teilen“.'},
-        {emoji:'🧮', bold:'Die Rechnung in Geteilt.java:', text:' Quelle (nur content://, nie die eigene App), Typ an den Bytes, Kopie mit Deckel 15 MiB, EIN Fach mit Nummern und Fristen, die Weiche mit eigenem Kopfzeilen-Wert, die ganze Annahme — ohne Android, im Prüfstand übersetzt und ausgeführt (G1–G9).'},
-        {emoji:'🔁', bold:'Zwei Schritte:', text:' GET /__huelle/geteilt/holen liefert das Foto und verbraucht nichts, quittieren?n= leert nur das gezeigte Foto — in der Hülle bleibt die Seite über mehrere Teilen geladen, ohne Nummer räumte das Ende eines Scans ein neueres Foto mit ab.'},
-        {emoji:'🔍', bold:'Gegnerische Prüfung, zwölf Funde:', text:' die Nummer vergibt jetzt der UI-Faden (Reihenfolge der Absichten), die Seite wird beim Start der Kopie angestossen, ein hängender Strom wird nach 60 s geschlossen, „kommt“ trägt die Nummer, ein Platz wird je Nummer einmal frei; GIF liest den ersten Bildrahmen, JPEG überspringt Fremdbytes wie libjpeg.'},
-        {emoji:'🧪', bold:'Prüfstände:', text:' apk_check G1–G9, R17 (Naht), R18 (Rand), B5 (Filter im gebauten Paket), R8 auch rückwärts, T0–T13 gegen ein echtes Fach im KanalFahrer; offline_check 39 → 41 (Antipp-Sperre in der Seite gemessen, Kopf-Bomben). 50 Brüche als Gegenprobe, jeder rot.'},
-        {emoji:'🧭', bold:'Bewusst nicht:', text:' setFilterTouchesWhenObscured — es schützte vor einer App mit Overlay-Recht, machte GreenScan aber für jede App mit Bildschirmfilter unbedienbar. Steht in android/README.md.'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81186,7 +81290,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.76';
+var GS_VERSION = 'v33.77';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -90025,40 +90129,11 @@ window.gsCloudSync = (function(){
   try {
     if (!window._gsLocalStoragePatched) {
       window._gsLocalStoragePatched = true;
-      var STATE_KEYS = {
-        // state-Scope
-        'gs_streak':'state','gs_login_streak':'state','gs_streak_sig':'state','gs_streak_stamp':'state',
-        'gs_last_login':'state',   // v31.14: gehört zu gs_login_streak — beide oder keiner
-        'gs_last_active_day_iso':'state',
-        'gs_doctor_history':'state','gs_ki_analyses':'state',
-        'gs_dq_archive':'state','gs_dq_stats':'state','gs_quiz_streak':'state','gs_dq_training':'state','gs_kal_filter':'state',
-        'gs_recipe_favs':'state','gs_recent_searches':'state','gs_wissen_read':'state',
-        'gs_geraete':'state','gs_geraete_regeln':'state',   // v32.48
-        'ps_favs':'state','ps_votes':'state','gs_confirmed_species':'state',
-        'gs_dark':'state','gs_theme_color':'state','gs_lang':'state',
-        'gs_achievements':'state',
-        'gs_reminder_prefs':'state',
-        // v26.51 — Mein-Garten Sub-Tab Prefs/Merklisten (sonst Geräte-Wechsel-Verlust)
-        'gs_sae_merkliste':'state',     // Säkalender-Merkliste (max 30 Pflanzen)
-        'gs_bl_month':'state','gs_bl_tab':'state','gs_bl_bee':'state',  // Blühkalender View-Prefs
-        'gs_tb_filter':'state','gs_tb_search':'state','gs_tb_cat_selected':'state', // Tagebuch UI-State
-        'gs_ernte_unit':'state','gs_ernte_view':'state',  // Ernte-Prefs
-        // v28.97 A-Z-Audit PERS-2/4/7: Region + Push-Kategorien-Prefs + Ernte-Jahr Cross-Device.
-        // BEWUSST NICHT gesynct: gs_notif_enabled/gs_notif_state (Browser-Permission ist PRO
-        // GERÄT — Sync würde auf Gerät B "an" anzeigen ohne echte Permission).
-        'gs_region':'state','gs_push_settings':'state','gs_ernte_year':'state',
-        // v30.24: Standort cross-device (sonst Wetter/Regional-Pilze/Saison leer auf neuem Gerät — grösste echte Sync-Lücke). LWW; lokales GPS überschreibt beim nächsten App-Start.
-        'gs_user_location':'state',
-        'gs_sae_search':'state','gs_sae_cat':'state', // v30.24: Säkalender Such-/Filter-State (resettete sonst pro Gerät)
-        'gs_weather_lastfetch':'state', // Wetter-Cache-Stamp (Daten-Cache extra)
-        // plants-Scope (zusätzlich zu existing markDirty-Calls — doppeltes Tracken ist safe)
-        'ps_myplants':'plants','gs_gartentagebuch':'plants',
-        'gs_dead_plants':'plants','gs_seed_inventory':'plants',
-        'gs_ernte_log':'plants',        // v26.51: lokaler Ernte-Cache (Cloud-Truth ist garden_harvests)
-        // garden-Scope
-        'gs_gardens':'garden','gs_plantings':'garden','gs_garden_plans':'garden',
-        'gs_garden_plan_current':'garden','gs_gpx_tracks':'garden'
-      };
+      // SPEICHER-V2 Scheibe 3: Schluessel → Bereich kommt aus dem REGISTER (GS_SPEICHER, _gsSpeicherBereiche) —
+      // vorher stand die Liste hier ein zweites Mal von Hand (52 Eintraege; gs_geloescht fehlte).
+      // BEWUSST NICHT gesynct: gs_notif_enabled/gs_notif_state (die Browser-Freigabe gilt PRO GERAET).
+      var STATE_KEYS = _gsSpeicherBereiche();
+      try { window._gsStateKeys = STATE_KEYS; } catch(_){}
       var origSet = Storage.prototype.setItem;
       Storage.prototype.setItem = function(k, v){
         var r = origSet.call(this, k, v);
@@ -90534,22 +90609,17 @@ function _gsApplyStateBlob(b){
   // v31.14: die vier Streak-Schlüssel fehlen hier absichtlich — _gsRestoreKey
   // füllt je Schlüssel einzeln, was denselben halben Datensatz erzeugen kann
   // wie im Cloud-Pull. Sie kommen unten als Ganzes.
-  var map = {
-    doctor_history:'gs_doctor_history',
-    ki_analyses:'gs_ki_analyses', dq_archive:'gs_dq_archive', dq_stats:'gs_dq_stats', dq_training:'gs_dq_training', quiz_streak:'gs_quiz_streak',
-    recipe_favs:'gs_recipe_favs', recent_searches:'gs_recent_searches', wissen_read:'gs_wissen_read',
-    favs:'ps_favs', votes:'ps_votes', confirmed_species:'gs_confirmed_species', achievements:'gs_achievements',
-    reminder_prefs:'gs_reminder_prefs', sae_merkliste:'gs_sae_merkliste', region:'gs_region',
-    push_settings:'gs_push_settings', user_location:'gs_user_location', sae_search:'gs_sae_search', sae_cat:'gs_sae_cat'
-  };
+  // SPEICHER-V2 Scheibe 3: die Zuordnung Feld → Schluessel kommt aus dem REGISTER (GS_SPEICHER) — bis hierher
+  // stand sie hier ein zweites Mal von Hand, und gs_kal_filter fehlte (seit v33.35 im Blob, nie im Backup-Rueckweg).
+  var map = _gsSpeicherStateFelder('');
   try { Object.keys(map).forEach(function(f){ if (b[f] != null) _gsRestoreKey(map[f], b[f]); }); } catch(_){}
   try { if (b.geloescht && typeof b.geloescht === 'object') _gsGeloeschtEinlesen(b.geloescht); } catch(_){}   // v33.65: Vereinigung, nie Ersatz
   try { if (typeof window._gsStreakApplyCloud === 'function') window._gsStreakApplyCloud(b); } catch(_){}
   try { if (typeof window._gsLoginStreakApplyCloud === 'function') window._gsLoginStreakApplyCloud(b); } catch(_){}
-  try { if (b.ui && typeof b.ui==='object') ['dark','theme_color','lang'].forEach(function(k){ if (b.ui[k]!=null) _gsRestoreKey('gs_'+k, b.ui[k]); }); } catch(_){}
+  try { if (b.ui && typeof b.ui==='object') { var uk = _gsSpeicherStateFelder('ui.'); Object.keys(uk).forEach(function(k){ if (b.ui[k]!=null) _gsRestoreKey(uk[k], b.ui[k]); }); } } catch(_){}
   try {
     if (b.garten_prefs && typeof b.garten_prefs==='object'){
-      var gp=b.garten_prefs, gk={bl_month:'gs_bl_month',bl_tab:'gs_bl_tab',bl_bee:'gs_bl_bee',tb_filter:'gs_tb_filter',tb_search:'gs_tb_search',tb_cat_selected:'gs_tb_cat_selected',ernte_unit:'gs_ernte_unit',ernte_view:'gs_ernte_view',ernte_year:'gs_ernte_year'};
+      var gp=b.garten_prefs, gk=_gsSpeicherStateFelder('garten_prefs.');
       Object.keys(gk).forEach(function(f){ if (gp[f]!=null && gp[f]!=='') _gsRestoreKey(gk[f], gp[f]); });
     }
   } catch(_){}
@@ -90600,6 +90670,11 @@ async function gsSnapshotRestore(opts){
     _gsRestoreKey('gs_soil_profile', st.soil_profile);
     _gsRestoreKey('gs_pp_garden_location', st.pp_garden_location);
     _gsRestoreKey('gs_scan_corrections', st.scan_corrections);
+    // SPEICHER-V2 Scheibe 3 (Gegenpruefung): das Backup nahm Geraete und Sensor-Regeln mit (gsSnapshotBuildState)
+    // und brachte sie NIE zurueck. Dieselbe Klasse wie gs_kal_filter — und wie dort nur, wenn lokal nichts steht
+    // bzw. je id (lokal gewinnt). Durch das Sieb, wie der Abgleich (v33.59).
+    _gsRestoreKey('gs_geraete', Array.isArray(st.geraete) ? _gsSiebListe(st.geraete) : null);
+    _gsRestoreKey('gs_geraete_regeln', Array.isArray(st.geraete_regeln) ? _gsSiebListe(st.geraete_regeln) : null);
     _gsRestoreKey('gs_purchases', st.purchases);
     _gsRestoreKey('gs_my_bids', st.my_bids);
     _gsRestoreKey('gs_action_counts', st.action_counts);

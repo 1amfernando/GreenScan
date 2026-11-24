@@ -1257,6 +1257,38 @@ const melde = (frage, ok, wie) => {
         : f.join(' · '));
   }
 
+  // ── SPEICHER-V2 Scheibe 3 · die Fakten fuer den Fall „Register“ (gelesen, solange die Seite lebt) ──
+  const regFakten = await page.evaluate((proben) => {
+    const raus = { fehler: null };
+    try {
+      raus.register = JSON.parse(JSON.stringify(GS_SPEICHER));
+      raus.vormerken = JSON.parse(JSON.stringify(GS_SPEICHER_NUR_VORMERKEN));
+      raus.userKeys = GS_USER_KEYS.slice(); raus.keep = GS_KEEP_ON_LOGOUT.slice();
+      raus.stempel = GS_STEMPEL_LISTEN.slice(); raus.marken = GS_GELOESCHT_LISTEN.slice();
+      raus.stateKeys = window._gsStateKeys ? JSON.parse(JSON.stringify(window._gsStateKeys)) : null;
+      raus.ueber = {};
+      Object.keys(GS_SPEICHER).forEach(k => { const f = GS_SPEICHER[k].ueber; if (f) raus.ueber[f] = (typeof window[f] === 'function') || (() => { try { return typeof eval(f) === 'function'; } catch (_) { return false; } })(); });
+      // Der Backup-Rueckweg, WIRKLICH gefahren: Probewerte in den Speicher, den state-Blob mit dem ECHTEN Bauer
+      // bauen, die Schluessel entfernen, _gsApplyStateBlob — was steht danach wieder da?
+      const heute = (typeof _gsDayKey === 'function') ? _gsDayKey() : new Date().toISOString().slice(0, 10);
+      const state = Object.keys(GS_SPEICHER).filter(k => GS_SPEICHER[k].blob === 'state' && GS_SPEICHER[k].hinweg !== false);
+      const vorher = {}; state.forEach(k => { vorher[k] = localStorage.getItem(k); });
+      const pull0 = window._gsSyncPullInProgress; window._gsSyncPullInProgress = true;   // nichts als „geaendert“ vormerken
+      try {
+        state.forEach(k => { const v = proben[k]; if (v == null) return; localStorage.setItem(k, v === '__HEUTE__' ? heute : (v === '__NUR_DA__' ? 'x' : v)); });
+        const blob = JSON.parse(JSON.stringify(window._gsBuildStateBlob()));
+        state.forEach(k => localStorage.removeItem(k));
+        _gsApplyStateBlob(blob);
+        raus.zurueck = {}; state.forEach(k => { raus.zurueck[k] = localStorage.getItem(k) != null; });
+        raus.ohneProbe = state.filter(k => proben[k] == null);
+      } finally {
+        state.forEach(k => { if (vorher[k] == null) localStorage.removeItem(k); else localStorage.setItem(k, vorher[k]); });
+        window._gsSyncPullInProgress = pull0;
+      }
+    } catch (e) { raus.fehler = String(e && e.stack || e).split('\n').slice(0, 3).join(' | '); }
+    return raus;
+  }, PROBEN);
+
   await b.close();
 
   // ── Bericht ────────────────────────────────────────────────────────────
@@ -1295,6 +1327,127 @@ const melde = (frage, ok, wie) => {
           : unerklaert.length ? 'kommt zurueck, wird aber nie hochgeladen: ' + unerklaert.join(', ')
             : ueberholt.length ? 'als „reist noch nicht" gefuehrt, hat aber inzwischen einen Hinweg — Eintrag streichen: ' + ueberholt.join(', ')
               : 'die Gegenprobe (erfundener Schluessel) fiel nicht auf');
+  }
+
+  // ── SPEICHER-V2 Scheibe 3 · das Register (GS_SPEICHER) gegen ALLES, was von Hand danebensteht ──
+  // Gemessen am 24.11.2026: wer einen reisenden Schluessel anlegt, muss ihn an neun Stellen von Hand eintragen,
+  // und vier Mal wurde eine vergessen (gs_reminder_prefs, gs_dq_training, gs_kal_filter, die Geraete). Das
+  // Register traegt je Schluessel EINEN Eintrag; dieser Fall haelt ihn gegen Hinweg (die drei Blob-Bauer),
+  // Rueckweg (der Abgleich bzw. ein benannter Uebernehmer), Backup (Snapshot-Bauer und -Rueckweg, der
+  // state-Teil wirklich gefahren), die zwei Abmelde-Listen, die Stempel- und Marken-Listen und die Deckel —
+  // in beide Richtungen. Die Regeln sind EINE reine Funktion; die Gegenproben fahren sie mit verbogenen Fakten.
+  {
+    const ohneKommentar = (x) => x.split('\n').filter(z => !/^\s*\/\//.test(z)).join('\n');
+    const rumpf = (kopf) => { const i = QUELLE.indexOf(kopf); if (i < 0) return ''; let t = 0; for (let k = QUELLE.indexOf('{', i); k < QUELLE.length; k++) { if (QUELLE[k] === '{') t++; else if (QUELLE[k] === '}') { t--; if (!t) return QUELLE.slice(i, k + 1); } } return ''; };
+    // Hinweg: Schluessel → {blob, feld}, aus dem Quelltext der drei Bauer gelesen
+    const hinweg = {};
+    [['plants', 'function _buildPlantsBlob(){'], ['garden', 'function _buildGardenBlob(){'], ['state', 'function _buildStateBlob(){']].forEach(([blob, kopf]) => {
+      const t = ohneKommentar(rumpf(kopf));
+      for (const m of t.matchAll(/(data|ui|gartenPrefs)\.([a-z_0-9]+)\s*=[^;]*?(?:localStorage\.getItem|gsStore\.get)\(\s*'([^']+)'/g)) {
+        hinweg[m[3]] = { blob, feld: (m[1] === 'data' ? '' : (m[1] === 'ui' ? 'ui.' : 'garten_prefs.')) + m[2] };
+      }
+      // zweistufig gebaut: var _cs = JSON.parse(localStorage.getItem('gs_confirmed_species') …); data.confirmed_species = …
+      for (const m of t.matchAll(/var\s+(\w+)\s*=[^;]*?(?:localStorage\.getItem|gsStore\.get)\(\s*'([^']+)'/g)) {
+        const f = new RegExp('data\\.([a-z_0-9]+)\\s*=[^;]*\\b' + m[1] + '\\b').exec(t);
+        if (f && !hinweg[m[2]]) hinweg[m[2]] = { blob, feld: f[1] };
+      }
+    });
+    const pull = ohneKommentar(rumpf('async function gsSyncUserDataOnLogin('));
+    const snapBau = ohneKommentar(rumpf('function gsSnapshotBuildState(){'));
+    const snapRueck = ohneKommentar(rumpf('async function gsSnapshotRestore('));
+    const snapState = ohneKommentar(rumpf('function _gsApplyStateBlob(b){'));
+    const deckel = {};
+    for (const m of ohneKommentar(QUELLE).matchAll(/gsCapWithArchive\(\s*'([^']+)'\s*,[^,]+,\s*(\d+)/g)) (deckel[m[1]] = deckel[m[1]] || new Set()).add(+m[2]);
+    const F = Object.assign({}, regFakten, { hinweg, pull, snapBau, snapRueck, snapState, deckel });
+
+    const REGELN = ['eintrag_stempel', 'eintrag_marke', 'ganz', 'vereinigung', 'vereinigung_uebernahme', 'verbund'];
+    // Gegenpruefung (24.11.2026): „der Abgleich schreibt ihn zurueck“ war mit einer blossen NENNUNG erfuellt —
+    // ps_favs steht dort auch als safeGetItem('ps_favs'), gs_gardens als Lese-Waechter. Verlangt wird eine
+    // SCHREIB-Form: ein Eintrag der stateMap, _gsListeEinspielen, setItem / gsStore.set, oder das Paar der Merge-Schleife.
+    const schreibt = (t, k) => new RegExp("'" + k + "'\\s*:").test(t) || t.indexOf("stateMap['" + k + "'] =") >= 0
+      || t.indexOf("_gsListeEinspielen('" + k + "'") >= 0
+      || new RegExp("(?:setItem|gsStore\\.set|gsStore\\.setJSON)\\(\\s*'" + k + "'").test(t)
+      || new RegExp("\\[\\s*'[a-z_]+'\\s*,\\s*'" + k + "'").test(t);
+    const pruefe = (F) => {
+      const f = [], R = F.register || {}, K = Object.keys(R);
+      const menge = (a) => a.slice().sort().join(',');
+      K.forEach(k => {
+        const e = R[k];
+        if (['plants', 'garden', 'state'].indexOf(e.blob) < 0) f.push(k + ': unbekannter Blob „' + e.blob + '“');
+        if (REGELN.indexOf(e.regel) < 0) f.push(k + ': unbekannte Regel „' + e.regel + '“');
+        // 1 · Hinweg
+        const h = F.hinweg[k];
+        if (e.hinweg === false) { if (h) f.push(k + ': als „reist noch nicht hin“ gefuehrt, wird aber hochgeladen — `hinweg:false` streichen'); if (!e.grund) f.push(k + ': `hinweg:false` ohne Grund'); }
+        else if (!h) f.push(k + ': steht im Register, aber kein Blob-Bauer liest ihn — er wird nie hochgeladen');
+        else if (h.blob !== e.blob || h.feld !== e.feld) f.push(k + ': Register sagt ' + e.blob + '.' + e.feld + ', der Bauer schreibt ' + h.blob + '.' + h.feld);
+        // 2 · Rueckweg
+        if (e.ueber) {
+          if (!F.ueber[e.ueber]) f.push(k + ': der Uebernehmer ' + e.ueber + ' ist keine Funktion');
+          if (F.pull.indexOf(e.ueber + '(') < 0) f.push(k + ': der Abgleich ruft den Uebernehmer ' + e.ueber + ' nicht');
+          if (e.blob === 'state' && F.snapState.indexOf(e.ueber + '(') < 0) f.push(k + ': der Backup-Rueckweg ruft den Uebernehmer ' + e.ueber + ' nicht');
+        } else if (!schreibt(F.pull, k)) f.push(k + ': der Abgleich schreibt ihn nie zurueck (kein Rueckweg)');
+        if (e.regel === 'verbund' && !e.ueber) f.push(k + ': Regel „verbund“ ohne Uebernehmer');
+        // 3 · Backup
+        if (e.hinweg !== false) {
+          if (e.blob !== 'state') {
+            if (F.snapBau.indexOf("'" + k + "'") < 0) f.push(k + ': fehlt im Backup (gsSnapshotBuildState)');
+            if (F.snapRueck.indexOf("_gsRestoreKey('" + k + "'") < 0) f.push(k + ': das Backup bringt ihn nicht zurueck (gsSnapshotRestore)');
+          } else if (!e.ueber && F.zurueck && F.zurueck[k] !== true && (F.ohneProbe || []).indexOf(k) < 0) f.push(k + ': der Backup-Rueckweg (_gsApplyStateBlob) schreibt ihn nicht zurueck');
+        } else if (F.snapBau.indexOf("'" + k + "'") >= 0 && F.snapRueck.indexOf("_gsRestoreKey('" + k + "'") < 0) {
+          // Gegenpruefung: wer im Abgleich (noch) nicht hochgeht, kann trotzdem im Backup liegen — dann muss es ihn auch zurueckbringen
+          f.push(k + ': das Backup nimmt ihn mit (gsSnapshotBuildState) und bringt ihn nie zurueck');
+        }
+        // 4 · Abmelden
+        const geht = F.userKeys.indexOf(k) >= 0, bleibt = F.keep.indexOf(k) >= 0;
+        if (e.abmelden === 'geht') { if (!geht) f.push(k + ': „geht“ beim Abmelden, steht aber nicht in GS_USER_KEYS'); if (bleibt) f.push(k + ': „geht“, steht aber auch in GS_KEEP_ON_LOGOUT'); }
+        else if (e.abmelden === 'bleibt') { if (!bleibt) f.push(k + ': „bleibt“ beim Abmelden, steht aber nicht in GS_KEEP_ON_LOGOUT'); if (geht) f.push(k + ': „bleibt“, steht aber auch in GS_USER_KEYS'); if (!e.grund) f.push(k + ': reist UND bleibt beim Abmelden — ohne Grund'); }
+        else f.push(k + ': abmelden ist weder „geht“ noch „bleibt“');
+        // 6 · Deckel
+        const d = F.deckel[k];
+        if (e.deckel != null) { if (!d || !d.has(e.deckel) || d.size !== 1) f.push(k + ': Deckel ' + e.deckel + ' im Register, im Quelltext ' + (d ? [...d].join('/') : 'keiner')); }
+        else if (d) f.push(k + ': im Quelltext auf ' + [...d].join('/') + ' gedeckelt, im Register steht kein Deckel');
+      });
+      // 1b · die Gegenrichtung: was ein Bauer hochlaedt, steht im Register
+      Object.keys(F.hinweg).forEach(k => { if (!R[k]) f.push(k + ': wird hochgeladen (' + F.hinweg[k].blob + '.' + F.hinweg[k].feld + '), steht aber nicht im Register'); });
+      // 5 · Stempel- und Marken-Listen sind dieselben Schluessel wie die Regeln
+      const st = K.filter(k => R[k].regel === 'eintrag_stempel'), mk = K.filter(k => R[k].regel === 'eintrag_stempel' || R[k].regel === 'eintrag_marke');
+      if (menge(st) !== menge(F.stempel)) f.push('Regel „eintrag_stempel“ (' + menge(st) + ') ≠ GS_STEMPEL_LISTEN (' + menge(F.stempel) + ')');
+      if (menge(mk) !== menge(F.marken)) f.push('Regeln mit Loeschmarke (' + menge(mk) + ') ≠ GS_GELOESCHT_LISTEN (' + menge(F.marken) + ')');
+      // 7 · Schluessel → Bereich kommt aus dem Register
+      if (!F.stateKeys) f.push('die Zuordnung Schluessel → Bereich (window._gsStateKeys) gibt es nicht — der Auto-Track ist nicht aufgebaut');
+      else {
+        K.forEach(k => { if (F.stateKeys[k] !== R[k].blob) f.push(k + ': Bereich ' + F.stateKeys[k] + ' statt ' + R[k].blob); });
+        Object.keys(F.stateKeys).forEach(k => { if (!R[k] && !(F.vormerken || {})[k]) f.push(k + ': hat einen Bereich, steht aber weder im Register noch in GS_SPEICHER_NUR_VORMERKEN'); });
+      }
+      return f;
+    };
+
+    const funde = regFakten.fehler ? ['Ausnahme beim Lesen des Registers: ' + regFakten.fehler] : pruefe(F);
+    // Gegenproben mit verbogenen Fakten: jede MUSS genau ihre Klage ausloesen.
+    const kopie = () => JSON.parse(JSON.stringify(regFakten));
+    const mit = (aendern, quelle) => { const g = kopie(); aendern(g); return pruefe(Object.assign({}, g, { hinweg, pull, snapBau, snapRueck, snapState, deckel }, quelle || {})); };
+    const proben = regFakten.fehler ? [] : [
+      ['erfundener Schluessel im Register', mit(g => { g.register.gs_erfunden = { blob: 'state', feld: 'erfunden', regel: 'ganz', abmelden: 'geht' }; }), /gs_erfunden: steht im Register, aber kein Blob-Bauer/],
+      ['Eintrag fehlt im Register', mit(g => { delete g.register.gs_kal_filter; }), /gs_kal_filter: wird hochgeladen .* nicht im Register/],
+      ['falsches Feld', mit(g => { g.register.ps_favs.feld = 'favoriten'; }), /ps_favs: Register sagt state\.favoriten/],
+      ['Abmelden vertauscht', mit(g => { g.register.gs_doctor_history.abmelden = 'bleibt'; }), /gs_doctor_history: „bleibt“ beim Abmelden, steht aber nicht in GS_KEEP_ON_LOGOUT/],
+      ['Regel ohne Stempel-Liste', mit(g => { g.register.gs_gartentagebuch.regel = 'eintrag_stempel'; }), /≠ GS_STEMPEL_LISTEN/],
+      ['Deckel verstellt', mit(g => { g.register.gs_garden_plans.deckel = 50; }), /gs_garden_plans: Deckel 50 im Register, im Quelltext 30/],
+      ['Backup-Rueckweg vergisst einen Schluessel', mit(g => { g.zurueck.gs_kal_filter = false; }), /gs_kal_filter: der Backup-Rueckweg/],
+      ['Bereich weicht ab', mit(g => { g.stateKeys.ps_myplants = 'state'; }), /ps_myplants: Bereich state statt plants/],
+      // …und zwei, die den QUELLTEXT verbiegen: der Schluessel bleibt genannt (als Lesestelle), nur das Schreiben fehlt
+      ['Rueckweg nur noch gelesen', mit(() => {}, { pull: pull.replace("'ps_favs': sd.favs,", '') }), /ps_favs: der Abgleich schreibt ihn nie zurueck/],
+      ['Backup nimmt mit, bringt nicht zurueck', mit(() => {}, { snapRueck: snapRueck.replace("_gsRestoreKey('gs_geraete',", "_gsNix('gs_geraete',") }), /gs_geraete: das Backup nimmt ihn mit/],
+    ];
+    const stumm = proben.filter(p => !p[1].some(z => p[2].test(z))).map(p => p[0]);
+    const n = Object.keys(regFakten.register || {}).length;
+    const ok = funde.length === 0 && stumm.length === 0 && n >= 51 && Object.keys(hinweg).length >= 49;
+    melde('Register: jeder reisende Schluessel steht genau einmal in GS_SPEICHER — und Hinweg, Rueckweg, Backup, Abmelde-Listen, Stempel- und Marken-Listen, Deckel und Bereich sagen dasselbe (zehn Gegenproben)',
+      ok,
+      ok ? n + ' Schluessel im Register · ' + Object.keys(hinweg).length + ' im Hinweg gelesen · Backup-Rueckweg wirklich gefahren · ' + proben.length + ' Gegenproben, jede mit ihrer Klage'
+        : funde.length ? funde.length + ' Abweichung(en): ' + funde.slice(0, 8).join(' · ')
+          : stumm.length ? 'Gegenprobe blieb stumm: ' + stumm.join(', ')
+            : 'zu wenig gelesen (' + n + ' im Register, ' + Object.keys(hinweg).length + ' im Hinweg) — der Fall misst nichts');
   }
 
   const dreiTabellen = r.tabellen.length === 3;
@@ -1340,7 +1493,7 @@ const melde = (frage, ok, wie) => {
       : 'ungeprüft, weil kein Probewert eingetragen: ' + ohneProbe.join(', '));
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 25 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 26 · davon rot: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (fehler.length ? fehler.slice(0, 3).join(' | ') : 'keine'));
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;
 })();

@@ -2,7 +2,7 @@
 
 > Entwurf vom 24.11.2026, Stand `a1cf98b` (v33.69). Auftrag (Fernando): „mehr Effizienz, mehr
 > Meilensteine, Backend verbessern; Speicherorte, Verdrahtungen und alles dazu brauchen ein
-> Next-Gen-Update." **Gebaut sind Scheibe 1 und 2** (Stand unten in §3); alles andere ist Entwurf. Grundlage sind zwei lesende Karten des
+> Next-Gen-Update." **Gebaut sind Scheibe 1 bis 3** (Stand unten in §3); alles andere ist Entwurf. Grundlage sind zwei lesende Karten des
 > Quelltexts; nichts wurde im Browser oder gegen den Server gemessen. Was ich selbst nachgezählt
 > habe, ist mit ✔ markiert, alles andere ist gelesen und braucht zuerst einen roten Prüfstandsfall.
 
@@ -16,7 +16,7 @@ erledigen lässt. Unten steht, was ich ohne Antwort tue — und die zwei Dinge, 
 | 1 | **Fünf Datenbank-Änderungen warten auf dich** (Sicherheit; Liste und Reihenfolge in `docs/FUER-FERNANDO.md` §30). Ich wende an der Live-Datenbank nichts an — das bleibt deine Hand, oder du sagst es mir ausdrücklich mit Namen der Änderung. | nichts | Die Lücken, die sie schliessen, sind live offen. **Eine hat ein Datum: vor dem 31.12.2026, 23:00 UTC** — dann vergibt die Datenbank das Jahres-Pro an die drei Ersten im Quiz, und ohne die Änderung gewinnt, wer die öffentlich lesbaren Lösungen nachschlägt (`docs/RISIKEN.md` §1). |
 | 2 | **Sollen von Hand eingetragene Messwerte in die Cloud?** Heute liegen sie nur auf dem Gerät und gehen beim Abmelden. | Es bleibt, wie es ist. | Wer das Gerät wechselt, verliert seine Handmessungen. Ein Ja braucht eine sechste Datenbank-Änderung von dir. |
 | 3 | **Soll ein Viertel der App-Grösse eingespart werden,** indem die Erklär-Texte aus der Hauptdatei in die Doku umziehen? | Nein — erst mit deinem Ja. | Jedes Update überträgt rund 490 KB mehr als nötig. Der Eingriff ist gross und berührt jede Sitzung, die parallel arbeitet. |
-| 4 | **Reihenfolge der nächsten Schritte.** | Wie in §3: nach Scheibe 1 und 2 (gebaut) das Register (3), dann der ruhige Abgleich (5, spart Datenvolumen), dann zwei Geräte je Feld (4). | — |
+| 4 | **Reihenfolge der nächsten Schritte.** | Wie in §3: Scheibe 1 bis 3 sind gebaut; als Nächstes der ruhige Abgleich (5, spart Datenvolumen), dann zwei Geräte je Feld (4). | — |
 | 5 | **Tempo oder Kosten.** | Sparsam: eine Scheibe nach der anderen, kleine Gegenprüfung, die volle Prüfung fährt die CI. | Schneller ginge es mit grossen Agenten-Runden — das kostet spürbar mehr. |
 | 6 | **Dein Laptop.** Der Ordner „Greenscan" steht in deiner Remote-Control-Liste, der Rechner bietet ihn Cloud-Sitzungen aber nicht an (Ursache nicht sicher: meist liegt der Ordner in einem versteckten Verzeichnis oder in `~/Library`, oder die Claude-App braucht ein Update). | Ich arbeite weiter in der Cloud. | Nichts für dieses Projekt — alles, was ich brauche, liegt im Repo. |
 
@@ -127,6 +127,36 @@ Speichern) und `2026-11-24-e247` (Frage: kommt der Korb für Pflanzen- und Fund-
 Grenzen: das Hochladen selbst ist gestellt (kein Server von hier); die Storage-Policies sind live nicht
 nachgemessen. Die Fotos im Verlauf einer GARTEN-Pflanzung gibt es nicht (das Formular kennt nur
 „Meine Pflanzen").
+
+### Scheibe 3 — das Register, erste Stufe (gebaut am 24.11.2026)
+
+`GS_SPEICHER` in `index.html`: **51 Schlüssel**, je EIN Eintrag — in welchem Blob er reist und unter welchem
+Feld, welche Regel heute zwischen zwei Geräten gilt (`eintrag_stempel` · `eintrag_marke` · `ganz` ·
+`vereinigung` · `verbund`), wer ihn auf dem Rückweg schreibt (`ueber`), ob er beim Abmelden geht oder bleibt
+(mit Grund, wenn etwas Reisendes bleibt), sein Deckel, und ob er überhaupt hochgeladen wird (`hinweg:false`
+für die zwei Geräte-Schlüssel). Der Abgleich selbst tut danach dasselbe wie vorher.
+
+- **Zwei Hand-Listen lesen jetzt das Register:** der Backup-Rückweg (`_gsApplyStateBlob` →
+  `_gsSpeicherStateFelder`) und die Zuordnung Schlüssel → Bereich (`_gsSpeicherBereiche`, vorher das Literal
+  `STATE_KEYS` mit 52 Zeilen; abgeleitet sind es dieselben 52 plus `gs_geloescht`).
+- **Der erste Fund kam beim Eintragen:** `gs_kal_filter` steht seit v33.35 im Blob und kam aus dem Backup nie
+  zurück (alt und neu direkt gemessen). Genau die Klasse, für die das Register gebaut ist.
+- **Prüfstand:** `sync_check` „Register“ — Hinweg (die drei Blob-Bauer, aus dem Quelltext), Rückweg (der
+  Abgleich oder der benannte Übernehmer), Backup (plants/garden am Quelltext, der state-Teil wirklich
+  gefahren: Probewerte → echter Bauer → Schlüssel weg → `_gsApplyStateBlob`), die zwei Abmelde-Listen, die
+  Stempel- und Marken-Listen, die Deckel und der Bereich; in beide Richtungen, zehn Gegenproben (acht mit
+  verbogenen Fakten, zwei mit verbogenem Quelltext).
+
+- **Gegenprüfung** (zwei Linsen, je Fund ein Widerleger; 14 Funde, 6 bestätigt, alle eingearbeitet): die Regel
+  `ganz` verschwieg das Mischen auf einem nie abgeglichenen Gerät; `gs_wissen_read` vereinigt nur bei Übernahme
+  (eigene Regel `vereinigung_uebernahme`); Geräte und Sensor-Regeln lagen im Backup und kamen nie zurück — jetzt
+  schon; und der Fall verlangt für den Rückweg eine Schreib-Form statt einer blossen Nennung (zehn Gegenproben).
+
+Was die erste Stufe NICHT tut: sie nimmt dem Hinweg (`_buildStateBlob`) und dem Rückweg (`stateMap`) ihre
+Hand-Einträge nicht ab — beide tragen Sonderfälle je Schlüssel; das ist Scheibe 4. Von den neun Stellen je
+Schlüssel sind zwei weg, und die übrigen sieben macht der Prüfstand rot, wenn eine fehlt. Die `regel` ist
+eine Aussage, die nur an zwei Stellen gebunden ist (Stempel- und Marken-Liste); ob „ganz“ im Einzelfall
+stimmt, hält kein Fall.
 
 ## 4 · Backend
 

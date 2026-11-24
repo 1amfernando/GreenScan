@@ -60,6 +60,12 @@ Tagebuch in `CLAUDE.md`.
    ein Hintergrund-Schreiber hebt den Stempel nicht (`_gsLeiseSpeichern`).
    *(CLAUDE.md §3.3, §3.5; kalender_check „Pflegeverlauf“, offline_check 9b)*
 
+5a‴. **Ein reisender Schlüssel hat EINEN Eintrag: `GS_SPEICHER`.** Blob, Feld, heutige Regel,
+   Übernehmer, Abmelden (mit Grund, wenn er bleibt), Deckel. Der Backup-Rückweg
+   (`_gsSpeicherStateFelder`) und Schlüssel → Bereich (`_gsSpeicherBereiche`) lesen es;
+   Hinweg und Rückweg des Abgleichs stehen noch von Hand da, und `sync_check` „Register“
+   macht jede vergessene Stelle rot. *(CLAUDE.md §3.3; docs/SPEICHER-V2.md Scheibe 3)*
+
 5b. **Eine Antwort nach einem `await` gehört der Person, die gefragt hat.**
    `sbLogout` lädt nicht neu. Wer nach einem `await` zeichnet oder schreibt, merkt
    sich vorher `_gsPerson()` und prüft danach, ob es noch dieselbe ist; was nur im
