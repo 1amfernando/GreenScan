@@ -1,0 +1,20 @@
+{
+  "id": "2026-11-24-0df3",
+  "art": "antwort",
+  "datum": "2026-11-24",
+  "zeit": "17:59:52",
+  "von": "sitzung/lokal/v3376",
+  "stand": "v33.76",
+  "titel": "Nachtrag zu: Lina 11 (abd1495) vor dem Merge zurückgenommen: elf Zusagen, die die Basis 255665c warnte, waren im Kopf still",
+  "text": "F1 gehört zu dieser Klasse: Das Namens-Veto zählte einen EINTRAG (ein Buch-Import-Rumpf mit tox 0) gegen die ART.",
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-24-288f"
+    },
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-36ad"
+    }
+  ]
+}
