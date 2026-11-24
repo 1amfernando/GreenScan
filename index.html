@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.74.20261124">
+<meta name="app-version" content="33.75.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -8250,10 +8250,39 @@ html, body{ scroll-behavior: smooth; }
 // gs_garden_plans und gs_gpx_tracks).
 // keep: 'head' = Anfang behalten (Liste ist neueste-zuerst)
 //       'tail' = Ende behalten  (Liste ist aelteste-zuerst)
+//       'zeit' = die AELTESTEN nach ihrem Zeitstempel fallen heraus, die
+//                Reihenfolge der uebrigen bleibt (SPEICHER-V2 Scheibe 2). Fuer
+//                Listen mit MEHREREN Schreibern: der Pflegeverlauf einer Pflanze
+//                wird vorn (Abhaken) UND hinten (Notiz) beschrieben — 'head' und
+//                'tail' warfen dort jeweils die NEUESTEN Eintraege des anderen
+//                Schreibers hinaus. Wer eine Liste deckelt, die nicht EINE
+//                Reihenfolge hat, nimmt 'zeit'.
+// Die Zeit eines Eintrags: `ts` als Zahl (ms), als Ziffernfolge oder als
+// ISO-Text — alle drei kommen vor (gsQuickDone schreibt ISO, gsAddDiaryEntry
+// eine Zahl). Unlesbar zaehlt als aeltestes: es wandert ins Archiv, nicht ins Nichts.
+var GS_PFLEGEVERLAUF_MAX = 200;   // Eintraege im Pflegeverlauf EINER Pflanze (p.diary) — ein Deckel fuer alle drei Schreiber
+window._gsEintragZeit = function(e){
+  var t = e && e.ts;
+  if (typeof t === 'number') return isFinite(t) ? t : 0;
+  if (typeof t === 'string') {
+    if (/^\d{9,}$/.test(t)) return Number(t);
+    var d = Date.parse(t);
+    return isFinite(d) ? d : 0;
+  }
+  return 0;
+};
 window.gsCapWithArchive = function(key, arr, cap, keep){
   if (!Array.isArray(arr) || arr.length <= cap) return arr;
   var kept, dropped;
-  if (keep === 'tail') { kept = arr.slice(-cap); dropped = arr.slice(0, arr.length - cap); }
+  if (keep === 'zeit') {
+    var _rang = arr.map(function(e, i){ return { i: i, t: window._gsEintragZeit(e) }; });
+    _rang.sort(function(a, b){ return (a.t - b.t) || (a.i - b.i); });
+    var _raus = {};
+    for (var _r = 0; _r < arr.length - cap; _r++) _raus[_rang[_r].i] = true;
+    kept = []; dropped = [];
+    arr.forEach(function(e, i){ (_raus[i] ? dropped : kept).push(e); });
+  }
+  else if (keep === 'tail') { kept = arr.slice(-cap); dropped = arr.slice(0, arr.length - cap); }
   else                 { kept = arr.slice(0, cap); dropped = arr.slice(cap); }
   try { if (typeof window.gsArchiveDropped === 'function') window.gsArchiveDropped(key, dropped); } catch(_){}
   // Einmal pro Schluessel und Sitzung Bescheid geben — nicht bei jedem Speichern nerven.
@@ -10430,8 +10459,9 @@ function gsQuickDone(plantId, taskKey) {
     if (!Array.isArray(p.diary)) p.diary = [];
     // v33.60: der Titel ohne das Arbeitswort „(Quick)“ — abgehakt heisst `source`, nicht der Titel (_gsTbAbgehakt).
     p.diary.unshift({ ts: nowIso, action: taskKey, title: (defQ.icon ? defQ.icon + ' ' : '') + (defQ.name||taskKey), source: 'quick_done' });
-    // Cap auf 200 Diary-Einträge pro Pflanze (sonst Blob-Bloat)
-    p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
+    // Cap auf 200 Diary-Einträge pro Pflanze (sonst Blob-Bloat) — nach ZEIT, nicht nach Listenplatz:
+    // gsAddDiaryEntry haengt hinten an, hier wird vorn angesetzt (kalender_check „Pflegeverlauf · der Deckel“).
+    p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit');
   } catch(_){}
   var _qok = (_f && _f.liste === 'plantings') ? saveGardenData() : savePlantsToStorage();
   if (_qok === false) {
@@ -10564,7 +10594,7 @@ function _gsDoneAllDueAusfuehren(faellig) {
       var defB = (typeof TASK_DEFS !== 'undefined' && TASK_DEFS[k]) ? TASK_DEFS[k] : {icon:'', name:k};
       if (!Array.isArray(p.diary)) p.diary = [];
       p.diary.unshift({ ts: new Date(basisMs - (count - 1)).toISOString(), action: k, title: (defB.icon ? defB.icon + ' ' : '') + (defB.name||k), source: 'done_all_due' });
-      p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
+      p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit');
     } catch(_){}
     // Zugehoerigkeit ueber die REFERENZ, nicht ueber die Id — zwei Listen, zwei Speicherwege
     listen[(Array.isArray(myPlants) && myPlants.indexOf(p) >= 0) ? 'myPlants' : 'plantings'] = true;
@@ -23382,6 +23412,7 @@ async function gsXpCloudFlush() {
   window._gsXpPending = 0;
   if (!amt) return;
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') { window._gsXpPending += amt; return; }
+  window._gsXpFluesse = (window._gsXpFluesse || 0) + 1;   // ein ZAEHLER: zwei Fluesse koennen sich ueberlappen; gsXpBootSync rechnet nicht, solange einer unterwegs ist
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_add_xp', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -23397,12 +23428,14 @@ async function gsXpCloudFlush() {
         try { if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar(); } catch(_){}
       }
     } else if (r && r.error) {
+      // §3.6: wer bei einem Fehler einreiht, fragt zuerst — nach einem Kontowechsel gehoert der Betrag von A nicht in den Puffer von B
+      if (typeof _gsPersonGewechselt === 'function' && _gsPersonGewechselt(r)) return;
       window._gsXpPending += amt; // Fehler → Delta zurücklegen, Boot-Sync/nächster Flush holt es nach
     }
   } catch(e) {
     window._gsXpPending += amt;
     console.warn('[GS] fn_add_xp:', e && e.message);
-  }
+  } finally { window._gsXpFluesse = Math.max(0, (window._gsXpFluesse || 1) - 1); }
 }
 // Beim Verlassen ungeflushte Deltas noch wegschreiben (best-effort; sonst holt Boot-Sync sie).
 try { window.addEventListener('pagehide', function(){ if (window._gsXpPending) gsXpCloudFlush(); }); } catch(_){}
@@ -23438,11 +23471,23 @@ async function gsXpBootSync() {
     if (profile._ungelesen) return;
     var cloud = profile.xp || 0;
     var local = gsGetXP();
+    // SPEICHER-V2 Scheibe 1 (Befund des Koordinators, nachgemessen): seit v33.69 laeuft dieser Abgleich
+    // auch MITTEN in der Sitzung (_gsProfilNachlesen). Dann ist der Puffer nicht leer — ein gescheiterter
+    // Flush legt seinen Betrag zurueck, und die lokale XP enthaelt ihn schon. `Puffer + (lokal − Cloud)`
+    // zaehlte ihn doppelt; die Differenz allein ist am Start dieselbe Zahl und mitten in der Sitzung die
+    // richtige (sync_check H12). Ist ein Betrag gerade unterwegs, kennt das gelesene Profil ihn noch nicht.
+    // Gegenpruefung Scheibe 1: NICHT `Puffer = lokal − Cloud`. Hat ein zweites Geraet die Cloud inzwischen
+    // erhoeht, ist die Differenz kleiner als der eigene, noch ungebuchte Betrag — der Puffer weiss es genauer
+    // (60 offline verdient, Cloud +50 vom Tablet: Differenz 10, Puffer 60). Das Maximum ist am Start die
+    // Differenz, mitten in der Sitzung der Puffer, und zaehlt nichts doppelt.
+    if ((window._gsXpFluesse || 0) > 0) return;
     if (local > cloud) {
-      window._gsXpPending = (window._gsXpPending || 0) + (local - cloud);
+      window._gsXpPending = Math.max(window._gsXpPending || 0, local - cloud);
       await gsXpCloudFlush();
     } else if (cloud > local) {
       try { gsStore.set(GS_XP_KEY, String(cloud)); } catch(_){}
+      // der eigene, noch ungebuchte Betrag gehoert obendrauf (die Cloud kennt ihn nicht)
+      if (window._gsXpPending) await gsXpCloudFlush();
     }
     try { gsUpdateXPBar({animate:false}); } catch(_){}
   } catch(e) { console.warn('[GS] gsXpBootSync:', e && e.message); }
@@ -41851,6 +41896,10 @@ function openPlantDiary(plantId) {
   if (!Array.isArray(p.diary)) p.diary = [];
   var existing = document.getElementById('plant-diary-modal');
   if (existing) existing.remove();
+  // Scheibe 2 (Gegenpruefung): ein frisch gebautes Formular zeigt keine Vorschau — also haengt auch kein Foto
+  // an. Die Variable ueberlebte das Schliessen des Fensters und das Abmelden: das Foto von A landete im
+  // naechsten Eintrag, auch in dem des naechsten Kontos.
+  window._gsDiaryPhotoB64 = null;
   // v32.53: `ts` ist seit v26.51 ein ISO-String (gsQuickDone) — die Differenz zweier Strings ist NaN, die Liste war unsortiert.
   var entries = p.diary.slice().sort(function(a,b){ return (new Date(b.ts||0).getTime()||0) - (new Date(a.ts||0).getTime()||0); });
 
@@ -41965,36 +42014,67 @@ async function gsAddDiaryEntry(plantId) {
   var note = ((document.getElementById('diary-note')||{}).value || '').trim();
   // v30.35 (HL#10/#21): Foto in den Bucket laden statt base64 in den gesyncten user_plants-Blob zu legen
   // (sonst Quota-Bloat + jeder Plant-Edit re-pusht alle base64). Fallback base64 nur offline/guest/Upload-Fehler.
+  // SPEICHER-V2 Scheibe 2: scheitert der Upload (kein Empfang, Bucket lehnt ab), wartet das Foto im
+  // Ausgangskorb (IndexedDB, v31.06) und der Eintrag traegt den Platzhalter `gsphoto://<n>` — wie das
+  // Pflanzenfoto seit v31.06. Vorher lag es als base64 im Eintrag: in den 5 MB von ps_myplants und im
+  // Pflanzen-Blob, der bei JEDER Aenderung ganz hochgeht. base64 bleibt nur der Notnagel, wenn auch
+  // der Korb nicht schreibt. Pruefstand: offline_check „Ein Tagebuch-Foto ohne Empfang“.
   var photo = null;
-  if (window._gsDiaryPhotoB64) {
-    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof window.gsUploadPhotoToBucket === 'function') {
-      try { photo = await window.gsUploadPhotoToBucket('garden-diary-photos', window._gsDiaryPhotoB64); } catch(_){}
+  var _tbTs = Date.now();
+  var _tbWer = (typeof _gsPerson === 'function') ? _gsPerson() : null;   // vor dem ersten await (CLAUDE.md §3.6)
+  var _tbB64 = window._gsDiaryPhotoB64;
+  if (_tbB64) {
+    var _tbOnline = (typeof navigator === 'undefined' || navigator.onLine !== false);
+    if (_tbOnline && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof window.gsUploadPhotoToBucket === 'function') {
+      try { photo = await window.gsUploadPhotoToBucket('garden-diary-photos', _tbB64); } catch(_){}
     }
-    if (!photo) photo = 'data:image/jpeg;base64,' + window._gsDiaryPhotoB64;
+    // Die Person hat waehrend des Uploads gewechselt (bis zu 60 s): NICHT einreihen — der Korb stempelte das
+    // Foto sonst mit dem naechsten Konto, und dessen Flush lueden es in den fremden Ordner.
+    if (typeof _gsPersonAnders === 'function' && _gsPersonAnders(_tbWer)) return;
+    if (!photo && _tbWer && typeof window.gsQueuePhoto === 'function') {
+      try { photo = await window.gsQueuePhoto('garden-diary-photos', _tbB64, { kind: 'diary', ref: plantId + '|' + _tbTs }, _tbWer); } catch(_){}
+    }
+    // …und noch einmal: auch das Einreihen ist ein await.
+    if (typeof _gsPersonAnders === 'function' && _gsPersonAnders(_tbWer)) return;
+    if (!photo) photo = 'data:image/jpeg;base64,' + _tbB64;
+    // Die Liste kann waehrend des Wartens ersetzt worden sein (Abgleich) — die Pflanze neu suchen.
+    p = myPlants.find(function(x){ return x.id === plantId; });
+    if (!p) return;
+    if (!Array.isArray(p.diary)) p.diary = [];
   }
   if (!note && !photo && action === 'note') {
     if (typeof showProfileToast==='function') showProfileToast('Bitte Notiz oder Foto hinzufügen', 'warn');
     return;
   }
   var titles = {water:'Gegossen', fertilize:'Gedüngt', repot:'Umgetopft', prune:'Geschnitten', check:'Kontrolle', mist:'Besprüht', dust:'Abgestaubt', rotate:'Gedreht', note:'Notiz', photo:'Foto'};
+  // Den Stand VOR dem Eintrag merken — sagt der Speicher Nein, wird er zurueckgegeben (v33.66: erst schreiben, dann melden).
+  var _tbVor = { diary: p.diary.slice(), last: (p.tasks && p.tasks[action]) ? p.tasks[action].lastDone : undefined };
   p.diary.push({
-    ts: Date.now(),
+    ts: _tbTs,
     action: action,
     title: titles[action] || 'Eintrag',
     note: note || null,
     photo: photo
   });
-  p.diary = gsCapWithArchive('plant_diary', p.diary, 200, 'tail'); // v30.35 Cap, v31.08 jetzt mit Archiv
+  p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit'); // v30.35 Cap, v31.08 mit Archiv, Scheibe 2: nach Zeit
   // Auch lastDone der entsprechenden Aufgabe updaten falls action eine Pflege-Aktion ist
   if (p.tasks && p.tasks[action]) {
     p.tasks[action].lastDone = new Date().toISOString();
   }
-  savePlantsToStorage();
+  if (savePlantsToStorage() === false) {
+    p.diary = _tbVor.diary;
+    if (p.tasks && p.tasks[action]) { if (_tbVor.last === undefined) delete p.tasks[action].lastDone; else p.tasks[action].lastDone = _tbVor.last; }
+    // Fenster und Eingabe bleiben stehen: die Person kann Platz schaffen und es noch einmal versuchen.
+    if (typeof showProfileToast==='function') showProfileToast(_gsSatz('Nicht gespeichert — der Speicher ist voll. Der Eintrag steht noch im Formular; bitte alte Fotos oder Scans löschen.'), 'error');
+    return false;
+  }
   // Modal neu rendern für aktualisierten Stand
-  document.getElementById('plant-diary-modal').remove();
+  var _tbModal = document.getElementById('plant-diary-modal'); if (_tbModal) _tbModal.remove();
   window._gsDiaryPhotoB64 = null;
   openPlantDiary(plantId);
-  if (typeof showProfileToast==='function') showProfileToast({title:'📓 Eintrag gespeichert', body:titles[action] || 'Tagebuch aktualisiert', kind:'success', duration:1800});
+  var _tbWartet = (typeof photo === 'string' && photo.indexOf('gsphoto://') === 0);
+  if (typeof showProfileToast==='function') showProfileToast({title:'📓 Eintrag gespeichert', body: _tbWartet ? _gsSatz('Das Foto wird hochgeladen, sobald wieder Empfang da ist.') : (titles[action] || 'Tagebuch aktualisiert'), kind:'success', duration: _tbWartet ? 3200 : 1800});
+  return true;
 }
 async function gsDeleteDiaryEntry(plantId, ts) {
   var p = myPlants.find(function(x){ return x.id === plantId; });
@@ -55736,7 +55816,25 @@ function _gsRecipeOverlayDefaults(x) {
   x.type = d.type;
   return x;
 }
+// SPEICHER-V2 Scheibe 1: eigene Rezepte und Heilmittel (Id r_<13 Ziffern> / rem_<13 Ziffern>) tragen ihr
+// Konto (`uid`). gs_recipes / gs_remedies bleiben beim Abmelden liegen (Zwischenspeicher der Vorgaben) —
+// bis hier sah das naechste Konto auf dem Geraet die selbst geschriebenen Rezepte des vorigen, und sie
+// wanderten in dessen Cloud-Backup (user_recipes). Loeschen waere Datenverlust (sie liegen nur hier und im
+// Backup): sie bleiben im Speicher, gezeigt und gesichert werden sie nur ihrem Konto. Derselbe Entscheid
+// wie beim Garten-Zwilling (gsTwinGet). Eintraege OHNE Stempel (Bestand von vor dieser Fassung) bleiben, wie
+// sie waren — fuer alle sichtbar: wem sie gehoeren, weiss das Geraet nicht, und ein geratener Stempel naehme
+// sie der wahren Besitzerin fuer immer weg (Gegenpruefung Scheibe 1). Einen Besitzbeleg gibt es nur einen:
+// das eigene Cloud-Backup (gsSnapshotRestore stempelt, was es zurueckbringt).
+function _gsRezeptEigen(x) { return !!(x && typeof x.id === 'string' && /^(r|rem)_\d{13}$/.test(x.id)); }
+var _gsRezepteFremd = { gs_recipes: [], gs_remedies: [] };
+function _gsRezeptWer() {
+  // Direkt aus dem Speicher: diese Funktion laeuft schon beim Parsen (recipesData wird gleich unten
+  // gelesen), bevor die Sitzungs-Variablen stehen. sbClearSession entfernt gs_sb_uid beim Abmelden.
+  try { return localStorage.getItem('gs_sb_uid') || null; } catch (_) { return null; }
+}
 function _gsLoadRecipeStore(key, wantRem) {
+  var _wer = _gsRezeptWer();
+  _gsRezepteFremd[key] = [];
   var defaults = wantRem
     ? DEFAULT_REMEDIES.filter(_gsIsRemedyType).concat(DEFAULT_RECIPES.filter(_gsIsRemedyType))
     : DEFAULT_RECIPES.filter(function(r){ return !_gsIsRemedyType(r); });
@@ -55747,6 +55845,7 @@ function _gsLoadRecipeStore(key, wantRem) {
   arr.forEach(function(x){
     if (!x || !x.id || seen[x.id]) return;
     seen[x.id] = 1;
+    if (_gsRezeptEigen(x) && typeof x.uid === 'string' && x.uid && x.uid !== _wer) { _gsRezepteFremd[key].push(x); return; }
     _gsRecipeOverlayDefaults(x);
     if (_gsIsRemedyType(x) === wantRem) out.push(x);
   });
@@ -55761,11 +55860,25 @@ let newRecipeType = 'recipes'; // 'recipes' or 'remedies'
 let editingRecipeId = null;
 
 function saveRecipesData() {
+  // Die eigenen Eintraege ANDERER Konten bleiben im Speicher (nicht gezeigt, nicht verloren) — und sie stehen
+  // VORN: jedes Konto findet seine eigenen danach weiter vor den Vorgaben (angehaengt rutschten sie ans Ende,
+  // sobald ein anderes Konto speicherte). Rueckgabe: ob BEIDE Listen geschrieben wurden (§3.5: setItem wirft nie).
+  var ok = true;
   try {
-    localStorage.setItem('gs_recipes',  JSON.stringify(recipesData));
-    localStorage.setItem('gs_remedies', JSON.stringify(remediesData));
-  } catch(_){}
+    if (localStorage.setItem('gs_recipes',  JSON.stringify((_gsRezepteFremd.gs_recipes || []).concat(recipesData))) === false) ok = false;
+    if (localStorage.setItem('gs_remedies', JSON.stringify((_gsRezepteFremd.gs_remedies || []).concat(remediesData))) === false) ok = false;
+  } catch(_){ ok = false; }
+  return ok;
 }
+// Nach dem Abmelden, nach dem Anmelden und nach einer Wiederherstellung: die Listen fuer die Person lesen,
+// die JETZT da ist — Speicher und Variable sind danach EIN Stand.
+function _gsRezepteNeuLaden() {
+  try {
+    recipesData  = _gsLoadRecipeStore('gs_recipes', false);
+    remediesData = _gsLoadRecipeStore('gs_remedies', true);
+  } catch (_) {}
+}
+window._gsRezepteNeuLaden = _gsRezepteNeuLaden;
 
 // v24.32: Cloud-Pull aus public.recipes — mappt ins existing Format + dedupliziert
 window.gsLoadCloudRecipes = async function() {
@@ -56383,14 +56496,16 @@ function saveRecipe() {
   } else {
     data.id = (isRemedy ? 'rem' : 'r') + '_' + Date.now();
     data.created = Date.now();
+    var _rw = _gsRezeptWer(); if (_rw) data.uid = _rw;   // SPEICHER-V2 Scheibe 1: ein eigenes Rezept traegt sein Konto
     if (isRemedy) remediesData.unshift(data);
     else recipesData.unshift(data);
   }
 
-  saveRecipesData();
+  var _rzOk = saveRecipesData();
   closeModal('modal-new-recipe');
   if (isRemedy) renderRemedies();
   else renderRecipes();
+  if (_rzOk === false) { try { gsToast('Speicher voll — das Rezept ist nur bis zum Schliessen der App da.', 'warning', 6000); } catch(_){} return; }
   showHarvest(isRemedy ? '🌿' : '🍲', 'Rezept gespeichert!', '"' + title + '" wurde gespeichert.', '');
 }
 
@@ -59537,6 +59652,24 @@ function _gsLoeschmarke(schluessel, id) {
   try { if (ok && window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch (_) {}
   return ok;
 }
+// Eine Marke zuruecknehmen: was die Person WIEDERHERSTELLT (Backup), soll bleiben — ohne das schluege die Marke
+// den wiederhergestellten Plan beim naechsten Abgleich noch einmal weg (Plaene und Tracks tragen keinen Stempel,
+// jede Marke gewinnt). Die gestempelten Listen machen dasselbe in _gsStempeln („wieder da").
+function _gsLoeschmarkenZurueck(schluessel, ids) {
+  if (GS_GELOESCHT_LISTEN.indexOf(schluessel) < 0 || !Array.isArray(ids) || !ids.length) return 0;
+  var g = _gsGeloeschtLesen(), tk = g[schluessel]; if (!tk) return 0;
+  var n = 0;
+  ids.forEach(function (id) { var k = String(id); if (Object.prototype.hasOwnProperty.call(tk, k)) { delete tk[k]; n++; } });
+  if (!n) return 0;
+  if (Object.keys(tk).length) g[schluessel] = tk; else delete g[schluessel];
+  _gsGeloeschtSchreiben(g);
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch (_) {}
+  return n;
+}
+// Steht fuer diese Id eine Marke? Nur EIGENE Eintraege der Tabelle — `tabelle['constructor']` waere sonst wahr.
+function _gsHatLoeschmarke(tabelle, id) {
+  return !!(tabelle && id != null && Object.prototype.hasOwnProperty.call(tabelle, String(id)));
+}
 // Ein state-Wert der Cloud trifft auf einen UNGESENDETEN lokalen Stand eines Geraets, das den state-Blob
 // dieses Kontos noch nie abgeglichen hat (Schlusspruefung blob, 24.11.2026): zusammenfuehren statt „lokal
 // gewinnt ganz" — sonst ersetzte der EINE neue Favorit eines frischen Geraets die zwanzig der Cloud, nur
@@ -59558,11 +59691,19 @@ function _gsStateMischen(k, c) {
     return reihe;
   }
   if (l && cv && typeof l === 'object' && typeof cv === 'object' && !Array.isArray(l) && !Array.isArray(cv)) {
+    // Auch eine Ebene tiefer: {disabled:{p1:true}} lokal und {disabled:{p9:true}} in der Cloud ergeben beide
+    // (flach gemischt gewann das lokale `disabled` ganz, und die abgeschaltete Erinnerung p9 ging wieder an).
     var dazu = false;
-    Object.keys(cv).forEach(function (kk) {
-      if (kk === '__proto__' || Object.prototype.hasOwnProperty.call(l, kk)) return;
-      l[kk] = cv[kk]; dazu = true;
-    });
+    var tief = function (ziel, quelle, ebene) {
+      Object.keys(quelle).forEach(function (kk) {
+        if (kk === '__proto__') return;
+        var q = quelle[kk];
+        if (!Object.prototype.hasOwnProperty.call(ziel, kk)) { ziel[kk] = q; dazu = true; return; }
+        var z = ziel[kk];
+        if (ebene < 4 && z && q && typeof z === 'object' && typeof q === 'object' && !Array.isArray(z) && !Array.isArray(q)) tief(z, q, ebene + 1);
+      });
+    };
+    tief(l, cv, 1);
     return dazu ? l : undefined;
   }
   return undefined;
@@ -59583,7 +59724,9 @@ function _gsStempeln(schluessel, liste) {
   liste.forEach(function (e) {
     if (!e || typeof e !== 'object' || e.id == null) return;
     var k = String(e.id); neu[k] = true;
-    if (alt[k] !== _gsEintragJson(e)) e.geaendert = jetzt;
+    // Scheibe 2: ein HINTERGRUND-Schreiber (Foto-Adresse nachtragen) ist kein Wille der Person — er hebt den
+    // Stempel nicht, sonst schluege er im Zwei-Geraete-Abgleich die Arbeit, die ein anderes Geraet offline tat.
+    if (alt[k] !== _gsEintragJson(e) && !(window._gsStempelLeise && window._gsStempelLeise.liste === schluessel && window._gsStempelLeise.id === k)) e.geaendert = jetzt;
   });
   var g = _gsGeloeschtLesen(), tk = g[schluessel] || {}, geaendert = false;
   // Kein Massen-Loeschen im Start-Rennen: eine leere Liste vor dem ersten Abgleich ist kein Wille der Person.
@@ -59638,7 +59781,7 @@ function _gsMergeEintraege(lokal, cloud, ctx) {
   return { liste: aus, gleichCloud: gleich };
 }
 window._gsStempeln = _gsStempeln; window._gsMergeEintraege = _gsMergeEintraege; window._gsGeloeschtEinlesen = _gsGeloeschtEinlesen;
-window._gsLoeschmarke = _gsLoeschmarke; window._gsStateMischen = _gsStateMischen;
+window._gsLoeschmarke = _gsLoeschmarke; window._gsStateMischen = _gsStateMischen; window._gsLoeschmarkenZurueck = _gsLoeschmarkenZurueck;
 
 // Spielt ein Backup ein und sagt, was NICHT gesichert wurde (voller Speicher:
 // der Wrapper wirft nie, er gibt false zurueck — CLAUDE.md §3.5). Kein
@@ -59675,18 +59818,52 @@ function _gsBackupEinspielen(data) {
   return { ok: !nicht.length, nicht_gesichert: nicht };
 }
 window._gsBackupEinspielen = _gsBackupEinspielen;
+// Scheibe 2 (Gegenpruefung): ein Foto, das noch im Ausgangskorb wartet, steht in der Liste nur als
+// Platzhalter `gsphoto://<n>`. In der Backup-DATEI steht stattdessen das Bild selbst (data:image) — sonst
+// fehlte es nach dem Einspielen auf einem anderen Geraet. Laesst es sich nicht lesen, steht dort nichts.
+// Kopiert wird nur, was einen Platzhalter traegt; die Listen im Arbeitsspeicher bleiben unberuehrt.
+async function _gsBackupFotosEinbetten(data) {
+  var istRef = function (v) { return typeof v === 'string' && v.indexOf('gsphoto://') === 0; };
+  var hol = async function (v) {
+    try { var b = (typeof window.gsPhotoRefB64 === 'function') ? await window.gsPhotoRefB64(v) : null; return b ? 'data:image/jpeg;base64,' + b : null; }
+    catch (_) { return null; }
+  };
+  var out = Object.assign({}, data);
+  var namen = ['myPlants', 'deadPlants'];
+  for (var n = 0; n < namen.length; n++) {
+    var quelle = data[namen[n]];
+    if (!Array.isArray(quelle)) continue;
+    var liste = [];
+    for (var i = 0; i < quelle.length; i++) {
+      var p = quelle[i];
+      var hat = p && typeof p === 'object' && (istRef(p.photo) || istRef(p.photoUrl) || (Array.isArray(p.diary) && p.diary.some(function (e) { return e && istRef(e.photo); })));
+      if (!hat) { liste.push(p); continue; }
+      var c = Object.assign({}, p);
+      if (istRef(c.photo)) c.photo = await hol(c.photo);
+      if (istRef(c.photoUrl)) c.photoUrl = await hol(c.photoUrl);
+      if (Array.isArray(c.diary)) {
+        var d2 = [];
+        for (var j = 0; j < c.diary.length; j++) { var e = c.diary[j]; d2.push((e && istRef(e.photo)) ? Object.assign({}, e, { photo: await hol(e.photo) }) : e); }
+        c.diary = d2;
+      }
+      liste.push(c);
+    }
+    out[namen[n]] = liste;
+  }
+  return out;
+}
 function exportUserData() {
-  const data = _gsBackupDaten();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  // v33.53: durch den EINEN Weg (gsDateiSpeichern) — bis v33.52 ein
-  // LOSGELOESTER Anker, den in der Android-App nichts sah, und danach stand
-  // trotzdem „heruntergeladen". Die Meldung kommt jetzt erst mit dem Zustand.
-  return gsDateiSpeichern(blob, 'GreenScan-Backup-' + new Date().toISOString().slice(0,10) + '.json', 'application/json')
-    .then(function (r) {
-      if (_gsDateiAngekommen(r)) showMarketNotif(r.state === 'gespeichert' ? 'Backup gespeichert!' : 'Backup erstellt und heruntergeladen!', '📤', '#2e7d32');
-      else _gsDateiNichtGespeichert(r);
-      return r;
-    });
+  return _gsBackupFotosEinbetten(_gsBackupDaten()).then(function (data) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    // v33.53: durch den EINEN Weg (gsDateiSpeichern) — bis v33.52 ein
+    // LOSGELOESTER Anker, den in der Android-App nichts sah, und danach stand
+    // trotzdem „heruntergeladen". Die Meldung kommt jetzt erst mit dem Zustand.
+    return gsDateiSpeichern(blob, 'GreenScan-Backup-' + new Date().toISOString().slice(0,10) + '.json', 'application/json');
+  }).then(function (r) {
+    if (_gsDateiAngekommen(r)) showMarketNotif(r.state === 'gespeichert' ? 'Backup gespeichert!' : 'Backup erstellt und heruntergeladen!', '📤', '#2e7d32');
+    else _gsDateiNichtGespeichert(r);
+    return r;
+  });
 }
 
 function importUserData() {
@@ -59739,10 +59916,22 @@ function clearAllData() {
   // **Eine Löschung nach Präfix ist eine Wette darauf, dass niemand je einen
   // Schlüssel anders benannt hat.** Auf diesem Ursprung gehört alles der App,
   // also geht alles.
+  // SPEICHER-V2 Scheibe 1: die verborgenen eigenen Rezepte ANDERER Konten ueberleben das Leeren — die Person,
+  // die hier loescht, hat sie nie gesehen und kann nicht wissen, dass sie sie mitloescht.
+  var _rzFremd = {};
+  try {
+    var _rzIch = localStorage.getItem('gs_sb_uid') || null;
+    ['gs_recipes', 'gs_remedies'].forEach(function (k) {
+      var a = []; try { a = JSON.parse(localStorage.getItem(k) || '[]'); } catch (_) {}
+      var f = (Array.isArray(a) ? a : []).filter(function (x) { return _gsRezeptEigen(x) && typeof x.uid === 'string' && x.uid && x.uid !== _rzIch; });
+      if (f.length) _rzFremd[k] = f;
+    });
+  } catch (_) {}
   try { localStorage.clear(); }
   catch (_) {
     Object.keys(localStorage).forEach(function(k){ try { localStorage.removeItem(k); } catch(_){} });
   }
+  try { Object.keys(_rzFremd).forEach(function (k) { localStorage.setItem(k, JSON.stringify(_rzFremd[k])); }); } catch (_) {}
   // Und der Speicher ist nicht nur der localStorage: in IndexedDB liegen die
   // offline eingereihten Scans und die Fotos als base64 — „im Gerät
   // gespeichert" im wörtlichsten Sinn. Die Cache-API bleibt: das ist die App
@@ -61651,6 +61840,10 @@ function _gsTrackSaveTrack(track) {
     return -1;
   }
   _gsTrackCommitTotals(before, rec);
+  // SPEICHER-V2 Scheibe 1: der Track reist im Garten-Blob — ohne Vormerkung hielt der naechste Abgleich
+  // die Cloud fuer massgeblich und ersetzte die Liste durch ihre (der eben aufgezeichnete Track war weg,
+  // sync_check H13). Der Auto-Track fuer diesen Schluessel wirkt nicht (der setItem-Wrapper verdeckt ihn).
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('garden'); } catch(_){}
   return saved.length - 1;
 }
 
@@ -62290,10 +62483,21 @@ function gsTrackExportGPX(idx) {
 }
 
 async function gsTrackDelete(idx) {
+  // WELCHER Track gemeint ist, steht VOR der Rueckfrage fest (Beginn `ts`): waehrend der Dialog offen ist, kann
+  // ein Abgleich die Liste ersetzen — nach Stelle geloescht traf es dann einen anderen Track.
+  var _gemeint = null;
+  try { var _vor = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]'); _gemeint = (Array.isArray(_vor) && _vor[idx]) ? _vor[idx] : null; } catch(_){}
   if (!(await gsConfirmModal('Track wirklich löschen?'))) return;
   try {
     var saved = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]');
-    var _weg = saved.splice(idx, 1)[0];
+    if (!Array.isArray(saved)) saved = [];
+    var _stelle = idx;
+    if (_gemeint && _gemeint.ts != null) {
+      _stelle = -1;
+      for (var _ti = 0; _ti < saved.length; _ti++) { if (saved[_ti] && String(saved[_ti].ts) === String(_gemeint.ts)) { _stelle = _ti; break; } }
+      if (_stelle < 0) { gsTrackOpenList(); return; }   // inzwischen weg: nichts anderes loeschen
+    }
+    var _weg = saved.splice(_stelle, 1)[0];
     localStorage.setItem('gs_gpx_tracks', JSON.stringify(saved));
     // 24.11.2026: Loeschmarke (Schluessel: Beginn `ts`) und der Garten-Bereich wird vorgemerkt — die Tracks
     // reisen im Garten-Blob, und ohne Vormerkung holte der naechste Abgleich den Track aus der Cloud zurueck.
@@ -66546,7 +66750,17 @@ async function _gsBildOhneMeta(x, opts) {
 // Speicherplatz kosten. Mit stableKey ist der Pfad deterministisch und
 // `x-upsert: true` (steht ohnehin schon unten) schreibt dieselbe Datei erneut —
 // aus zwei Dateien wird eine. Aufrufer ohne Schluessel verhalten sich unveraendert.
-window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext, stableKey) {
+// Scheibe 2 (Gegenpruefung): fuenfter Parameter `opts.ohneUpsert` — laedt mit `x-upsert: false`. Ein Upsert
+// verlangt im Storage zusaetzlich Lese- und Aenderungsrecht auf dem Objekt; laut den Migrationen im Repo hat
+// `garden-diary-photos` keine SELECT-Policy (v29_29, v29_40 — live nicht nachgemessen). Mit stabilem
+// Schluessel UND ohne Upsert meldet ein zweiter Anlauf „gibt es schon“ — und genau das ist dann der Erfolg:
+// der erste Anlauf kam durch, nur seine Antwort nicht. NUR fuer Schluessel, die EIN Bild meinen (ein
+// Tagebuch-Eintrag); `plant:<id>` meint „das aktuelle Foto“ und braucht das Ueberschreiben.
+// `window._gsUploadGrund` sagt nach einem `null`, WARUM: 'netz' (kein Empfang, Zeitueberschreitung) ·
+// 'server' (abgelehnt) · 'bild' (nicht lesbar) · '' (nicht angemeldet, Person gewechselt). Der Foto-Flush
+// zaehlt nur 'server' und 'bild' als Versuch — ein Funkloch ist kein Grund, ein Foto aufzugeben.
+window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext, stableKey, opts) {
+  try { window._gsUploadGrund = ''; } catch (_) {}
   ext = ext || 'jpg';
   bucket = bucket || 'post-images';
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
@@ -66556,7 +66770,7 @@ window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext, 
     // v33.59: kein Foto mit EXIF/GPS in einen (ueber die Adresse oeffentlichen)
     // Bucket; laesst es sich nicht neu kodieren, wird NICHT roh hochgeladen.
     var _rein = await _gsBildOhneMeta(b64);
-    if (!_rein) { console.warn('[gsUploadImage] Bild nicht lesbar — nicht hochgeladen'); return null; }
+    if (!_rein) { console.warn('[gsUploadImage] Bild nicht lesbar — nicht hochgeladen'); window._gsUploadGrund = 'bild'; return null; }
     // Tor (19.11.2026, Brett 89ee): dieser Weg geht am Tor in sbFetch vorbei (rohes fetch an
     // den Storage). Der Pfad traegt `uid` — wechselt die Person, ginge das Foto von A sonst mit
     // dem Token von B hinaus, bzw. kaeme eine Adresse in A's Ordner bei B an. `null` heisst fuer
@@ -66593,20 +66807,25 @@ window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext, 
         'Authorization': 'Bearer ' + token,
         'apikey': apikey,
         'Content-Type': 'image/' + (ext === 'jpg' ? 'jpeg' : ext),
-        'x-upsert': 'true'
+        'x-upsert': (opts && opts.ohneUpsert) ? 'false' : 'true'
       },
       body: u8
     }, 60000);
     if (_gsPersonAnders(uid)) return null;   // Tor: die Adresse in A's Ordner gehoert nicht zu B
+    var _oeffentlich = (window.SB_URL || window.SB_URL_DEFAULT) + '/storage/v1/object/public/' + bucket + '/' + fileName;
     if (!resp.ok) {
       var err = await resp.text().catch(function(){return '';});
+      // ohneUpsert + stabiler Schluessel: „gibt es schon“ heisst, ein frueherer Anlauf kam durch.
+      if (opts && opts.ohneUpsert && stableKey && (resp.status === 409 || /"statusCode"\s*:\s*"?409|Duplicate|already exists/i.test(err))) return _oeffentlich;
       console.error('[gsUploadImage]', resp.status, err);
+      window._gsUploadGrund = 'server';
       return null;
     }
     // Public-URL bauen
-    return (window.SB_URL || window.SB_URL_DEFAULT) + '/storage/v1/object/public/' + bucket + '/' + fileName;
+    return _oeffentlich;
   } catch(e) {
     console.error('[gsUploadImage] exception', e);
+    try { window._gsUploadGrund = 'netz'; } catch (_) {}
     return null;
   }
 };
@@ -76518,8 +76737,8 @@ async function gsPPopenSavedPlans() {
         var byId = Object.create(null);
         // 24.11.2026: ein auf diesem Geraet geloeschter Plan (Loeschmarke) kommt hier nicht aus der Cloud zurueck.
         var _plTomb = {}; try { _plTomb = (_gsGeloeschtLesen()['gs_garden_plans']) || {}; } catch(_){}
-        _gsSiebListe(ugPlans).forEach(function(p){ if (p && p.id && !_plTomb[String(p.id)]) byId[p.id] = p; });
-        _gsSiebListe(gpMapped).forEach(function(p){ if (p && p.id && !_plTomb[String(p.id)]) byId[p.id] = p; });
+        _gsSiebListe(ugPlans).forEach(function(p){ if (p && p.id && !_gsHatLoeschmarke(_plTomb, p.id)) byId[p.id] = p; });
+        _gsSiebListe(gpMapped).forEach(function(p){ if (p && p.id) byId[p.id] = p; });   // gp_-Plaene tragen keine Marke (siehe gsPPdeletePlan)
         saved.forEach(function(p){ if (p && p.id && !byId[p.id]) byId[p.id] = p; });
         var merged = Object.keys(byId).map(function(k){ return byId[k]; }).sort(function(a,b){
           return new Date(b.created || 0) - new Date(a.created || 0);
@@ -76661,7 +76880,10 @@ async function gsPPdeletePlan(id) {
   } catch(_){}
   // 24.11.2026: die Loeschmarke — scheitert der Cloud-Weg unten (offline), holte der naechste Abgleich
   // den Plan sonst aus der Cloud zurueck (Zusammenfuehrung je Eintrag, sync_check H10).
-  try { _gsLoeschmarke('gs_garden_plans', id); } catch(_){}
+  // Nur fuer Plaene aus user_gardens. Ein gp_-Plan liegt in der Tabelle garden_plans: gelingt das DELETE unten,
+  // ist die Zeile weg; scheitert es, muss er sichtbar BLEIBEN, damit die Person es erneut versuchen kann (mit
+  // Marke war er hier 90 Tage ausgeblendet, waehrend die Serverzeile blieb).
+  try { if (!(typeof id === 'string' && id.indexOf('gp_') === 0)) _gsLoeschmarke('gs_garden_plans', id); } catch(_){}
   // Cloud (user_gardens.data.plans + garden_plans falls source='garden_plans')
   // v32.69 (Audit B4): der Dialog verspricht „auf allen deinen Geräten entfernt" —
   // jede Server-Antwort wird angesehen, und die Meldung sagt, was wirklich gilt.
@@ -80341,6 +80563,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.75', date: '24.11.2026',
+      headline: 'Was du aufzeichnest, bleibt — Track, Pflegeverlauf und das Tagebuch-Foto ohne Empfang',
+      summary: 'Zwei Scheiben aus „Speicher, Abgleich, Verdrahtung“. Erstens: ein gespeicherter GPS-Track wird für den Abgleich vorgemerkt, ein gelöschter Plan oder Track bleibt gelöscht (auch wenn ohne Empfang gelöscht wurde), ein ungesendeter Stand auf einem neuen Gerät wird je Schlüssel gemischt statt überschrieben, Punkte gehen bei einem ungelesenen Profil nicht verloren, und ein neu geschriebenes eigenes Rezept trägt sein Konto. Zweitens: der Pflegeverlauf einer Pflanze hat EINEN Deckel nach Zeit für alle drei Schreiber; ein Tagebuch-Foto ohne Empfang wartet im Ausgangskorb statt als base64 in der Pflanzenliste, der Altbestand zieht nach, und der Foto-Flush gibt bei einem Funkloch nicht mehr auf. Der Tagebuch-Eintrag meldet erst nach dem Schreiben.',
+      user_summary: 'Ein aufgezeichneter Track, dein Pflegeverlauf und ein Tagebuch-Foto ohne Empfang gehen nicht mehr verloren — und was du löschst, bleibt gelöscht.',
+      user_items: [
+        {emoji:'🥾', bold:'Track und Plan:', text:' ein aufgezeichneter Track bleibt nach dem nächsten Abgleich erhalten. Löschst du einen Track oder Plan ohne Empfang, kommt er später nicht zurück.'},
+        {emoji:'📓', bold:'Pflegeverlauf:', text:' ab 200 Einträgen je Pflanze wandert der älteste ins Archiv — bisher konnte dein neuester Eintrag hinausfallen.'},
+        {emoji:'📷', bold:'Tagebuch-Foto ohne Empfang:', text:' wartet auf dem Gerät und wird nachgetragen, sobald wieder Netz da ist. Ein Funkloch zählt nicht als Fehlversuch, und das Foto belegt nicht mehr den Speicher deiner Pflanzenliste.'},
+        {emoji:'💾', bold:'Speicher voll:', text:' ein Tagebuch-Eintrag sagt es jetzt und lässt deine Eingabe stehen, statt „gespeichert“ zu melden.'},
+        {emoji:'📦', bold:'Backup-Datei:', text:' enthält auch die Fotos, die noch auf das Hochladen warten.'},
+        {emoji:'⭐', bold:'Punkte:', text:' was du ohne Empfang sammelst, wird beim nächsten Abgleich vollständig gebucht.'},
+        {emoji:'🍲', bold:'Eigene Rezepte:', text:' ein neu geschriebenes Rezept sieht nur das Konto, das es angelegt hat.'}
+      ]
+    },
+  {
     v: 'v33.74', date: '24.11.2026',
       headline: 'Pilz-Verwechsler beim Namen, Vergleichsbilder im Scanner — und Lina hält, was ihr Schalter sagt',
       summary: 'Drei Pakete aus den Hauptfunktionen. Pilz-Scanner: die gefährlichen Doppelgänger stehen mit ihrem Namen und „TÖDLICH“ da — vorher nur als lateinisches Kürzel —, und „Mit Bildern vergleichen“ legt dein Foto neben die Art und ihre Verwechsler. Pflanzen-Scanner: derselbe Vergleich für die erkannte Art und ihre Alternativen. Lina: schaltest du den Einblick aus, bekommt sie nur noch deine Frage; der Schalter steht auch im laufenden Gespräch, notierte Schädlinge kommen an, und die Gift-Warnung kennt deine Pflanzen beim Spitznamen. Dazu zwei Fehler beim Abmelden.',
@@ -80738,23 +80975,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'offline_check 24 → 39 Fälle:', text:' ein echter multipart-POST aus dem share_target durch den echten Worker; 22 Brüche als Gegenprobe. contrast_check kennt jetzt die Stapelreihenfolge — kein Dialog am <body> war je vermessen.'}
       ]
   },
-  {
-    v: 'v33.54', date: '09.10.2026',
-      headline: 'Ein Stil im Text lädt keine fremde Adresse mehr',
-      summary: 'Übersetzte Texte und Chat-Zeilen dürfen ein wenig Auszeichnung tragen — und dazu ein style-Attribut. Der Filter dafür war eine Verbotsliste auf dem Rohtext: er suchte „url(“. CSS kennt aber Escapes (u\\72l( liest der Browser als url(), und image-set("…") lädt eine Adresse ganz ohne url(. Die gegnerische Prüfung zu v33.53 hat in Chromium gezeigt, dass ein Satz damit eine fremde Adresse laden konnte. Jetzt geht jeder Stil durch eine Erlaubnisliste: nur bekannte Eigenschaften, keine Escapes, keine Zeichenketten, keine Funktion ausser rgb/hsl/var/calc.',
-      user_summary: 'Eine Sicherheitslücke ist geschlossen: ein Text aus fremder Hand (eine Übersetzung, eine Antwort im Chat) konnte über eine versteckte Stil-Angabe ein Bild von einer fremden Adresse nachladen — und damit verraten, dass du die Seite geöffnet hast. Das geht nicht mehr; normale Formatierungen bleiben, wie sie sind.',
-      user_items: [
-        {emoji:'🛡️', bold:'Keine versteckten Nachlader mehr:', text:' ein Text aus fremder Hand kann über eine Stil-Angabe nichts mehr von einer fremden Adresse laden.'},
-        {emoji:'🧱', bold:'Kein Text legt sich über die App:', text:' Stil-Angaben, die einen Satz über den ganzen Bildschirm spannen könnten, fallen weg.'},
-        {emoji:'✅', bold:'Formatierungen bleiben:', text:' Farben, Fettdruck, Grösse und Abstände in den Texten sehen aus wie bisher.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen:', text:' sechs Stile (u\\72l, \\75rl, u\\rl, image-set im Hintergrund und im Rahmen, list-style) lösten durch gsSanitizeHtml je eine Anfrage an die fremde Adresse aus — 6 von 6.'},
-        {emoji:'🧾', bold:'Erlaubnisliste statt Verbotsliste:', text:' _gsStilSaeubern prüft jede Deklaration: kein Backslash, kein Anführungszeichen, kein Kommentar, kein @; nur Eigenschaften aus GS_SANITIZE_STIL; Funktionen nur rgb/rgba/hsl/hsla/var/calc; ein geschlossenes Alphabet. Was nicht passt, fällt allein.'},
-        {emoji:'📐', bold:'Was die Texte brauchen, bleibt:', text:' gemessen an den übersetzbaren Elementen — color (auch mit var()), display, font-size, font-weight, margin, margin-bottom. position, width und Co. fallen, sonst legt sich ein Satz über die App.'},
-        {emoji:'🧪', bold:'escape_check A10b:', text:' rendert die bösen Stile wirklich ins Dokument und zählt die Anfragen des Browsers (0), prüft die Überlagerung und acht gute Stile. Gegen v33.53 rot (6 Anfragen); drei Gegenproben einzeln rot.'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -80965,7 +81185,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.74';
+var GS_VERSION = 'v33.75';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -83772,7 +83992,7 @@ function gsRegisterServiceWorker() {
       for (var i = 0; i < items.length; i++) {
         st.add({ src: key, item: items[i], dropped_at: Date.now(), uid: _gsUid() });
       }
-      await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; });
+      await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; tx.onabort = function(){ j(tx.error || new Error('abort')); }; });
       // Aeltestes abraeumen, wenn das Archiv selbst zu gross wird.
       try {
         var tx2 = db.transaction('dropped_entries', 'readwrite');
@@ -83852,21 +84072,28 @@ function gsRegisterServiceWorker() {
   // true/false. Damit kann der Aufrufer das Bild sofort als Platzhalter
   // hinterlegen — der Auflooeser weiter unten macht daraus beim Rendern eine
   // anzeigbare Object-URL. Vorher war ein Foto im Korb bis zum Upload unsichtbar.
-  window.gsQueuePhoto = async function(bucket, b64, target){
+  // Scheibe 2: vierter Parameter `uid` — wer VOR einem await gefragt hat, wem das Foto gehoert, gibt es mit.
+  // Ohne ihn stempelt der Korb mit dem Konto, das beim Einreihen angemeldet ist; nach einem langen Upload
+  // kann das schon das naechste sein. Und `onabort`: bricht IndexedDB die Transaktion ab (Geraet voll),
+  // feuert kein `error` — ohne den dritten Zuhoerer kehrte das Warten nie zurueck.
+  window.gsQueuePhoto = async function(bucket, b64, target, uid){
     if (!b64 || !bucket || !target || !target.kind || !target.ref) return null;
     try {
       var db = await _open();
       var tx = db.transaction('pending_photos', 'readwrite');
+      var _txEnde = new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; tx.onabort = function(){ j(tx.error || new Error('abort')); }; });
+      _txEnde.catch(function(){});
       var rq = tx.objectStore('pending_photos').add({
         bucket: bucket, b64: b64, target: target,
         key: target.kind + ':' + target.ref,
-        queued_at: Date.now(), tries: 0, uid: _gsUid()
+        queued_at: Date.now(), tries: 0, uid: (uid != null ? uid : _gsUid())
       });
       var newId = await new Promise(function(r,j){
         rq.onsuccess = function(){ r(rq.result); };
         rq.onerror   = function(){ j(rq.error); };
+        _txEnde.catch(function(e){ j(e); });
       });
-      await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; });
+      await _txEnde;
       console.log('[gsQueuePhoto] eingereiht fuer', target.kind, target.ref, '-> #' + newId);
       return GS_PHOTO_REF + newId;
     } catch(e){ console.warn('[gsQueuePhoto]', e); return null; }
@@ -83904,6 +84131,25 @@ function gsRegisterServiceWorker() {
     } catch(e){ console.warn('[gsResolvePhotoRef]', e); return null; }
   };
 
+  // Scheibe 2 (Gegenpruefung): die Bytes eines EIGENEN wartenden Fotos — fuer die Backup-Datei. Ein
+  // Platzhalter in einer Datei zeigt auf den Korb DIESES Geraets; auf einem anderen ist er leer oder,
+  // schlimmer, die Nummer eines fremden Fotos.
+  window.gsPhotoRefB64 = async function(ref){
+    if (!ref || String(ref).indexOf(GS_PHOTO_REF) !== 0) return null;
+    var id = parseInt(String(ref).slice(GS_PHOTO_REF.length), 10);
+    if (!isFinite(id)) return null;
+    try {
+      var db = await _open();
+      var tx = db.transaction('pending_photos', 'readonly');
+      var rec = await new Promise(function(r,j){
+        var rq = tx.objectStore('pending_photos').get(id);
+        rq.onsuccess = function(){ r(rq.result); };
+        rq.onerror   = function(){ j(rq.error); };
+      });
+      return (rec && rec.b64 && _gsGehoertMir(rec)) ? rec.b64 : null;
+    } catch(e){ return null; }
+  };
+
   window.gsResolvePhotosIn = async function(root){
     try {
       var scope = root || document;
@@ -83939,6 +84185,26 @@ function gsRegisterServiceWorker() {
 
   // Traegt die fertige URL im Ziel nach. Pro Ziel-Art eine kleine, klar
   // benannte Zustaendigkeit — kein generisches Herumraten an fremden Strukturen.
+  // Rueckgabe (Scheibe 2, Gegenpruefung): true = eingetragen UND gespeichert · false = das Ziel gibt es nicht
+  // mehr (Foto verwerfen) · 'voll' = das Ziel ist da, aber der Speicher sagte Nein — dann bleibt das Foto im
+  // Korb. Bis hierher fielen die letzten zwei zusammen, und der Flush warf bei vollem Speicher die einzige
+  // Kopie weg.
+  function _gsLeiseSpeichern(pid){
+    window._gsStempelLeise = { liste: 'ps_myplants', id: String(pid) };
+    try { return (typeof savePlantsToStorage === 'function') ? savePlantsToStorage() : false; }
+    finally { window._gsStempelLeise = null; }
+  }
+  function _gsTotePflanze(id){
+    try { return (typeof deadPlants !== 'undefined' && Array.isArray(deadPlants)) ? (deadPlants.find(function(x){ return x && String(x.id) === String(id); }) || null) : null; }
+    catch(_){ return null; }
+  }
+  function _gsFriedhofSpeichern(){
+    try {
+      if (gsStore.set('gs_dead_plants', JSON.stringify(deadPlants)) === false) return false;
+      try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('plants'); } catch(_){}
+      return true;
+    } catch(_){ return false; }
+  }
   function _gsApplyPhotoUrl(target, url){
     try {
       if (target.kind === 'marker') {
@@ -83948,17 +84214,44 @@ function gsRegisterServiceWorker() {
         var hit = arr.find(function(m){ return m && String(m.id) === String(target.ref); });
         if (!hit) return false;               // Fund geloescht -> Foto verwerfen
         hit.photo_url = url;
-        if (localStorage.setItem('greenscan_markers', JSON.stringify(arr)) === false) return false;
+        if (localStorage.setItem('greenscan_markers', JSON.stringify(arr)) === false) return 'voll';
         try { if (typeof gsLoadMarkers === 'function') gsLoadMarkers(); } catch(_){}
         return true;
       }
       if (target.kind === 'plant') {
         if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return false;
         var pl = myPlants.find(function(x){ return x && String(x.id) === String(target.ref); });
-        if (!pl) return false;
+        if (!pl) {
+          // im Pflanzenfriedhof? Dort zaehlt das Foto weiter — „Wiederherstellen“ ist jederzeit zugesagt.
+          var plTot = _gsTotePflanze(target.ref);
+          if (!plTot) return false;
+          var _tv = { a: plTot.photo, b: plTot.photoUrl };
+          plTot.photo = url; plTot.photoUrl = url;
+          if (!_gsFriedhofSpeichern()) { plTot.photo = _tv.a; plTot.photoUrl = _tv.b; return 'voll'; }
+          return true;
+        }
+        var _pv = { a: pl.photo, b: pl.photoUrl };
         pl.photo = url; pl.photoUrl = url;
-        if (typeof savePlantsToStorage === 'function' && savePlantsToStorage() === false) return false;
+        if (_gsLeiseSpeichern(pl.id) === false) { pl.photo = _pv.a; pl.photoUrl = _pv.b; return 'voll'; }
         try { if (typeof renderMyPlants === 'function') renderMyPlants(); } catch(_){}
+        return true;
+      }
+      // SPEICHER-V2 Scheibe 2: ein Tagebuch-Foto. ref = '<Pflanzen-Id>|<ts des Eintrags>' — gesucht wird
+      // der EINTRAG nach seiner Zeit, nicht nach dem Platzhalter: nach einem Abgleich kann der Eintrag
+      // ohne Platzhalter zurueckgekommen sein (der Blob traegt ihn nie), und das Foto gehoert trotzdem dorthin.
+      if (target.kind === 'diary') {
+        if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return false;
+        var _dr = String(target.ref), _dt = _dr.indexOf('|');
+        if (_dt < 1) return false;
+        var _dp = myPlants.find(function(x){ return x && String(x.id) === _dr.slice(0, _dt); });
+        var _dTot = false;
+        if (!_dp) { _dp = _gsTotePflanze(_dr.slice(0, _dt)); _dTot = !!_dp; }   // im Pflanzenfriedhof
+        if (!_dp || !Array.isArray(_dp.diary)) return false;
+        var _de = _dp.diary.find(function(e){ return e && String(e.ts) === _dr.slice(_dt + 1); });
+        if (!_de) return false;               // Eintrag geloescht -> Foto verwerfen
+        var _dvor = _de.photo;
+        _de.photo = url;
+        if ((_dTot ? _gsFriedhofSpeichern() : _gsLeiseSpeichern(_dp.id)) === false) { _de.photo = _dvor; return 'voll'; }
         return true;
       }
     } catch(e){ console.warn('[_gsApplyPhotoUrl]', e); }
@@ -83985,9 +84278,16 @@ function gsRegisterServiceWorker() {
         var it = items[i];
         // v32.22: fremdes Foto nicht in den eigenen Bucket laden.
         if (!_gsGehoertMir(it)) continue;
+        // Scheibe 2: Pflanzen- und Tagebuch-Fotos erst NACH dem ersten Abgleich nachtragen — vorher steht in
+        // myPlants ein Stand, den der Abgleich gleich ersetzen kann; die Adresse ginge mit ihm verloren.
+        var _art = it.target && it.target.kind;
+        if ((_art === 'diary' || _art === 'plant') && window._gsInitialSyncDone !== true) continue;
         var drop = false;
         try {
-          var url = await gsUploadImage(it.b64, it.bucket, 'jpg', it.key);
+          try { window._gsUploadGrund = ''; } catch(_){}
+          var url = await gsUploadImage(it.b64, it.bucket, 'jpg', it.key, _art === 'diary' ? { ohneUpsert: true } : undefined);
+          // Die Person hat waehrend des Uploads gewechselt: weder zaehlen noch archivieren noch eintragen.
+          if (!_gsGehoertMir(it)) continue;
           if (url) {
             // v31.07: Object-URL freigeben — sonst haelt der Browser die Bytes
             // fuer die ganze Sitzung fest, obwohl das Bild jetzt aus der Cloud kommt.
@@ -83995,8 +84295,13 @@ function gsRegisterServiceWorker() {
             var applied = _gsApplyPhotoUrl(it.target, url);
             // Auch wenn das Ziel verschwunden ist (Fund geloescht): Eintrag darf
             // weg — sonst wandert er ewig mit. Das Bild liegt dann im Bucket.
-            drop = true;
-            if (applied) done++;
+            // NICHT bei 'voll': das Ziel ist da, nur der Speicher sagte Nein — das Foto bleibt im Korb
+            // (ohne Versuch zu zaehlen; der stabile Schluessel macht den naechsten Upload zur selben Datei).
+            drop = (applied !== 'voll');
+            if (applied === true) done++;
+          } else if (window._gsUploadGrund !== 'server' && window._gsUploadGrund !== 'bild') {
+            // Kein Empfang, Zeitueberschreitung, Sitzung weg: kein VERSUCH. Nur eine Ablehnung des Servers
+            // oder ein unlesbares Bild zaehlt gegen die acht Anlaeufe — ein Funkloch im Wald nicht.
           } else {
             // v31.06: Nach 8 vergeblichen Anlaeufen aufgeben statt endlos zu
             // wiederholen. Ohne Deckel laeuft die Warteschlange bei einem
@@ -84004,7 +84309,21 @@ function gsRegisterServiceWorker() {
             it.tries = (it.tries || 0) + 1;
             if (it.tries >= 8) {
               console.warn('[gsFlushPhotoQueue] gebe auf nach 8 Versuchen:', it.key);
-              drop = true;
+              // SPEICHER-V2 Scheibe 2: aufgeben heisst ARCHIVIEREN, nicht wegwerfen. Das Foto liegt sonst
+              // nirgends mehr — der Korb war seine einzige Kopie. Im Archiv (Einstellungen → Speicher →
+              // Archiv sichern) laesst es sich als Datei holen. Nur wenn das Archiv es angenommen hat,
+              // verlaesst es den Korb; sonst bleibt es liegen und der naechste Flush gibt erneut auf.
+              // Ein Tagebuch-Foto geht zuerst ZURUECK in seinen Eintrag (als data:image, der alte Notnagel):
+              // dort bleibt es sichtbar, und gsDiaryFotosNachziehen versucht es spaeter direkt. Gibt es den
+              // Eintrag nicht mehr, will niemand das Foto. Nur wenn der Speicher Nein sagt, geht es ins Archiv.
+              var _zurueck = (_art === 'diary') ? _gsApplyPhotoUrl(it.target, 'data:image/jpeg;base64,' + it.b64) : 'voll';
+              if (_zurueck === true || _zurueck === false) drop = true;
+              else {
+                var _arch = 0;
+                try { _arch = await window.gsArchiveDropped('pending_photos', [{ bucket: it.bucket, key: it.key, target: it.target, queued_at: it.queued_at, b64: it.b64 }]); } catch(_){}
+                drop = _arch > 0;
+                if (!drop) { it.tries = 8; try { db.transaction('pending_photos', 'readwrite').objectStore('pending_photos').put(it); } catch(_){} }
+              }
             } else {
               var utx = db.transaction('pending_photos', 'readwrite');
               utx.objectStore('pending_photos').put(it);
@@ -84021,7 +84340,59 @@ function gsRegisterServiceWorker() {
       if (done) console.log('[gsFlushPhotoQueue] ' + done + ' Foto(s) nachgetragen.');
     } catch(e){ console.warn('[gsFlushPhotoQueue]', e); }
     finally { window._gsPhotoFlushing = false; }
+    try { await window.gsDiaryFotosNachziehen(); } catch(_){}
     return done;
+  };
+
+  // SPEICHER-V2 Scheibe 2: der ALTBESTAND. Bis hierher legte gsAddDiaryEntry ein Foto, dessen Upload
+  // scheiterte, als base64 in den Eintrag. Diese Fotos liegen in ps_myplants und reisen bei jeder
+  // Aenderung im Pflanzen-Blob mit. Der Nachzug laedt sie hoch und setzt die Adresse ein — und zwar
+  // DIREKT, nicht ueber den Ausgangskorb: der Korb gibt nach acht Anlaeufen auf, und ein Bild, das
+  // heute sicher im Eintrag liegt, darf durch einen Umzug nicht unsicherer werden. Scheitert der
+  // Upload, bleibt der Eintrag, wie er ist, und der Lauf endet (kein Empfang gilt fuer alle).
+  // Hoechstens `max` Fotos je Lauf (Vorgabe 5): der Flush laeuft beim Start und bei jedem „online“.
+  window.gsDiaryFotosNachziehen = async function(max){
+    max = max || 5;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return 0;
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return 0;
+    if (typeof window.gsUploadPhotoToBucket !== 'function') return 0;
+    if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return 0;
+    // Erst NACH dem ersten Abgleich: vorher steht in myPlants ein Stand, den der Abgleich gleich ersetzt.
+    if (window._gsInitialSyncDone !== true) return 0;
+    if (window._gsDiaryNachzugLaeuft) return 0;
+    window._gsDiaryNachzugLaeuft = true;
+    var n = 0;
+    try {
+      var wer = _gsUid();                       // EINMAL merken, vor jeder Runde fragen (CLAUDE.md §3.6)
+      var ALT = /^data:image\/(jpeg|png|webp);base64,/;
+      var offen = [];
+      myPlants.forEach(function(p){
+        if (!p || !Array.isArray(p.diary)) return;
+        p.diary.forEach(function(e){ if (e && typeof e.photo === 'string' && ALT.test(e.photo)) offen.push({ pid: String(p.id), ts: String(e.ts), foto: e.photo }); });
+      });
+      var finde = function(o){
+        var p = myPlants.find(function(x){ return x && String(x.id) === o.pid; });
+        if (!p || !Array.isArray(p.diary)) return null;
+        return p.diary.find(function(e){ return e && String(e.ts) === o.ts && e.photo === o.foto; }) || null;
+      };
+      for (var i = 0; i < offen.length && n < max; i++) {
+        if (!wer || _gsUid() !== wer) break;
+        if (!finde(offen[i])) continue;          // inzwischen geloescht oder ersetzt
+        var url = null;
+        try { url = await window.gsUploadPhotoToBucket('garden-diary-photos', offen[i].foto.slice(offen[i].foto.indexOf(',') + 1)); } catch(_){}
+        if (_gsUid() !== wer) break;
+        if (!url) break;                         // nichts verloren: das Bild bleibt im Eintrag
+        var ein = finde(offen[i]);               // nach dem await neu suchen — die Liste kann ersetzt worden sein
+        if (!ein) continue;
+        ein.photo = url;
+        // leise: der Nachzug ist kein Wille der Person und hebt den Stempel der Pflanze nicht (_gsStempeln)
+        if (_gsLeiseSpeichern(offen[i].pid) === false) { ein.photo = offen[i].foto; break; }
+        n++;
+      }
+      if (n) console.log('[gsDiaryFotosNachziehen] ' + n + ' Tagebuch-Foto(s) aus dem Pflanzen-Speicher in den Bucket gezogen.');
+    } catch(e){ console.warn('[gsDiaryFotosNachziehen]', e); }
+    finally { window._gsDiaryNachzugLaeuft = false; }
+    return n;
   };
 
   // Public API: gsFlushOfflineQueue — alle pending Items abarbeiten (wenn online)
@@ -88047,6 +88418,8 @@ function gsOnLoginSuccess() {
       return;
     }
     window._gsLoginDoneForUid = _uid;
+    // SPEICHER-V2 Scheibe 1: die eigenen Rezepte DIESES Kontos wieder zeigen (sie lagen gestempelt im Speicher)
+    try { if (typeof _gsRezepteNeuLaden === 'function') _gsRezepteNeuLaden(); } catch(_){}
   } catch(_){}
   localStorage.setItem(GS_ONBOARDING_KEY, 'logged_in');
   localStorage.removeItem(GS_GUEST_MODE_KEY);
@@ -88120,6 +88493,10 @@ function gsOnLogout() {
   // die nach dem Abmelden und Wiederanmelden DESSELBEN Kontos ankam, allein im neuen Gespräch und ging als
   // Vorgeschichte mit der nächsten Frage an die KI.
   try { if (typeof _gsLinaGespraechWechsel === 'function') _gsLinaGespraechWechsel(); window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaInhaltZeit = null; } catch(_){}
+  try { window._gsDiaryPhotoB64 = null; } catch(_){}   // Scheibe 2: ein im Tagebuch gewaehltes, nicht gespeichertes Foto
+  // Gegenpruefung Scheibe 1 (vorbestehend): der XP-Puffer lebt nur im Arbeitsspeicher und ueberlebte das
+  // Abmelden — ein nicht gebuchter Betrag von A ging mit dem ersten Gewinn von B auf dessen Konto.
+  try { window._gsXpPending = 0; if (window._gsXpFlushTimer) { clearTimeout(window._gsXpFlushTimer); window._gsXpFlushTimer = null; } } catch(_){}
   try { if (typeof closeModal === 'function') closeModal('gs-nl-modal'); } catch(_){}
   // Dasselbe für den Scanner (sbLogout lädt die Seite nicht neu): das letzte Ergebnis, sein Foto, die
   // Ergebniskarte und das Gespräch dazu. Nicht gsResetScanner — der startet die Kamera neu.
@@ -88646,6 +89023,8 @@ function gsClearUserDataKeys(){
     // `let` statt `var`: ein `typeof` in der zeitlichen Totzone WIRFT, ein
     // eigenes try/catch je Zuweisung ist deshalb Pflicht.
     try { marketListings = []; } catch(_){}
+    // SPEICHER-V2 Scheibe 1: die Rezept-Listen fuer niemanden neu lesen (gestempelte eigene von A sind dann verborgen)
+    try { if (typeof _gsRezepteNeuLaden === 'function') _gsRezepteNeuLaden(); } catch(_){}
     try { farmState = (typeof _gsFarmDefault === 'function') ? _gsFarmDefault() : farmState; } catch(_){}
     try { if (typeof _gsDev !== 'undefined' && _gsDev) _gsDev.registry = {}; } catch(_){}
     // v33.55: ein geteiltes Foto, das noch nicht abgeholt wurde, gehoert der
@@ -88765,6 +89144,7 @@ async function gsSyncUserDataOnLogin(){
     var g = await sbFetch('/rest/v1/user_gardens?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
     if (typeof _gsPerson === 'function' && _gsPerson() !== _person0) return;
     if (g && g.error) { _pullErrors++; console.warn('[gsSync] user_gardens-Pull fehlgeschlagen:', g.error.message); }
+    try { _tombLok = _gsGeloeschtLesen(); } catch(_){}   // nach dem await neu: waehrenddessen kann geloescht worden sein
     if (g && !g.error && Array.isArray(g.data) && g.data[0] && g.data[0].data) {
       var d = g.data[0].data;
       var gUpdated = g.data[0].updated_at || null;
@@ -88813,7 +89193,16 @@ async function gsSyncUserDataOnLogin(){
           try { gsCloudSync.markDirty('garden'); } catch(_){}
           console.warn('[gsSync] v27.01: cloud garden empty but local has data — keeping local + repairing cloud');
         } else {
-          if (d.plans)     _gsListeEinspielen('gs_garden_plans', Array.isArray(d.plans) ? d.plans : []);
+          if (d.plans) {
+            // Auch im sauberen Zweig gelten die Loeschmarken (Lese-Pruefung des Koordinators): traegt die Cloud
+            // noch einen Plan, der hier oder auf einem anderen Geraet geloescht wurde, kommt er nicht zurueck —
+            // und der Garten-Bereich wird vorgemerkt, damit die Cloud ihn auch verliert.
+            var _plT = _tombLok['gs_garden_plans'] || {};
+            var _plRoh = Array.isArray(d.plans) ? d.plans : [];
+            var _plOhne = _plRoh.filter(function (x) { return !(x && _gsHatLoeschmarke(_plT, x.id)); });
+            _gsListeEinspielen('gs_garden_plans', _plOhne);
+            if (_plOhne.length !== _plRoh.length) { _gNeu = true; try { gsCloudSync.markDirty('garden'); } catch(_){} }
+          }
           if (d.current)   try { localStorage.setItem('gs_garden_plan_current', JSON.stringify(d.current)); } catch(_){}
           if (gUpdated && !_gNeu) try { localStorage.setItem('gs_sync_synced_at_garden', gUpdated); } catch(_){}
         }
@@ -88823,6 +89212,7 @@ async function gsSyncUserDataOnLogin(){
     var p = await sbFetch('/rest/v1/user_plants?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
     if (typeof _gsPerson === 'function' && _gsPerson() !== _person0) return;   // v33.65: eine Antwort gehoert der Person, die gefragt hat
     if (p && p.error) { _pullErrors++; console.warn('[gsSync] user_plants-Pull fehlgeschlagen:', p.error.message); }
+    try { _tombLok = _gsGeloeschtLesen(); } catch(_){}   // nach dem await neu
     var _pGelesen = !!(p && !p.error && Array.isArray(p.data));
     if (p && !p.error && Array.isArray(p.data) && p.data[0] && p.data[0].data) {
       var pd = p.data[0].data;
@@ -89023,17 +89413,24 @@ async function gsSyncUserDataOnLogin(){
       if (g && g.data && g.data[0] && g.data[0].data) {
         var gd2 = g.data[0].data;
         if (Array.isArray(gd2.gpx_tracks)) {
+          var _trTomb = _tombLok['gs_gpx_tracks'] || {};
+          var _trLebt = function (t) { return !(t && t.ts != null && _gsHatLoeschmarke(_trTomb, t.ts)); };
           if (_shouldOverwriteLocal('garden', g.data[0].updated_at)) {
-            try { localStorage.setItem('gs_gpx_tracks', JSON.stringify(gd2.gpx_tracks)); } catch(_){}
+            // sauber: die Cloud-Liste gilt — ohne das, was eine Loeschmarke traegt (dann muss die Cloud es auch verlieren)
+            var _trCloud = gd2.gpx_tracks.filter(_trLebt);
+            try { localStorage.setItem('gs_gpx_tracks', JSON.stringify(_trCloud)); } catch(_){}
+            if (_trCloud.length !== gd2.gpx_tracks.length) { try { gsCloudSync.markDirty('garden'); } catch(_){} }
           } else if (gsCloudSync.localDirtyAt && gsCloudSync.localDirtyAt('garden')) {
             // 19.11.2026: ungesendet → Vereinigung je Track (Schluessel: Beginn `ts`), nicht „lokal gewinnt
             // ganz" — der Push danach ersetzte sonst die Tracks der Cloud (sync_check H8).
             var _trL = []; try { _trL = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]'); } catch(_){}
             if (!Array.isArray(_trL)) _trL = [];
+            // Eine Marke gilt fuer BEIDE Seiten: ein Track, den ein anderes Geraet geloescht hat, geht auch hier
+            // (vorher blieb der lokale stehen und ging mit dem naechsten Push zurueck in die Cloud).
+            var _trVorher = _trL.length; _trL = _trL.filter(_trLebt);
             var _trDa = {}; _trL.forEach(function (t) { if (t && t.ts != null) _trDa[String(t.ts)] = true; });
-            var _trTomb = _tombLok['gs_gpx_tracks'] || {};   // 24.11.2026: ein hier geloeschter Track kommt nicht zurueck (H10)
-            var _trNeu = gd2.gpx_tracks.filter(function (t) { return t && typeof t === 'object' && t.ts != null && !_trDa[String(t.ts)] && !_trTomb[String(t.ts)]; });
-            if (_trNeu.length) {
+            var _trNeu = gd2.gpx_tracks.filter(function (t) { return t && typeof t === 'object' && t.ts != null && !_trDa[String(t.ts)] && _trLebt(t); });
+            if (_trNeu.length || _trL.length !== _trVorher) {
               var _trAlle = _trL.concat(_trNeu).sort(function (a, b) { return (Number(a && a.ts) || 0) - (Number(b && b.ts) || 0); });
               try { localStorage.setItem('gs_gpx_tracks', JSON.stringify(_trAlle)); } catch(_){}
             }
@@ -89345,11 +89742,14 @@ window.gsCloudSync = (function(){
     return arr.map(function(o){
       if (!o || typeof o !== 'object') return o;
       var isRef = function(v){ return typeof v === 'string' && v.indexOf('gsphoto://') === 0; };
-      if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url)) return o;
+      // Scheibe 2: auch die Eintraege des Pflegeverlaufs (o.diary[].photo) koennen einen Platzhalter tragen.
+      var imVerlauf = Array.isArray(o.diary) && o.diary.some(function(e){ return e && isRef(e.photo); });
+      if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url) && !imVerlauf) return o;
       var c = Object.assign({}, o);
       if (isRef(c.photo))     c.photo = null;
       if (isRef(c.photoUrl))  c.photoUrl = null;
       if (isRef(c.photo_url)) c.photo_url = null;
+      if (imVerlauf) c.diary = o.diary.map(function(e){ return (e && isRef(e.photo)) ? Object.assign({}, e, { photo: null }) : e; });
       return c;
     });
   }
@@ -89359,7 +89759,7 @@ window.gsCloudSync = (function(){
     try { data.plants = _gsStripPhotoRefs(JSON.parse(gsStore.get('ps_myplants', null)||'[]')); } catch(_){ data.plants = []; }
     try { data.diary  = JSON.parse(localStorage.getItem('gs_gartentagebuch')||'[]'); } catch(_){ data.diary = []; }
     // v24.24: zusätzliche pflanzenbezogene lokale Keys mitsyncen
-    try { data.dead_plants = JSON.parse(gsStore.get('gs_dead_plants', null)||'[]'); } catch(_){}
+    try { data.dead_plants = _gsStripPhotoRefs(JSON.parse(gsStore.get('gs_dead_plants', null)||'[]')); } catch(_){}
     try { data.seed_inventory = JSON.parse(gsStore.get('gs_seed_inventory', null)||'[]'); } catch(_){}
     return data;
   }
@@ -89451,6 +89851,7 @@ window.gsCloudSync = (function(){
   // v30.50: für das einheitliche Voll-Backup exponieren — der Snapshot renutzt EXAKT diesen State-Builder
   // (DRY + zukunftssicher: neue State-Keys landen automatisch auch im Backend-Snapshot).
   try { window._gsBuildStateBlob = _buildStateBlob; } catch(_){}
+  try { window._gsBuildPlantsBlob = _buildPlantsBlob; } catch(_){}   // Scheibe 2: offline_check liest, was wirklich hochginge
 
   async function _pushBlob(table, data, sync){
     var uid = _uid();
@@ -89814,11 +90215,14 @@ function _gsStripSnapPhotoRefs(arr){
   return arr.map(function(o){
     if (!o || typeof o !== 'object') return o;
     var isRef = function(v){ return typeof v === 'string' && v.indexOf('gsphoto://') === 0; };
-    if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url)) return o;
+    // Scheibe 2: auch die Eintraege des Pflegeverlaufs (o.diary[].photo) koennen einen Platzhalter tragen.
+    var imVerlauf = Array.isArray(o.diary) && o.diary.some(function(e){ return e && isRef(e.photo); });
+    if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url) && !imVerlauf) return o;
     var c = Object.assign({}, o);
     if (isRef(c.photo))     c.photo = null;
     if (isRef(c.photoUrl))  c.photoUrl = null;
     if (isRef(c.photo_url)) c.photo_url = null;
+    if (imVerlauf) c.diary = o.diary.map(function(e){ return (e && isRef(e.photo)) ? Object.assign({}, e, { photo: null }) : e; });
     return c;
   });
 }
@@ -89853,7 +90257,7 @@ function gsSnapshotBuildState(){
     geraete:             _j('gs_geraete','[]'),          // v32.48: Geraete-Register (klein); Messwerte NICHT — dafuer ist die Tabelle da
     geraete_regeln:      _j('gs_geraete_regeln','[]'),
     ernte:               _j('gs_ernte_log','[]'),
-    dead_plants:         _j('gs_dead_plants','[]'),
+    dead_plants:         _gsStripSnapPhotoRefs(_j('gs_dead_plants','[]')),
     seed_inventory:      _j('gs_seed_inventory','[]'),
     garden_plans:        _j('gs_garden_plans','[]'),
     garden_plan_current: _j('gs_garden_plan_current','null'),
@@ -90081,6 +90485,13 @@ window.gsSnapshotBuildState = gsSnapshotBuildState;
 window._gsRestoreStats = { written: 0, failed: 0 };
 function _gsRestoreKey(lsKey, snapVal){
   if (snapVal == null) return;
+  // SPEICHER-V2 Scheibe 1: was wiederhergestellt wird, soll bleiben — eine Loeschmarke fuer denselben Plan
+  // oder Track wird zurueckgenommen (sonst naehme der naechste Abgleich ihn wieder weg).
+  try {
+    if (Array.isArray(snapVal) && (lsKey === 'gs_garden_plans' || lsKey === 'gs_gpx_tracks')) {
+      _gsLoeschmarkenZurueck(lsKey, snapVal.map(function (x) { return x && (lsKey === 'gs_gpx_tracks' ? x.ts : x.id); }).filter(function (x) { return x != null; }));
+    }
+  } catch (_) {}
   // v33.59 (s1): eine eigene LISTE geht durch den einen Eingang (Sieb, Speicher,
   // Variable) — der dritte Rueckweg neben Backup und Cloud-Pull. Andere Schluessel
   // bleiben, wie sie sind.
@@ -90201,10 +90612,22 @@ async function gsSnapshotRestore(opts){
         if ((window._gsRestoreOhne || []).indexOf(pair[0]) >= 0 && _gsLokalLeer(pair[0])) return;   // v33.59: bewusst geleert
         var cur = []; try { cur = JSON.parse(localStorage.getItem(pair[0])||'[]'); } catch(_){}
         if (!Array.isArray(cur)) cur = [];
-        var seen = {}; cur.forEach(function(r){ if (r && r.id) seen[r.id] = 1; });
-        arr.forEach(function(r){ if (r && r.id && !seen[r.id]) cur.unshift(r); });
+        // SPEICHER-V2 Scheibe 1: was aus dem EIGENEN Backup kommt, gehoert diesem Konto — der einzige
+        // Besitzbeleg, den es gibt. Ein Eintrag, der im Speicher unter fremdem oder ohne Stempel liegt,
+        // bekommt den eigenen; ein neuer kommt gestempelt dazu.
+        var _rzIch = null; try { _rzIch = localStorage.getItem('gs_sb_uid') || null; } catch(_){}
+        var seen = {}; cur.forEach(function(r){ if (r && r.id) seen[r.id] = r; });
+        arr.forEach(function(r){
+          if (!r || !r.id) return;
+          if (seen[r.id]) { if (_rzIch && _gsRezeptEigen(seen[r.id])) seen[r.id].uid = _rzIch; return; }
+          if (_rzIch && _gsRezeptEigen(r)) r.uid = _rzIch;
+          cur.unshift(r);
+        });
         try { localStorage.setItem(pair[0], JSON.stringify(cur)); } catch(_){}
       });
+      // Speicher und Variable wieder EIN Stand (vorher „greifen beim naechsten Load" — bis dahin konnte ein
+      // Speichern aus der alten Variablen die wiederhergestellten Eintraege ueberschreiben).
+      if (typeof _gsRezepteNeuLaden === 'function') _gsRezepteNeuLaden();
     } catch(_){}
     try { if (st.state) _gsApplyStateBlob(st.state); } catch(_){}
     // Cloud reparieren + UI rendern (die Variablen der Listen setzt _gsListeEinspielen, v33.59)

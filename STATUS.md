@@ -4,13 +4,58 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-24 · **Branch**: `main` · **Version**: `v33.74` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
+**Stand**: 2026-11-24 · **Branch**: `main` · **Version**: `v33.75` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-11-24 (kb) - v33.75: Speicher, Abgleich, Verdrahtung — Scheibe 1 und 2: was aufgezeichnet wird, bleibt
+
+**Auftrag:** Fernando, 24.11.: „mehr Effizienz, mehr Meilensteine, Backend verbessern; Speicherorte, Verdrahtungen und alles dazu
+brauchen ein Next-Gen-Update", danach „Selber für mich alles erledigen". Der Entwurf steht in `docs/SPEICHER-V2.md` (neun Scheiben;
+§0 nennt, was nur Fernando entscheiden kann, und was ohne Antwort geschieht). Diese Version liefert Scheibe 1 und 2.
+
+**Gemessen (je mit einem Fall, der vorher rot war):** ein gespeicherter GPS-Track wurde nie für den Abgleich vorgemerkt — der
+nächste Abgleich konnte ihn durch die Cloud-Liste ersetzen. Ein offline gelöschter Plan oder Track kam beim Zusammenführen zurück.
+Ein eigenes Rezept von A sah das nächste Konto am Gerät. Der Pflegeverlauf (`p.diary`) hat drei Schreiber und zwei Reihenfolgen:
+ab 200 Einträgen warf eine Notiz das JÜNGSTE Abhaken hinaus und ein Abhaken die jüngste Notiz. Ein Tagebuch-Foto ohne Empfang lag
+als base64 in `ps_myplants` und im Pflanzen-Blob. `gsAddDiaryEntry` meldete „gespeichert", ohne den Speicher zu fragen.
+
+**Gebaut — Scheibe 1:** `_gsTrackSaveTrack` merkt den Garten-Bereich vor; Löschmarken auch für Pläne und Tracks
+(`GS_GELOESCHT_LISTEN`, `_gsLoeschmarke`, `_gsHatLoeschmarke`, zurückgenommen bei einer Wiederherstellung; nicht für `gp_`-Pläne);
+ein Track wird nach seinem Beginn gelöscht, nicht nach seiner Stelle; `_gsStateMischen` mischt Objekte je Schlüssel;
+`gsXpBootSync` bucht `max(Puffer, lokal − Cloud)` und rechnet nie mit einem ungelesenen Profil; eigene Rezepte tragen ihr Konto
+(`_gsRezeptEigen`, `_gsRezepteFremd`, `_gsRezepteNeuLaden`). **Scheibe 2:** EIN Deckel nach Zeit für den Pflegeverlauf
+(`gsCapWithArchive(…, 'zeit')`, `GS_PFLEGEVERLAUF_MAX`, `_gsEintragZeit`); ein Tagebuch-Foto ohne Upload geht in den Ausgangskorb
+(Ziel-Art `diary`, gesucht wird der EINTRAG nach Pflanze und Zeit), der Platzhalter geht weder in Blob noch Snapshot, die
+Backup-Datei trägt das Bild (`_gsBackupFotosEinbetten`); der Altbestand zieht nach (`gsDiaryFotosNachziehen`); erst schreiben,
+dann melden. Doku: CLAUDE.md §3.3 und §3.5, `docs/memory/02-regeln.md`, `05-fallen.md`, `docs/SPEICHER-V2.md` §3.
+
+**Gegenprüfung:** Scheibe 1 zweimal (ein Gegenprüfer am Diff, eine Lese-Prüfung des Koordinators) — vier echte Fehler der ersten
+Fassung behoben (XP-Verlust bei zwei Geräten, Rezepte falsch zugeschrieben, eigene Rezepte rutschten ans Listenende, das Stempeln
+überschrieb eine Wiederherstellung). Scheibe 2: drei Linsen, je Fund ein Widerleger — 16 Funde, alle bestätigt, 14 eingearbeitet:
+ein Funkloch zählt nicht als Versuch (`window._gsUploadGrund`), „Speicher voll" ist nicht „Ziel fehlt" (das Foto bleibt im Korb),
+Aufgeben schreibt ein Tagebuch-Foto in seinen Eintrag zurück, Tagebuch-Fotos gehen ohne Upsert hinauf, das Nachtragen hebt den
+Änderungsstempel nicht (`_gsStempelLeise`), die Personenfrage steht VOR dem Einreihen, `onabort` an zwei IndexedDB-Schreibern,
+der Pflanzenfriedhof wird gefunden, das gewählte Foto gehört zu EINEM Formular. Zwei gehen aufs Brett (unten).
+
+**Prüfstände:** `sync_check` H10–H14 und „Kein Rückweg ohne Hinweg" · `sicherheit_check` 98_schluss_e (Rezept) ·
+`kalender_check` „Pflegeverlauf · der Deckel" (beide Richtungen) · `offline_check` 9b (zwölf Teilfragen: Korb, Blob, Backup-Datei,
+vor dem Abgleich, Funkloch, voller Speicher, Stempel, ohne Upsert, Altbestand, Aufgeben, Formular) · `speicher_check`
+(Tagebuch-Eintrag). Jeder neue Fall war gegen den Stand davor rot; `offline_check` 9b zusätzlich gegen den Stand VOR den
+Korrekturen der Gegenprüfung. Lokal nach dem Bump: die berührten Prüfstände, `modell_check`, `robust_check`, `austausch_check`;
+die volle Suite fährt die CI am PR.
+
+**Offen:** brett:2026-11-24-0ca8 (Deckel archiviert vor dem Speichern — bei vollem Speicher eine Kopie je Versuch) ·
+brett:2026-11-24-e247 (Frage an Fernando: scheitert der Foto-Ausgangskorb live am Upsert?) · brett:2026-11-24-f70e ·
+brett:2026-11-24-4caa · brett:2026-11-24-5d5b (aus Scheibe 1, unverändert) · Scheiben 3–9 aus `docs/SPEICHER-V2.md`.
+**Nicht geprüft:** ein echter Server, ein echtes zweites Gerät und ein echtes Telefon — Hochladen und Abgleich sind gestellt. Die
+Storage-Policies der drei Foto-Buckets sind live NICHT nachgemessen (die lesende Abfrage wartete auf eine Freigabe, die nicht
+kam); dass ein Upsert dort scheitert, ist aus den Migrationen im Repo gelesen. Die fünf Linsen der Schlussprüfung von v33.68
+(Tor, Abmelden, KI, Schleifen, Ehrlichkeit) sind nie zu Ende gelaufen.
 
 ### 2026-11-24 (ka) - v33.74: Scanner 13 — Pilz: die Verwechsler beim Namen und im Bild
 
@@ -17321,9 +17366,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.74` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.71) · SW-Cache `gs-v33.74` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.75` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.74) · SW-Cache `gs-v33.75` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **102'951 Zeilen / rund 6,3 MB** (v33.72: rund 300 Zeilen Funktionen ohne Aufrufer heraus; gemessen nach dem Stapeln auf v33.71) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **599 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.51).
+- **Frontend:** `index.html` **103'379 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.75; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **602 Einträge** — mit dem Parser gezählt (24.11.2026, v33.75); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.54).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **48** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.72: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 48** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (jv). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
@@ -17334,6 +17379,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
+| **Kommt ein offline aufgenommenes Pflanzen- oder Fund-Foto je im Speicher an?** (v33.75) | Der Foto-Ausgangskorb lädt mit Überschreiben hoch; laut den Migrationen im Repo fehlt den Buckets `user-plant-photos` und `map-find-photos` dafür das Leserecht. Live nicht gemessen. Zwei Wege: eine lesende Abfrage auf die Storage-Policies, oder ein Foto im Flugmodus aufnehmen und nach dem Einschalten nachsehen. Für Tagebuch-Fotos umgeht die App das seit v33.75. | brett:2026-11-24-e247 · (kb) |
 | **Datenschutzerklärung gegenlesen** (v33.72) | `privacy.html` nannte Nutzungs- und Fehlerdaten „anonym"; beide tragen die Konto-Kennung (`client_errors.user_id`, `analytics_events.user_id` + `session_id`). Zwei Sitzungen haben das parallel berichtigt; es gilt der Satz von `main` („pseudonym"), dort stehen seit v33.59 auch Netlify und Wikipedia, und Google Fonts ist keiner mehr (Schriften selbst gehostet). Ein Rechtstext gehört von dir gelesen — und das Stand-Datum der Erklärung („17. Juni 2026") ist nicht mitgezogen. | brett:2026-11-11-5bef · `docs/FUER-FERNANDO.md` §32 · (jv) |
 | **Sicherheitsreparatur v33.59 auf den Server bringen** | Der Client wirkt mit dem Merge; **alles Serverseitige ist weder angewandt noch ausgeliefert** (gemessen 11.11.2026: 0 von 23 neuen Funktionsnamen live). Bis dahin sind die Lücken, die die Migrationen beschreiben, live offen — und das Repo ist öffentlich. Reihenfolge, Handgriffe und die lesenden Abfragen danach stehen in §30; die Zeilen darunter je Datei. | `docs/FUER-FERNANDO.md` §30 · (je) |
 | **Migration `20261110_sicherheit_ki_kontingent.sql`** — ZUERST | Legt `fn_ai_kontingent_reservieren` / `_freigeben` an (nur `service_role`). Die KI-Functions aus diesem Repo rufen sie und antworten ohne sie **fail-closed mit 503** — alle, auch der Pilz-Scanner. Also: diese Migration, DANN die KI-Functions. In `rls_check` (`50_ki_kontingent`) nachgespielt: 20 gleichzeitige Reservierungen bei Limit 15 ergeben 15. | §30 · (je) |

@@ -997,6 +997,102 @@ module.exports = [
     },
   },
   {
+    // SPEICHER-V2 Scheibe 1: gs_recipes / gs_remedies bleiben beim Abmelden liegen (Zwischenspeicher der
+    // Vorgaben, GS_KEEP_ON_LOGOUT) — und mit ihnen die SELBST geschriebenen Rezepte (Id r_<13 Ziffern>).
+    // Das naechste Konto sah sie, und sein Cloud-Backup (user_recipes) nahm sie mit. Jetzt traegt ein
+    // eigenes Rezept sein Konto: nicht geloescht (es liegt nur hier und im Backup), aber nur ihm gezeigt.
+    // Gemessen ueber die ECHTEN Wege (Gegenpruefung): saveRecipe() mit gefuelltem Formular, sbLogout(),
+    // gsOnLoginSuccess(). Bestand OHNE Stempel bleibt bewusst sichtbar wie bisher — wem er gehoert, weiss
+    // das Geraet nicht, und ein geratener Stempel naehme ihn der Besitzerin weg.
+    name: 'Abmelden · ein eigenes Rezept von A sieht das naechste Konto nicht, sein Backup nimmt es nicht mit — A findet es nach dem Wiederanmelden OBEN vor (nicht geloescht), Bestand ohne Stempel wird niemandem zugeschrieben, und der XP-Puffer von A geht nicht an B',
+    lauf: async (seite, h) => {
+      await vorbereiten(seite);
+      const r = await seite.evaluate(async () => {
+        const sleep = (ms) => new Promise(z => setTimeout(z, ms));
+        const A = localStorage.getItem('gs_sb_uid') || localStorage.getItem('gs_last_active_uid');
+        const B = '44444444-4444-4444-8444-444444444444';
+        const eigenIds = (a) => (a || []).filter(x => x && /^(r|rem)_\d{13}$/.test(String(x.id)));
+        const titel = (a) => eigenIds(a).map(x => x.title).sort().join(',');
+        const backup = () => { try { const st = gsSnapshotBuildState(); return titel(st.user_recipes); } catch (e) { return 'FEHLER ' + e.message; } };
+        const speicher = () => { try { return JSON.parse(localStorage.getItem('gs_recipes') || '[]'); } catch (e) { return []; } };
+        const altFetch = window.sbFetch, altHarvest = window.showHarvest, altToast = window.showProfileToast;
+        window.sbFetch = async function (pfad, opts) { return ((opts && opts.method) || 'GET').toUpperCase() === 'GET' ? { data: [], error: null, status: 200 } : { data: [{}], error: null, status: 200 }; };
+        window.showHarvest = function () {}; window.showProfileToast = function () {};
+        const anlegen = (name) => {
+          const el = document.getElementById('recipe-title'); if (!el) return 'kein Feld recipe-title';
+          try { newRecipeType = 'recipes'; editingRecipeId = null; } catch (e) { return 'newRecipeType nicht erreichbar: ' + e.message; }
+          el.value = name;
+          const zu = document.getElementById('recipe-ingredients'); if (zu) zu.value = 'Zutat';
+          const sc = document.getElementById('recipe-steps'); if (sc) sc.value = 'Schritt';
+          try { saveRecipe(); } catch (e) { return 'saveRecipe wirft: ' + e.message; }
+          return '';
+        };
+        const anmelden = async (uid) => {
+          // der Token als LITERAL (robust_check „Pruefstands-Sitzung" haelt jede Form gegen gsSecurityInit)
+          if (uid === B) localStorage.setItem('gs_sb_token', 'pruef.konto.b'); else localStorage.setItem('gs_sb_token', 'pruef.konto.a');
+          localStorage.setItem('gs_sb_uid', uid); localStorage.setItem('gs_sb_expires', String(Date.now() + 864e5));
+          window._gsLoginDoneForUid = null;
+          try { gsOnLoginSuccess(); } catch (e) { return 'gsOnLoginSuccess wirft: ' + e.message; }
+          await sleep(200); return '';
+        };
+        let wurf = null; const raus = { A };
+        try {
+          // Bestand aus der Zeit vor dem Stempel (liegt im Speicher, ohne uid).
+          recipesData.push({ id: 'r_1700000000001', type: 'recipes', title: 'Bestand ohne Stempel', ingredients: 'x', steps: 'y', created: 1700000000001 });
+          saveRecipesData();
+          // A schreibt ein Rezept — ueber das echte Formular.
+          raus.anlegenA = anlegen('Omas Baerlauchsuppe');
+          await sleep(20);
+          raus.a_vorher = titel(recipesData);
+          raus.a_stempel = (speicher().find(x => x && x.title === 'Omas Baerlauchsuppe') || {}).uid || '';
+          raus.a_stelle = recipesData.findIndex(x => x && x.title === 'Omas Baerlauchsuppe');
+          window._gsXpPending = 20;                       // ein nicht gebuchter Betrag von A
+          await sbLogout();
+          raus.puffer = window._gsXpPending || 0;
+          raus.abgemeldet = titel(recipesData);
+          raus.speicher1 = titel(speicher());
+          raus.bestandUid = (speicher().find(x => x && x.id === 'r_1700000000001') || {}).uid || '';
+          // B meldet sich an (echter Uebergang) und schreibt selbst eines.
+          raus.anmeldenB = await anmelden(B);
+          raus.b = titel(recipesData); raus.b_backup = backup();
+          raus.anlegenB = anlegen('Rezept von B');
+          await sleep(20);
+          raus.b_stempel = (speicher().find(x => x && x.title === 'Rezept von B') || {}).uid || '';
+          raus.speicher2 = titel(speicher());
+          // A kommt zurueck.
+          await sbLogout();
+          raus.anmeldenA = await anmelden(A);
+          raus.a2 = titel(recipesData); raus.a2_backup = backup();
+          raus.a2_stelle = recipesData.findIndex(x => x && x.title === 'Omas Baerlauchsuppe');
+        } catch (e) { wurf = String(e && e.stack || e).split('\n').slice(0, 2).join(' | '); }
+        finally { window.sbFetch = altFetch; window.showHarvest = altHarvest; window.showProfileToast = altToast; }
+        raus.wurf = wurf;
+        return raus;
+      });
+      await h.frisch();
+      if (r.wurf) return { ok: false, warum: 'Ausnahme im Ablauf: ' + r.wurf };
+      if (!r.A) return { ok: false, warum: 'Fall nicht hergestellt: kein Konto A angemeldet' };
+      for (const k of ['anlegenA', 'anmeldenB', 'anlegenB', 'anmeldenA']) if (r[k]) return { ok: false, warum: 'Fall nicht hergestellt (' + k + '): ' + r[k] };
+      if (r.a_vorher !== 'Bestand ohne Stempel,Omas Baerlauchsuppe') return { ok: false, warum: 'Fall nicht hergestellt: vor dem Abmelden stehen nicht beide eigenen Eintraege in der Liste (' + JSON.stringify(r.a_vorher) + ')' };
+      const f = [];
+      if (r.a_stempel !== r.A) f.push('saveRecipe stempelt das neue Rezept nicht mit dem Konto von A (uid ' + JSON.stringify(r.a_stempel) + ')');
+      if (r.abgemeldet.indexOf('Omas Baerlauchsuppe') >= 0) f.push('nach dem Abmelden steht das Rezept von A noch in der Liste: ' + r.abgemeldet);
+      if (r.b.indexOf('Omas Baerlauchsuppe') >= 0) f.push('Konto B sieht das Rezept von A: ' + r.b);
+      if (r.b_backup.indexOf('Omas Baerlauchsuppe') >= 0 || r.b_backup.indexOf('FEHLER') === 0) f.push('das Backup von B nimmt das Rezept von A mit bzw. wirft: ' + r.b_backup);
+      if (r.puffer !== 0) f.push('der XP-Puffer von A (20) ueberlebt das Abmelden: ' + r.puffer + ' — der erste Gewinn von B buchte ihn auf dessen Konto');
+      if (r.speicher1.indexOf('Omas Baerlauchsuppe') < 0) f.push('gutartig: das Rezept von A ist nach dem Abmelden nicht mehr im Speicher — geloescht statt verborgen (' + r.speicher1 + ')');
+      if (r.bestandUid) f.push('gutartig: der Bestand ohne Stempel wurde beim Abmelden einem Konto zugeschrieben (' + r.bestandUid + ') — geraten');
+      if (r.b.indexOf('Bestand ohne Stempel') < 0) f.push('gutartig: der Bestand ohne Stempel ist fuer B verschwunden (er bleibt, wie er war, bis ein Besitzbeleg da ist)');
+      if (r.b_stempel !== '44444444-4444-4444-8444-444444444444') f.push('gutartig: das Rezept von B traegt nicht dessen Konto (' + JSON.stringify(r.b_stempel) + ')');
+      if (r.speicher2 !== 'Bestand ohne Stempel,Omas Baerlauchsuppe,Rezept von B') f.push('gutartig: nach dem Speichern durch B stehen nicht alle drei im Speicher (' + r.speicher2 + ')');
+      if (r.a2 !== 'Bestand ohne Stempel,Omas Baerlauchsuppe') f.push('gutartig: A sieht nach dem Wiederanmelden nicht genau die eigenen und den Bestand (' + r.a2 + ')');
+      if (r.a2_stelle !== r.a_stelle) f.push('gutartig: das Rezept von A steht nach der Rueckkehr an Stelle ' + r.a2_stelle + ' statt ' + r.a_stelle + ' (rutscht hinter die Vorgaben, sobald ein anderes Konto speichert)');
+      if (r.a2_backup.indexOf('Omas Baerlauchsuppe') < 0 || r.a2_backup.indexOf('Rezept von B') >= 0) f.push('gutartig: das Backup von A stimmt nicht (' + r.a2_backup + ')');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'echtes Formular, echtes Ab- und Anmelden · fuer B und abgemeldet verborgen, im Speicher erhalten · A wieder an Stelle ' + r.a2_stelle + ' · Bestand ohne Stempel unveraendert · XP-Puffer 0' };
+    },
+  },
+  {
     // Brett 2026-11-24-f834: Lina 9 (v33.71) zählt jeden Wechsel des gezeigten Gesprächs — das Abmelden nicht. Meldete
     // sich dasselbe Konto während „Lina denkt nach…" ab und wieder an (gsOnLogout räumt das Gespräch, die Person
     // bleibt), stand die Antwort allein im neuen Gespräch und ging als Vorgeschichte mit der nächsten Frage an die KI.
