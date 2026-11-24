@@ -5636,6 +5636,87 @@ const FAELLE = [
     },
   },
   {
+    name: 'PV7 · Pilz-Vergleich · die gefährlichsten zuerst nach dem REGISTER (tödlich vor giftig vor unbekannt), je Art ihr höchstes Paar-Risiko, „+N weitere" statt still gekürzt — und kam keine Angabe aus dem Register, sagen Warnbox und Vergleich es',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const es = window.sbFetch, ov = window.gsShowMushroomDangerOverlay, fb = window._gsMushroomPhotoB64;
+      // Sechs Paare: der Grüne Knollenblätterpilz erst „gering", später „sehr_hoch_lebensgefahr"; der Kegelhütige „mittel";
+      // drei Champignons „hoch" — vor Scanner 14 fielen beide Knollenblätterpilze aus dem Vergleich
+      const antwort = { matched_slug: 'agaricus_campestris', confidence: 80,
+        mushroom: { slug: 'agaricus_campestris', common_name_de: 'Wiesen-Champignon', scientific_name: 'Agaricus campestris', edibility: 'speisepilz' },
+        edibility: 'speisepilz', safety_color: 'green', vapko_required: true,
+        lookalikes: [
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'amanita_phalloides', confusion_risk: 'gering', visual_differences: 'Knolle' },
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'agaricus_xanthodermus', confusion_risk: 'hoch', visual_differences: 'gilbt' },
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'agaricus_arvensis', confusion_risk: 'hoch', visual_differences: 'Anis' },
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'agaricus_bitorquis', confusion_risk: 'hoch', visual_differences: 'zwei Ringe' },
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'gemeiner-fliegenpilz-var-alba', confusion_risk: 'mittel', visual_differences: 'weiss' },
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', visual_differences: 'Knolle mit Scheide' } ] };
+      const REG = [
+        { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' },
+        { slug: 'agaricus_xanthodermus', common_name_de: 'Karbol-Champignon', scientific_name: 'Agaricus xanthodermus', edibility: 'giftig' },
+        { slug: 'agaricus_arvensis', common_name_de: 'Schaf-Champignon', scientific_name: 'Agaricus arvensis', edibility: 'speisepilz' },
+        { slug: 'agaricus_bitorquis', common_name_de: 'Stadt-Champignon', scientific_name: 'Agaricus bitorquis', edibility: 'speisepilz' },
+        { slug: 'gemeiner-fliegenpilz-var-alba', common_name_de: 'Kegelhütiger Knollenblätterpilz', scientific_name: 'Amanita virosa', edibility: 'toedlich' } ];
+      const klagen = [];
+      const zeichne = async (sf) => {
+        _gsPilzRegCache = Object.create(null);
+        window.sbFetch = sf;
+        box.innerHTML = '';
+        await gsMushroomRenderResult(antwort);
+      };
+      const oeffne = async () => {
+        const k = box.querySelector('.gs-pilz-vgl-knopf');
+        if (!k) return null;
+        k.click();
+        await new Promise(r => setTimeout(r, 150));
+        return document.getElementById('gs-vergleich');
+      };
+      const zu = () => { try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {} };
+      try {
+        window.gsShowMushroomDangerOverlay = () => {};
+        window._gsMushroomPhotoB64 = 'data:image/jpeg;base64,PILZFOTO';
+        // (a) mit Register: Reihenfolge, höchstes Paar-Risiko, „+2 weitere"
+        await zeichne(async (pfad) => (/mushroom_register\?/.test(pfad) ? { data: REG.slice(), error: null } : { data: [], error: null }));
+        let dlg = await oeffne();
+        if (!dlg) return { ok: false, warum: 'kein Vergleichsfenster' };
+        const karten = [...dlg.querySelectorAll('.gs-vgl-karte:not([data-vgl="haupt"])')].map(k => (k.textContent || '').replace(/\s+/g, ' '));
+        const namen = karten.map(t => (/Grüner Knollenblätterpilz|Kegelhütiger Knollenblätterpilz|Karbol-Champignon|Schaf-Champignon|Stadt-Champignon/.exec(t) || ['?'])[0]);
+        if (namen.join('|') !== 'Grüner Knollenblätterpilz|Kegelhütiger Knollenblätterpilz|Karbol-Champignon') klagen.push('(a) Reihenfolge: ' + namen.join(' · '));
+        if (!/LEBENSGEFAHR/.test(karten[0] || '')) klagen.push('(a) der Grüne Knollenblätterpilz trägt nicht sein höchstes Paar-Risiko: ' + (karten[0] || '').slice(0, 90));
+        if (!/2 weitere Doppelgänger/.test(dlg.textContent || '')) klagen.push('(a) zwei Verwechsler fehlen im Fenster, und es sagt es nicht');
+        if (dlg.querySelector('.gs-pilz-unbekannt')) klagen.push('(a) mit Register steht „Essbarkeit nicht geladen" da');
+        if (box.querySelector('.gs-pilz-reg-fehlt')) klagen.push('(a) mit Register steht der Register-Hinweis in der Warnbox');
+        zu();
+        // (b) Register antwortet mit einem Fehler: die Warnbox sagt es, der Vergleich markiert die Verwechsler
+        await zeichne(async () => ({ data: null, error: { message: 'offline', status: 0 } }));
+        let h = box.querySelector('.gs-pilz-reg-fehlt');
+        if (!h || !/Zu 5 Doppelgängern kam keine Angabe aus dem Register/.test(h.textContent || '')) klagen.push('(b) Fehler: kein Satz in der Warnbox: ' + (h ? h.textContent.slice(0, 90) : '(keiner)'));
+        dlg = await oeffne();
+        const unb = dlg ? dlg.querySelectorAll('.gs-vgl-karte:not([data-vgl="haupt"]) .gs-pilz-unbekannt').length : 0;
+        if (unb !== 3) klagen.push('(b) im Vergleich tragen ' + unb + ' von 3 Verwechslern „Essbarkeit nicht geladen"');
+        zu();
+        // (c) Register kennt nur einen Teil: der Satz zählt die fehlenden (einer → Einzahl)
+        await zeichne(async (pfad) => (/mushroom_register\?/.test(pfad) ? { data: REG.filter(z => z.slug !== 'agaricus_bitorquis'), error: null } : { data: [], error: null }));
+        h = box.querySelector('.gs-pilz-reg-fehlt');
+        if (!h || !/Zu einem Doppelgänger kam keine Angabe/.test(h.textContent || '')) klagen.push('(c) ein fehlender Eintrag: ' + (h ? h.textContent.slice(0, 90) : '(kein Satz)'));
+        // (d) Register antwortet nicht (über 2,5 s): der Satz steht trotzdem
+        await zeichne(() => new Promise(() => {}));
+        h = box.querySelector('.gs-pilz-reg-fehlt');
+        if (!h || !/Zu 5 Doppelgängern/.test(h.textContent || '')) klagen.push('(d) ohne Antwort in 2,5 s kein Satz');
+        if (!/LEBENSGEFAHR/.test(box.textContent || '')) klagen.push('(d) ohne Antwort fehlt die Warnung selbst');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Reihenfolge Grüner Knollenblätterpilz (LEBENSGEFAHR, sein höchstes Paar) · Kegelhütiger · Karbol · „2 weitere" im Fenster · ohne Register: Satz in der Warnbox (5 bzw. einer) und „❓ Essbarkeit nicht geladen" an 3 von 3 · ohne Antwort in 2,5 s: Satz und Warnung' };
+      } finally {
+        window.sbFetch = es; window.gsShowMushroomDangerOverlay = ov; window._gsMushroomPhotoB64 = fb;
+        _gsPilzRegCache = Object.create(null);
+        zu();
+        box.innerHTML = '';
+      }
+    },
+  },
+  {
     name: 'PV3 · Pilz-Vergleich · gilt nur, solange die Bestimmung gilt — nach einem neuen Foto (gsPilzAbbrechen) sagt der Knopf es, statt das alte Ergebnis zu vergleichen',
     lauf: async () => {
       const box = document.getElementById('mushroom-result');

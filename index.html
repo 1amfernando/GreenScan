@@ -36508,13 +36508,27 @@ function gsScanVergleichWaehlen(key) {
 // Zeichnen gemerkt · jede Öffnung mit Nummer); dazu gilt der Vergleich nur, solange die Bestimmung gilt
 // (_gsPilzNr). Prüfstand: scan_check PV1–PV5.
 var _gsPilzVglStand = null;
+// Scanner 14 (Prüfung von #347): die GEFÄHRLICHSTEN Verwechsler zuerst — nach der Gefahr laut Register (tödlich vor
+// giftig vor unbekannt vor bedingt essbar vor dem Rest), dann nach dem Paar-Risiko; je Art zählt ihr HÖCHSTES Paar-Risiko.
+// Vorher sortierte das Paar-Risiko allein, und die erste Nennung einer Art gewann: gemessen fielen bei sechs Paaren BEIDE
+// Knollenblätterpilze heraus (einmal „gering" zuerst genannt, einmal „mittel"), und stehen blieben zwei Speisepilze —
+// still. Was nicht ins Fenster passt, zählt `mehr`, und das Fenster sagt es.
+function _gsPilzGefahrRang(v) {
+  var e = v && v.edibility;
+  return e === 'toedlich' ? 4 : e === 'giftig' ? 3 : !e ? 2 : e === 'bedingt_essbar' ? 1 : 0;
+}
 function _gsPilzVglMerken(j, m, reg) {
   m = m || {};
-  var gesehen = Object.create(null);
-  var verw = (Array.isArray(j && j.lookalikes) ? j.lookalikes : []).map(function (la) { return _gsPilzVerwechsler(la, j.matched_slug, reg); })
-    .filter(function (v) { if (!v.slug || gesehen[v.slug] || v.slug === j.matched_slug) return false; gesehen[v.slug] = 1; return true; })
-    .sort(function (x, y) { return y.risiko.rang - x.risiko.rang; })
-    .slice(0, 3);
+  var proArt = Object.create(null), reihe = [];
+  (Array.isArray(j && j.lookalikes) ? j.lookalikes : []).forEach(function (la) {
+    var v = _gsPilzVerwechsler(la, j.matched_slug, reg);
+    if (!v.slug || v.slug === j.matched_slug) return;
+    var alt = proArt[v.slug];
+    if (!alt) { proArt[v.slug] = v; reihe.push(v); return; }
+    if (v.risiko.rang > alt.risiko.rang) { reihe[reihe.indexOf(alt)] = v; proArt[v.slug] = v; }
+  });
+  reihe.sort(function (x, y) { return (_gsPilzGefahrRang(y) - _gsPilzGefahrRang(x)) || (y.risiko.rang - x.risiko.rang); });
+  var verw = reihe.slice(0, 3);
   var foto = window._gsMushroomPhotoB64;
   var hname = _gsMushName(m) || _gsPilzSlugName(j && j.matched_slug);
   _gsPilzVglStand = {
@@ -36524,7 +36538,8 @@ function _gsPilzVglMerken(j, m, reg) {
       latin: (m.scientific_name && String(m.scientific_name) !== hname) ? String(m.scientific_name) : '',
       edibility: m.edibility || null, marke: _gsPilzEssbarMarke(m.edibility),
       conf: Math.round(Number(j && j.confidence) || 0) },
-    verwechsler: verw
+    verwechsler: verw,
+    mehr: Math.max(0, reihe.length - verw.length)
   };
 }
 function gsPilzVergleichOeffnen() {
@@ -36536,7 +36551,8 @@ function gsPilzVergleichOeffnen() {
   var liste = [{ art: st.haupt, haupt: true }].concat(st.verwechsler.map(function (v, i) { return { art: v, i: i + 1 }; }));
   _gsVglFenster(st.foto, liste, _gsPilzVglKarte,
     [_gsSatz('Ein Bild ersetzt keine Pilzkontrolle: iss einen Pilz nur, wenn ihn eine VAPKO-Kontrollstelle freigegeben hat.'),
-     _gsSatz('Bilder: Wikipedia. Geladen erst jetzt, weil du den Vergleich geöffnet hast — Wikipedia erfährt dabei nur den Artnamen.')],
+     _gsSatz('Bilder: Wikipedia. Geladen erst jetzt, weil du den Vergleich geöffnet hast — Wikipedia erfährt dabei nur den Artnamen.')]
+      .concat(st.mehr > 0 ? [st.mehr === 1 ? _gsSatz('Ein weiterer Doppelgänger steht nur in der Warnbox über dem Knopf.') : _gsSatz('{1} weitere Doppelgänger stehen nur in der Warnbox über dem Knopf.', st.mehr)] : []),
     function (k) { return { sp: null, latin: k.art.latin || _gsPilzSlugName(k.art.slug), name: k.art.name || '' }; });
   return true;
 }
@@ -36583,6 +36599,15 @@ function _gsPilzVglKarte(nr, idx, k) {
   }
   // Am VERWECHSLER nur eine Warnung (gefahr), wie in der Warnbox: ein „Speisepilz laut Register" neben einem
   // Doppelgänger lädt zum Verwechseln ein — und das Register ist bei einigen Arten milder als die Artenliste.
+  // Scanner 14: ohne Register-Angabe sagt die Karte es — sonst sähe ein unbekannter Verwechsler aus wie ein harmloser
+  // (milde Marken stehen am Verwechsler bewusst nicht).
+  if (!k.haupt && !a.edibility) {
+    var unb = document.createElement('span');
+    unb.className = 'gs-pilz-essbar gs-pilz-unbekannt';
+    unb.style.cssText = 'background:var(--bg-warn-soft);color:var(--c-warn-d);padding:1px 7px;border-radius:var(--r-xs);font-size:var(--fs-xs);font-weight:800;';
+    unb.textContent = '❓ ' + _gsSatz('Essbarkeit nicht geladen');
+    marken.appendChild(unb);
+  }
   if (a.marke && (k.haupt || a.marke.gefahr)) {
     var em = document.createElement('span');
     em.className = 'gs-pilz-essbar';
@@ -46954,6 +46979,18 @@ async function gsMushroomRenderResult(j, gilt) {
       if (la.pro_tip) html += '<div style="font-size:var(--fs-sm);color:var(--c-success-d);margin-top:3px;background:var(--bg-success-soft);padding:3px 7px;border-radius:var(--r-xs);display:inline-block;"><b>' + _t('mush_protip','💡 Profi-Tipp:') + '</b> ' + ed(la.pro_tip) + '</div>';
       html += '</div>';
     });
+    // Scanner 14 (Prüfung von #347): kam zu einem Doppelgänger keine Angabe aus dem Register (keine Antwort in 2,5 s, ein
+    // Fehler oder ein unbekannter Slug), fehlen Name und Essbarkeit — vorher still: der Name aus dem Slug, keine Marke.
+    var _regFehlt = 0, _regGesehen = Object.create(null);
+    j.lookalikes.forEach(function (la) {
+      var sl = la ? String((la.edible_slug === j.matched_slug ? la.lookalike_slug : la.edible_slug) || '') : '';
+      if (!sl || sl === j.matched_slug || _regGesehen[sl]) return;
+      _regGesehen[sl] = 1;
+      if (!_pilzReg[sl]) _regFehlt++;
+    });
+    if (_regFehlt) html += '<div class="gs-pilz-reg-fehlt" role="note" style="margin-top:8px;padding:7px 10px;background:var(--card);border:1px dashed #e65100;border-radius:var(--r-sm);font-size:var(--fs-sm);color:var(--text);line-height:1.5;">❓ ' +
+      ed(_regFehlt === 1 ? _gsSatz('Zu einem Doppelgänger kam keine Angabe aus dem Register — Name und Essbarkeit fehlen. Behandle ihn wie einen giftigen Pilz.')
+                         : _gsSatz('Zu {1} Doppelgängern kam keine Angabe aus dem Register — Namen und Essbarkeit fehlen. Behandle sie wie giftige Pilze.', _regFehlt)) + '</div>';
     html += '</div>';
   }
 

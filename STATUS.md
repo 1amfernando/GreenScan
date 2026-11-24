@@ -12,6 +12,30 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (ke) - v33.78: Scanner 14 — der Pilz-Vergleich zeigt die gefährlichsten Verwechsler, und ein fehlendes Register wird gesagt
+
+**Auftrag:** die Punkte 5 und 6 aus der Prüfung von #347 (Koordinator-Liste vom 24.11.2026), gemessen vor dem Bau.
+
+**Gemessen** (v33.76, sechs Verwechsler-Paare eines Wiesen-Champignons, Register gestellt): Der Vergleich zeigte Karbol-, Schaf- und
+Stadt-Champignon — BEIDE Knollenblätterpilze fielen heraus. `_gsPilzVglMerken` sortierte nur nach dem Paar-Risiko, und je Art gewann
+die erste Nennung (der Grüne Knollenblätterpilz stand zuerst mit „gering", später mit „sehr hoch"); gekürzt wurde still auf drei.
+Ohne Antwort des Registers (Fehler oder über 2,5 s) standen die Verwechsler als Latein-Slug da, ohne Essbarkeit und ohne Hinweis.
+
+**Gebaut:** Die Reihenfolge folgt zuerst der Gefahr laut Register (`_gsPilzGefahrRang`: tödlich, giftig, unbekannt, bedingt essbar,
+Rest), dann dem Paar-Risiko; je Art zählt ihr höchstes Paar. Was nicht ins Fenster passt, zählt `mehr`, und das Fenster sagt „N
+weitere Doppelgänger stehen nur in der Warnbox über dem Knopf." Kam zu einem Verwechsler keine Angabe aus dem Register, steht unter
+der Verwechsler-Liste ein Satz mit der Zahl („… Behandle sie wie giftige Pilze."), und die Karte im Vergleich trägt „❓ Essbarkeit
+nicht geladen" — milde Marken stehen am Verwechsler bewusst nicht (v33.74 C), ohne diese Marke sähe ein unbekannter aus wie ein
+harmloser. Doku: `docs/HAUPTFUNKTIONEN.md` Scanner 14.
+
+**Prüfstände:** `scan_check` PV7: mit Register Grüner Knollenblätterpilz (mit LEBENSGEFAHR, seinem höchsten Paar) vor dem
+Kegelhütigen vor dem Karbol-Champignon, „2 weitere" im Fenster; Fehler, ein fehlender Eintrag (Einzahl) und keine Antwort in 2,5 s
+je mit Satz; „❓" an 3 von 3 Verwechslern. Gegen v33.76 rot (sieben Gründe); fünf Gegenproben einzeln rot (nur nach Paar-Risiko ·
+erste Nennung gewinnt · still gekürzt · kein Satz in der Warnbox · keine Marke „nicht geladen"). PV1–PV6 bleiben grün.
+
+**Offen:** nichts aus diesen Punkten.
+**Nicht geprüft:** das echte Register und echte Paare aus `mushroom_lookalikes` (gestellt); ein echtes Telefon.
+
 ### 2026-11-24 (kf) - v33.77: Speicher · Scheibe 3 — das Register: ein reisender Schlüssel, ein Eintrag
 
 **Auftrag:** `docs/SPEICHER-V2.md` Scheibe 3 (Fernando: „Speicherorte, Verdrahtungen und alles dazu brauchen ein Next-Gen-Update",
