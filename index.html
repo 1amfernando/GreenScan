@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.72.20261124">
+<meta name="app-version" content="33.73.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -14892,7 +14892,7 @@ async function dqAskKIExplain() {
 
   try {
     var messages = [{ role: 'user', content: userMsg }];
-    var answer = await callAI(messages, systemPrompt, 300, { brain: 'botaniker' });
+    var answer = await callAI(messages, systemPrompt, 300, { brain: 'botaniker', rolle: 'vision' });
     var safe = String(answer || 'Keine Antwort').replace(/</g,'&lt;').replace(/\n/g,'<br>');
     block.innerHTML =
       '<div style="font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.65;margin-bottom:4px;">💡 Erklärung</div>' +
@@ -33194,6 +33194,16 @@ window._gsClaudeFallbacks = [
   'claude-sonnet-5-5',
   'claude-sonnet-5'
 ];
+// v33.59: Rolle je Verwendung — Spiegel von MODELL_KETTEN.schnell in _shared/modelle.mjs (modell_check hält beide gegeneinander).
+window._gsClaudeFallbacksSchnell = ['claude-haiku-4-5-20251001', 'claude-haiku-5-5'];
+// v33.59: welche Rolle ein Aufruf braucht. Ausdrücklich („vision"/„schnell") gewinnt; Bild → vision;
+// kurze Texte (bis 600 Token) → schnell; alles andere → vision. Sicherheitsrelevantes setzt die Stelle selbst.
+window._gsWaehleRolle = function(opts, hatBild, maxTokens){
+  if (opts && (opts.rolle === 'vision' || opts.rolle === 'schnell')) return opts.rolle;
+  if (hatBild) return 'vision';
+  var n = Number(maxTokens);
+  return (n > 0 && n <= 600) ? 'schnell' : 'vision';
+};
 // v33.58: was ein Modell im Rumpf ZUSÄTZLICH braucht — Spiegel von `modellZusatz` in
 // supabase/functions/_shared/modelle.mjs (scripts/modell_check.js hält beide gegeneinander).
 // Ein Modellname allein ist keine Umstellung: Sonnet 5.5 und 5 denken von sich aus nach, wenn die
@@ -33239,7 +33249,10 @@ function _gsAiAbgelehnt(data){
   return e;
 }
 window._gsTriedModels = window._gsTriedModels || {};
-window._gsPickClaudeModel = function(){
+window._gsPickClaudeModel = function(rolle){
+  // v33.59: „schnell" nimmt die erste Kette, ohne Merker — der Merker gilt nur der Vision-Kette,
+  // sonst würde ein kurzer Text das Modell für Scan und Lina umstellen.
+  if (rolle === 'schnell') return window._gsClaudeFallbacksSchnell[0];
   // Persistierte Wahl wenn bereits verifiziert
   var saved = null;
   try { saved = gsStore.get('gs_claude_model', null); } catch(_){}
@@ -33247,7 +33260,9 @@ window._gsPickClaudeModel = function(){
   return window._gsClaudeModel || window._gsClaudeFallbacks[0];
 };
 window._gsNextClaudeModel = function(current){
-  var list = window._gsClaudeFallbacks;
+  // v33.59: das Modell bestimmt seine Kette (Haiku → Haiku-Kette, sonst Vision-Kette)
+  var sch = window._gsClaudeFallbacksSchnell;
+  var list = (sch.indexOf(current) >= 0) ? sch : window._gsClaudeFallbacks;
   var idx = list.indexOf(current);
   if (idx < 0) return list[0] || null;          // v33.58: unbekannt/alt → vorne beginnen
   if (list.length < 2) return null;
@@ -33485,11 +33500,13 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
   // v24.18: nur Anthropic Claude. NVIDIA-Pfad entfernt.
   {
     // Anthropic — mit Auto-Modell-Fallback (v23.64)
-    var tryModel = window._gsPickClaudeModel();
+    var rolleA = window._gsWaehleRolle(opts, false, maxTokens);
+    var tryModel = window._gsPickClaudeModel(rolleA);
     for (var attempts = 0; attempts < 4; attempts++){
       var _tgt = _gsAiTarget(key, source); // v32.68: Proxy zuerst, Direktweg nur als Rueckfall
       var resp = await _gsAiAnfrage(_tgt, JSON.stringify({
           model: tryModel,
+          rolle: rolleA,
           max_tokens: maxTokens||1200,
           system: systemPrompt||'',
           messages: messages
@@ -33500,8 +33517,10 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
       if (_tgt.proxy) { var _ps = _gsAiProxySatzAus(data); if (_ps) throw _ps; }   // v33.59
       if (resp.ok) {
         var _abgA = _gsAiAbgelehnt(data); if (_abgA) throw _abgA;   // v33.58
-        try { gsStore.set('gs_claude_model', tryModel); } catch(_){}
-        window._gsClaudeModel = tryModel;
+        if (rolleA === 'vision') {   // v33.59: nur die Vision-Kette merkt sich ein Modell
+          try { gsStore.set('gs_claude_model', tryModel); } catch(_){}
+          window._gsClaudeModel = tryModel;
+        }
         // v24.22 + v28.05: erfolgreichen Call zählen (nur globaler Key)
         if (source === 'global') {
           if (opts.quotaFeature) { try { gsQuotaConsume(opts.quotaFeature); } catch(_){} }
@@ -33603,9 +33622,9 @@ async function callVisionAI(b64, mediaType, prompt, extraImages, opts){
     content.push({type:'text', text:prompt});
     // v28.04 Token-Opt: optionaler statischer system-Prompt mit cache_control (prompt-caching).
     var _sysPrompt = (opts && typeof opts.systemPrompt === 'string' && opts.systemPrompt) ? opts.systemPrompt : null;
-    var tryModel = window._gsPickClaudeModel();
+    var tryModel = window._gsPickClaudeModel('vision');
     for (var attempts = 0; attempts < 4; attempts++){
-      var _reqBody = { model: tryModel, max_tokens: (opts && opts.maxTokens) || 2500, messages:[{ role:'user', content:content }] }; // v30.47: pro-Call überschreibbar (Scan nutzt 900 → kürzere Generierung)
+      var _reqBody = { model: tryModel, rolle: 'vision', max_tokens: (opts && opts.maxTokens) || 2500, messages:[{ role:'user', content:content }] }; // v30.47: pro-Call überschreibbar (Scan nutzt 900 → kürzere Generierung)
       if (_sysPrompt) _reqBody.system = [{ type:'text', text:_sysPrompt, cache_control:{ type:'ephemeral' } }];
       var _tgtV = _gsAiTarget(key, source); // v32.68: Proxy zuerst, Direktweg nur als Rueckfall
       var resp = await _gsAiAnfrage(_tgtV, JSON.stringify(_reqBody), key, { timeout: 60000, retries: 1, wer: _wer });
@@ -39188,12 +39207,11 @@ async function sendScanChat() {
     // Begrüssung davor (Rolle assistant) trägt nichts, was nicht schon im System-Prompt steht.
     var _chatMsgs = _scanChatHistory.filter(function(m){ return m.content && !m.content.startsWith('[Kontext:'); }).slice(-8);
     while (_chatMsgs.length && _chatMsgs[0].role !== 'user') _chatMsgs.shift();
-    // Keine Modell-Rolle: callAI liest auf diesem Stand keine (gegnerische Prüfung 16.11.2026 — die
-    // eine Zeit lang übergebene `rolle: 'vision'` war ein Feld, das niemand liest). Wer den
-    // Rollen-Wähler der Sitzung „KI-Modelle" einführt, gibt dem Chat die Rolle hier mit (Brett 8234).
+    // v33.72 (KI-Modelle): der Chat bleibt auf Vision — Essbarkeitsfragen dürfen nie auf die kurze
+    // Textrolle fallen (Brett 8234). Die Antwort gehört der Person, die gefragt hat (CLAUDE.md §3.6).
     var _wer = _gsPerson();
-    var answer = await callAI(_chatMsgs, systemPrompt, 600, { timeout: 30000, retries: 1, logLabel: 'scan_chat' });
-    if (_gsPerson() !== _wer) return;   // die Antwort gehört der Person, die gefragt hat (CLAUDE.md §3.6)
+    var answer = await callAI(_chatMsgs, systemPrompt, 600, { timeout: 30000, retries: 1, logLabel: 'scan_chat', rolle: 'vision' });
+    if (_gsPerson() !== _wer) return;
     if (!answer) answer = _gsSatz('Darauf kam keine Antwort — bitte noch einmal fragen.');
     // v33.61: die Gegenprobe NACH der Antwort — gegen die gescannte Art UND jede, die in der
     // Frage steht. Sagt die Antwort „essbar" ueber eine Art mit Giftstufe >= 3, steht die
@@ -44746,7 +44764,7 @@ Antworte NUR mit dem JSON-Objekt, kein Text davor/danach.`;
     if (diagImageData) {
       resp = await callVisionAI(diagImageData, 'image/jpeg', userMsg + '\n\n' + sysPrompt, null, { quotaFeature: 'doctor' });
     } else {
-      resp = await callAI([{role:'user', content: userMsg + '\n' + sysPrompt}], '', 600);
+      resp = await callAI([{role:'user', content: userMsg + '\n' + sysPrompt}], '', 600, { rolle: 'vision' });
     }
 
     // Parse JSON
@@ -65567,7 +65585,7 @@ Format: Kurze, klare Bullet-Points mit •. Auf Deutsch. Max 200 Wörter.`;
       const b64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
       resp = await callVisionAI(b64, 'image/jpeg', prompt);
     } else {
-      resp = await callAI([{role:'user', content:prompt}], '', 500);
+      resp = await callAI([{role:'user',content:prompt}], '', 500, { rolle: 'vision' });
     }
 
     if (resp) {
@@ -76416,7 +76434,7 @@ async function gsVoiceProcess(transcript) {
   if (typeof callAI === 'function') {
     try {
       var sysPrompt = 'Du bist GreenScan, ein freundlicher Schweizer Garten-Assistent. Antworte in höchstens 3-4 kurzen, klaren Sätzen auf Deutsch (Standard-Deutsch mit Schweizer Begriffen wo passend). Keine Listen, keine Markdown — Fließtext, da die Antwort per Text-to-Speech vorgelesen wird. Wenn du unsicher bist, sag es ehrlich.';
-      var resp = await callAI([{ role: 'user', content: transcript }], sysPrompt, 250, { brain: 'generalist', timeout: 20000 });
+      var resp = await callAI([{ role: 'user', content: transcript }], sysPrompt, 250, { brain: 'generalist', timeout: 20000, rolle: 'vision' });
       var txt = '';
       if (typeof resp === 'string') txt = resp;
       else if (resp && resp.content && Array.isArray(resp.content)) {
@@ -80319,6 +80337,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.73', date: '24.11.2026',
+    headline: 'Die KI wählt das Modell nach Verwendung: kurze Texte auf dem schnellen Modell, Fotos und Essbarkeitsfragen auf dem genauen',
+    summary: 'Eine Modellwahl je Verwendung. Kurze Texte bis 600 Token laufen auf dem schnellen Haiku; Foto-Erkennung, Scan-Chat, Garten-Analyse, Quiz-Erklärung und Sprachfragen bleiben auf Sonnet. Der Proxy-Teil (das Feld rolle) wird gesondert ausgeliefert. Die Quiz-Erklärung verwirft eine Antwort, wenn sich das Konto inzwischen geändert hat.',
+    user_summary: 'Kurze KI-Antworten laufen auf dem schnellen Modell. Fragen zu Essbarkeit und Fotos bleiben auf dem genaueren.',
+    user_items: [
+      {emoji:'🧠', bold:'Das passende Modell:', text:' kurze Antworten laufen auf dem schnellen Modell, Fotos und der Scan-Chat bleiben auf dem genauen.'},
+      {emoji:'🎯', bold:'Essbarkeit bleibt genau:', text:' Fragen zu Essbarkeit und Giftigkeit laufen nie auf dem schnellen Modell.'},
+    ],
+  },
+  {
     v: 'v33.72', date: '24.11.2026',
       headline: 'Deine Gärten bleiben auf einem neuen Gerät — und ein grosser Durchgang durch Fehler, die kein Prüfstand sah',
       summary: 'Ein Audit mit 18 Agenten in drei Läufen (acht Blickwinkel, jeder Fund von einem Gegenprüfer zu widerlegen versucht) und zwei neue Prüfstände. Der schwerste Fund: wer sich auf einem frischen Gerät anmeldete, bekam seine Gärten geholt — und im selben Atemzug ersetzte die App sie durch „Mein Garten" mit 0 Pflanzungen und merkte das zum Hochladen vor. Dazu: zwei Aufbereitungen der Artenliste liefen nur in der allerersten Sitzung (ab der zweiten 1\'971 statt 160 Arten mit generischem Symbol), die Rückfrage-Dialoge waren im Dunkelmodus schwarz auf schwarz (1,06:1), ein kaputter Wert im Gerätespeicher liess die App auf dem Ladebildschirm stehen, an sieben Stellen kam Text aus fremder Hand als Code an, und das Datum war nachts an sechs Stellen der Vortag. Aus dem zweiten Lauf: sieben ungültige calc()-Ausdrücke (die Kopfleiste war 39 statt 56 px hoch, und der Knopf „Rezept hinzufügen“ stand 10\'499 px unter dem Bildschirm), die Rechtstexte liessen sich vor der Registrierung nicht öffnen, die Kalenderwoche lag Montag bis Mittwoch eine Woche zurück, und die Warnung eines Rezepts wurde nie gezeigt. Neu: statik_check liest die App als Programm, datum_check läuft in der Schweizer Zeitzone um 01:30 nachts. Die Scheibe ist auf main (v33.68) nachgezogen und auf v33.71 (Pilz-Scanner, Lina, Wissen-Tab) gestapelt.',
@@ -80722,26 +80750,6 @@ window.GS_RELEASES = [
         {emoji:'📵', bold:'Grenze:', text:' hier läuft kein Android. Geprüft sind Rechnung, Rand und Seite — ob ein echtes Telefon den Dialog so zeigt, sagt erst ein Gerät (Android 6, 10 und 14).'}
       ]
   },
-  {
-    v: 'v33.52', date: '06.10.2026',
-      headline: 'Vier Bestätigungen, die nur stimmten, wenn alles gut ging',
-      summary: 'Profil speichern, Freundschaft annehmen und zwei Foto-Wege sagten „gespeichert“, sobald der Server keinen Fehler meldete. Bei einer Änderung, die der Server nicht erlaubt, meldet er aber keinen Fehler — er ändert einfach null Zeilen. Jetzt zählt die App die Zeilen. Dazu eine Regel auf dem Server, die beim Annehmen von Freundschaften zu grosszügig war.',
-      user_summary: 'Wenn du dein Profil änderst, eine Freundschaft annimmst oder einem Fund ein Foto gibst, sagt die App „gespeichert“ jetzt erst, wenn der Server es wirklich gespeichert hat. Hat er nichts geändert, sagt sie das — statt so zu tun, als sei alles gut.',
-      user_items: [
-        {emoji:'✓', bold:'„Gespeichert“ heisst jetzt gespeichert:', text:' bei abgelaufener Anmeldung stand bisher „✓ Gespeichert“, obwohl dein Profil unverändert blieb.'},
-        {emoji:'🤝', bold:'Eine zurückgezogene Anfrage sagt es:', text:' „Diese Anfrage gibt es nicht mehr“ statt „✅ Verbunden!“ für niemanden.'},
-        {emoji:'📸', bold:'Fotos an Funden und Rezepten:', text:' die Bestätigung kommt erst, wenn der Eintrag das Foto wirklich hat.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen, nicht geschätzt:', text:' von 99 Schreibvorgängen (ohne RPC) sind 20 PATCH; vier davon versprachen Erfolg nach nur `.error` und schickten dazu return=minimal. v33.50 hatte „rund 176 Stellen“ genannt — das war eine Schätzung über alle `if (r.error)`, keine Messung dieser Klasse.'},
-        {emoji:'🧮', bold:'Warum nur PATCH:', text:' ein UPDATE, das RLS abweist, filtert still auf 0 Zeilen; ein abgewiesenes INSERT wirft einen Fehler (auch ein Upsert), ein DELETE mit 0 Zeilen heisst „war schon weg“. Live gemessen: alle vier Tabellen filtern UPDATE per USING.'},
-        {emoji:'🔧', bold:'Vier Stellen, eine Regel:', text:' gsSaveProfileField, gsFriendsAccept, _gsMyFindAddPhoto, gsRecipePhotoUpload — return=representation plus _gsSchreibOk, und bei 0 Zeilen ein eigener Satz.'},
-        {emoji:'🧪', bold:'versprechen_check:', text:' ein PATCH mit Versprechen braucht jetzt den Blick auf die Zeilen, und return=minimal ist dort rot. Gegen den alten Stand: genau die vier. save_check fährt zwei davon mit gestelltem Server zu Ende (Nein · leer · Ja).'},
-        {emoji:'🤝', bold:'Migration 20261006_friendships_nur_empfaenger.sql (nicht angewandt):', text:' live durfte der Absender die eigene Anfrage annehmen, jeder eine Zeile gleich als „accepted“ anlegen und beide Seiten user_id/friend_id umschreiben. Danach: Anfrage nur als pending, Annehmen nur durch den Empfänger, ändern nur die Spalte status.'},
-        {emoji:'🐘', bold:'naht_check spielt es nach:', text:' lokales Postgres mit dem Live-Stand, alle vier Wege reproduziert, Migration zweimal, danach jeder verweigert und der richtige Weg weiter offen; Gegenprobe ohne Spaltenrecht biegt wieder um.'},
-        {emoji:'📵', bold:'Grenze:', text:' live hat friendships 0 Zeilen, und nichts sonst liest den Status — eine erzwungene Freundschaft öffnet heute nichts. Die zwei Foto-Wege sind nur statisch geprüft (Datei-Auswahl).'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -80952,7 +80960,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.72';
+var GS_VERSION = 'v33.73';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

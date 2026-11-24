@@ -2234,3 +2234,25 @@ löscht Daten.
 
 **Bei allem anderen: frag mich vorher.** Ich messe lieber zehn Minuten nach,
 als dass du etwas rückgängig machen musst.
+
+## 33 · Modellwahl je Verwendung — NUR der Proxy-Teil, braucht dich (v33.73)
+
+Die App-Seite (`index.html`, Scan-Chat, Quiz-Erklärung, Sprachfrage, Rollenwahl) ist im PR.
+Der Edge-Function-Teil ist NICHT im PR und NICHT ausgeliefert. Er ist eine Zeile:
+
+Datei: `supabase/functions/ai-proxy/index.ts`, Stelle nach `// 3) Body validieren` (vor `const wahl = …`):
+
+```ts
+// Patch-Text (v33.73): die Verwendung nennt ihre Rolle; fehlt sie oder ist sie unbekannt, gilt „vision".
+const verwendungRolle = body.rolle === "schnell" ? "schnell" : "vision";
+const wahl = modellFuerAnfrage(typeof body.model === "string" ? body.model : "", verwendungRolle, modellSecret("vision"), modellSecret("schnell"));
+```
+
+Die bisherige Zeile `const wahl = modellFuerAnfrage(…, "vision", …)` wird durch diese beiden ersetzt.
+
+**Was ohne diese Zeile gilt:** die App funktioniert auch mit dem ALTEN Proxy. Haiku-Modelle stehen in
+dessen Schnell-Kette und werden angenommen; das Feld `rolle` wird ignoriert. Gelesen, nicht live gemessen.
+
+**Bevor du es ausreichst:** ein echter Haiku-Aufruf durch das KI-Tor (`kiTor`) ist NICHT gemessen. Seit dem
+17.11. gab es keinen erfolgreichen Aufruf durch das Tor (Hauptfunktionen, lesend). Erst messen, dann ausliefern.
+Reihenfolge wie immer: Migration zuerst, Function danach (§30).
