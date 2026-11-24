@@ -2214,7 +2214,8 @@ Daten, „Fragen an Lina“):
 > letzten Tagebuch-Einträge und die Notiz der Pflanze, nach der du fragst, im Tagebuch notierte Schädlinge, die
 > Wettervorhersage für deinen gewählten Ort mit dessen Namen, deine letzten Scans, die Namen deiner Karten-Funde
 > sowie Namen und Messwerte deiner Geräte. **Fotos und Koordinaten gehen dabei nicht mit.** Schaltest du im
-> Lina-Fenster den Einblick aus, geht nur deine Frage mit — dazu die Sprache der App und die Jahreszeit.
+> Lina-Fenster den Einblick aus, geht nichts davon mit: deine Frage mit dem bisherigen Gespräch, dazu die
+> Sprache der App, die Jahreszeit und zu Arten, nach denen du fragst, die Angaben aus der Artenliste der App.
 
 **Was du entscheidest:** ob dieser Wortlaut so in beide Texte kommt (oder ein kürzerer — die Liste ist lang, aber
 vollständig). Bis du Ja sagst, bleiben `privacy.html` und der Text in der App, wie sie sind; der Code hält sich

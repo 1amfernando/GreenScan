@@ -2877,11 +2877,32 @@ const FAELLE = [
         if (!/Einblick in ihre Daten ausgeschaltet/.test(aus.sys)) klagen.push('(a) ausgeschaltet erfährt die KI nicht, dass sie die Daten nicht kennt');
         if (!/SPRACHE:/.test(aus.sys) || !/Jahreszeit:/.test(aus.sys) || !/^ARTEN \(aus der App-Liste/m.test(aus.sys)) klagen.push('(a) ausgeschaltet fehlen Sprache, Jahreszeit oder die Arten der Frage');
 
+        // (a2) ausgeschaltet geht das bisherige Gespräch mit (auch Linas Antworten aus der Zeit mit Einblick) — die
+        //      Sätze müssen das sagen. Prüfung von #347: sie sagten „Lina bekommt nur deine Frage".
+        {
+          let hs = null;
+          const kiVor = window.callAI;
+          window.callAI = async (hist, sys) => { hs = hist; gesendet.push(String(sys)); return 'Gerne.'; };
+          try {
+            window._gsLinaSending = false; window._gsLinaConvId = 'conv-EH2';
+            window._gsLinaMsgs = [{ role: 'user', content: 'Frühere Frage zu Melli' }, { role: 'assistant', content: 'Frühere Antwort über Melli' }];
+            gsLinaRender(false);
+            const z2 = document.querySelector('[data-lina-einblick-zeile]');
+            if (!z2 || !/das bisherige Gespräch geht mit/.test(z2.textContent) || /nur deine Frage/.test(z2.textContent)) klagen.push('(a2) die Zeile im laufenden Gespräch sagt nicht, dass das Gespräch mitgeht: ' + (z2 ? z2.textContent.trim().slice(0, 90) : '(keine Zeile)'));
+            const f2 = document.getElementById('gs-lina-input'); f2.value = 'Und jetzt?';
+            await gsLinaSend();
+          } finally { window.callAI = kiVor; }
+          if (!hs) klagen.push('(a2) ausgeschaltet wurde die KI nicht gefragt — der Fall misst nichts');
+          else if (!hs.some(m => m && m.role === 'assistant' && /Frühere Antwort über Melli/.test(m.content))) klagen.push('(a2) das bisherige Gespräch geht nicht mit — dann stimmt der Satz nicht');
+          const notiz = JSON.stringify((window.GS_RELEASES || []).slice(0, 3));
+          if (/nur deine Frage/.test(notiz)) klagen.push('(a2) die Release-Notiz sagt noch „nur deine Frage"');
+        }
+
         // (b) leerer Verlauf: dort steht der Satz im Verlauf — die Zeile nicht doppelt
         window._gsLinaMsgs = []; gsLinaRender(false);
         if (document.querySelector('[data-lina-einblick-zeile]')) klagen.push('(b) im leeren Verlauf steht die Zeile doppelt');
         const leerKnopf = document.querySelector('#gs-lina-scroll [data-lina-einblick]');
-        if (!leerKnopf || !/Einblick aus — Lina bekommt nur deine Frage/.test(leerKnopf.parentElement.textContent)) klagen.push('(b) im leeren Verlauf fehlt der Schalter oder sein Satz');
+        if (!leerKnopf || !/Einblick aus — Lina bekommt nichts aus deinen Pflanzen.*das bisherige Gespräch geht mit/.test(leerKnopf.parentElement.textContent)) klagen.push('(b) im leeren Verlauf fehlt der Schalter oder sein Satz');
         else leerKnopf.click();
         if (!gsLinaEinblickAn()) klagen.push('(b) Einschalten im leeren Verlauf geht nicht');
 
@@ -2971,7 +2992,7 @@ const FAELLE = [
         }
 
         if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
-        return { ok: true, info: 'aus: ' + namen.length + ' Namen und ' + anZeilen.length + ' Datenzeilen bleiben weg, Arten der Frage bleiben · Schalter im Gespräch · voller Speicher → aus bis Neuladen + Satz · Koordinate → „am gewählten Ort" · 2 Schädlinge aus der Cloud, „kein Schädling" nur mit geladenem Tagebuch · Lilli → Maiglöckchen-Warnung (auch aus) · Eibe in der Antwort → Warnung · 3× kein Fehlalarm' };
+        return { ok: true, info: 'aus: ' + namen.length + ' Namen und ' + anZeilen.length + ' Datenzeilen bleiben weg, Arten der Frage bleiben, das bisherige Gespräch geht mit und die Sätze sagen es · Schalter im Gespräch · voller Speicher → aus bis Neuladen + Satz · Koordinate → „am gewählten Ort" · 2 Schädlinge aus der Cloud, „kein Schädling" nur mit geladenem Tagebuch · Lilli → Maiglöckchen-Warnung (auch aus) · Eibe in der Antwort → Warnung · 3× kein Fehlalarm' };
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + e.message + (klagen.length ? ' · ' + klagen.join(' · ') : '') };
       } finally {
         window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt; window.showProfileToast = sichern.pt;

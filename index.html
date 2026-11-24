@@ -36536,7 +36536,9 @@ function _gsPilzVglKarte(nr, idx, k) {
     rk.textContent = a.risiko.lbl;
     marken.appendChild(rk);
   }
-  if (a.marke) {
+  // Am VERWECHSLER nur eine Warnung (gefahr), wie in der Warnbox: ein „Speisepilz laut Register" neben einem
+  // Doppelgänger lädt zum Verwechseln ein — und das Register ist bei einigen Arten milder als die Artenliste.
+  if (a.marke && (k.haupt || a.marke.gefahr)) {
     var em = document.createElement('span');
     em.className = 'gs-pilz-essbar';
     em.style.cssText = a.marke.gefahr
@@ -46493,13 +46495,15 @@ function _gsPilzRisiko(risk) {
 }
 // Gemerkt wird nur, was das Register geliefert hat — ein Fehler merkt nichts (sonst bliebe ein Netzfehler
 // bis zum Neuladen „ohne Namen", dieselbe Falle wie _wCache in Scanner 12). Ein Slug beginnt mit einem
-// Buchstaben (kein „__proto__"), und die Tabellen haben keinen Prototyp.
+// Buchstaben (kein „__proto__"), und die Tabellen haben keinen Prototyp. Ein Bindestrich gehört dazu: das Register
+// führt Slugs wie champignon-de-paris und gemeiner-fliegenpilz-var-alba (tödlich) — ohne ihn fehlte genau dort
+// „☠️ TÖDLICH" (Prüfung von #347).
 var _gsPilzRegCache = Object.create(null);
 async function _gsPilzRegister(slugs) {
   var out = Object.create(null), fehlt = [];
   (Array.isArray(slugs) ? slugs : []).forEach(function (x) {
     var s = String(x == null ? '' : x);
-    if (!/^[a-z][a-z0-9_]{1,79}$/.test(s)) return;
+    if (!/^[a-z][a-z0-9_-]{1,79}$/.test(s)) return;
     if (_gsPilzRegCache[s]) out[s] = _gsPilzRegCache[s];
     else if (fehlt.indexOf(s) < 0) fehlt.push(s);
   });
@@ -46541,7 +46545,7 @@ function _gsPilzVerwechsler(la, matched, reg) {
 // Slug in EINER Schreibweise. Für Anzeigen, die nicht selbst warten können (die Verwechsler-Galerie öffnet synchron).
 function _gsPilzNameBekannt(slug) {
   var s = String(slug == null ? '' : slug);
-  var z = /^[a-z][a-z0-9_]{1,79}$/.test(s) ? _gsPilzRegCache[s] : null;
+  var z = /^[a-z][a-z0-9_-]{1,79}$/.test(s) ? _gsPilzRegCache[s] : null;
   return z ? (_gsMushName(z) || _gsPilzSlugName(s)) : _gsPilzSlugName(s);
 }
 // Die Kandidaten im Zweig „unsicher": mit Namen, und ein giftiger oder toedlicher traegt seine Warnung.
@@ -46863,7 +46867,7 @@ async function gsMushroomRenderResult(j, gilt) {
 
   // Scanner 13: dein Foto neben Referenzbildern der Art und ihrer Verwechsler — erst auf Antippen. Was der
   // Vergleich zeigt, wird beim ZEICHNEN gemerkt (wie Scanner 12), nicht beim Antippen.
-  _gsPilzVglMerken(j, m, _pilzReg);
+  try { _gsPilzVglMerken(j, m, _pilzReg); } catch (_) {}
   html += '<button type="button" class="sr2-cta sr2-cta-secondary gs-pilz-vgl-knopf" onclick="gsPilzVergleichOeffnen()" style="width:100%;margin-top:12px;">🔍 ' + ed(_gsSatz('Mit Bildern vergleichen')) + '</button>';
 
   // VAPKO-Pflicht-Hinweis (immer)
@@ -80340,10 +80344,10 @@ window.GS_RELEASES = [
     v: 'v33.74', date: '24.11.2026',
       headline: 'Pilz-Verwechsler beim Namen, Vergleichsbilder im Scanner — und Lina hält, was ihr Schalter sagt',
       summary: 'Drei Pakete aus den Hauptfunktionen. Pilz-Scanner: die gefährlichen Doppelgänger stehen mit ihrem Namen und „TÖDLICH“ da — vorher nur als lateinisches Kürzel —, und „Mit Bildern vergleichen“ legt dein Foto neben die Art und ihre Verwechsler. Pflanzen-Scanner: derselbe Vergleich für die erkannte Art und ihre Alternativen. Lina: schaltest du den Einblick aus, bekommt sie nur noch deine Frage; der Schalter steht auch im laufenden Gespräch, notierte Schädlinge kommen an, und die Gift-Warnung kennt deine Pflanzen beim Spitznamen. Dazu zwei Fehler beim Abmelden.',
-      user_summary: 'Beim Pilz siehst du die gefährlichen Doppelgänger mit Namen und im Bild, im Scanner vergleichst du dein Foto mit Bildern der erkannten Art — und schaltest du Linas Einblick aus, bekommt sie wirklich nur deine Frage.',
+      user_summary: 'Beim Pilz siehst du die gefährlichen Doppelgänger mit Namen und im Bild, im Scanner vergleichst du dein Foto mit Bildern der erkannten Art — und schaltest du Linas Einblick aus, bekommt sie wirklich nichts mehr aus deinen Gartendaten.',
       user_items: [
         {emoji:'🍄', bold:'Pilz · Doppelgänger:', text:' der gefährliche Verwechsler steht mit seinem Namen und „TÖDLICH“ da, nicht mehr als lateinisches Kürzel. „Mit Bildern vergleichen“ zeigt dein Foto neben der Art und ihren Doppelgängern — ein Bild ersetzt keine Pilzkontrolle, und das steht dabei.'},
-        {emoji:'🔒', bold:'Lina · Einblick aus:', text:' heisst jetzt wirklich aus — Lina bekommt nur deine Frage, die Sprache und die Jahreszeit. Den Schalter findest du auch im laufenden Gespräch.'},
+        {emoji:'🔒', bold:'Lina · Einblick aus:', text:' heisst jetzt wirklich aus — Lina bekommt nichts aus deinen Pflanzen, Gärten, Scans, Geräten oder deinem Ort; das bisherige Gespräch geht mit. Den Schalter findest du auch im laufenden Gespräch.'},
         {emoji:'⚠️', bold:'Lina · Gift-Warnung:', text:' fragst du „Kann ich Lilli essen?“ und Lilli ist dein Maiglöckchen, warnt die App, wenn Lina zusagt — auch wenn eine giftige Art erst in ihrer Antwort steht.'},
         {emoji:'🐛', bold:'Lina · Schädlinge:', text:' was du im Garten-Tagebuch als Schädling notierst, kennt Lina jetzt; „kein Schädling“ sagt sie nur, wenn sie dein Tagebuch auch gesehen hat.'},
         {emoji:'🔍', bold:'Scanner · Mit Bildern vergleichen:', text:' unter dem Ergebnis legst du dein Foto neben Referenzbilder der erkannten Art und der Alternativen — mit Giftigkeits-Marke und Unterscheidungsmerkmal. „Das ist es“ übernimmt die richtige Art.'}
@@ -88120,6 +88124,8 @@ function gsOnLogout() {
   // Dasselbe für den Scanner (sbLogout lädt die Seite nicht neu): das letzte Ergebnis, sein Foto, die
   // Ergebniskarte und das Gespräch dazu. Nicht gsResetScanner — der startet die Kamera neu.
   try { _lastScanResult = null; } catch(_){}
+  // Die Vergleiche (Scanner 12/13) tragen das Foto der Person — es gehört ihr und liegt nur im Speicher (§3.6).
+  try { _gsVglStand = null; _gsPilzVglStand = null; } catch(_){}
   try { window._gsLastScanB64 = null; window._gsLastScanMt = null; window._gsLastScanBilder = []; window._gsLetzterScan = null; } catch(_){}
   try { _scanChatHistory = []; _scanChatFuer = null; } catch(_){}
   try { var _sr = document.getElementById('scan-result'); if (_sr) { _sr.style.display = 'none'; _sr.innerHTML = ''; } } catch(_){}
@@ -92486,7 +92492,7 @@ function gsLinaRender(typing){
     // Was Lina sieht, steht da — und laesst sich abschalten. Kein Fenster, keine Rueckfrage.
     var _ean = (typeof gsLinaEinblickAn === 'function') ? gsLinaEinblickAn() : true;
     body += '<div style="text-align:center;padding:2px 10px 8px;font-size:var(--fs-sm);color:var(--muted);line-height:1.5;">'
-      + escHtml(_ean ? _gsSatz('Lina sieht deine Pflanzen, Gärten, Tagebuch-Einträge, das Wetter an deinem Ort, deine Scans und Funde — keine Fotos, keine Koordinaten.') : _gsSatz('Einblick aus — Lina bekommt nur deine Frage, nichts aus deinen Pflanzen, Gärten, Scans, Geräten oder deinem Ort.'))
+      + escHtml(_ean ? _gsSatz('Lina sieht deine Pflanzen, Gärten, Tagebuch-Einträge, das Wetter an deinem Ort, deine Scans und Funde — keine Fotos, keine Koordinaten.') : _gsSatz('Einblick aus — Lina bekommt nichts aus deinen Pflanzen, Gärten, Scans, Geräten oder deinem Ort; das bisherige Gespräch geht mit.'))
       + ' <button data-lina-einblick="' + (_ean ? '1' : '0') + '" onclick="gsLinaEinblickSchalten()" style="background:none;border:none;padding:6px 4px;color:var(--g-dark);font-weight:700;font-size:var(--fs-sm);font-family:inherit;text-decoration:underline;cursor:pointer;">'
       + escHtml(_ean ? _gsSatz('Ausschalten') : _gsSatz('Einschalten')) + '</button></div>';
   }
@@ -92504,7 +92510,7 @@ function gsLinaRender(typing){
     + (msgs.length ? (function () {
         var _an = (typeof gsLinaEinblickAn === 'function') ? gsLinaEinblickAn() : true;
         return '<div data-lina-einblick-zeile="1" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 6px;padding:4px 12px;border-bottom:1px solid var(--border);font-size:var(--fs-xs);color:var(--muted);line-height:1.4;text-align:center;">'
-          + escHtml(_an ? _gsSatz('Lina sieht deine Gartendaten — keine Fotos, keine Koordinaten.') : _gsSatz('Einblick aus — Lina bekommt nur deine Frage.'))
+          + escHtml(_an ? _gsSatz('Lina sieht deine Gartendaten — keine Fotos, keine Koordinaten.') : _gsSatz('Einblick aus — nichts aus deinen Gartendaten; das bisherige Gespräch geht mit.'))
           + '<button data-lina-einblick="' + (_an ? '1' : '0') + '" onclick="gsLinaEinblickSchalten()" style="background:none;border:none;padding:4px 6px;min-height:24px;color:var(--g-dark);font-weight:700;font-size:var(--fs-xs);font-family:inherit;text-decoration:underline;cursor:pointer;">'
           + escHtml(_an ? _gsSatz('Ausschalten') : _gsSatz('Einschalten')) + '</button></div>';
       })() : '')

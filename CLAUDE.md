@@ -834,7 +834,9 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   Block weg; Pflanzenzahl, Region, fällige Aufgaben mit Namen, Geräte, Messwerte,
   Kalender und der letzte Scan gingen weiter mit, während das Fenster das Gegenteil
   sagte. Jetzt kehrt `gsLinaContext` ohne Einblick früh zurück (nur Sprache,
-  Jahreszeit, die Arten der Frage), und `sensor_check` „Lina · Einblick ehrlich“
+  Jahreszeit, die Arten der Frage); das bisherige Gespräch geht weiter mit, und
+  die Sätze sagen das (die erste Fassung schrieb „nur deine Frage" — Prüfung von
+  #347: ein Datenschutz-Satz sagt nichts zu, was nicht stimmt). `sensor_check` „Lina · Einblick ehrlich“
   misst, was an die KI GEHT — mit `GS_LINA_ZEILEN_RANG` als Liste der Datenzeilen,
   damit eine neue Zeile mitgemessen wird. **Ein Ortsname kann eine Koordinate sein**
   (der Rückfall von `gsReverseGeocode`): an die KI nur über `_gsOrtNameFuerKi`.
