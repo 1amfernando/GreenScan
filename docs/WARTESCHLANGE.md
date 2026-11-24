@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 14:55 UTC · `main` = `1649859` (**v33.69**, #338) · letzte Änderung: Reihe auf „gestapelt" umgestellt.
+**Stand:** 24.11.2026, 15:05 UTC · `main` = `8a2f16e` (**v33.70**, #340 Lina · Einblick — hat sich um 14:50 UTC selbst gemergt) · die Reihe ist um eine Nummer nach hinten gerutscht.
 
 ## 1 · Warum es schneller wird
 
@@ -40,18 +40,21 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 
 | Nr | Sitzung | Branch | Version | STATUS-Kennung | Zustand |
 |---|---|---|---|---|---|
-| 1 | Hauptfunktionen (Pilz · Wissen · Lina 9) | `claude/happy-thompson-24l4uu` | v33.70 | (jr) Pilz · (js) Wissen · (jt) Lina 9 | **PR #343 offen** (Kopf `90863cd`, CI seit 14:25) — Audit stapelt darauf; Folge-Commits nur nach Absprache |
-| 2 | Audit | `ccr-dce5a17c-2xzhvi` | v33.71 | (ju) | **PR #344 offen** (Kopf `0d78924`, gestapelt auf #343, CI seit ~14:52) |
-| 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | v33.72 | (jv) | stapelt auf `0d78924` (Nr. 2) — jetzt dran; der Proxy-Teil gehört Fernando |
-| 4 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.73 | (jw) | Entwurf zuerst (Abstimmung), danach stapeln; Restnaht XP aus #338 gehört hierher |
-| 5 | Hauptfunktionen · Scanner 12 „Mit Bildern vergleichen" | nach dem Merge von #343 startet die Sitzung ihren Branch von main (sie darf nur auf `claude/happy-thompson-24l4uu` pushen); Scanner 12 liegt lokal fertig | v33.74 | (jx) | fertig lokal (7 Fälle grün, 9 Gegenproben rot); gepusht erst nach dem v33.70-Push |
-| – | Lina · Einblick (#340) | `claude/lina-einblick-011L7` | nächste freie | nächste freie | **wartet auf Fernando:** die Datenschutz-Freigabe („Standard AN, Wortlaut") ist nicht belegt, die Sitzung ist vom Koordinator nicht erreichbar (untrusted device) |
-| – | Brett (#341) | `ccr-b63433a4-d1xgyg` | – | nach (jw) | enthält `.github/workflows/*` und `docs/AGENTEN-NETZ.md` → Fernando; der Werkzeug-Teil kommt als eigener, kleiner PR |
+| 1 | Hauptfunktionen (Pilz · Wissen · Lina 9) | `claude/happy-thompson-24l4uu` | **v33.71** | (js) Pilz · (jt) Wissen · (ju) Lina 9 | PR **#343**; zieht main (8a2f16e) ein, löst die Lina-Konflikte, nummeriert um; der alte Kopf `90863cd` und seine CI sind überholt |
+| 2 | Audit | `ccr-dce5a17c-2xzhvi` | **v33.72** | (jv) | PR **#344**; hält still, bis Nr. 1 ihren neuen Kopf pusht, dann EIN Bump mit `_bump.js --basis` |
+| 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | v33.73 | (jw) | stapelt auf Nr. 2; der Proxy-Teil gehört Fernando |
+| 4 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.74 | (jx) | Scheibe 1 fertig (`f859bf7`, ohne PR/Bump), stapelt auf Nr. 3 |
+| 5 | Hauptfunktionen · Lina · Einblick ehrlich machen | eigener Branch ab main | v33.75 | (jy) | Funde auf PR #340 (Kommentar 7135172753): Schalter, Schädling-Filter, Gegenprobe, Datenschutztext (**Wortlaut entscheidet Fernando**) |
+| 6 | Hauptfunktionen · Scanner 12 „Mit Bildern vergleichen" | eigener Branch ab main | v33.76 | (jz) | fertig lokal; wird nach Nr. 1 gestartet |
+| – | Brett (#341) | `ccr-b63433a4-d1xgyg` | – | – | enthält `.github/workflows/*` und `docs/AGENTEN-NETZ.md` → Fernando; der Werkzeug-Teil kommt als eigener PR |
+
+**Lehre vom 24.11., 14:50 UTC:** eine Sitzung, die der Koordinator nicht erreicht (Cowork-Sitzung „Linas Wünsche", `untrusted device`), kann sich selbst mergen und die Reihe verschieben. Darum gilt vor JEDEM Merge: `git fetch origin main` und nachsehen, ob `main` noch der Stand ist, auf dem der PR gebaut wurde — sonst zuerst umnummerieren lassen. Die CI auf einem überholten Kopf gilt nicht.
 
 ## 3 · Gemergt (neueste zuerst)
 
 | main | Version | Was |
 |---|---|---|
+| `8a2f16e` | v33.70 | #340 Lina · Einblick (selbst gemergt von der Cowork-Sitzung „Linas Wünsche“; Nachprüfung als Kommentar auf dem PR) |
 | `1649859` | v33.69 | #338 Gelöscht bleibt gelöscht (Löschmarken, `_gsStateMischen`, `gsXpBootSync`, `_gsProfilNachlesen`) |
 | `428d78f` | – | #339 Brett-Befund 0df5 (Stripe-Zahlungsweg, nur Doku) |
 | `115d389` | v33.68 | #337 Eine Antwort nach dem Abmelden landet nie im nächsten Konto |
