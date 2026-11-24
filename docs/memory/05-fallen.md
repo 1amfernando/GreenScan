@@ -39,6 +39,12 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   Arten ohne Warnung. Die Suche 1:1 zu nehmen waere falsch gewesen — im
   Fliesstext nennen sich Verwechsler („maigl" → Baerlauch). Regel: ein
   Namensfeld nimmt `_gsSucheRang` bis `info.vorschlaege`, giftig ist `gsIstGiftig`.
+- **v33.80 · Suche 12** Mehrere Woerter wurden je Wort UEBERALL in Name und
+  Binomen gesucht: „gruener tae" (wer den Gruenen Taeubling anlegt) schlug den
+  Gruenen Knollenblaetterpilz vor — „ta" stand mitten in „Amanita". Regel: ein
+  Stueck unter `GS_SUCHE_STUECK_MIN` (4) Zeichen zaehlt nur am Wortanfang.
+  Gemessen als Tipp-Simulation ueber alle 4'307 Mehrwort-Eingaben der Liste:
+  kein Eintrag verliert sich selbst (CLAUDE.md, Kasten Suche 11/12).
 
 ## B · Eine Ansicht, die nie etwas zeigen konnte
 
@@ -332,6 +338,12 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v33.59** Ein Nachschlag `EMOJI[zeile.kategorie]` mit dem Wert „constructor“
   zeigte den Quelltext einer Funktion. Regel:
   `_gsNachschlag(tabelle, schluessel, rueckfall)` — nur eigene Eintraege.
+- **v33.80 · (kl)** Der Waechter „Prototypkette" (`robust_check`) suchte nur
+  Tabellen mit Grossbuchstaben vorn; zwoelf Nachschlaege in `_GS_…`-Tabellen
+  sah er nicht. In Linas Kontext stand fuer einen Garten mit Licht
+  „constructor" Funktions-Quelltext. Regel: ein Suchmuster wird an JEDER
+  Schreibweise der Bauform geprueft; die verbliebene Luecke (`TAB[k]` mit
+  einfacher Variable) steht beim Waechter.
 - **v33.59** COOP `same-origin-allow-popups` macht `window.opener` auf der
   Rueckkehrseite aus Stripe zu `null` — der Handler wartete darauf, das
   Fenster schloss sich nie. Regel: wer eine Kopfzeile setzt, sucht die Stellen

@@ -162,7 +162,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 
 > **Geliefert mit v33.61** (16.11.2026): Punkte 1, 2, 3, 4, 5, 6, 7 und die toten Reste aus 9.
 > Prüfstand: `scan_check` SU1–SU8. Dazu 8 (Menü-Suche, SU7) und 10 (Rangfolge, SU8) — die Suche hat keinen offenen Punkt mehr.
-> Dazu 11 (Pflanzen-Vorschläge, SU9, v33.76).
+> Dazu 11 (Pflanzen-Vorschläge, SU9, v33.76) und 12 (kurze Wortstücke, SU10, v33.80).
 
 1. ✅ v33.61 (dazu: die Kategorie-Einträge im Menü warfen einen Fehler; das ✕ im Suchfeld nahm
    den Filter weg und liess den Knopf markiert) — **Filter und Suchtext schliessen sich aus.** `gsFilter` löscht `searchText`; es gibt nur
@@ -188,6 +188,12 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     Fliesstext nennen sich Verwechsler gegenseitig („maigl" → Bärlauch, „giersch" → Herbstzeitlose). Die Marke „giftig" las das
     Feld des Eintrags (58 Einträge giftiger Arten ohne Warnung) und stand im gekürzten Namen; jetzt `gsIstGiftig` mit dem Wort der
     Skala, neben dem Namen, und Online-Treffer gehen über `gsMatchScanToDb` zu ihrer Art.
+12. ✅ v33.80 (`scan_check` SU10, Nachlese zu Suche 11, gebaut 24.11.) — **Ein kurzes Wortstück traf mitten im Wort:**
+    `_gsSucheRang` suchte bei mehreren Wörtern jedes Wort überall in Name und Binomen; „grüner tä" (wer den Grünen Täubling
+    anlegt) schlug auf Platz 6 den Grünen Knollenblätterpilz vor („ta" in „Amanita"), „lila lac" den Lila Risspilz
+    („lilacina"). Jetzt zählt ein Stück unter `GS_SUCHE_STUECK_MIN` (4) Zeichen nur am Wortanfang — gemessen als
+    Tipp-Simulation über alle 4'307 Mehrwort-Eingaben: kein Eintrag verliert sich selbst, 2'440 Vorschläge fallen weg. Dazu
+    das Etikett eines Online-Treffers über `_gsNachschlag` („constructor" zeigte Funktionstext).
 
 ## Offen — Home
 

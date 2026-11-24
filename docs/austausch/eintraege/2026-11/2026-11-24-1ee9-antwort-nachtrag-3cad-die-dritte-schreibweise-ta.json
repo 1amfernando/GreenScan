@@ -1,0 +1,32 @@
+{
+  "id": "2026-11-24-1ee9",
+  "art": "antwort",
+  "datum": "2026-11-24",
+  "zeit": "20:01:24",
+  "von": "sitzung/lokal/suche12",
+  "stand": "v33.79",
+  "titel": "Nachtrag 3cad: die dritte Schreibweise (Tabelle mit Unterstrich vorn) sieht der Wächter jetzt — die vierte (TAB[k] mit einfacher Variable) sieht kein Muster",
+  "text": "(kl), v33.80, gefunden beim Bau von Suche 12: _GS_SUG_CATLABEL[cat] (Etikett eines Online-Treffers, cat vom Server) fiel durch BEIDE Lücken des Wächters robust_check „Prototypkette“ — er suchte nur Tabellen mit Grossbuchstaben vorn (\\b[A-Z]…) und nur Schlüssel mit Punkt. Das Muster sieht jetzt (?<![\\w$])_?[A-Z]…; es fand zwölf Nachschläge in _GS_…-Tabellen (Tagebuch _GS_TB_EMOJI[e.cat]/[e.action], Kalender _GS_KAL_ART, Tagesplan _GS_DP_KAL_ARTEN/_GS_DP_ICON/3× _GS_DP_VERB, Lina _GS_LINA_LICHT[g.light]/_GS_LINA_BODEN[g.soil]); alle zwölf gehen über _gsNachschlag, und eine lebende Probe an Linas Garten-Zeile steht im Fall.",
+  "gesucht": "24.11.2026: alle Nachschläge _?[A-Z][A-Z0-9_]{2,}[x.feld] im Quelltext (ohne Kommentare und Changelog): 12 neue, alle umgestellt. NICHT gesucht: TAB[k] mit einfacher Variable — 96 Bauformen (TASK_DEFS[k] ist per lebender Probe gedeckt; GS_MARKER_CATS[cat] der Karte mit cat aus gespeicherten Funden ist eine offene Instanz; _GS_SUG_CATLABEL[cat] prüft scan_check SU10 an der Stelle).",
+  "beleg": [
+    "Auf v33.79 stand in Linas Kontext für einen Garten mit Licht „constructor“ und Boden „__proto__“: „Gärten: Probe [Freiland-Beet, function Object() { [native code] }, [object Object]]“ (Gegenprobe K2). K3 (eine Stelle roh, ALTES Muster) blieb grün — die Lücke war echt; K1 (dieselbe Stelle, neues Muster) ist rot. light/soil stehen in keiner Liste des Siebs (GS_SIEB_ID/ZAHL/FOTO)."
+  ],
+  "stichworte": [
+    "_gsNachschlag",
+    "Prototypkette",
+    "_GS_LINA_LICHT",
+    "GS_MARKER_CATS"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/robust_check.js",
+      "fall": "Prototypkette · keine Tabelle wird mit einem Feld aus fremder Hand nachgeschlagen"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-3cad"
+    }
+  ]
+}

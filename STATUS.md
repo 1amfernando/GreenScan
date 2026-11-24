@@ -12,6 +12,87 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (kl) - v33.80: Prototypkette — der Wächter sieht auch Tabellen mit Unterstrich, und Linas Garten-Zeile zeigt keinen Funktionstext mehr
+
+**Auftrag:** Beim Bau von Suche 12 nachgezählt (Brett-Klasse 3cad). `_GS_SUG_CATLABEL[cat]` fiel durch BEIDE Lücken des Wächters
+`robust_check` „Prototypkette“: Er suchte nur Tabellen mit einem Grossbuchstaben vorn (`\b[A-Z]…`) und nur Schlüssel mit Punkt
+(`TAB[x.feld]`).
+
+**Gebaut:** Das Muster sieht jetzt auch Tabellen mit Unterstrich vorn (`(?<![\w$])_?[A-Z]…`). Gefunden hat es zwölf Nachschläge;
+alle zwölf gehen über `_gsNachschlag`:
+- Tagebuch: `_GS_TB_EMOJI[e.cat]` und `[e.action]`; `e.action` kommt aus dem Spiegel des Cloud-Tagebuchs.
+- Kalender und Tagesplan: `_GS_KAL_ART`, `_GS_DP_KAL_ARTEN`, `_GS_DP_ICON`, dreimal `_GS_DP_VERB`.
+- Lina: `_GS_LINA_LICHT[g.light]`, `_GS_LINA_BODEN[g.soil]`. Licht und Boden kommen aus Cloud oder Backup.
+
+Für echte Schlüssel ist das Ergebnis dasselbe. Dazu kommt eine lebende Probe an Linas Garten-Zeile, nach dem Vorbild der Probe an `TASK_DEFS`.
+
+**Gemessen:** Auf v33.79 stand in Linas Kontext für einen Garten mit Licht „constructor“ und Boden „__proto__“ der Text „Gärten: Probe
+[Freiland-Beet, function Object() { [native code] }, [object Object]]“; seither steht dort nur „Freiland-Beet“. Ein Garten mit
+`full_sun`/`loam` steht weiter als „volle Sonne, lehmig“ da (Gegenrichtung im Fall).
+
+**Prüfstand:** `robust_check` „Prototypkette“ (38/0). Drei Gegenproben:
+- K1, ein Nachschlag roh: rot („30232: `_GS_TB_EMOJI[e.cat]`“).
+- K2, Lina roh: rot, mit dem Funktionstext oben.
+- K3, K1 mit dem ALTEN Muster: grün. Das belegt die Lücke.
+
+**Offen:** brett:2026-11-11-3cad (die vierte Schreibweise, `TAB[k]` mit einer einfachen Variablen: 96 Bauformen, darunter
+`GS_MARKER_CATS[cat]` der Karte mit `cat` aus gespeicherten Funden — kein Muster sieht sie; Nachtrag 2026-11-24-1ee9).
+**Nicht geprüft:** ob ein Backup oder die Cloud solche Werte heute liefert (das Sieb `_gsSiebEintrag` kennt `light`/`soil` nicht).
+
+### 2026-11-24 (kk) - v33.80: Suche 12 — ein kurzes Wortstück trifft nur am Wortanfang: „grüner tä“ schlägt nicht mehr den Grünen Knollenblätterpilz vor
+
+**Auftrag:** Nachlese zu Suche 11 (Prüfung von #350): „grüner tä“ schlug in „Pflanze hinzufügen“ den Grünen
+Knollenblätterpilz vor, und das Etikett eines Online-Treffers schlug in der Prototypkette nach. Gebaut, während der Hold-out
+zu (kg) läuft; gestapelt auf `ceea353`.
+
+**Gebaut:** `_gsSucheRang` sucht bei mehreren Wörtern jedes Wort in Name (450), in Name + Binomen (250) und im Fliesstext (90).
+In den zwei Namensstufen, die als Vorschlag zählen, gilt ein Stück unter `GS_SUCHE_STUECK_MIN` (4) Zeichen jetzt nur am Wortanfang
+(am Anfang oder nach Leerzeichen, Bindestrich, Klammer, Schrägstrich). Der Fliesstext bleibt, wie er war: Er ist kein Vorschlag, und
+so verliert ein vollständig getippter Name keinen Treffer. Ein längeres Stück darf weiter mitten im Wort stehen: Ein Teil eines zusammengesetzten Worts,
+den jemand als eigenes Wort tippt („knollenblätter pilz“, „weisser pilz“), ist länger. Die Eingabe geht escaped in den Ausdruck.
+Die Stufen der ganzen Eingabe (1000–100) und die Vertipper bleiben unverändert. `_gsRenderSugList` schlägt das Kategorie-Etikett über
+`_gsNachschlag` nach. `cat` eines Online-Treffers kommt vom Server; „constructor“ zeigte „function Object() { [native code] }“ und
+„__proto__“ zeigte „[object Object]“. Doku: CLAUDE.md (Kasten zu Suche 11 und 12), `docs/memory/05-fallen.md`, `docs/HAUPTFUNKTIONEN.md` Suche 12.
+
+**Gemessen** (Basis `ceea353` gegen (kk), als Tipp-Simulation: jedes Namens-Segment der Artenliste mit mehreren Wörtern,
+getippt als erstes Wort + 2, 3 bzw. alle Zeichen des zweiten; 5'387 Paare aus Eintrag und Eingabe, 4'307 Eingaben):
+
+| Gruppe | soll | Basis | (kk) |
+|---|---|---|---|
+| der Eintrag bei seiner eigenen Eingabe unter den Vorschlägen (≤ 8) | bleibt | 5'147 | 5'147 (nur Basis: 0) |
+| … unter den Namenstreffern | bleibt | 5'387 | 5'387 (nur Basis: 0) |
+| Eingaben mit geänderter Vorschlagsliste | — | — | 753 von 4'307 |
+| Vorschläge, die wegfallen / nachrücken | — | — | 2'440 (944 Einträge; 266 davon Arten der Stufe ≥ 3) / 614 (63) |
+| davon steht ein kurzes Stück im weggefallenen Eintrag nur mitten im Wort | alle | — | 2'436; die übrigen 4 rücken nur ab (Binomen statt Name: „Echter Th“ → Echter Kriechthymian über *Thymus*) |
+| Eingaben nur aus Stücken ≥ 4 Zeichen mit geänderter Namensliste | 0 | — | 0 |
+| die 266 weggefallenen Vorschläge giftiger Arten: wäre die Art das Ziel der Eingabe (jedes kurze Stück trifft einen Wortanfang)? | nie | — | 0 von 266 (110 Einträge, 195 Eingaben; das Stück steckt mitten im Wort: „an“ in *Amanita*, „hu“ in Eisenhut, „ge“ in Fingerhut …) |
+| vollständig getippte Namen (alle 1'585 Segmente mit ≥ 2 Wörtern): weniger Namenstreffer / weniger Treffer insgesamt / ein verlorener Treffer heisst so | 0 / 0 / 0 | — | 0 / 0 / 0 |
+
+Beispiele, die wegfallen: „grüner tä“ → Grüner Knollenblätterpilz (Stufe 5, über „Amanita“) und Papageigrüner Saftling
+(„psittacinus“); „lila lac“ → Lila Risspilz (Stufe 4, „lilacina“), der giftige Doppelgänger des Lila Lacktrichterlings;
+„Echter Se“ → Echter Eisenhut (Stufe 5); „Gewöhnliche Be“ → Gewöhnliche Eibe (Stufe 5).
+
+**Prüfstand:** `scan_check` SU10 über das echte Eingabefeld:
+- die zwei Paare, im Namensfeld und unter den Namenstreffern der Artensuche;
+- was bleiben muss: ein langes Stück mitten im Wort, ein kurzes am Anfang des Binomens, eine Klammer im Namen und der Knollenblätterpilz, wenn man IHN tippt;
+- alle 368 Tipp-Schritte giftiger Arten (Stufe ≥ 3) unter den Namenstreffern;
+- Regex-Zeichen in der Eingabe werfen nicht;
+- das Etikett bei „constructor“ und „__proto__“.
+
+Fünf Gegenproben, einzeln rot:
+1. kurze Stücke wieder überall;
+2. Wortanfang für jede Länge;
+3. die Binomen-Stufe nur noch im Namen;
+4. ohne Escaping („Unterminated group“);
+5. das Etikett ohne `_gsNachschlag`.
+
+**Lokal (TZ=UTC) auf dem Kopf v33.80 ((kk) + (kl) + Bump):** scan 150/0 · sensor 69/0 · sicherheit (person, schluss, senken) 104/0 · speicher 29/0 ·
+nutzersicht 17/0 · robust 38/0 · statik 10/0 · datum 8/0 · austausch 17/0 · einstellungen, i18n, wiring grün · kalender 57/0 allein (unter Last, 13 Stände
+auf 4 Kernen, einmal „Heute zu tun“ mit 8 statt 1 Aufgabe rot — allein wiederholt grün; (kl) ändert dort nur `_GS_DP_KAL_ARTEN[e.art]` mit gleichem Ergebnis).
+
+**Offen:** nichts aus (kk). Die Klasse dahinter (Brett 3cad) bekommt ihren Nachtrag mit (kl).
+**Nicht geprüft:** echtes Telefon; echte Online-Treffer (gestellt); andere App-Sprachen (die Namen der Liste sind deutsch).
+
 ### 2026-11-24 (kg) - v33.79: Lina 11 neu — die Gift-Gegenprobe liest Namen, wie Sätze sie schreiben, und die Basis bleibt das Mass
 
 **Auftrag:** Lina 11 neu nach dem Revert von (kd) (Brett 288f, Koordinator 24.11.2026). Bedingungen: Die Basis `255665c` ist das
@@ -17570,9 +17651,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.79` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.78) · SW-Cache `gs-v33.79` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.80` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.79) · SW-Cache `gs-v33.80` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **103'694 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.79; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.56).
+- **Frontend:** `index.html` **103'680 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.80; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.56).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **48** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.72: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 48** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (jv). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

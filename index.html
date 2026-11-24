@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.79.20261124">
+<meta name="app-version" content="33.80.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -30229,7 +30229,7 @@ function gsTagebuchAlle() {
       }
       var ts = e.ts || null;
       if (!pid && e.pflanze_id) pid = e.pflanze_id;
-      out.push({ id: e.id, ts: ts, datum: _gsKalTag(ts), text: e.text || '', note: '', emoji: e.emoji || _GS_TB_EMOJI[e.cat] || '📝',
+      out.push({ id: e.id, ts: ts, datum: _gsKalTag(ts), text: e.text || '', note: '', emoji: e.emoji || _gsNachschlag(_GS_TB_EMOJI, e.cat, null) || '📝',
         cat: e.cat || 'note', plant: e.plant || '', pflanze_id: pid, photo: e.photo || null, weather: e.weather || '',
         date: e.date || (ts ? new Date(ts).toLocaleDateString(gsLocale()) : ''), herkunft: 'garten', quelle: e.quelle || 'hand',
         bestaetigt_am: e.bestaetigt_am || null });   // v33.39: der Grund im Kalender nennt den Tag der Bestaetigung
@@ -30243,7 +30243,7 @@ function gsTagebuchAlle() {
       if (!p || !Array.isArray(p.diary)) return;
       p.diary.forEach(function (e) {
         if (!e || !e.ts) return;
-        var em = _GS_TB_EMOJI[e.action] || '📝';
+        var em = _gsNachschlag(_GS_TB_EMOJI, e.action, null) || '📝';
         out.push({ id: 'pd:' + p.id + ':' + e.ts, ts: e.ts, datum: _gsKalTag(e.ts), text: _gsTbTitel(e) || (em + ' Eintrag'), note: e.note || '', emoji: em,
           cat: e.action || 'note', plant: p.name || '', pflanze_id: p.id, photo: e.photo || null, weather: '',
           date: new Date(e.ts).toLocaleDateString(gsLocale()), herkunft: 'pflanze', quelle: _gsTbAbgehakt(e) ? 'regel' : 'hand' });
@@ -31187,7 +31187,7 @@ function _gsKalRender() {
     else kasten = '<span class="gs-kal-box info" aria-hidden="true"></span>';
     var sub = (e.art === 'aufgabe')
       ? ((typeof _gsDayPlanWhen === 'function') ? _gsDayPlanWhen(e.faellig_seit) : '') + (e.status === 'verschoben' ? ' · ' + _t('kal_verschoben', 'verschoben') : '')
-      : ((e.zeit ? e.zeit + ' · ' : '') + (e.pflanze && e.pflanze.name ? e.pflanze.name : (_GS_KAL_ART[e.art] || e.art)));
+      : ((e.zeit ? e.zeit + ' · ' : '') + (e.pflanze && e.pflanze.name ? e.pflanze.name : (_gsNachschlag(_GS_KAL_ART, e.art, null) || e.art)));
     // v33.34 (KALENDER-V2): verletzte Hinweise als EINE Zeile darunter (Warnfarbe
     // als TEXT, nie als Fuellung); nicht pruefbare stehen im Grund; „lange
     // ueberfaellig" ist eine zweite Klasse, keine zweite Farbe.
@@ -31697,7 +31697,7 @@ function gsPlanHinweisAus() {
 function _gsDayPlanKalender(esc) {
   try {
     var h = gsHeuteTag();
-    var ev = (gsKalenderEreignisse(h, h) || []).filter(function (e) { return e && _GS_DP_KAL_ARTEN[e.art]; });
+    var ev = (gsKalenderEreignisse(h, h) || []).filter(function (e) { return e && _gsNachschlag(_GS_DP_KAL_ARTEN, e.art, false); });
     if (!ev.length) return '';
     var namen = ev.slice(0, 3).map(function (e) { return (e.emoji ? _gsEmoji(e.emoji, '') + ' ' : '') + esc(e.titel || ''); });   // v33.59: emoji aus Tagebuch/Ernte
     var rest = ev.length - namen.length;
@@ -31768,7 +31768,7 @@ window.gsRenderDayPlan = function(){
     var call = "gsDayPlanCheck(this,'" + _gsOcStr(t.plant.id) + "','" + _gsOcStr(t.key) + "')";   // v33.59: JS-String im onclick
     var title = esc(t.plant.name) + ' ' + esc(_gsDayPlanVerb(t.key, t.def));
     return '<div class="gs-dp-row">' +
-        '<div class="gs-dp-ico" aria-hidden="true">' + ico(_GS_DP_ICON[t.key] || 'leaf') + '</div>' +
+        '<div class="gs-dp-ico" aria-hidden="true">' + ico(_gsNachschlag(_GS_DP_ICON, t.key, null) || 'leaf') + '</div>' +
         '<div class="gs-dp-body">' +
           '<div class="gs-dp-title">' + title + '</div>' +
           '<div class="gs-dp-sub">' + _gsDayPlanWhen(t.days) +
@@ -40145,6 +40145,13 @@ function getFiltered(){
   window._gsSucheTippfehler = !!_info.tippfehler;
   return _liste;
 }
+// Suche 12: in einer Suche mit mehreren Wörtern zählt ein Stück unter GS_SUCHE_STUECK_MIN Zeichen nur am
+// WORTANFANG. Gemessen 24.11.2026: „grüner tä“ (wer den Grünen Täubling anlegt) schlug auf Platz 6 den Grünen
+// Knollenblätterpilz vor — „ta“ stand mitten in „Amanita“, und die Stufe „alle Wörter in Name oder Binomen“ (250)
+// zählt als Namensvorschlag; ebenso der Papageigrüne Saftling über „psittacinus“. Wer ein Wort tippt, tippt seinen
+// Anfang; ein Teil eines zusammengesetzten Worts, den jemand als eigenes Wort schreibt („knollenblätter pilz“,
+// „weisser pilz“), ist länger und darf weiter mitten im Wort stehen.
+var GS_SUCHE_STUECK_MIN = 4;
 // SUCHE-8: die Rangfolge der Artensuche als EINE Rechnung — die Suche ruft sie mit ihren Filtern,
 // die Menü-Suche ohne. Vorher hatte das Menü einen eigenen Artenteil (`includes` ohne Umlaute,
 // ohne Rangfolge, ohne Vertipper). `pass(sp)` entscheidet, welche Einträge zählen; `info` bekommt
@@ -40166,6 +40173,13 @@ function _gsSucheRang(text, pass, info){
   // SUCHE-2: mehrere Woerter. „giersch wald" wurde als EIN Stueck gesucht und fand nichts, obwohl
   // beide Woerter im Eintrag stehen. Greift nur, wenn das ganze Stueck nichts trifft.
   var teile = q.split(/\s+/).filter(function (w) { return w.length >= 2; });
+  // Suche 12: ein KURZES Stück zählt nur am Wortanfang (GS_SUCHE_STUECK_MIN) — ein langes darf mitten im Wort stehen.
+  var _teilTrifft = teile.map(function (w) {
+    if (w.length >= GS_SUCHE_STUECK_MIN) return function (h) { return h.indexOf(w) >= 0; };
+    var re = new RegExp('(?:^|[^a-z0-9])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    return function (h) { return re.test(h); };
+  });
+  var _alleTeile = function (h) { return _teilTrifft.every(function (t) { return t(h); }); };
   var scored = [];
   for (var i=0;i<idx.length;i++){
     var e=idx[i]; if(!pass(e.sp)) continue;
@@ -40179,9 +40193,10 @@ function _gsSucheRang(text, pass, info){
     else if (e.fam.indexOf(q)>=0) sc=200;
     else if (e.blob.indexOf(q)>=0) sc=100;
     else if (teile.length > 1) {
-      var _nl = e.name + ' ' + e.lat;
-      if (teile.every(function (w) { return e.name.indexOf(w) >= 0; })) sc = 450;
-      else if (teile.every(function (w) { return _nl.indexOf(w) >= 0; })) sc = 250;
+      if (_alleTeile(e.name)) sc = 450;
+      else if (_alleTeile(e.name + ' ' + e.lat)) sc = 250;
+      // der Fliesstext bleibt, wie er war (Teilstück überall) — er zählt nicht als Vorschlag, und ein vollständig getippter
+      // Name verliert so keinen Treffer (gemessen über alle 1'585 Mehrwort-Namen: 0 weniger)
       else if (teile.every(function (w) { return e.blob.indexOf(w) >= 0; })) sc = 90;
     }
     // v30.72: Synonym-Boost (ergänzt, überschreibt keinen stärkeren echten Namens-Treffer)
@@ -41446,7 +41461,7 @@ function _gsRenderSugList(list, q, dropdown){
     var name = s.name || '';
     var lat = s.lat || '';
     var cat = (s.cat || '').toLowerCase();
-    var tag = _GS_SUG_CATLABEL[cat] || '';
+    var tag = _gsNachschlag(_GS_SUG_CATLABEL, cat, '');   // Suche 12: `cat` eines Online-Treffers kommt vom Server
     // Suche 11: „giftig“ fragt dasselbe wie der Filter „☠️ Giftig“ (gsIstGiftig, an der ART über _gsArtAnzeige), und
     // das Wort kommt aus der Giftskala der App (toxInfo, wie im Artendetail) — als feste Farbpaarung, damit es in beiden
     // Modi lesbar bleibt. Ein Online-Treffer ist kein Eintrag der Liste: er geht über gsMatchScanToDb zu seiner Art;
@@ -42296,7 +42311,7 @@ function scheduleAllNotifications(){
   alle = alle.filter(function(x){ return x && x.plant && !disabled[x.plant.id]; });
   var heute = alle.filter(function(x){ return x.days <= 0; }), morgen = alle.filter(function(x){ return x.days === 1; });
   function _text(liste){
-    var namen = liste.slice(0, 4).map(function(x){ return (x.plant.name || '?') + ' ' + ((typeof _GS_DP_VERB !== 'undefined' && _GS_DP_VERB[x.key]) || String((x.def && x.def.name) || x.key).toLowerCase()) + (x.sensor ? ' \ud83d\udcf6' : ''); });
+    var namen = liste.slice(0, 4).map(function(x){ return (x.plant.name || '?') + ' ' + ((typeof _GS_DP_VERB !== 'undefined' && _gsNachschlag(_GS_DP_VERB, x.key, null)) || String((x.def && x.def.name) || x.key).toLowerCase()) + (x.sensor ? ' \ud83d\udcf6' : ''); });
     if (liste.length > 4) namen.push('+' + (liste.length - 4) + ' weitere');
     return namen.join(' \u00b7 ');
   }
@@ -80745,6 +80760,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.80', date: '24.11.2026',
+      headline: 'Pflanze anlegen: „grüner tä…“ schlägt nicht mehr den Grünen Knollenblätterpilz vor',
+      summary: 'Suche 12. Bei mehreren Wörtern zählt ein Stück unter vier Zeichen nur noch am Wortanfang. Vorher schlug „grüner tä“ (wer den Grünen Täubling anlegt) den tödlich giftigen Grünen Knollenblätterpilz vor, weil „ta“ mitten in seinem lateinischen Namen steht, und „lila lac“ den giftigen Lila Risspilz statt nur den Lila Lacktrichterling. Gemessen über alle Namen der Artenliste aus mehreren Wörtern, getippt wie von Hand: jede Art bleibt bei ihren eigenen Tipp-Schritten vorgeschlagen, falsche Vorschläge mitten aus einem Wort fallen weg. Dazu nehmen Linas Garten-Zeile, das Tagebuch und der Tagesplan aus ihren festen Tabellen nur noch echte Einträge: ein Garten mit einem unsinnigen Lichtwert zeigte vorher Programmtext.',
+      user_summary: 'Die Vorschläge beim Anlegen einer Pflanze passen genauer zu dem, was du tippst.',
+      user_items: [
+        {emoji:'🔎', bold:'Passendere Vorschläge:', text:' wer „grüner tä…“ tippt, bekommt den Grünen Täubling, nicht mehr den giftigen Grünen Knollenblätterpilz dazwischen.'},
+        {emoji:'🌿', bold:'Lina kennt deine Gärten genauer:', text:' Licht und Boden eines Gartens kommen nur als echte Angabe bei ihr an.'},
+      ]
+  },
+  {
     v: 'v33.79', date: '24.11.2026',
       headline: 'Lina warnt bei giftigen Pflanzen zuverlässiger — auch in der Mehrzahl und bei all deinen Pflanzen',
       summary: 'Lina 11 neu. Die Gift-Gegenprobe behält alles, was sie bisher erkannt hat, und liest dazu Namen, wie Sätze sie schreiben: Mehrzahl, Fälle, „…blätter“ und „…beeren“ (zum Beispiel „Tollkirschen kannst du essen.“ oder „Oleanderblätter“). Sie prüft alle eigenen Pflanzen einer Frage, vorher nur zwei, und „Lilli auch.“ nach einer Zusage. Still bleibt sie nur in zwei engen Fällen: bei Pflegesätzen wie „Du kannst Lilli bedenkenlos umtopfen.“ und bei Gegensätzen, in denen eine andere Art essbar und diese giftig genannt wird. Gemessen über alle Namen der Artenliste: Was bisher warnte, warnt weiter. Ein eben notierter Schädling ist sofort bei Lina.',
@@ -81071,47 +81096,6 @@ window.GS_RELEASES = [
         {emoji:'🔢', bold:'Startseite:', text:' die Zahl unter „Essbar“ ist kleiner geworden — sie zählt nur noch geprüfte Arten.'}
       ],
   },
-  {
-    v: 'v33.59', date: '11.11.2026',
-      headline: 'Was von anderen kommt, bleibt Text — und der Server prüft selbst nach',
-      summary: 'Eine Sicherheitsprüfung über die ganze App, gemessen und nicht geschätzt: 27 Prüfer haben Client, Service Worker, Edge-Functions, Datenbank-Regeln und die Android-Hülle gelesen und 209 Stellen gemeldet; 187 davon hat ein zweiter Prüfer nachgestellt und bestätigt. Behoben in 24 Gruppen, jede mit eigener Gegenprüfung, danach eine Schlussprüfung des Ganzen mit zwölf Blickwinkeln (34 Meldungen, 32 bestätigt, darunter ein Zahlungs-Empfänger, der nach der Auslieferung jedes Abo-Ereignis mit einem Fehler beantwortet hätte) und sechs weitere Gruppen für deren Funde. Im Client: jeder Wert aus fremder Hand — Beitrag, Inserat, Kartenfund, Community-Art, KI-Antwort, Übersetzung, Backup — kommt als Text an, über zehn Helfer mit je genau einem Kontext; ein Link aus einer E-Mail wird nie mehr still zur Sitzung; Fotos verlassen das Gerät ohne Ortsangabe in der Datei; Wetter- und Ortsdienste bekommen den Standort auf etwa 1 km gerundet; Schriften und pdf.js liegen im Repo statt bei Dritten; die Kopfzeilen erlauben nur noch, was die App wirklich anspricht. Für den Server liegen sechs Migrationen und die überarbeiteten Edge-Functions bereit — sie sind NICHT angewandt und NICHT ausgeliefert (docs/FUER-FERNANDO.md §30). Drei neue Prüfstände halten es fest: sicherheit_check (188 Fälle), edge_check (76) und rls_check (43, spielt die Migrationen in einem lokalen Postgres nach). Danach hat eine Austausch-Runde mit 15 Agenten den fertigen Stand noch einmal gegengelesen; ihre Funde sind in neun weiteren Gruppen behoben, die einer Gesamtprüfung des ganzen Diffs in zwei weiteren.',
-      user_summary: 'GreenScan ist gründlich auf Sicherheit geprüft worden. Texte und Bilder von anderen können der App nichts mehr unterschieben, deine Fotos tragen beim Hochladen keinen versteckten Ort mehr, und dein Standort geht nur noch ungefähr an Wetter- und Kartendienste.',
-      user_items: [
-        {emoji:'🛡️', bold:'Fremde Inhalte bleiben Inhalte:', text:' Beiträge, Inserate, Kartenfunde, Arten aus der Community, Antworten der KI und Übersetzungen werden als Text gezeigt — sie können in der App nichts auslösen.'},
-        {emoji:'📷', bold:'Fotos ohne versteckte Angaben:', text:' bevor ein Foto das Gerät verlässt, entfernt die App Ort, Gerät und Aufnahmezeit aus der Datei. Das gilt für Scans, Beiträge, Inserate, Tagebuch und Funde.'},
-        {emoji:'📍', bold:'Dein Standort bleibt ungefähr:', text:' Wetter- und Ortsdienste bekommen ihn auf etwa 1 km gerundet. Gibst du einen Fund für die Community frei, wird sein Ort ebenso gerundet — und die App sagt es dir vorher.'},
-        {emoji:'🔑', bold:'Sicherere Anmeldung:', text:' ein Link aus einer E-Mail meldet dich nie mehr still in einem fremden Konto an. Das Fenster für ein neues Passwort ist jetzt auch sichtbar, wenn du abgemeldet bist.'},
-        {emoji:'🔤', bold:'Nichts mehr von Google beim Start:', text:' die Schriften liegen bei GreenScan selbst. Die App fragt beim Öffnen keinen fremden Dienst mehr an.'},
-        {emoji:'🧹', bold:'Abmelden räumt gründlicher auf:', text:' gespeicherte Pläne und Zwischenspeicher gehen mit. Ein Plan, den du ohne Empfang gespeichert hast, wird für dich aufgehoben, bis du dich wieder anmeldest — bis zu 90 Tage ab dem Abmelden, bis zu 20 Pläne je Konto; hast du mehr, bleiben sie auf dem Gerät liegen, und die App sagt es dir.'},
-        {emoji:'👥', bold:'Ein anderes Konto im selben Fenster:', text:' nach dem Abmelden blieben Gärten, Favoriten, Stimmen und der Community-Name des vorigen Kontos im Hintergrund stehen — das nächste Konto sah sie, und ein Speichern konnte sie in dessen Konto tragen. Abmelden heisst jetzt: derselbe Stand wie nach einem Neuladen.'},
-        {emoji:'💾', bold:'Sicherungen nur, wenn sich etwas geändert hat:', text:' die App legte bei jedem Update eine Sicherung an, auch ohne Änderung — ältere Stände wurden dadurch früher verdrängt. Jetzt entsteht eine Sicherung nur noch, wenn es etwas zu sichern gibt.'},
-        {emoji:'🧭', bold:'Dinge, die nie richtig gingen:', text:' die Wissens-Suche antwortet ohne Empfang aus dem Zwischenspeicher, das Foto im Tagebuch erscheint, und „kopiert“ steht erst da, wenn wirklich kopiert wurde.'},
-        {emoji:'🏡', bold:'Deine Gärten bleiben auf einem neuen Gerät:', text:' nach der Anmeldung konnte ein leerer „Mein Garten“ die gerade geholten Gärten überschreiben. Jede zurückgespielte Liste — Backup, Anmeldung, Sicherung, Garten-Abgleich — geht jetzt durch denselben geprüften Eingang.'},
-        {emoji:'🍄', bold:'Vorsichtiger bei essbar und giftig:', text:' 14 Einträge aus 8 Arten — darunter Huflattich, Wermut und die Traubenkirsche — standen als essbar da, obwohl sie selbst „nicht essbar“ sagen, und drei Einträge hatten ihr „giftig“ verloren. Jede Angabe bewegt sich jetzt nur noch zur vorsichtigen Seite.'},
-        {emoji:'🆘', bold:'Notfall-Hinweis auch auf Spanisch:', text:' der Offline-Chat erkennt einen Vergiftungssatz jetzt auch auf Spanisch und nennt die Notrufnummer — harmlose Fragen in den anderen Sprachen bleiben harmlos.'},
-        {emoji:'🌙', bold:'Besser lesbar:', text:' zehn Stellen mit zu wenig Kontrast im Hell- oder Dunkelmodus — im Tagebuch, im Naturjahr, beim Abo und an Inseraten — sind jetzt gut lesbar.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen:', text:' 27 Finder, 209 Rohfunde, 187 bestätigt, 4 widerlegt, 13 ungeprüft (von den Reparateuren selbst nachgestellt). 30 Reparaturgruppen mit 215 Fund-Einträgen: 186 behoben, 24 teilweise (der Rest braucht den Server oder eine Entscheidung), 4 bewusst offen, 1 nicht nachstellbar. Jede Gruppe: Fall rot gesehen, behoben, Geschwisterstellen gesucht, Gegenprüfung durch einen zweiten Agenten.'},
-        {emoji:'🧰', bold:'Zehn Helfer, je ein Kontext:', text:' escHtml (Text und Attribut), _gsOcStr (Wert in einem JS-String eines on*-Attributs), _gsOcJson (JSON-Argument dort), gsSanitizeHtml (Fragment mit Auszeichnung), _gsSafeUrl / _gsSafeLink (Adresse), _gsFremdBild (Bild eines ANDEREN: nur der eigene Speicher), _gsCssUrl (url(…) in einem style), _gsEmoji, _gsIdSicher. Tabelle in CLAUDE.md §3.6.'},
-        {emoji:'🧷', bold:'Die onclick-Bauform als Klasse:', text:' 197 Stellen setzten einen Wert roh in einen JS-String eines on*-Attributs; alle gehen durch _gsOcStr. sicherheit_check 92 sucht die Bauform im Quelltext und meldet jede neue.'},
-        {emoji:'🗝️', bold:'Sitzung und Start:', text:' ein Token aus dem Anker der Adresse wird nie mehr als Sitzung gespeichert — eine Passwort-Wiederherstellung prüft ihn beim Server und fragt, wenn ein anderes Konto angemeldet ist. Die Backend-Adresse kommt nicht mehr aus dem Speicher. ?screen= gilt nur für Bildschirme, die es gibt; ?billing=success sagt nichts, bevor der Server das Abo bestätigt. Der Knopf „Anmelden per E-Mail-Link“ ist entfernt: seine Rückkehr hat die App nie verarbeitet.'},
-        {emoji:'🖼️', bold:'EXIF:', text:' _gsBildOhneMeta liest JPEG, PNG und WebP so nachsichtig wie ein Dekoder und kodiert alles neu, was mehr als Bilddaten trägt. Zwei Tore (gsUploadImage, gsUploadPhotoToBucket) und callVisionAI; ein unlesbares Bild wird nie roh hochgeladen. Ein älteres Fund-Foto wird beim Freigeben neu kodiert.'},
-        {emoji:'🧱', bold:'Kopfzeilen und Worker:', text:' default-src self, object-src none, connect-src auf das eigene Supabase-Projekt, kein cdnjs und kein Google Fonts mehr (Schriften und pdf.js 4.0.379 unter assets/, Prüfsummen in robust_check). Der Worker legt nur noch eigene Antworten und Kartenkacheln ab, deckelt den Runtime-Cache und räumt beim Abmelden.'},
-        {emoji:'💳', bold:'Zahlung (Edge-Functions, nicht ausgeliefert):', text:' Preis, Kunde, Rückkehr-Adresse und Startangebot entscheidet der Server; ein laufendes Abo wird vor dem Löschen des Kontos gekündigt; der Webhook ordnet Ereignisse und entzieht Lifetime bei voller Rückerstattung. Die Schlussprüfung fand eine Einbettung ohne Fremdschlüssel in der Live-Datenbank — der Webhook hätte auf jedes Abo-Ereignis mit 500 geantwortet. Die Attrappe des Prüfstands verhält sich seither wie PostgREST.'},
-        {emoji:'🤖', bold:'KI-Tor (nicht ausgeliefert):', text:' ein Aufruf wird VOR dem Aufruf reserviert, in einer Anweisung (20 gleichzeitige Anfragen bei Limit 15 ergeben genau 15 Zusagen), und zurückgegeben, wenn der Anbieter nicht gerechnet hat. Bezahlte Pläne bekommen nie weniger als bisher.'},
-        {emoji:'🗃️', bold:'Sechs Migrationen (nicht angewandt):', text:' Funktionen, die einem Parameter vertrauten oder zu weit offen waren · Quiz, Punkte, Rangliste, Battles · Community und Marktplatz (Sperre, Blockieren, Chat, Anzeigename) · Konto, Speicher-Buckets, Push-Abos, Startangebot · KI-Kontingent · Feedback-Stimmen. Jede zweimal in ein lokales Postgres eingespielt, mit dem Angriff davor und danach.'},
-        {emoji:'📦', bold:'Lieferkette:', text:' Actions auf Commit-SHAs, npm ci gegen ein eingechecktes Lockfile (es fehlte: eine Zeile in .gitignore schloss es aus), 68 Import-Angaben der Edge-Functions auf exakte Versionen, das Keystore-Passwort der Android-Hülle nicht mehr auf der Befehlszeile.'},
-        {emoji:'🧪', bold:'Prüfstände:', text:' neu sicherheit_check (188 Fälle in 23 Dateien, je Datei eine frisch geladene App), edge_check (76 Fälle: die Rechnung der Edge-Functions in Node, der Rand am Quelltext, die Spalten jeder Function gegen den Live-Stand) und rls_check (43 Fälle im lokalen Postgres; ohne Postgres „nicht prüfbar“, nie grün). pruefstaende.sh fährt sie mit; wie viele es insgesamt sind, steht nur in STATUS.md §1.'},
-        {emoji:'🔦', bold:'Die Prüfstände messen jetzt eine angemeldete App:', text:' der Token der Beispieldaten hatte keine JWT-Form und wurde 500 ms nach dem Start abgeräumt — alle Prüfstände vermassen eine abgemeldete App. Der erste Lauf mit bleibender Sitzung fand zwei Fehler, die so nie messbar waren: ein Flush ohne Änderung stempelte „zuletzt gesichert“, wodurch das Backup jeden Stand für geändert hielt (die Regel aus v33.26 wirkte nur abgemeldet), und der Schliessen-Knopf der Push-Frage blieb in jeder Sprache deutsch.'},
-        {emoji:'🧵', bold:'Was die Gegenprüfungen als Übergabe hinterliessen:', text:' Pflanzendoktor, Schädlings-, Pilz- und Garten-Scan schicken ihr Foto verkleinert und ohne EXIF (vorher 6,84 MB Base64 bei einem gewöhnlichen Handyfoto, über dem 5-MB-Tor). Das Stripe-Fenster schliesst sich nach der Rückkehr — wegen der Kopfzeile COOP ist window.opener dort null, die Meldung geht jetzt über einen BroadcastChannel. Drei Upserts nennen ihren Schlüssel selbst (on_conflict): ohne ihn scheiterten das Umstimmen einer Idee und das erneute Einschalten von Push auf demselben Gerät. Der Hinweis bei erreichtem KI-Limit richtet sich nach dem Plan. _gsNachschlag ist der eine Leser für eine Tabelle mit einem Schlüssel aus fremder Hand — mit dem Wert constructor stand sonst der Quelltext einer Funktion auf dem Bildschirm.'},
-        {emoji:'🔀', bold:'Zusammengeführt mit v33.57 und v33.58:', text:' eine andere Sitzung hatte parallel dieselben KI-Functions umgebaut und ausgeliefert. Vereint statt ersetzt: ihr Modellaufruf (anthropicFetch, Modellkette) hinter dem Tor dieser Reparatur; eine Tabelle der Grenzen, in der ein bezahlter Plan nie weniger bekommt als live.'},
-        {emoji:'📅', bold:'Eine Frist mehr auf dem Bildschirm:', text:' am 31.12.2026 um 23:00 UTC vergibt ein Cron ein Jahr Pro an die drei Ersten der Quiz-Rangliste. Solange die Quiz-Migration fehlt, zählt dafür jede richtige Antwort auf jede Frage. Der Termin steht jetzt in GS_FRISTEN (Admin-Panel, „Läuft demnächst ab“) und in docs/RISIKEN.md.'},
-        {emoji:'🔁', bold:'Nach dem Bump — die Austausch-Runde:', text:' 15 Agenten aus fünf Blickwinkeln haben den fertigen Stand gegengelesen (50 Funde, 74 Urteile der Gegenprüfung). Behoben in neun Gruppen, jede mit einem Fall, der vorher rot war, und einer Gegenprüfung (28 Einträge: 26 behoben, 1 teilweise, 1 bewusst offen): ein Eingang für zurückgespielte Listen (_gsListeEinspielen, alle Rückspiel-Wege), gsPlans.parken meldet einen gescheiterten Schreibversuch, 14 weitere Nachschläge über _gsNachschlag, contrast_check, touch_check und perf_check messen mit Sitzung und Daten (contrast_check ist jetzt ein Tor), der Stripe-Fall unter der echten COOP, supabase/functions/AUSLIEFERUNG.json mit einem Spalten-Scan aller Functions (der Krankheits-Kontext des Pflanzendoktors ist live leer), Lizenztexte im APK, fünf Familien von Tagesschlüsseln, die Reste von vier Edge-Befunden. Was offen bleibt, steht auf dem Brett (docs/austausch).'},
-        {emoji:'🔎', bold:'Zum Schluss eine Gesamtprüfung:', text:' 23 Agenten über den ganzen Diff, 17 Meldungen, 14 bestätigt, in zwei Gruppen behoben: das Abmelden leert jede Liste aus GS_LISTEN_EINGANG und sieben Spiegel daneben, „Meine Garten-Pläne“ geht durch denselben Eingang, kein nur lokaler Plan geht beim Kürzen oder am Deckel verloren (gsPlans.parkGrund), eine Liste für die Tagebuch-Kategorien; der Webhook schliesst Ereignisse gelöschter Konten ab (kontoFehlt — die Attrappe kennt jetzt Fremdschlüssel), und plan-iterate sagt die echte Ursache in einem Satz, den die App ganz zeigt.'},
-        {emoji:'🧯', bold:'Nicht von hier messbar:', text:' ob die Migrationen live dasselbe tun wie im Nachbau, und ob die Edge-Functions in Deno laufen (hier gibt es kein Deno). Beides zeigt erst das Anwenden — Reihenfolge und Handgriffe in docs/FUER-FERNANDO.md §30.'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81322,7 +81306,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.79';
+var GS_VERSION = 'v33.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -91949,7 +91933,7 @@ function gsLinaZahlen(){
     var faellig = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks().filter(function(x){ return x && x.plant && x.days <= 0; }) : [];
     if (faellig.length) {
       teile.push('Fällig: ' + faellig.slice(0, 5).map(function(x){
-        var verb = (typeof _GS_DP_VERB !== 'undefined' && _GS_DP_VERB[x.key]) || String((x.def && x.def.name) || x.key).toLowerCase();
+        var verb = (typeof _GS_DP_VERB !== 'undefined' && _gsNachschlag(_GS_DP_VERB, x.key, null)) || String((x.def && x.def.name) || x.key).toLowerCase();
         return (x.plant.name || '?') + ' ' + verb + (x.days < 0 ? ' (seit ' + (-x.days) + ' Tag' + (x.days === -1 ? '' : 'en') + ')' : ' (heute)') + (x.sensor ? ' [Sensor]' : '');
       }).join('; ') + (faellig.length > 5 ? '; +' + (faellig.length - 5) + ' weitere' : '') + '.');
     } else teile.push('Fällig: keine Aufgaben heute.');
@@ -92668,7 +92652,7 @@ function gsPflanzenHilfe() {
     var due = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks() : [];
     due.forEach(function (x) {
       if (!x || !x.plant || !(x.days <= -GS_HILFE_UEBERFAELLIG_TAGE)) return;
-      var verb = (typeof _GS_DP_VERB !== 'undefined' && _GS_DP_VERB[x.key]) || String((x.def && x.def.name) || x.key).toLowerCase();
+      var verb = (typeof _GS_DP_VERB !== 'undefined' && _gsNachschlag(_GS_DP_VERB, x.key, null)) || String((x.def && x.def.name) || x.key).toLowerCase();
       merk(x.plant, verb + ' seit ' + (-x.days) + ' Tagen überfällig', 100 + (-x.days));
     });
   } catch (_) {}
@@ -92783,8 +92767,10 @@ function _gsLinaGaertenZeile() {
       var e = [];
       try { e.push(gsGartenArt(g).label); } catch (_) {}
       if (g.width && g.length) e.push(g.width + ' × ' + g.length + ' m');
-      if (_GS_LINA_LICHT[g.light]) e.push(_GS_LINA_LICHT[g.light]);
-      if (_GS_LINA_BODEN[g.soil]) e.push(_GS_LINA_BODEN[g.soil]);
+      // (kl): Licht und Boden eines Gartens kommen aus Cloud oder Backup — nur EIGENE Einträge der Tabelle (Brett 3cad)
+      var _licht = _gsNachschlag(_GS_LINA_LICHT, g.light, null), _boden = _gsNachschlag(_GS_LINA_BODEN, g.soil, null);
+      if (_licht) e.push(_licht);
+      if (_boden) e.push(_boden);
       var drin = pl.filter(function (p) { return p && p.gardenId === g.id && p.name; });
       var namen = drin.slice(0, GS_LINA_PFLANZUNGEN_NENNEN).map(function (p) {
         var d = _gsLinaTag(p.date);

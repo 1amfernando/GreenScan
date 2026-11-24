@@ -3141,7 +3141,14 @@ einem untergeschobenen Token. 188 Fälle in 23 Dateien (Stand 16.11.2026).
 > sich als Beschriftung ausgibt. `_gsNachschlag(tabelle, schluessel, rueckfall)`
 > nimmt nur EIGENE Einträge (`hasOwnProperty`). Die Gegenprüfung fand danach
 > dieselbe Bauform als Objekt-Literal (`{…}[wert]`), die die erste Suche nicht
-> kannte — **eine Bauform hat mehr als eine Schreibweise**.
+> kannte — **eine Bauform hat mehr als eine Schreibweise**. Die dritte fand
+> Suche 12 (v33.80, (kl)): Tabellen mit Unterstrich vorn. Das Muster des
+> Wächters (`robust_check` „Prototypkette“) begann mit `\b[A-Z]` und sah zwölf
+> Nachschläge wie `_GS_TB_EMOJI[e.cat]` nicht; in Linas Kontext stand für einen
+> Garten mit Licht „constructor“ der Text „function Object() { [native code] }“.
+> Ohne Muster bleibt die vierte Schreibweise: `TAB[k]` mit einer einfachen Variablen
+> (96 Bauformen). `_GS_SUG_CATLABEL[cat]` war eine davon; sie wird an der Stelle
+> selbst geprüft (`scan_check` SU10).
 >
 > **Ein Fall, der eine Senke UND ihre Quellen absichert, prüft oft nur die
 > Quellen** (Gegenprüfung k1): die Mitteilungs-Glocke setzt `_gsEmoji(n.icon)`
@@ -3898,6 +3905,22 @@ App eine reine Bilderkennung schlagen kann: **nicht im Sehen, im Pruefen.**
 > einen Vertipper kamen (`scan_check` SU9). **Eine Warnung steht neben dem
 > Namen, nie in ihm:** im gekürzten Namen war sie bei „Echter Monstera Thai
 > Constellation" abgeschnitten.
+>
+> **Und ein kurzes Wortstück trifft nur am WORTANFANG** (Suche 12). Bei mehreren
+> Wörtern suchte `_gsSucheRang` jedes Wort überall in Name und Binomen: „grüner
+> tä" — wer den Grünen Täubling anlegt — schlug den Grünen Knollenblätterpilz
+> vor („ta" mitten in „Amanita"), „lila lac" den Lila Risspilz („lilacina").
+> Ein Stück unter `GS_SUCHE_STUECK_MIN` (4) Zeichen zählt seither in den
+> Namensstufen nur am Wortanfang; ein längeres darf mitten im Wort stehen
+> („weisser pilz"), und der Fliesstext bleibt, wie er war. Gemessen
+> als **Tipp-Simulation** gegen den alten Stand: jeder Mehrwort-Name der Liste,
+> getippt wie ein Mensch (erstes Wort + 2, 3, alle Zeichen des zweiten). Der
+> Eintrag selbst bleibt bei jedem seiner Schritte vorgeschlagen (5'147 von
+> 5'147), 2'440 Vorschläge fallen weg, 266 davon giftige Arten (`scan_check`
+> SU10). Keine der 266 war das Ziel ihrer Eingabe, und kein vollständig getippter
+> Name (1'585) hat weniger Treffer als vorher. **Wer eine Such-Regel ändert, misst
+> sie so: die Artenliste selbst ist das Orakel**, „nur der alte Stand findet ihn"
+> muss leer sein, und ein ganz getippter Name verliert nichts.
 
 **Seit v32.43 haelt `scan_check` auch die DUBLETTEN-REGEL fest.** Die
 Artenliste fuehrt 657 Arten mehrfach (gleiches Binomen nach `_gsNormLat`),
