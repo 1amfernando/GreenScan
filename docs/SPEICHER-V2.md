@@ -128,6 +128,31 @@ Grenzen: das Hochladen selbst ist gestellt (kein Server von hier); die Storage-P
 nachgemessen. Die Fotos im Verlauf einer GARTEN-Pflanzung gibt es nicht (das Formular kennt nur
 „Meine Pflanzen").
 
+### Scheibe 3 — das Register, erste Stufe (gebaut am 24.11.2026)
+
+`GS_SPEICHER` in `index.html`: **51 Schlüssel**, je EIN Eintrag — in welchem Blob er reist und unter welchem
+Feld, welche Regel heute zwischen zwei Geräten gilt (`eintrag_stempel` · `eintrag_marke` · `ganz` ·
+`vereinigung` · `verbund`), wer ihn auf dem Rückweg schreibt (`ueber`), ob er beim Abmelden geht oder bleibt
+(mit Grund, wenn etwas Reisendes bleibt), sein Deckel, und ob er überhaupt hochgeladen wird (`hinweg:false`
+für die zwei Geräte-Schlüssel). Der Abgleich selbst tut danach dasselbe wie vorher.
+
+- **Zwei Hand-Listen lesen jetzt das Register:** der Backup-Rückweg (`_gsApplyStateBlob` →
+  `_gsSpeicherStateFelder`) und die Zuordnung Schlüssel → Bereich (`_gsSpeicherBereiche`, vorher das Literal
+  `STATE_KEYS` mit 52 Zeilen; abgeleitet sind es dieselben 52 plus `gs_geloescht`).
+- **Der erste Fund kam beim Eintragen:** `gs_kal_filter` steht seit v33.35 im Blob und kam aus dem Backup nie
+  zurück (alt und neu direkt gemessen). Genau die Klasse, für die das Register gebaut ist.
+- **Prüfstand:** `sync_check` „Register“ — Hinweg (die drei Blob-Bauer, aus dem Quelltext), Rückweg (der
+  Abgleich oder der benannte Übernehmer), Backup (plants/garden am Quelltext, der state-Teil wirklich
+  gefahren: Probewerte → echter Bauer → Schlüssel weg → `_gsApplyStateBlob`), die zwei Abmelde-Listen, die
+  Stempel- und Marken-Listen, die Deckel und der Bereich; in beide Richtungen, acht Gegenproben mit
+  verbogenen Fakten.
+
+Was die erste Stufe NICHT tut: sie nimmt dem Hinweg (`_buildStateBlob`) und dem Rückweg (`stateMap`) ihre
+Hand-Einträge nicht ab — beide tragen Sonderfälle je Schlüssel; das ist Scheibe 4. Von den neun Stellen je
+Schlüssel sind zwei weg, und die übrigen sieben macht der Prüfstand rot, wenn eine fehlt. Die `regel` ist
+eine Aussage, die nur an zwei Stellen gebunden ist (Stempel- und Marken-Liste); ob „ganz“ im Einzelfall
+stimmt, hält kein Fall.
+
 ## 4 · Backend
 
 Im Repo lässt sich das meiste ohne Server-Änderung bauen (Scheiben 1–9). Drei Dinge brauchen dich:
