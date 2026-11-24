@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.70.20261124">
+<meta name="app-version" content="33.71.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -16779,7 +16779,7 @@ window.GS_I18N_JS_STRINGS = {
   'lina_verlauf_offen':        'offen',
   'lina_zurueck':              '← Zurück',
   'lina_aktion_kaputt':        '(Die Aktion zu dieser Antwort ist nicht angekommen.)',
-  // ── v33.70: Lina 9 — eine Antwort gehoert dem Gespraech, in dem gefragt wurde ──
+  // ── v33.71: Lina 9 — eine Antwort gehoert dem Gespraech, in dem gefragt wurde ──
   'lina_noch_dran':            'Lina antwortet noch auf deine vorige Frage — gleich bin ich wieder frei.',
   'lina_antwort_dort':         'Lina hat im vorigen Gespräch geantwortet — du findest es unter 🕘 Verlauf.',
   'lina_antwort_weg':          'Lina hat auf deine vorige Frage geantwortet — dieses Gespräch ist nicht mehr offen.',
@@ -79830,6 +79830,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.71', date: '24.11.2026',
+      headline: 'Jede Antwort bleibt bei ihrer Frage — Pilz-Scanner, Lina und der Wissen-Tab',
+      summary: 'Drei Pakete aus den Hauptfunktionen. Pilz-Scanner: ein Ergebnis gehört zu seinem Foto — ein neues Foto, ein neues Öffnen und das Schliessen lösen die laufende Bestimmung ab, auch in fr/it/en/es, wo die Anzeige noch auf Übersetzungen wartet. Lina: eine Antwort gehört dem Gespräch, in dem gefragt wurde — wer während des Wartens ein neues oder ein früheres Gespräch öffnet, findet sie bei ihrer Frage. Wissen-Tab: dieselben Zahlen wie Startseite und Filter, und jede Kachel öffnet ihre Liste.',
+      user_summary: 'Ein Pilz-Ergebnis steht nie mehr unter dem falschen Foto, Linas Antwort landet in dem Gespräch, in dem du gefragt hast, und die Zahlen im Wissen-Tab stimmen mit der Startseite überein.',
+      user_items: [
+        {emoji:'🍄', bold:'Pilz-Scanner:', text:' wählst du ein neues Foto, öffnest den Scanner neu oder schliesst ihn, gilt die laufende Bestimmung nicht mehr — ihr Ergebnis erscheint nie unter einem anderen Pilz. Schliesst du mitten in der Bestimmung, sagt dir ein Satz, dass es dazu kein Ergebnis gibt.'},
+        {emoji:'💬', bold:'Lina:', text:' tippst du während „Lina denkt nach…“ auf „＋ Neu“ oder öffnest ein früheres Gespräch, landet die Antwort trotzdem bei deiner Frage — und ein Satz sagt dir, wo sie steht.'},
+        {emoji:'📚', bold:'Wissen-Tab:', text:' „Arten“, „Essbar“ und „Giftig“ zeigen dieselben Zahlen wie die Startseite und der Filter, und jede Kachel öffnet die Liste, die sie zählt.'}
+      ],
+      items: [
+        {emoji:'🔢', bold:'Eine Nummer je Pilz-Bestimmung:', text:' _gsPilzNr und gsPilzAbbrechen (neues Foto, neues Öffnen, Schliessen). Die Prüfung gilt fragt Nummer UND Person (das Tor aus v33.68) — vor dem Senden, nach der Antwort, im catch und nach dem Warten auf die Übersetzung (gsMushroomRenderResult wartet in fr/it/en/es). _gsPilzFotoNr gegen zwei sich überholende Foto-Ladevorgänge.'},
+        {emoji:'🧵', bold:'Lina merkt sich, wo gefragt wurde:', text:' _gsLinaGespraechNr zählt jeden Wechsel des gezeigten Gesprächs; gsLinaSend hält Liste und Gesprächs-Id fest — Vorgeschichte, neue Id und Antwort gehören dorthin. Eine zweite Frage während des Wartens bekommt einen Satz statt Stille.'},
+        {emoji:'☠️', bold:'gsIstGiftig:', text:' die Regel des Filters (toxic oder Stufe 2 und höher, an der Art) als EINE Funktion für Filter und Lexikon-Kachel — vorher zählte die Kachel 598, der Filter 675.'},
+        {emoji:'🧪', bold:'Prüfstände:', text:' scan_check PZ5 bis PZ7 und D1g, sensor_check L12, nutzersicht_check E9 Teil 4 — jeder Fall gegen den alten Stand rot, jede Schutzzeile einzeln zurückgebaut am richtigen Fall rot.'}
+      ]
+  },
+  {
     v: 'v33.70', date: '24.11.2026',
       headline: 'Lina kennt deinen Garten beim Namen',
       summary: 'Lina · Einblick (Punkt 8). Bis v33.69 sah Lina von den Pflanzen nur die Zahl und die Namen mit einer fälligen Aufgabe — keine Gärten, kein Tagebuch, kein Wetter, keine Fundorte. Jetzt gibt es einen zweiten Kontextblock (gsLinaEinblick) mit eigenem Deckel: wer Hilfe braucht (gerechnet aus überfälligen Aufgaben und notierten Schädlingen), die Pflanze aus der Frage im Detail, das Wetter am gewählten Ort, alle Pflanzen und Beete beim Namen, frühere Scans und Karten-Funde. Keine Fotos, keine Koordinaten; abschaltbar im Lina-Fenster. Beide Datenschutztexte nennen es.',
@@ -80219,26 +80236,6 @@ window.GS_RELEASES = [
         {emoji:'📵', bold:'Grenze:', text:' die SQL-Hälfte rechnet mit gestelltem auth.uid() und is_admin_user(). Ob die Migration LIVE angewandt ist, sagt nur Fernando — und die App erst, wenn sie eine Spur gesehen hat.'}
       ]
   },
-  {
-    v: 'v33.50', date: '24.09.2026',
-      headline: 'Das Admin-Panel sagt, was der Server wirklich getan hat',
-      summary: 'Fünfzehn Admin-Schreibwege (Sperren, Plan setzen, Gutscheine, Wissen, Meldungen, Broadcast) prüften nur „kein Fehler“ — und PostgREST meldet bei einer abgewiesenen Zeile KEINEN Fehler. Gemessen an der Live-Datenbank: zwei Knöpfe („Nutzer sperren“, „Globalen KI-Schlüssel setzen“) dürfen Admins gar nicht ausführen, und die App stellte trotzdem die Rückfrage „wirkt sofort“. Jetzt geht jeder Schreibweg durch EINE Funktion mit sechs Zuständen und Grund.',
-      user_summary: 'Für Admins: jede Aktion im Admin-Panel sagt jetzt, ob sie wirklich ausgeführt wurde — und wenn nicht, warum. Ein Knopf, der noch nicht freigeschaltet ist, sagt das, statt eine Rückfrage zu stellen und danach zu scheitern.',
-      user_items: [
-        {emoji:'✅', bold:'Bestätigung erst nach der Antwort:', text:' „Als erledigt markiert“ steht nur da, wenn der Server eine Zeile geändert hat.'},
-        {emoji:'🔒', bold:'Ein gesperrter Knopf nennt den Grund:', text:' „Noch nicht freigeschaltet — Migration … anwenden“ statt einer Rückfrage ins Leere.'},
-        {emoji:'📋', bold:'Der Überblick oben zählt es:', text:' welche Aktionen der Server noch nicht freigegeben hat, steht als Zeile über den Sektionen.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen an der Live-DB (nur lesend):', text:' 12 von 13 Schreib-RPCs sind SECURITY DEFINER mit is_admin_user(), die RLS auf user_reports ist dicht. Aber fn_assign_role und fn_set_global_api_key tragen die ACL {postgres, service_role} — authenticated darf sie nicht ausführen. Zwei frühere Re-Grants (v29_20, v30_57) stehen im Repo und sind live nicht in Kraft; 20260924_admin_grants.sql (nicht angewandt) liefert sie nach.'},
-        {emoji:'🗂️', bold:'GS_ADM_AKTIONEN — die Liste ist die Prüfung:', text:' 15 Aktionen, jede mit GENAU einem Ziel (rpc · pfad+method · fn) und optional der Migration, die sie freischaltet. _gsAdmTun ist der eine Weg; GS_ADM_LESE_RPC nennt die zwei POST-Abfragen, die nur lesen.'},
-        {emoji:'🚦', bold:'Sechs Zustände mit Grund:', text:' ok · abgelehnt (RLS, 401/403, {ok:false}, 0 Zeilen am Tabellenweg) · nicht_freigeschaltet („permission denied for function“ — die Sitzung merkt es sich) · nicht_verfuegbar (404/PGRST202: eine nicht angewandte Migration, kein Fehler des Admins) · fehler (Netz) · kein_zugriff (ohne Server-Ja geht keine Anfrage hinaus).'},
-        {emoji:'👁️', bold:'return=representation ist Pflicht am Tabellenweg:', text:' gsAdminReviewReport schickte return=minimal — die Ablehnung war damit unsichtbar, und „✅ Als erledigt markiert.“ stand für nichts da.'},
-        {emoji:'🔕', bold:'gsAdminToggleVoucher las die Antwort gar nicht:', text:' ein Gutschein, der nicht umgeschaltet wurde, sah nach dem Neuladen genauso aus wie vorher, ohne Satz.'},
-        {emoji:'🧪', bold:'admin_check 6 → 11 Fälle, fünf Gegenproben:', text:' ein Schreibweg am einen Weg vorbei · 0 Zeilen als ok · return=minimal · Rückfrage trotz Sperre · Meldung ohne Blick auf den Zustand — jede einzeln rot, mit dem richtigen Fall und den echten Zahlen.'},
-        {emoji:'📵', bold:'Grenze:', text:' der Server ist im Prüfstand gestellt. Geprüft ist, was die App aus einer Antwort MACHT — nicht, ob die RPC antwortet. Und versprechen_check bleibt hier blind, weil ein if (r.error) als Prüfung zählt — eigene Scheibe.'}
-      ]
-  }
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -80449,7 +80446,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.70';
+var GS_VERSION = 'v33.71';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

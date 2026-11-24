@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-24 · **Branch**: `main` · **Version**: `v33.70` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
+**Stand**: 2026-11-24 · **Branch**: `main` · **Version**: `v33.71` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
 
 ---
 
@@ -12,10 +12,10 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
-### 2026-11-24 (jt) - v33.70: Lina — eine Antwort gehört dem Gespräch, in dem gefragt wurde
+### 2026-11-24 (ju) - v33.71: Lina — eine Antwort gehört dem Gespräch, in dem gefragt wurde
 
 **Auftrag:** Hauptfunktionen, Lina (Fernando: „Entscheide selber", „weiter"). Gefunden beim Nachlesen von `gsLinaSend`
-(`docs/HAUPTFUNKTIONEN.md`, Lina 9). Gebaut auf diesem Branch über (js), main v33.67 (`0485b2d`); #337 (Sicherheit) fasst
+(`docs/HAUPTFUNKTIONEN.md`, Lina 9). Gebaut auf diesem Branch über (jt), main v33.67 (`0485b2d`); #337 (Sicherheit) fasst
 Linas Sende- und Gesprächsfunktionen nicht an (nachgesehen).
 
 **Gemessen** (die geladene App, gestellte KI und Cloud): wer während „Lina denkt nach…" auf **„＋ Neu"** tippte, sah das neue
@@ -37,13 +37,17 @@ ohne Wechsel · Wechsel beim Anlegen · Ausfall · leeres Neu-Öffnen), gegen de
 der richtigen Lage. Beim Bau selbst gelernt: ein `return lauf` aus einer async-Hilfe WARTET auf das Senden — der Fall hing elf
 Minuten, bis das Versprechen in einem Behälter zurückkam. Die volle Suite steht im Nachtrag.
 
+**Zusammengeführt mit v33.70 (#340, Lina · Einblick, `8a2f16e`):** die Lina-Funktionen liessen sich ohne Konflikt
+zusammenführen; L12 und „Lina · Einblick“ stehen beide in `sensor_check` und sind am eingespielten Stand grün (67/0). Die
+Befunde der Nachprüfung zu #340 (Schalter, Datenschutztext, Schädling-Signal, Gegenprobe) nimmt ein eigenes Paket auf.
+
 **Offen:** nichts.
 **Nicht geprüft:** ein echtes Telefon; dass die Cloud die Antwort beim gefragten Gespräch wirklich annimmt (gestellt, nicht live).
 
-### 2026-11-19 (js) - v33.70: Wissen-Tab — dieselben Zahlen wie Startseite und Filter, und jede Kachel öffnet ihre Liste
+### 2026-11-19 (jt) - v33.71: Wissen-Tab — dieselben Zahlen wie Startseite und Filter, und jede Kachel öffnet ihre Liste
 
 **Auftrag:** Hauptfunktionen, Home 3 (`docs/HAUPTFUNKTIONEN.md`; eigener Befund `2026-11-16-4d79` vom 16.11.) — Fernando,
-„Entscheide selber". Gebaut auf diesem Branch über (jr), main v33.67 (`0485b2d`). Kommt mit dem Pilz-Paket und Lina 9 in EINE Auslieferung (`v33.70`).
+„Entscheide selber". Gebaut auf diesem Branch über (js), main v33.67 (`0485b2d`). Kommt mit dem Pilz-Paket und Lina 9 in EINE Auslieferung (`v33.71`).
 
 **Gemessen** (die geladene App, 16.11. und nachgemessen 19.11.): der Kopf des Wissen-Tabs („🌿 4'337 Arten") und die
 Lexikon-Kachel „Arten" zeigten `DB.length` — das sind die Einträge, die Startseite sagt 3'136 Arten. „Essbar" 1'130, Startkachel
@@ -75,11 +79,11 @@ gezählt, und der Kopf nennt seine Einheit (E9 Teil 3). Wie die Startkachel „A
 **Offen:** nichts — brett:2026-11-16-4d79 ist mit diesem Paket geschlossen.
 **Nicht geprüft:** ein echtes Telefon; die Kacheln in einer anderen App-Sprache (Wörter über `_t`, Zahlen über `gsLocale` — nicht gefahren).
 
-### 2026-11-19 (jr) - v33.70: Pilz-Scanner — ein Ergebnis gehört zu seinem Foto
+### 2026-11-19 (js) - v33.71: Pilz-Scanner — ein Ergebnis gehört zu seinem Foto
 
 **Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"); Nachtrag zu Scanner 11
 (`docs/HAUPTFUNKTIONEN.md`). Gebaut auf main v33.66 (`bf9e843`), zusammengeführt mit v33.67 (`0485b2d`, Scanner 4, (jo)) — beide berühren
-verschiedene Stellen, nur STATUS §0 traf sich. Ausgeliefert mit Wissen und Lina 9 als `v33.70`
+verschiedene Stellen, nur STATUS §0 traf sich. Ausgeliefert mit Wissen und Lina 9 als `v33.71`
 (Nummer und Kennung vergibt der Koordinator am Kopf der Reihe).
 
 **Gemessen** (lokal, `gsMushroomRunScan` mit gestelltem Server, Stand v33.66):
@@ -16707,9 +16711,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.70` (Client) · SW-Cache `gs-v33.70` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.71` (Client) · SW-Cache `gs-v33.71` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **102'013 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **596 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
+- **Frontend:** `index.html` **102'339 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **596 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **46** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 46** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (je). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

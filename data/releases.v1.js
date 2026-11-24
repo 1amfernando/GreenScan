@@ -30,6 +30,26 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.50', date: '24.09.2026',
+      headline: 'Das Admin-Panel sagt, was der Server wirklich getan hat',
+      summary: 'Fünfzehn Admin-Schreibwege (Sperren, Plan setzen, Gutscheine, Wissen, Meldungen, Broadcast) prüften nur „kein Fehler“ — und PostgREST meldet bei einer abgewiesenen Zeile KEINEN Fehler. Gemessen an der Live-Datenbank: zwei Knöpfe („Nutzer sperren“, „Globalen KI-Schlüssel setzen“) dürfen Admins gar nicht ausführen, und die App stellte trotzdem die Rückfrage „wirkt sofort“. Jetzt geht jeder Schreibweg durch EINE Funktion mit sechs Zuständen und Grund.',
+      user_summary: 'Für Admins: jede Aktion im Admin-Panel sagt jetzt, ob sie wirklich ausgeführt wurde — und wenn nicht, warum. Ein Knopf, der noch nicht freigeschaltet ist, sagt das, statt eine Rückfrage zu stellen und danach zu scheitern.',
+      user_items: [
+        {emoji:'✅', bold:'Bestätigung erst nach der Antwort:', text:' „Als erledigt markiert“ steht nur da, wenn der Server eine Zeile geändert hat.'},
+        {emoji:'🔒', bold:'Ein gesperrter Knopf nennt den Grund:', text:' „Noch nicht freigeschaltet — Migration … anwenden“ statt einer Rückfrage ins Leere.'},
+        {emoji:'📋', bold:'Der Überblick oben zählt es:', text:' welche Aktionen der Server noch nicht freigegeben hat, steht als Zeile über den Sektionen.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen an der Live-DB (nur lesend):', text:' 12 von 13 Schreib-RPCs sind SECURITY DEFINER mit is_admin_user(), die RLS auf user_reports ist dicht. Aber fn_assign_role und fn_set_global_api_key tragen die ACL {postgres, service_role} — authenticated darf sie nicht ausführen. Zwei frühere Re-Grants (v29_20, v30_57) stehen im Repo und sind live nicht in Kraft; 20260924_admin_grants.sql (nicht angewandt) liefert sie nach.'},
+        {emoji:'🗂️', bold:'GS_ADM_AKTIONEN — die Liste ist die Prüfung:', text:' 15 Aktionen, jede mit GENAU einem Ziel (rpc · pfad+method · fn) und optional der Migration, die sie freischaltet. _gsAdmTun ist der eine Weg; GS_ADM_LESE_RPC nennt die zwei POST-Abfragen, die nur lesen.'},
+        {emoji:'🚦', bold:'Sechs Zustände mit Grund:', text:' ok · abgelehnt (RLS, 401/403, {ok:false}, 0 Zeilen am Tabellenweg) · nicht_freigeschaltet („permission denied for function“ — die Sitzung merkt es sich) · nicht_verfuegbar (404/PGRST202: eine nicht angewandte Migration, kein Fehler des Admins) · fehler (Netz) · kein_zugriff (ohne Server-Ja geht keine Anfrage hinaus).'},
+        {emoji:'👁️', bold:'return=representation ist Pflicht am Tabellenweg:', text:' gsAdminReviewReport schickte return=minimal — die Ablehnung war damit unsichtbar, und „✅ Als erledigt markiert.“ stand für nichts da.'},
+        {emoji:'🔕', bold:'gsAdminToggleVoucher las die Antwort gar nicht:', text:' ein Gutschein, der nicht umgeschaltet wurde, sah nach dem Neuladen genauso aus wie vorher, ohne Satz.'},
+        {emoji:'🧪', bold:'admin_check 6 → 11 Fälle, fünf Gegenproben:', text:' ein Schreibweg am einen Weg vorbei · 0 Zeilen als ok · return=minimal · Rückfrage trotz Sperre · Meldung ohne Blick auf den Zustand — jede einzeln rot, mit dem richtigen Fall und den echten Zahlen.'},
+        {emoji:'📵', bold:'Grenze:', text:' der Server ist im Prüfstand gestellt. Geprüft ist, was die App aus einer Antwort MACHT — nicht, ob die RPC antwortet. Und versprechen_check bleibt hier blind, weil ein if (r.error) als Prüfung zählt — eigene Scheibe.'}
+      ]
+  },
+  {
     v: 'v33.49', date: '17.09.2026',
       headline: 'GreenScan ist jetzt eine Android-App',
       summary: 'Es gibt ein APK zum Herunterladen — dieselbe App, aber die Dateien liegen IM Paket statt im Netz. Sie startet ohne Empfang, hat nie eine Adressleiste und braucht keinen Play Store. Fünf Dinge sind in der App anders als im Browser, und die App sagt jedes davon mit Grund.',
