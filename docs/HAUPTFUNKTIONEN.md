@@ -88,6 +88,17 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     behoben: ein Netzfehler galt als „kein Bild" (bis zum Neuladen blieb die Art ohne Bild), und ein Bild aus der
     Wikipedia-Antwort wurde von jedem Host genommen (jetzt nur `upload.wikimedia.org`). Jedes Wikipedia-Bild trägt
     seinen Nachweis (Dateiseite auf Commons: Urheber und Lizenz).
+13. ✅ v33.7x (`scan_check` PV1–PV4, gebaut 24.11.) — **Pilz: die Verwechsler hatten keinen Namen und kein Bild.**
+    `mushroom-identify` schickt die Verwechsler als Paare von Slugs (ohne Namen); die Warnbox zeigte „Amanita
+    Phalloides" statt „Grüner Knollenblätterpilz", in jeder Sprache — genau dort, wo „☠️ LEBENSGEFAHR" steht. Der Fall
+    dazu (PZ1) stellte einen Namen, den die Function nie schickt. Jetzt kommen Name (in der Sprache der App), Latein und
+    Essbarkeit aus dem REGISTER (`_gsPilzRegister`, ein Leser `_gsPilzVerwechsler`, höchstens 2,5 s, ein Fehler wird
+    nicht gemerkt), und „☠️ TÖDLICH" steht beim Verwechsler. Dazu „🔍 Mit Bildern vergleichen" im Pilz-Ergebnis: dein Foto,
+    die Art und bis zu drei Verwechsler (die gefährlichsten zuerst, jeder einmal), je mit Referenzbild, Essbarkeit aus dem
+    Register, Risiko und sichtbarem Unterschied — bewusst ohne „Das ist es" (bei Pilzen entscheidet die Kontrolle, und das
+    steht im Fenster). Dasselbe Fenster wie Scanner 12 (`_gsVglFenster`), dieselben drei Regeln; der Vergleich gilt nur,
+    solange die Bestimmung gilt (`_gsPilzNr`). Dazu (Brett bc4f) der regionale Pilz-Hinweis und die Verwechsler-Galerie:
+    dieselben Namen aus dem Register statt kleingeschriebenem Latein (`_gsPilzNameBekannt`, `scan_check` PV5).
 
 ## Offen — Lina
 

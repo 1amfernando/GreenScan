@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-b8fb",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "15:59:17",
+  "von": "sitzung/lokal/pilz-vergleich",
+  "stand": "v33.71",
+  "titel": "erledigt: Pilz-Ergebnis: die Verwechsler hatten keinen Namen — die Warnbox zeigte „Amanita Phalloides“ statt „Grüner Knollenblätterpilz“, und der Fall dazu ste…",
+  "ergebnis": "erledigt",
+  "wohin": "Paket Scanner 13 (nach v33.72, Branch claude/happy-thompson-24l4uu) — _gsPilzRegister, _gsPilzVerwechsler; scan_check PV1–PV4, gegen den alten Stand rot, elf Gegenproben einzeln rot",
+  "geschwister": "gesucht: grep auf replace(/_/g und auf lookalike_slug/edible_slug in index.html — 3 Leser von mushroom_lookalikes: das Pilz-Ergebnis (behoben), der Steckbrief (löst die Namen schon über das Register auf, nicht betroffen) und gsAttachMushroomLookalikeWarn (regionaler Hinweis, Slugs als Namen — offen als Befund bc4f)",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-24-3aa8"
+    }
+  ]
+}

@@ -24986,6 +24986,13 @@ async function gsAttachMushroomLookalikeWarn(card, patch) {
     var r = await sbFetch(qs, { method: 'GET' });
     if (!r || !Array.isArray(r.data) || !r.data.length) return;
     var rows = r.data;
+    // Brett bc4f: die Tabelle liefert nur Slugs — Namen aus dem Register (wie das Pilz-Ergebnis seit Scanner 13),
+    // höchstens 2,5 s; ohne Antwort der Name aus dem Slug in EINER Schreibweise.
+    try {
+      var _alle = [];
+      rows.forEach(function (x) { if (x) { _alle.push(x.edible_slug); _alle.push(x.lookalike_slug); } });
+      await Promise.race([_gsPilzRegister(_alle), new Promise(function (res) { setTimeout(res, 2500); })]);
+    } catch (_) {}
 
     // Group by confusion_risk
     var lethal = rows.filter(function(x){ return x.confusion_risk === 'sehr_hoch_lebensgefahr'; });
@@ -25004,7 +25011,7 @@ async function gsAttachMushroomLookalikeWarn(card, patch) {
       var key1 = Array.isArray(l.key_differences) && l.key_differences.length ? l.key_differences[0] : '';
       var tip = l.pro_tip || '';
       html += '<div style="background:rgba(0,0,0,.25);border-left:3px solid #ff5252;padding:6px 9px;border-radius:var(--r-xs);margin-bottom:5px;">' +
-        '<div style="font-weight:700;color:#ffcdd2;font-size:var(--fs-sm);">☠️ ' + escHtml(String(l.edible_slug).replace(/_/g,' ')) + ' vs. ' + escHtml(String(l.lookalike_slug).replace(/_/g,' ')) + '</div>' +   // v33.59
+        '<div style="font-weight:700;color:#ffcdd2;font-size:var(--fs-sm);">☠️ ' + escHtml(_gsPilzNameBekannt(l.edible_slug)) + ' vs. ' + escHtml(_gsPilzNameBekannt(l.lookalike_slug)) + '</div>' +   // v33.59
         (key1 ? '<div style="opacity:.92;margin-top:3px;font-size:var(--fs-sm);">→ ' + (typeof escHtml === 'function' ? escHtml(key1) : key1) + '</div>' : '') +
         (tip ? '<div style="opacity:.85;margin-top:3px;font-size:var(--fs-xs);font-style:italic;">💡 ' + (typeof escHtml === 'function' ? escHtml(tip) : tip) + '</div>' : '') +
       '</div>';
@@ -25045,7 +25052,7 @@ window.gsOpenMushroomLookalikesModal = function(jsonStr) {
       var riskBg = l.confusion_risk === 'sehr_hoch_lebensgefahr' ? '#c62828' : '#e65100';
       html += '<div style="background:var(--surface2);border-radius:var(--r-md);padding:12px 14px;margin-bottom:10px;border-left:4px solid ' + riskBg + ';">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
-          '<div style="font-weight:800;font-size:var(--fs-md);color:var(--text);">' + esc(String(l.edible_slug).replace(/_/g,' ')) + ' ↔ ' + esc(String(l.lookalike_slug).replace(/_/g,' ')) + '</div>' +
+          '<div style="font-weight:800;font-size:var(--fs-md);color:var(--text);">' + esc(_gsPilzNameBekannt(l.edible_slug)) + ' ↔ ' + esc(_gsPilzNameBekannt(l.lookalike_slug)) + '</div>' +
           '<span style="font-size:var(--fs-xs);background:' + riskBg + ';color:#fff;padding:2px 7px;border-radius:var(--r-xs);font-weight:800;">' + risk + '</span>' +
         '</div>';
       if (l.visual_differences) html += '<div style="font-size:var(--fs-sm);color:var(--text2);margin-bottom:4px;"><b>👁 Optisch:</b> ' + esc(l.visual_differences) + '</div>';
@@ -36194,6 +36201,24 @@ function gsScanVergleichOeffnen() {
     try { gsToast(_gsSatz('Zu diesem Ergebnis gibt es nichts mehr zu vergleichen.'), 'warning', 4000); } catch (_) {}
     return false;
   }
+  var liste = [{ art: st.haupt, haupt: true }];
+  st.alts.forEach(function (e, i) {
+    var a = e && window._gsAltCandidates && window._gsAltCandidates[e.key];
+    if (a) liste.push({ art: a, key: e.key, marke: e.marke || null, i: i + 1 });
+  });
+  _gsVglFenster(st.foto, liste, _gsVglKarte,
+    [_gsSatz('Bilder: freigegebene Community-Fotos, sonst Wikipedia. Geladen erst jetzt, weil du den Vergleich geöffnet hast — Wikipedia erfährt dabei nur den Artnamen.')],
+    function (k) {
+      var sp = null;
+      try { sp = (typeof gsMatchScanToDb === 'function') ? gsMatchScanToDb(k.art.name, k.art.latin) : null; } catch (_) { sp = null; }
+      return { sp: sp, latin: (sp && sp.lat) || k.art.latin || '', name: k.art.name || '' };
+    });
+  return true;
+}
+// Das FENSTER eines Vergleichs — für den Pflanzen-Scan (Scanner 12) und den Pilz-Scanner (Scanner 13): dein
+// Foto fest oben, darunter die Karten; das Bild jeder Karte lädt erst jetzt (_gsVglBildLaden, Regel 1).
+// bauer(nr, idx, eintrag) baut eine Karte; quelle(eintrag) → {sp, latin, name} für ihr Bild.
+function _gsVglFenster(foto, liste, bauer, fussSaetze, quelle) {
   try { var schon = document.getElementById('gs-vergleich'); if (schon) gsDismissOverlay(schon); } catch (_) {}
   var nr = ++_gsVglNr;
   _gsVglOffen = nr;
@@ -36218,7 +36243,7 @@ function gsScanVergleichOeffnen() {
   kopf.appendChild(titel);
   w.appendChild(kopf);
   // Dein Foto steht fest über den Karten — so bleibt es beim Blättern neben jedem Referenzbild.
-  if (st.foto) {
+  if (foto) {
     var band = document.createElement('div');
     band.style.cssText = 'flex:0 0 auto;padding:8px 12px;background:var(--g-bg);border-bottom:1px solid var(--border);';
     var bl = document.createElement('div');
@@ -36228,23 +36253,21 @@ function gsScanVergleichOeffnen() {
     bi.alt = _gsSatz('Dein Foto');
     bi.style.cssText = 'display:block;width:100%;height:130px;object-fit:contain;border-radius:var(--r-md);background:var(--surface2);cursor:zoom-in;';
     bi.addEventListener('click', function () { try { gsFotoAnsicht(bi.src, bi.alt); } catch (_) {} });
-    bi.src = st.foto;
+    bi.src = foto;
     band.appendChild(bl);
     band.appendChild(bi);
     w.appendChild(band);
   }
   var feld = document.createElement('div');
   feld.style.cssText = 'flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:12px 12px calc(env(safe-area-inset-bottom,0px) + 18px);';
-  var liste = [{ art: st.haupt, haupt: true }];
-  st.alts.forEach(function (e, i) {
-    var a = e && window._gsAltCandidates && window._gsAltCandidates[e.key];
-    if (a) liste.push({ art: a, key: e.key, marke: e.marke || null, i: i + 1 });
+  liste.forEach(function (k, idx) { feld.appendChild(bauer(nr, idx, k)); });
+  (Array.isArray(fussSaetze) ? fussSaetze : []).forEach(function (satz) {
+    var fuss = document.createElement('div');
+    fuss.className = 'gs-vgl-fuss';
+    fuss.style.cssText = 'font-size:var(--fs-xs);color:var(--muted);line-height:1.5;margin-top:4px;padding:0 2px;';
+    fuss.textContent = satz;
+    feld.appendChild(fuss);
   });
-  liste.forEach(function (k, idx) { feld.appendChild(_gsVglKarte(nr, idx, k)); });
-  var fuss = document.createElement('div');
-  fuss.style.cssText = 'font-size:var(--fs-xs);color:var(--muted);line-height:1.5;margin-top:4px;padding:0 2px;';
-  fuss.textContent = _gsSatz('Bilder: freigegebene Community-Fotos, sonst Wikipedia. Geladen erst jetzt, weil du den Vergleich geöffnet hast — Wikipedia erfährt dabei nur den Artnamen.');
-  feld.appendChild(fuss);
   w.appendChild(feld);
   document.body.appendChild(w);
   zu.addEventListener('click', function () { gsDismissOverlay(w); });
@@ -36252,11 +36275,11 @@ function gsScanVergleichOeffnen() {
   try { gsTrapFocus(w); } catch (_) {}
   // Regel 1: erst jetzt laden
   liste.forEach(function (k, idx) {
-    var sp = null;
-    try { sp = (typeof gsMatchScanToDb === 'function') ? gsMatchScanToDb(k.art.name, k.art.latin) : null; } catch (_) { sp = null; }
-    _gsVglBildLaden(nr, idx, sp, (sp && sp.lat) || k.art.latin || '', k.art.name || '');
+    var q = {};
+    try { q = quelle(k) || {}; } catch (_) { q = {}; }
+    _gsVglBildLaden(nr, idx, q.sp || null, q.latin || '', q.name || '');
   });
-  return true;
+  return nr;
 }
 function _gsVglKarte(nr, idx, k) {
   var a = k.art || {};
@@ -36410,6 +36433,116 @@ function gsScanVergleichWaehlen(key) {
   }
   gsPickAlternative(key);
   return true;
+}
+
+// ── Hauptfunktionen · Scanner 13 (24.11.2026): Pilz — die Verwechsler im Bild ──────────────────
+// Beim Pilz ist die Verwechslung die Gefahr (Grasgrüner Täubling ↔ Grüner Knollenblätterpilz). Der
+// Vergleich zeigt dein Foto, die erkannte Art und bis zu drei Verwechsler (die gefährlichsten zuerst),
+// je mit Referenzbild, der Essbarkeit aus dem REGISTER, dem Verwechslungs-Risiko und dem sichtbaren
+// Unterschied. Bewusst OHNE „Das ist es": ein Bild entscheidet bei Pilzen nichts — essen nur nach der
+// Kontrolle, und das steht im Fenster. Dieselben drei Regeln wie Scanner 12 (erst auf Antippen · beim
+// Zeichnen gemerkt · jede Öffnung mit Nummer); dazu gilt der Vergleich nur, solange die Bestimmung gilt
+// (_gsPilzNr). Prüfstand: scan_check PV1–PV5.
+var _gsPilzVglStand = null;
+function _gsPilzVglMerken(j, m, reg) {
+  m = m || {};
+  var gesehen = Object.create(null);
+  var verw = (Array.isArray(j && j.lookalikes) ? j.lookalikes : []).map(function (la) { return _gsPilzVerwechsler(la, j.matched_slug, reg); })
+    .filter(function (v) { if (!v.slug || gesehen[v.slug] || v.slug === j.matched_slug) return false; gesehen[v.slug] = 1; return true; })
+    .sort(function (x, y) { return y.risiko.rang - x.risiko.rang; })
+    .slice(0, 3);
+  var foto = window._gsMushroomPhotoB64;
+  var hname = _gsMushName(m) || _gsPilzSlugName(j && j.matched_slug);
+  _gsPilzVglStand = {
+    pilzNr: _gsPilzNr,
+    foto: (typeof foto === 'string' && /^data:image\//.test(foto)) ? foto : '',
+    haupt: { slug: String(m.slug || (j && j.matched_slug) || ''), name: hname,
+      latin: (m.scientific_name && String(m.scientific_name) !== hname) ? String(m.scientific_name) : '',
+      edibility: m.edibility || null, marke: _gsPilzEssbarMarke(m.edibility),
+      conf: Math.round(Number(j && j.confidence) || 0) },
+    verwechsler: verw
+  };
+}
+function gsPilzVergleichOeffnen() {
+  var st = _gsPilzVglStand;
+  if (!st || st.pilzNr !== _gsPilzNr || !document.querySelector('#mushroom-result .gs-pilz-vgl-knopf')) {
+    try { gsToast(_gsSatz('Zu diesem Ergebnis gibt es nichts mehr zu vergleichen.'), 'warning', 4000); } catch (_) {}
+    return false;
+  }
+  var liste = [{ art: st.haupt, haupt: true }].concat(st.verwechsler.map(function (v, i) { return { art: v, i: i + 1 }; }));
+  _gsVglFenster(st.foto, liste, _gsPilzVglKarte,
+    [_gsSatz('Ein Bild ersetzt keine Pilzkontrolle: iss einen Pilz nur, wenn ihn eine VAPKO-Kontrollstelle freigegeben hat.'),
+     _gsSatz('Bilder: Wikipedia. Geladen erst jetzt, weil du den Vergleich geöffnet hast — Wikipedia erfährt dabei nur den Artnamen.')],
+    function (k) { return { sp: null, latin: k.art.latin || _gsPilzSlugName(k.art.slug), name: k.art.name || '' }; });
+  return true;
+}
+window.gsPilzVergleichOeffnen = gsPilzVergleichOeffnen;
+function _gsPilzVglKarte(nr, idx, k) {
+  var a = k.art || {};
+  var karte = document.createElement('div');
+  karte.className = 'sr2-card gs-vgl-karte';
+  karte.setAttribute('data-vgl', k.haupt ? 'haupt' : ('alt' + k.i));
+  var lbl = document.createElement('div');
+  lbl.className = 'sr2-card-lbl';
+  lbl.textContent = k.haupt ? (_gsSatz('Erkannt') + (a.conf ? ' · ' + a.conf + ' %' : '')) : _gsSatz('Verwechsler {1}', k.i);
+  karte.appendChild(lbl);
+  var reihe = document.createElement('div');
+  reihe.style.cssText = 'display:flex;gap:10px;align-items:flex-start;';
+  var bild = document.createElement('div');
+  bild.id = 'gs-vgl-' + nr + '-' + idx;
+  bild.className = 'gs-vgl-bild';
+  bild.setAttribute('role', 'status');
+  bild.style.cssText = 'flex:0 0 44%;aspect-ratio:1/1;border-radius:var(--r-md);background:var(--surface2);overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;box-sizing:border-box;color:var(--text2);font-size:var(--fs-xs);line-height:1.4;';
+  bild.textContent = _gsSatz('Bild wird geladen …');
+  var text = document.createElement('div');
+  text.style.cssText = 'flex:1;min-width:0;';
+  var name = document.createElement('div');
+  name.className = 'gs-vgl-name';
+  name.style.cssText = 'font-weight:800;font-size:var(--fs-md);color:var(--text);line-height:1.35;overflow-wrap:anywhere;';
+  name.textContent = a.name || _gsSatz('Unbekannt');
+  text.appendChild(name);
+  if (a.latin) {
+    var lat = document.createElement('div');
+    lat.style.cssText = 'font-style:italic;font-size:var(--fs-sm);color:var(--text2);overflow-wrap:anywhere;';
+    lat.textContent = a.latin;
+    text.appendChild(lat);
+  }
+  var marken = document.createElement('div');
+  marken.className = 'gs-vgl-marke';
+  marken.style.cssText = 'margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;';
+  if (!k.haupt && a.risiko) {
+    var rk = document.createElement('span');
+    rk.className = 'gs-pilz-risiko';
+    rk.style.cssText = 'background:' + a.risiko.bg + ';color:#fff;padding:1px 7px;border-radius:var(--r-xs);font-size:var(--fs-xs);font-weight:800;';
+    rk.textContent = a.risiko.lbl;
+    marken.appendChild(rk);
+  }
+  if (a.marke) {
+    var em = document.createElement('span');
+    em.className = 'gs-pilz-essbar';
+    em.style.cssText = a.marke.gefahr
+      ? 'background:var(--bg-danger-soft);color:var(--c-danger-d);padding:1px 7px;border-radius:var(--r-xs);font-size:var(--fs-xs);font-weight:800;'
+      : 'background:var(--surface2);color:var(--text2);padding:1px 7px;border-radius:var(--r-xs);font-size:var(--fs-xs);font-weight:700;';
+    em.textContent = a.marke.text;
+    marken.appendChild(em);
+  }
+  if (marken.childNodes.length) text.appendChild(marken);
+  if (!k.haupt && a.diff) {
+    var md = document.createElement('div');
+    md.className = 'gs-vgl-merkmal';
+    md.style.cssText = 'margin-top:6px;font-size:var(--fs-sm);color:var(--text2);line-height:1.45;overflow-wrap:anywhere;';
+    md.textContent = '👁️ ' + a.diff;
+    text.appendChild(md);
+  }
+  var nw = document.createElement('div');
+  nw.id = 'gs-vgl-' + nr + '-' + idx + '-q';
+  nw.className = 'gs-vgl-nachweis';
+  nw.style.cssText = 'margin-top:6px;font-size:var(--fs-xs);color:var(--text2);overflow-wrap:anywhere;';
+  text.appendChild(nw);
+  reihe.appendChild(bild);
+  reihe.appendChild(text);
+  karte.appendChild(reihe);
+  return karte;
 }
 
 // ── Hauptfunktionen · Scanner 1–3: EINE Funktion fuer „es ist eine andere Art" ──
@@ -46322,6 +46455,77 @@ function _gsPilzSlugName(slug) {
   var s = String(slug == null ? '' : slug).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 }
+// ── Hauptfunktionen · Scanner 13 (24.11.2026): die Verwechsler beim Namen — und im Bild ──────────
+// mushroom-identify schickt die Verwechsler als Paare von SLUGS (select * auf mushroom_lookalikes —
+// die Tabelle hat keine Namensspalte, scripts/edge/_live_schema.mjs). Die Warnbox machte daraus
+// „Russula Virescens" statt „Grasgrüner Täubling", in jeder Sprache — gerade der Name, auf den es in
+// „☠️ LEBENSGEFAHR" ankommt. Und scan_check PZ1 stellte dem Renderer einen Namen (edible_common_name),
+// den die Function nie schickt: der Fall prüfte die Vorlage, nicht die Ware (CLAUDE.md §3.1, v33.00).
+// Name, Latein und Essbarkeit kommen jetzt aus dem REGISTER (öffentlich lesbar) — dieselbe Quelle, die
+// der Server für das Ergebnis nimmt; die Artenliste der App zählt bei Pilzen nicht (§3.3).
+// EINE Lesart des Verwechslungs-Risikos — Warnbox und Bildvergleich (vorher nur in der Warnbox).
+function _gsPilzRisiko(risk) {
+  var r = String(risk || 'mittel');
+  var tod = (r === 'sehr_hoch_lebensgefahr' || r === 'lebensgefahr');
+  return {
+    bg: tod ? '#7f0000' : r === 'hoch' ? '#c62828' : r === 'mittel' ? '#e65100' : '#827717',
+    lbl: tod ? '☠️ LEBENSGEFAHR' : r === 'hoch' ? '🔴 HOCH' : r === 'mittel' ? '🟠 MITTEL' : r.toUpperCase(),
+    rang: tod ? 3 : r === 'hoch' ? 2 : r === 'mittel' ? 1 : 0
+  };
+}
+// Gemerkt wird nur, was das Register geliefert hat — ein Fehler merkt nichts (sonst bliebe ein Netzfehler
+// bis zum Neuladen „ohne Namen", dieselbe Falle wie _wCache in Scanner 12). Ein Slug beginnt mit einem
+// Buchstaben (kein „__proto__"), und die Tabellen haben keinen Prototyp.
+var _gsPilzRegCache = Object.create(null);
+async function _gsPilzRegister(slugs) {
+  var out = Object.create(null), fehlt = [];
+  (Array.isArray(slugs) ? slugs : []).forEach(function (x) {
+    var s = String(x == null ? '' : x);
+    if (!/^[a-z][a-z0-9_]{1,79}$/.test(s)) return;
+    if (_gsPilzRegCache[s]) out[s] = _gsPilzRegCache[s];
+    else if (fehlt.indexOf(s) < 0) fehlt.push(s);
+  });
+  if (!fehlt.length || typeof sbFetch !== 'function') return out;
+  try {
+    var r = await sbFetch('/rest/v1/mushroom_register?slug=in.(' + fehlt.join(',') + ')&select=slug,common_name_de,common_name_fr,common_name_it,scientific_name,edibility&limit=' + fehlt.length, { method: 'GET' });
+    (r && Array.isArray(r.data) ? r.data : []).forEach(function (z) {
+      if (z && typeof z.slug === 'string' && fehlt.indexOf(z.slug) >= 0) { _gsPilzRegCache[z.slug] = z; out[z.slug] = z; }
+    });
+  } catch (_) {}
+  return out;
+}
+window._gsPilzRegister = _gsPilzRegister;
+// Die Essbarkeit des REGISTERS als Marke {text, gefahr}; unbekannt → null.
+function _gsPilzEssbarMarke(e) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  if (e === 'toedlich') return { text: '☠️ ' + _t('mush_deadly', 'TÖDLICH'), gefahr: true };
+  if (e === 'giftig') return { text: '⚠️ ' + _t('tag_toxic', 'GIFTIG'), gefahr: true };
+  if (e === 'speisepilz') return { text: '🍽️ ' + _gsSatz('Speisepilz laut Register'), gefahr: false };
+  if (e === 'speisepilz_jung') return { text: '🍽️ ' + _gsSatz('Speisepilz, nur jung'), gefahr: false };
+  if (e === 'bedingt_essbar') return { text: '⚠️ ' + _gsSatz('Bedingt essbar'), gefahr: false };
+  if (e === 'ungeniessbar') return { text: _gsSatz('Ungeniessbar'), gefahr: false };
+  return null;
+}
+// EIN Leser für einen Verwechsler — die Warnbox und der Bildvergleich nennen ihn gleich.
+function _gsPilzVerwechsler(la, matched, reg) {
+  la = la || {};
+  var andere = (la.edible_slug === matched);
+  var slug = String((andere ? la.lookalike_slug : la.edible_slug) || '');
+  var z = (reg && slug && reg[slug]) ? reg[slug] : null;
+  var gesendet = andere ? (la.lookalike_common_name || la.lookalike_name) : (la.edible_common_name || la.edible_name);
+  var name = z ? (_gsMushName(z) || _gsPilzSlugName(slug))
+    : ((typeof gesendet === 'string' && gesendet.trim()) ? gesendet.trim() : _gsPilzSlugName(slug));
+  var latin = (z && z.scientific_name && String(z.scientific_name) !== name) ? String(z.scientific_name) : '';
+  var ed = z ? z.edibility : null;
+  return { slug: slug, name: name, latin: latin, edibility: ed, marke: _gsPilzEssbarMarke(ed), risiko: _gsPilzRisiko(la.confusion_risk), diff: String(la.visual_differences || '') };
+}
+// Brett bc4f: ein Pilz beim Namen aus dem, was das Register schon geliefert hat (_gsPilzRegCache) — sonst aus dem
+// Slug in EINER Schreibweise. Für Anzeigen, die nicht selbst warten können (die Verwechsler-Galerie öffnet synchron).
+function _gsPilzNameBekannt(slug) {
+  var s = String(slug == null ? '' : slug);
+  var z = /^[a-z][a-z0-9_]{1,79}$/.test(s) ? _gsPilzRegCache[s] : null;
+  return z ? (_gsMushName(z) || _gsPilzSlugName(s)) : _gsPilzSlugName(s);
+}
 // Die Kandidaten im Zweig „unsicher": mit Namen, und ein giftiger oder toedlicher traegt seine Warnung.
 // Die Essbarkeit kommt aus dem Register (alternative_arten, seit v33.64) — nicht aus der Artenliste der
 // App: bei Pilzen ist sie teils milder als das Register (gemessen 19.11.2026, Brett).
@@ -46557,6 +46761,16 @@ async function gsMushroomRenderResult(j, gilt) {
       }
     }
   } catch(_){}
+  // Scanner 13: die Verwechsler tragen nur Slugs — Name, Latein und Essbarkeit aus dem Register. Höchstens
+  // 2,5 s: ohne Antwort bleibt der Name aus dem Slug, und die Warnung steht trotzdem (das rote Vollbild kam
+  // schon vor dem ersten Warten).
+  var _pilzReg = Object.create(null);
+  try {
+    var _laSlugs = (Array.isArray(j.lookalikes) ? j.lookalikes : []).map(function (la) {
+      return la ? (la.edible_slug === j.matched_slug ? la.lookalike_slug : la.edible_slug) : null;
+    });
+    if (_laSlugs.length) _pilzReg = (await Promise.race([_gsPilzRegister(_laSlugs), new Promise(function (r) { setTimeout(function () { r(null); }, 2500); })])) || Object.create(null);
+  } catch (_) { _pilzReg = Object.create(null); }
   // Nachtrag 24.11.: nach dem Warten — gehört das Ergebnis noch zum gezeigten Foto?
   if (!_giltNoch()) return;
 
@@ -46612,16 +46826,14 @@ async function gsMushroomRenderResult(j, gilt) {
       // v29.50 SAFETY: die tödlichste Stufe 'sehr_hoch_lebensgefahr' fehlte im Farb-Mapping → fiel auf
       // das harmloseste Oliv (#827717) → ein lebensgefährliches Verwechsler-Paar wirkte HARMLOSER als
       // ein bloss 'hoch'-Paar. Jetzt stärkstes Schwarz-Rot + klares Label. Plus: lesbarer Name statt DB-Slug.
-      var risk = String(la.confusion_risk || 'mittel');
-      var isLethal = (risk === 'sehr_hoch_lebensgefahr' || risk === 'lebensgefahr');
-      var riskBg = isLethal ? '#7f0000' : risk === 'hoch' ? '#c62828' : risk === 'mittel' ? '#e65100' : '#827717';
-      var riskLbl = isLethal ? '☠️ LEBENSGEFAHR' : risk === 'hoch' ? '🔴 HOCH' : risk === 'mittel' ? '🟠 MITTEL' : risk.toUpperCase();
-      var otherRaw = (la.edible_slug === j.matched_slug)
-        ? (la.lookalike_common_name || la.lookalike_name || la.lookalike_slug)
-        : (la.edible_common_name || la.edible_name || la.edible_slug);
-      var otherName = String(otherRaw||'').replace(/_/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+      // Scanner 13: Risiko und Name über die EINEN Leser (_gsPilzRisiko, _gsPilzVerwechsler) — der Name aus dem
+      // Register; vorher „Russula Virescens" aus dem Slug, auch auf Französisch.
+      var _rk = _gsPilzRisiko(la.confusion_risk);
+      var riskBg = _rk.bg, riskLbl = _rk.lbl;
+      var _vw = _gsPilzVerwechsler(la, j.matched_slug, _pilzReg);
+      var otherName = _vw.name;
       html += '<div style="padding:7px 0;border-top:1px dashed rgba(0,0,0,.1);">' +
-        '<div style="font-size:var(--fs-sm);color:#bf360c;"><span style="background:' + riskBg + ';color:#fff;padding:1px 7px;border-radius:var(--r-xs);font-size:var(--fs-xs);font-weight:800;margin-right:6px;">' + ed(riskLbl) + '</span><b>' + ed(otherName) + '</b></div>';
+        '<div style="font-size:var(--fs-sm);color:#bf360c;"><span style="background:' + riskBg + ';color:#fff;padding:1px 7px;border-radius:var(--r-xs);font-size:var(--fs-xs);font-weight:800;margin-right:6px;">' + ed(riskLbl) + '</span><b>' + ed(otherName) + '</b>' + (_vw.latin ? ' <i>(' + ed(_vw.latin) + ')</i>' : '') + ((_vw.marke && _vw.marke.gefahr) ? ' <b>' + ed(_vw.marke.text) + '</b>' : '') + '</div>';
       if (la.visual_differences) html += '<div style="font-size:var(--fs-sm);color:#bf360c;margin-top:3px;line-height:1.5;"><b>' + _t('mush_visual','👁️ Visuell:') + '</b> ' + ed(la.visual_differences) + '</div>';
       if (la.smell_differences) html += '<div style="font-size:var(--fs-sm);color:#bf360c;margin-top:2px;"><b>' + _t('mush_smell','👃 Geruch:') + '</b> ' + ed(la.smell_differences) + '</div>';
       if (la.spore_print_differences) html += '<div style="font-size:var(--fs-sm);color:#bf360c;margin-top:2px;"><b>' + _t('mush_spores','🔬 Sporen:') + '</b> ' + ed(la.spore_print_differences) + '</div>';
@@ -46630,6 +46842,11 @@ async function gsMushroomRenderResult(j, gilt) {
     });
     html += '</div>';
   }
+
+  // Scanner 13: dein Foto neben Referenzbildern der Art und ihrer Verwechsler — erst auf Antippen. Was der
+  // Vergleich zeigt, wird beim ZEICHNEN gemerkt (wie Scanner 12), nicht beim Antippen.
+  _gsPilzVglMerken(j, m, _pilzReg);
+  html += '<button type="button" class="sr2-cta sr2-cta-secondary gs-pilz-vgl-knopf" onclick="gsPilzVergleichOeffnen()" style="width:100%;margin-top:12px;">🔍 ' + ed(_gsSatz('Mit Bildern vergleichen')) + '</button>';
 
   // VAPKO-Pflicht-Hinweis (immer)
   html += gsMushroomVapkoBox(j, ed);

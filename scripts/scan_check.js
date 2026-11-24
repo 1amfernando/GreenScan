@@ -5316,6 +5316,244 @@ const FAELLE = [
     },
   },
 
+  // ── Hauptfunktionen · Scanner 13 (24.11.2026): die Pilz-Verwechsler beim Namen — und im Bild. mushroom-identify
+  // schickt die Verwechsler als Paare von SLUGS (select * auf mushroom_lookalikes, ohne Namen — _live_schema.mjs);
+  // PZ1 stellte einen Namen (edible_common_name), den die Function nie schickt. Hier kommt die Antwort in IHRER Form,
+  // das Register (mushroom_register) und Wikipedia sind gestellt.
+  {
+    name: 'PV1 · Pilz · die Warnbox nennt den Verwechsler beim Namen aus dem Register (Name, Latein, „TÖDLICH", auch auf Französisch) — ohne Register den Namen aus dem Slug, nie „Amanita Phalloides" oder den rohen Slug, und ein Fehler wird nicht gemerkt',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box || !window.gsI18n) return { ok: false, warum: '#mushroom-result oder die Sprachschicht fehlt' };
+      const es = window.sbFetch, ov = window.gsShowMushroomDangerOverlay, sl = gsI18n.getLang, sm = window._gsMergeMushI18n;
+      const anfragen = [];
+      const antwort = () => ({ matched_slug: 'russula_virescens', confidence: 88,
+        mushroom: { slug: 'russula_virescens', common_name_de: 'Grasgrüner Täubling', scientific_name: 'Russula virescens', edibility: 'speisepilz' },
+        edibility: 'speisepilz', safety_color: 'green',
+        lookalikes: [{ edible_slug: 'russula_virescens', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', visual_differences: 'Knollenblätterpilze haben eine Knolle mit Scheide.' }],
+        vapko_required: true });
+      const REG = [{ slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', common_name_fr: 'Amanite phalloïde', scientific_name: 'Amanita phalloides', edibility: 'toedlich' }];
+      const text = () => (box.textContent || '').replace(/\s+/g, ' ');
+      const klagen = [];
+      try {
+        window.gsShowMushroomDangerOverlay = () => {};
+        _gsPilzRegCache = Object.create(null);
+        window.sbFetch = async (pfad) => { anfragen.push(String(pfad)); return /mushroom_register\?/.test(pfad) ? { data: REG.slice(), error: null } : { data: [], error: null }; };
+        box.innerHTML = '';
+        await gsMushroomRenderResult(antwort());
+        const t = text();
+        if (!anfragen.some(u => /mushroom_register\?slug=in\.\(amanita_phalloides\)/.test(u))) klagen.push('das Register wurde nicht nach dem Verwechsler gefragt: ' + JSON.stringify(anfragen));
+        if (!/LEBENSGEFAHR ?Grüner Knollenblätterpilz \(Amanita phalloides\) ☠️ TÖDLICH/.test(t)) klagen.push('Name, Latein oder „TÖDLICH" fehlen beim Verwechsler: ' + (t.match(/LEBENSGEFAHR.{0,90}/) || [''])[0]);
+        if (/Amanita Phalloides|amanita_phalloides/.test(t)) klagen.push('der Slug steht noch da');
+        // auf Französisch der französische Name aus dem Register
+        gsI18n.getLang = () => 'fr'; window._gsMergeMushI18n = async (m) => m;
+        _gsPilzRegCache = Object.create(null);
+        box.innerHTML = '';
+        await gsMushroomRenderResult(antwort());
+        if (!/Amanite phalloïde/.test(text())) klagen.push('auf Französisch fehlt der französische Name: ' + (text().match(/LEBENSGEFAHR.{0,60}/) || [''])[0]);
+        gsI18n.getLang = sl; window._gsMergeMushI18n = sm;
+        // Gegenrichtung: das Register antwortet nicht → der Name aus dem Slug, in EINER Schreibweise; die Warnung steht
+        _gsPilzRegCache = Object.create(null);
+        window.sbFetch = async () => ({ data: null, error: { message: 'offline', status: 0 } });
+        box.innerHTML = '';
+        await gsMushroomRenderResult(antwort());
+        const t2 = text();
+        if (!/LEBENSGEFAHR ?Amanita phalloides/.test(t2) || /Amanita Phalloides|amanita_phalloides/.test(t2)) klagen.push('ohne Register: ' + (t2.match(/LEBENSGEFAHR.{0,60}/) || ['(keine Warnung)'])[0]);
+        // ein Fehler wird nicht gemerkt: kommt das Register wieder, steht der Name da
+        window.sbFetch = async (pfad) => (/mushroom_register\?/.test(pfad) ? { data: REG.slice(), error: null } : { data: [], error: null });
+        box.innerHTML = '';
+        await gsMushroomRenderResult(antwort());
+        if (!/Grüner Knollenblätterpilz/.test(text())) klagen.push('nach einem Fehler bleibt der Name weg — der Fehler wurde gemerkt');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Register gefragt (slug=in.(amanita_phalloides)) · „Grüner Knollenblätterpilz (Amanita phalloides) ☠️ TÖDLICH" · fr „Amanite phalloïde" · ohne Register „Amanita phalloides" · ein Fehler wird nicht gemerkt' };
+      } finally {
+        window.sbFetch = es; window.gsShowMushroomDangerOverlay = ov; gsI18n.getLang = sl; window._gsMergeMushI18n = sm;
+        _gsPilzRegCache = Object.create(null);
+        const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove();
+        box.innerHTML = '';
+      }
+    },
+  },
+  {
+    name: 'PV2 · Pilz-Vergleich · dein Pilzfoto, die Art und die Verwechsler (die gefährlichsten zuerst, jeder einmal) mit Register-Essbarkeit, Risiko und Unterschied — vor dem Antippen fragt niemand Wikipedia, und es gibt kein „Das ist es"',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const ef = window._gsFetch, es = window.sbFetch, ov = window.gsShowMushroomDangerOverlay, fb = window._gsMushroomPhotoB64, rufe = [];
+      const antwort = { matched_slug: 'agaricus_campestris', confidence: 81,
+        mushroom: { slug: 'agaricus_campestris', common_name_de: 'Wiesen-Champignon', scientific_name: 'Agaricus campestris', edibility: 'speisepilz' },
+        edibility: 'speisepilz', safety_color: 'green', vapko_required: true,
+        lookalikes: [
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'agaricus_xanthodermus', confusion_risk: 'mittel', visual_differences: 'gilbt beim Anschneiden, riecht nach Tinte' },
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', visual_differences: 'Knolle mit Scheide, Lamellen bleiben weiss' },
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'amanita_virosa', confusion_risk: 'hoch', visual_differences: 'ganz weiss, Ring hängt' },
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'amanita_phalloides', confusion_risk: 'hoch', visual_differences: 'doppelt' },
+          { edible_slug: 'agaricus_arvensis', lookalike_slug: 'agaricus_campestris', confusion_risk: 'gering', visual_differences: 'grösser' } ] };
+      const REG = [
+        { slug: 'agaricus_xanthodermus', common_name_de: 'Karbol-Champignon', scientific_name: 'Agaricus xanthodermus', edibility: 'giftig' },
+        { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' },
+        { slug: 'amanita_virosa', common_name_de: 'Kegelhütiger Knollenblätterpilz', scientific_name: 'Amanita virosa', edibility: 'toedlich' },
+        { slug: 'agaricus_arvensis', common_name_de: 'Schaf-Champignon', scientific_name: 'Agaricus arvensis', edibility: 'speisepilz' } ];
+      try {
+        window.gsShowMushroomDangerOverlay = () => {};
+        window._gsMushroomPhotoB64 = 'data:image/jpeg;base64,PILZFOTO';
+        window._gsFetch = function (u) {
+          if (/wikipedia\.org/.test(String(u))) rufe.push(String(u));
+          const n = rufe.length;
+          return Promise.resolve(new Response(JSON.stringify({ thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Bild_' + n + '.jpg/320px-Bild_' + n + '.jpg' }, content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/Bild_' + n } } }), { status: 200 }));
+        };
+        window.sbFetch = async (pfad) => (/mushroom_register\?/.test(pfad) ? { data: REG.slice(), error: null } : { data: [], error: null });
+        _gsPilzRegCache = Object.create(null); _wCache = {}; _wMeta = {};
+        box.innerHTML = '';
+        await gsMushroomRenderResult(antwort);
+        const knopf = box.querySelector('.gs-pilz-vgl-knopf');
+        if (!knopf) return { ok: false, warum: 'kein Knopf „Mit Bildern vergleichen" im Pilz-Ergebnis' };
+        if (rufe.length) return { ok: false, warum: 'vor dem Antippen schon ' + rufe.length + ' Anfrage(n) an Wikipedia' };
+        knopf.click();
+        const dlg = document.getElementById('gs-vergleich');
+        if (!dlg) return { ok: false, warum: 'der Knopf öffnet kein Fenster' };
+        await new Promise(r => setTimeout(r, 250));
+        const klagen = [];
+        const karten = [...dlg.querySelectorAll('.gs-vgl-karte')];
+        const zeile = (k) => (k.textContent || '').replace(/\s+/g, ' ');
+        const namen = karten.map(k => k.getAttribute('data-vgl') + ':' + ((k.querySelector('.gs-vgl-name') || {}).textContent || ''));
+        if (namen.join('|') !== 'haupt:Wiesen-Champignon|alt1:Grüner Knollenblätterpilz|alt2:Kegelhütiger Knollenblätterpilz|alt3:Karbol-Champignon') klagen.push('Karten (Reihenfolge, einmal je Art): ' + namen.join(' · '));
+        const z = karten.map(zeile);
+        if (!/Speisepilz laut Register/.test(z[0] || '')) klagen.push('die Art trägt die Essbarkeit des Registers nicht: ' + (z[0] || '').slice(0, 120));
+        if (!/LEBENSGEFAHR/.test(z[1] || '') || !/TÖDLICH/.test(z[1] || '') || !/Knolle mit Scheide/.test(z[1] || '')) klagen.push('Verwechsler 1 ohne Risiko, „TÖDLICH" oder Unterschied: ' + (z[1] || '').slice(0, 160));
+        if (!/HOCH/.test(z[2] || '') || !/TÖDLICH/.test(z[2] || '')) klagen.push('Verwechsler 2: ' + (z[2] || '').slice(0, 120));
+        if (!/MITTEL/.test(z[3] || '') || !/GIFTIG/.test(z[3] || '')) klagen.push('Verwechsler 3: ' + (z[3] || '').slice(0, 120));
+        const foto = dlg.querySelector('img[alt="Dein Foto"]');
+        if (!foto || foto.getAttribute('src') !== 'data:image/jpeg;base64,PILZFOTO') klagen.push('dein Pilzfoto fehlt oder ist ein anderes');
+        if (dlg.querySelector('.gs-vgl-wahl') || /Das ist es/.test(dlg.textContent || '')) klagen.push('es gibt ein „Das ist es" — bei Pilzen entscheidet kein Bild');
+        if (!/Pilzkontrolle/.test(dlg.textContent || '') || !/VAPKO/.test(dlg.textContent || '')) klagen.push('der Satz zur Pilzkontrolle fehlt im Fenster');
+        const erwartet = ['Agaricus campestris', 'Amanita phalloides', 'Amanita virosa', 'Agaricus xanthodermus'];
+        const gefragt = erwartet.filter(l => rufe.some(u => u.indexOf(encodeURIComponent(l)) >= 0));
+        if (gefragt.length !== 4 || rufe.length !== 4) klagen.push('Wikipedia gefragt nach ' + gefragt.length + ' von 4 Arten, ' + rufe.length + ' Anfragen');
+        const bilder = karten.map(k => { const im = k.querySelector('.gs-vgl-bild img'); return im ? im.getAttribute('src') : ''; });
+        if (bilder.filter(b => /^https:\/\/upload\.wikimedia\.org\//.test(b)).length !== 4) klagen.push('Referenzbilder: ' + bilder.join(' · '));
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '0 Anfragen vor dem Antippen · danach 4 · ' + namen.join(' · ') + ' · Register-Essbarkeit, Risiko, Unterschied · VAPKO-Satz · kein „Das ist es"' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es; window.gsShowMushroomDangerOverlay = ov; window._gsMushroomPhotoB64 = fb;
+        _gsPilzRegCache = Object.create(null);
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+        box.innerHTML = '';
+      }
+    },
+  },
+  {
+    name: 'PV3 · Pilz-Vergleich · gilt nur, solange die Bestimmung gilt — nach einem neuen Foto (gsPilzAbbrechen) sagt der Knopf es, statt das alte Ergebnis zu vergleichen',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const es = window.sbFetch, ef = window._gsFetch, gt = window.gsToast, rufe = [], toasts = [];
+      try {
+        window.sbFetch = async () => ({ data: [], error: null });
+        window._gsFetch = function (u) { if (/wikipedia\.org/.test(String(u))) rufe.push(String(u)); return Promise.reject(new Error('offline')); };
+        window.gsToast = (t) => toasts.push(String(t));
+        box.innerHTML = '';
+        await gsMushroomRenderResult({ matched_slug: 'boletus_edulis', confidence: 90, mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green', lookalikes: [] });
+        if (!box.querySelector('.gs-pilz-vgl-knopf')) return { ok: false, warum: 'kein Knopf — der Fall misst nichts' };
+        // Gegenrichtung zuerst: ohne Wechsel geht das Fenster auf
+        if (!gsPilzVergleichOeffnen() || !document.getElementById('gs-vergleich')) return { ok: false, warum: 'ohne Wechsel geht das Fenster nicht auf — der Fall misst nichts' };
+        gsDismissOverlay(document.getElementById('gs-vergleich'));
+        gsPilzAbbrechen();
+        const r = gsPilzVergleichOeffnen();
+        const klagen = [];
+        if (r !== false || document.getElementById('gs-vergleich')) klagen.push('nach einem neuen Foto öffnet der Knopf den Vergleich des alten Ergebnisses');
+        if (!toasts.some(t => /nichts mehr zu vergleichen/.test(t))) klagen.push('kein Satz: ' + JSON.stringify(toasts));
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'ohne Wechsel offen · nach gsPilzAbbrechen kein Fenster, ein Satz' };
+      } finally {
+        window.sbFetch = es; window._gsFetch = ef; window.gsToast = gt;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+        box.innerHTML = '';
+      }
+    },
+  },
+  {
+    name: 'PV4 · Pilz · Namen und Unterschiede aus dem Register kommen als Text an — in der Warnbox und im Vergleich, nie als Code',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const es = window.sbFetch, ef = window._gsFetch, ov = window.gsShowMushroomDangerOverlay;
+      const BOESE = '<img src=x onerror="window.__pwned=1">';
+      try {
+        window.__pwned = undefined;
+        window.gsShowMushroomDangerOverlay = () => {};
+        window._gsFetch = () => Promise.reject(new Error('offline'));
+        window.sbFetch = async (pfad) => (/mushroom_register\?/.test(pfad)
+          ? { data: [{ slug: 'amanita_phalloides', common_name_de: 'Knollen' + BOESE, scientific_name: 'Amanita ' + BOESE, edibility: 'toedlich' }], error: null }
+          : { data: [], error: null });
+        _gsPilzRegCache = Object.create(null);
+        box.innerHTML = '';
+        await gsMushroomRenderResult({ matched_slug: 'russula_virescens', confidence: 88, mushroom: { slug: 'russula_virescens', common_name_de: 'Grasgrüner Täubling', scientific_name: 'Russula virescens', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green',
+          lookalikes: [{ edible_slug: 'russula_virescens', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', visual_differences: 'Knolle ' + BOESE }] });
+        const knopf = box.querySelector('.gs-pilz-vgl-knopf'); if (knopf) knopf.click();
+        await new Promise(r => setTimeout(r, 400));
+        const dlg = document.getElementById('gs-vergleich');
+        const klagen = [];
+        if (window.__pwned) klagen.push('Code ausgeführt');
+        if (!/Knollen<img src=x/.test(box.textContent || '')) klagen.push('der Name steht in der Warnbox nicht als Text');
+        if (!dlg) klagen.push('kein Vergleichsfenster — der Fall misst den Vergleich nicht');
+        else {
+          if (!/Knollen<img src=x/.test(dlg.textContent || '') || !/Knolle <img src=x/.test(dlg.textContent || '')) klagen.push('Name oder Unterschied stehen im Vergleich nicht als Text');
+          if (dlg.querySelector('.gs-vgl-karte img[src="x"]')) klagen.push('ein <img> aus dem Namen steht im Vergleich');
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '__pwned unberührt · Name und Unterschied sichtbar als Text — Warnbox und Vergleich' };
+      } finally {
+        window.sbFetch = es; window._gsFetch = ef; window.gsShowMushroomDangerOverlay = ov;
+        _gsPilzRegCache = Object.create(null);
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+        box.innerHTML = '';
+      }
+    },
+  },
+  {
+    // Brett bc4f: der regionale Pilz-Hinweis (gsAttachMushroomLookalikeWarn) und seine Galerie
+    // (gsOpenMushroomLookalikesModal) lesen mushroom_lookalikes — nur Slugs — und zeigten „russula virescens vs.
+    // amanita phalloides". Jetzt Namen aus dem Register wie im Pilz-Ergebnis (Scanner 13).
+    name: 'PV5 · Pilz · der regionale Hinweis und die Verwechsler-Galerie nennen die Pilze beim Namen aus dem Register — ohne Register in EINER Schreibweise, nie kleingeschriebenes Latein',
+    lauf: async () => {
+      const es = window.sbFetch;
+      const ROWS = [{ edible_slug: 'russula_virescens', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', key_differences: ['Knolle mit Scheide'], visual_differences: 'Ring am Stiel' }];
+      const REG = [
+        { slug: 'russula_virescens', common_name_de: 'Grasgrüner Täubling', scientific_name: 'Russula virescens', edibility: 'speisepilz' },
+        { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' } ];
+      const weg = () => { ['mushroom-season-lookalikes', 'modal-mushroom-lookalikes'].forEach(id => { const e = document.getElementById(id); if (e) e.remove(); }); };
+      const lauf = async (mitRegister) => {
+        weg(); _gsPilzRegCache = Object.create(null);
+        window.sbFetch = async (pfad) => {
+          if (/mushroom_lookalikes\?/.test(pfad)) return { data: ROWS.slice(), error: null };
+          if (/mushroom_register\?/.test(pfad)) return mitRegister ? { data: REG.slice(), error: null } : { data: null, error: { message: 'offline', status: 0 } };
+          return { data: [], error: null };
+        };
+        const card = document.createElement('div'); document.body.appendChild(card);
+        await gsAttachMushroomLookalikeWarn(card, { typical_mushrooms: ['russula_virescens'] });
+        const hin = ((document.getElementById('mushroom-season-lookalikes') || {}).textContent || '').replace(/\s+/g, ' ');
+        gsOpenMushroomLookalikesModal(JSON.stringify(ROWS));
+        const gal = ((document.getElementById('modal-mushroom-lookalikes') || {}).textContent || '').replace(/\s+/g, ' ');
+        card.remove(); weg();
+        return { hin, gal };
+      };
+      const klagen = [];
+      try {
+        const a = await lauf(true);
+        if (!a.hin) return { ok: false, warum: 'kein regionaler Hinweis gezeichnet — der Fall misst nichts' };
+        if (!/Grasgrüner Täubling vs\. Grüner Knollenblätterpilz/.test(a.hin)) klagen.push('Hinweis: ' + a.hin.slice(0, 160));
+        if (!/Grasgrüner Täubling ↔ Grüner Knollenblätterpilz/.test(a.gal)) klagen.push('Galerie: ' + a.gal.slice(0, 160));
+        if (/russula virescens|amanita phalloides/.test(a.hin + a.gal)) klagen.push('kleingeschriebenes Latein steht noch da');
+        const b = await lauf(false);
+        if (!/Russula virescens vs\. Amanita phalloides/.test(b.hin)) klagen.push('ohne Register, Hinweis: ' + b.hin.slice(0, 160));
+        if (!/Russula virescens ↔ Amanita phalloides/.test(b.gal)) klagen.push('ohne Register, Galerie: ' + b.gal.slice(0, 160));
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Register: „Grasgrüner Täubling vs. Grüner Knollenblätterpilz" in Hinweis und Galerie · ohne Register „Russula virescens vs. Amanita phalloides"' };
+      } finally { window.sbFetch = es; _gsPilzRegCache = Object.create(null); weg(); }
+    },
+  },
+
   // ── Hauptfunktionen · Scanner 4 (19.11.2026): einen laufenden Scan abbrechen. Gemessen auf v33.64: auf der
   // Wartefläche waren nur Glocke und Hauptmenü antippbar; ein zweiter Scan bekam den Zähler und die spätere
   // Antwort des ersten; nach einem Fehler liefen über der Kamera fünf erfundene Meldungen. Abgebrochen wird

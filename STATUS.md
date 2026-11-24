@@ -12,6 +12,43 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (Kennung folgt) - v33.7x: Scanner 13 — Pilz: die Verwechsler beim Namen und im Bild
+
+**Auftrag:** Hauptfunktionen, Scanner (Fernando: „Die Agenten müssen die App auf ein next höheres Niveau bringen"). Beim Pilz ist die
+Verwechslung die Gefahr — gesucht war, wo die App dort am wenigsten hilft.
+
+**Gemessen:** `mushroom-identify` schickt die Verwechsler als Paare von Slugs (`select *` auf `mushroom_lookalikes` — die Tabelle hat
+keine Namensspalte, `scripts/edge/_live_schema.mjs`). Die Warnbox machte daraus „Amanita Phalloides" statt „Grüner Knollenblätterpilz",
+in jeder Sprache, und nannte die Essbarkeit des Verwechslers nicht — genau unter „☠️ LEBENSGEFAHR". Der Fall dazu (`scan_check` PZ1)
+stellte dem Renderer einen Namen (`edible_common_name`), den die Function nie schickt: er prüfte die Vorlage, nicht die Ware. Und es
+gab kein Bild der Art oder ihrer Verwechsler neben dem eigenen Foto.
+
+**Gebaut:** Name (in der Sprache der App), Latein und Essbarkeit der Verwechsler kommen aus dem REGISTER (`_gsPilzRegister`: EINE
+Abfrage `slug=in.(…)`, höchstens 2,5 s, nur Erfolge gemerkt; EIN Leser `_gsPilzVerwechsler` für Warnbox und Vergleich; ohne Register
+der Name aus dem Slug in EINER Schreibweise `_gsPilzSlugName`). „☠️ TÖDLICH" steht beim Verwechsler; das Risiko liest `_gsPilzRisiko`
+(vorher nur in der Warnbox). Dazu „🔍 Mit Bildern vergleichen" im Pilz-Ergebnis (`gsPilzVergleichOeffnen`): dein Foto, die Art und bis
+zu drei Verwechsler — die gefährlichsten zuerst, jeder einmal — je mit Referenzbild (Wikipedia über das Latein), Essbarkeit aus dem
+Register (`_gsPilzEssbarMarke`), Risiko und sichtbarem Unterschied. Bewusst **ohne „Das ist es"**: bei Pilzen entscheidet kein Bild,
+und das steht im Fenster („Ein Bild ersetzt keine Pilzkontrolle …"). Das Fenster ist jetzt EINE Funktion für Pflanze und Pilz
+(`_gsVglFenster`); dieselben drei Regeln wie Scanner 12, dazu gilt der Vergleich nur, solange die Bestimmung gilt (`_gsPilzNr`).
+Doku: CLAUDE.md §3.3, `docs/memory/03-daten-eigner.md`, `docs/HAUPTFUNKTIONEN.md` Scanner 13.
+
+**Prüfstände:** `scan_check` PV1–PV4 (Warnbox mit Register-Namen, Latein, „TÖDLICH", Französisch, ohne Register, Fehler nicht gemerkt ·
+Vergleich: 0 Anfragen vor dem Antippen, Reihenfolge, einmal je Art, Register-Essbarkeit, Risiko, Unterschied, VAPKO-Satz, kein „Das
+ist es" · gilt nur mit der Bestimmung · Text statt Code). Gegen den alten Stand 4 von 4 rot; elf Gegenproben einzeln rot, je am
+richtigen Fall; dazu die vier Schutzstellen von Scanner 12 auf dem umgebauten Fenster (erst auf Antippen · nach dem Schliessen keine
+Anfrage · „Das ist es" wählt · Schliessen gibt die Nummer frei) — jede rot. VG1–VG7 bleiben grün.
+
+**Dazu (Brett bc4f, beim Suchen nach Geschwistern gefunden):** der regionale Pilz-Hinweis (`gsAttachMushroomLookalikeWarn`) und
+die Verwechsler-Galerie (`gsOpenMushroomLookalikesModal`) zeigten die Pilze als kleingeschriebenes Latein („russula virescens vs.
+amanita phalloides"). Jetzt dieselben Namen aus dem Register (`_gsPilzNameBekannt` liest, was `_gsPilzRegister` geholt hat).
+`scan_check` PV5, gegen den alten Stand rot; zwei Gegenproben (Register im Hinweis · Galerie mit dem alten Slug) einzeln rot.
+
+**Offen:** nichts — brett:2026-11-24-3aa8 und brett:2026-11-24-bc4f sind mit diesem Paket geschlossen.
+**Nicht geprüft:** ein echtes Telefon; das echte Register (gestellt — die Spalten sind die von `_live_schema.mjs`); wie oft Wikipedia
+für einen Pilz der Liste ein Bild hat; der Unterschied (`visual_differences`) ist nur deutsch, wo `mushroom_lookalikes_i18n` keine
+Übersetzung hat.
+
 ### 2026-11-24 (Kennung folgt) - v33.7x: Abmelden während Lina und Pilz-Bestimmung — zwei Funde im Code von v33.71
 
 **Auftrag:** Brett 2026-11-24-f834 und 2026-11-24-8999 — gemessen von der Sitzung des grossen Durchgangs (v33.72) beim
