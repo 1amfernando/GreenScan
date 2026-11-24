@@ -12,6 +12,43 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-19 (jp) - v33.68: Eine Antwort nach dem Abmelden landet nie mehr im nächsten Konto — ein Tor in sbFetch und in der KI
+
+**Auftrag:** Fernando, „Verbesser alles komplett. Alle Sicherheitslücken sollten behoben werden" — Fortsetzung
+der Sicherheitsreparatur v33.59 (PR #327, am 16.11. gemergt) auf demselben Branch `ccr-5e705a36-jveaak`. Der
+Koordinator hatte die Fehlerklasse `2026-11-16-89ee` als „ohne Besitzer" gemeldet (18 KI-Wege ausserhalb der vier
+Hauptfunktionen). Gebaut auf main v33.61 (`a5adfc0`), eingespielt auf v33.67 (`0485b2d`; Konflikte mit #336
+`analyzeImage`/`_gilt()`, #333 Pilz-Scanner und #335 `gsCloudSync._flush` aufgelöst). **v33.68 ist ein
+Platzhalter** (`docs/AGENTEN-NETZ.md` §2): die Nummer gilt, wenn dieser Stand an der Spitze der Merge-Reihe steht.
+
+**Gemessen** (Bestandsaufnahme mit acorn über `index.html`, main `a5adfc0`): 26 async-Funktionen warten auf
+`callAI`/`callVisionAI`, 21 ohne Personen-Vergleich; 253 warten nur auf Server-Wege, 193 davon zeigen oder schreiben
+danach etwas. `sbLogout` lädt die Seite nicht neu — jede dieser Antworten konnte nach dem Abmelden von A beim
+nächsten Konto B ankommen.
+
+**Gebaut** — drei Gruppen in eigenen Arbeitsbäumen, je Fall rot gegen den alten Stand → Reparatur → Geschwister →
+gegnerische Gegenprüfung (alle drei Prüfer haben selbst nachgebessert):
+
+| Gruppe | Was | Prüfstand |
+|---|---|---|
+| Tor | `sbFetch` und `_gsAiAnfrage` merken die Person beim Eintritt; nach einem Wechsel `{error:{code:'person_gewechselt'}}` bzw. `_gsPersonAusnahme()` — keine Daten. Fragen: `_gsPersonGewechselt`, `_gsPersonAnders`, `_gsPersonJetzt`; Satz `GS_PERSON_GEWECHSELT_SATZ` über `_gsFehlerText`. Ein später Token-Refresh schrieb die Sitzung von A über die von B (`_gsRefreshShared`, jetzt nur, wenn der eingelöste Token noch gilt). Wege am Tor vorbei (rohes `fetch`): Pflanzendoktor, Schädling, Pilz, Garten-Scan, Plan anpassen, Abo-Portal, Kasse, Verkäuferkonto, Inserat. Warteschlangen und Schleifen: `gsCloudSync._flush`, Korrekturen, `gsGardenSync.flushQueue`, `gsMapFinds._uploadLocalOnly` (Funde mit genauen Koordinaten gingen unter dem Konto von B hinaus), `gsRetryPhotoUploads`, `gsScanPersistToCloud`, `gsUploadImage`, `sbLoadProfile`, die Wissens-Cache-Hülle | `sicherheit_check` 71_person (neu, Tor a–t) |
+| KI-Wege | die 19 Funktionen der Liste und Geschwister (`gsRunServerTriage`, `gsAdminReviewSpeciesProposal`, `gsTwinOnPhoto`, `_gsTPphoto`): die Person wird vor dem ERSTEN `await` gemerkt, ein `catch` fragt zuerst `_gsPersonGewechselt` und endet still. Der Garten-Zwilling trägt sein Konto (`gsTwinGet`) — er überlebte das Abmelden und stand im KI-Kontext des nächsten Kontos | 71_person KI a–h |
+| Erst lesen, dann schreiben | Gefunden von der Gegenprüfung der Gruppe Tor, vorbestehend: ein gescheitertes Lesen von `user_gardens` galt beim Plan-Speichern (`gsPPsavePlan`, `gsPPduplicatePlan`) als leerer Blob — der POST mit `merge-duplicates` ersetzte Gärten, Pflanzungen, `current` und Tracks durch `{plans:[…]}`. Die Gegenprüfung dieser Gruppe fand dieselbe Klasse im Sync selbst (gemessen, `sync_check` H8/H9): scheiterte der Start-Abgleich, lud `gsCloudSync._flush` einen fast leeren lokalen Garten-, Pflanzen- oder Status-Blob über die Cloud. Jetzt geht ein Blob erst hoch, wenn seine Zeile in dieser Sitzung für diese Person gelesen wurde (`_gsBlobGelesen`); ungesendete Pläne, `current` und Tracks werden beim Abgleich zusammengeführt; `_gsGartenBlobLesen` (da · leer · fehler · gewechselt); `sbLoadProfile` schreibt ein ungelesenes Ersatzprofil nicht zurück (Streak, Statistik, Meilensteine); `what_if_runs` nur über eine gelesene Zeile | `sync_check` H8/H9, `save_check` (29), `speicher_check` (27) |
+| Abmelden | Brett `a6d6`: Abmelden heisst derselbe Bildschirm wie nach einem Neuladen — `_gsAbmeldenFenster`, `_gsAbmeldenFelder` (72 Textfelder trugen nach dem Abmelden den Text von A), `GS_ABMELDEN_ANZEIGEN`/`_ENTWUERFE`/`_ZEICHNER`, `_gsAbmeldenStartseite`; Sätze beim Abmelden im Meldefeld (`_gsAbmeldenSagen` — ein Toast lag unter dem Anmeldebildschirm). Brett `7ebf`: `gsPlans.parken` je Konto, eigener Satz für `fehler` | 98_schluss_e, 98_schluss_b, `speicher_check` |
+
+**Prüfstände** (gezielt, nacheinander, `TZ=UTC`, am eingespielten Stand): `sicherheit_check` 227 Fälle in 24
+Dateien · `scan_check` 131 · `sensor_check` 65 · `speicher_check` 26 · `sync_check` 17 · `save_check` 24 ·
+`edge_check` 82 (der App-Ausschnitt in 70_reste nimmt die Personen-Helfer jetzt mit) · `stripe_check` 51 ·
+`robust_check` 33 · `einstellungen_check` 39 · `backup_check` 17 · `nutzersicht_check` 12 · `schluessel_check` 13 ·
+`planer_check` 25 — je 0 kaputt; `offline_check` hing einmal im bekannten Fall 35 (Brett `75c2`), allein 48/0.
+
+**Live-Lage, nur lesend nachgemessen** (Brett `2026-11-19-c3f3`): seit dem 16.11. sind
+`20261110_sicherheit_ki_kontingent.sql` angewandt und 24 Functions ausgeliefert (nach der Migration, wie §30
+verlangt); die fünf anderen Migrationen `20261110_*` nicht. CLAUDE.md §3.4/§3.6 datiert berichtigt.
+
+**Offen:** brett:2026-11-19-3dee (Abmelden vor dem ersten gelesenen Abgleich: ein nur lokal vorgemerkter Garten-Plan geht verloren — Folge der neuen Sperre, eng), brett:2026-11-19-4b64 (leerer „Mein Garten“ nach gescheitertem Start-Abgleich), brett:2026-11-19-db62 (Sammlungs-Aufräumen und Wiederherstellung nehmen einen Lesefehler als „nichts da“), brett:2026-11-19-e3ad (acht Schlüssel ohne Speicherliste, darunter KI-Artprofile aus fremden Scans), brett:2026-11-19-dee0 (`_gsAdmTun` nach einem Wechsel), brett:2026-11-19-f05b (book-ingest), brett:2026-11-19-b7d9 (Meldungen ≥ 120 Zeichen unübersetzt), brett:2026-11-19-d999 (Stempel und Toast nach dem Abmelden), brett:2026-11-19-57e0 (i18n-translate nur als Admin rufen), brett:2026-11-11-75c2 (offline_check Fall 35) · `supabase/functions/AUSLIEFERUNG.json` führt die 18 am 16.11. ausgelieferten Functions ohne KI-Tor noch als `ausliefern` — ein Byte-Abgleich mit dem Live-Code steht aus
+**Nicht geprüft:** ein echter Kontowechsel auf einem Telefon; die echten Stripe-Fenster (Portal, Kasse, Connect) — gemessen ist Chromium mit gestellten Antworten; ob die 24 am 16.11. ausgelieferten Functions byte-gleich mit `57a7acf` sind
+
 ### 2026-11-19 (jo) - v33.67: Scanner 4 — einen laufenden Scan abbrechen; ein neuer ersetzt den alten; keine erfundenen Meldungen über der Kamera
 
 **Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"; Arbeitsliste
@@ -16709,7 +16746,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 16.11.2026** (davor am 11.11. und 22.10.). Er stand am 02.09. auf
+> **Nachgemessen am 19.11.2026** (davor am 16.11., 11.11. und 22.10.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -16718,9 +16755,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.67` (Client) · SW-Cache `gs-v33.67` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.68` (Client, Platzhalter bis zur Spitze der Merge-Reihe) · SW-Cache `gs-v33.68` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **98'409 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
+- **Frontend:** `index.html` **101'599 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **46** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 46** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (je). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

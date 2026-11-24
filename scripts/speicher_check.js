@@ -196,6 +196,30 @@ const FAELLE = [
     },
   },
   {
+    // 19.11.2026 (Geschwister zum Blob-Fund): gsPPduplicatePlan schrieb die Kopie ohne Blick auf den
+    // Rueckgabewert und sagte „🔁 Plan dupliziert" — auch wenn weder Geraet noch Cloud sie hatten.
+    name: 'Plan duplizieren · bei vollem Speicher (abgemeldet) kein „dupliziert" — mit Platz genau eine Kopie',
+    lauf: async () => {
+      if (typeof gsPPduplicatePlan !== 'function') return { ok: false, warum: 'gsPPduplicatePlan fehlt' };
+      const echt = { login: window.sbIsLoggedIn, open: window.gsPPopenSavedPlans, vac: window.gsCollectionsAutoVacuumDebounced };
+      window.sbIsLoggedIn = () => false; window.gsPPopenSavedPlans = () => {}; window.gsCollectionsAutoVacuumDebounced = () => {};
+      const QUELLE = { id: 'plan_voll', title: 'Vollplan', created: '2026-05-01T00:00:00.000Z', plan: { summary: 'Q', plants: [] }, source: 'local' };
+      const kopien = () => (JSON.parse(localStorage.getItem('gs_garden_plans') || '[]') || []).filter(x => x && x.title === 'Vollplan (Kopie)').length;
+      try {
+        localStorage.setItem('gs_garden_plans', JSON.stringify([QUELLE]));
+        __voll(true); await gsPPduplicatePlan('plan_voll'); __voll(false);
+        if (!__VOLL_LOG.some(k => k === 'gs_garden_plans')) return { ok: false, warum: 'kein Schreibversuch auf gs_garden_plans — Fall nicht hergestellt' };
+        if (__TOASTS.some(t => /Plan dupliziert/.test(t))) return { ok: false, warum: 'meldet „dupliziert" fuer nichts: ' + JSON.stringify(__TOASTS.slice(0, 3)) };
+        if (!__TOASTS.some(t => /Speicher voll/.test(t))) return { ok: false, warum: 'still verloren, keine Meldung: ' + JSON.stringify(__TOASTS.slice(0, 3)) };
+        if (kopien()) return { ok: false, warum: 'eine Kopie steht im Speicher, obwohl der Schreibversuch scheiterte' };
+        window.__TOASTS = [];
+        await gsPPduplicatePlan('plan_voll');
+        if (kopien() !== 1 || !__TOASTS.some(t => /^🔁 Plan dupliziert$/.test(t))) return { ok: false, warum: 'mit Platz: ' + JSON.stringify({ kopien: kopien(), meldungen: __TOASTS }) };
+        return { ok: true, info: 'voll → „Speicher voll", keine Kopie · mit Platz → genau eine Kopie, „🔁 Plan dupliziert"' };
+      } finally { try { localStorage.removeItem('gs_garden_plans'); } catch (_) {} window.sbIsLoggedIn = echt.login; window.gsPPopenSavedPlans = echt.open; window.gsCollectionsAutoVacuumDebounced = echt.vac; }
+    },
+  },
+  {
     // v33.03: zwei ungeprueffte Schreibvorgaenge hintereinander — Server und Geraet.
     // Hier die lokale Haelfte: der Server sagt Ja, das Geraet ist voll.
     name: 'Name aendern · Server sagt Ja, Geraet ist voll → „geaendert, aber nicht gemerkt" statt „aktualisiert"',
@@ -605,7 +629,9 @@ const FAELLE = [
       localStorage.removeItem('gs_plans_v2'); localStorage.removeItem('gs_plans_wartend');
       const da = (id) => w.concat(v2).some(e => e && e.localId === id);
       const f = [];
-      if (gsPlans.parkGrund && gsPlans.parkGrund() !== 'deckel') f.push('Fall nicht hergestellt: der Deckel griff nicht (' + gsPlans.parkGrund() + ')');
+      // Seit der Deckel je Konto gilt (19.11.2026, Brett 7ebf), passt beim Abmelden von B nur
+      // noch der Rest von A nicht — 'deckel_anderes_konto'. Beide Namen heissen: der Deckel griff.
+      if (gsPlans.parkGrund && ['deckel', 'deckel_anderes_konto'].indexOf(gsPlans.parkGrund()) < 0) f.push('Fall nicht hergestellt: der Deckel griff nicht (' + gsPlans.parkGrund() + ')');
       const cloud = v2.filter(e => e && e.cloud).map(e => e.localId);
       if (cloud.length) f.push('nach dem Abmelden liegen Cloud-Plaene in gs_plans_v2: ' + cloud.join(','));
       const lokal = ['b-lokal'].concat(v.filter(e => !e.cloud).map(e => e.localId));
@@ -614,6 +640,114 @@ const FAELLE = [
       if (!satz.length) f.push('kein Satz, obwohl Plaene liegen bleiben');
       if (f.length) return { ok: false, warum: f.join(' · ') };
       return { ok: true, info: 'nach dem Abmelden von B: ' + v2.length + ' Plaene in gs_plans_v2, alle nur lokal · 0 Cloud-Plaene · ' + lokal.length + ' von ' + lokal.length + ' nur lokalen aufbewahrt · Satz „' + satz[0].slice(0, 40) + '…"' };
+    },
+  },
+  {
+    // Brett 2026-11-16-7ebf (b), 19.11.2026: der Deckel galt fuer alle Konten oder keines. Hatte A
+    // mehr als 20 nur lokale Plaene, schrieb parken() GAR NICHTS — auch die 20, die gepasst
+    // haetten, blieben in gs_plans_v2, und beim Abmelden eines ANDEREN Kontos parkte auch dessen
+    // Plan nicht (der Deckel von A sperrte den Wartebereich fuer alle). Gemessen wird je Konto:
+    // A (23 nur lokale, 1 Cloud) parkt 20 und behaelt genau 3 in gs_plans_v2, ohne Doppel und ohne
+    // Cloud-Kopie; danach meldet sich B ab (1 lokal, 1 Cloud): sein Plan parkt, kein Satz ueber
+    // einen Deckel, der nicht seiner ist; kein nur lokaler Plan von A oder B geht verloren, und B
+    // sieht keinen Plan von A.
+    name: 'Abmelden · der Deckel des Wartebereichs gilt je Konto — A parkt, was passt, nur der Rest bleibt in gs_plans_v2, und B parkt trotzdem',
+    lauf: () => {
+      if (!window.gsPlans || typeof gsClearUserDataKeys !== 'function') return { ok: false, warum: 'gsPlans oder gsClearUserDataKeys fehlt' };
+      const A = 'aaaaaaaa-0000-4000-8000-00000000000a', B = 'bbbbbbbb-0000-4000-8000-00000000000b';
+      const t0 = Date.now();
+      const plan = (id, uid, cloud, i) => ({ localId: id, id: cloud ? 'cloud-' + id : id, uid: uid, type: 'garden', title: 'Plan ' + id, summary: 'Inhalt ' + id, payload: { notiz: 'nur fuer ' + id }, created: new Date(t0 - (i || 0) * 60000).toISOString(), starred: false, cloud: !!cloud });
+      const lies = () => ({ v2: JSON.parse(localStorage.getItem('gs_plans_v2') || '[]'), w: JSON.parse(localStorage.getItem('gs_plans_wartend') || '[]') });
+      localStorage.removeItem('gs_plans_wartend');
+      // Konto A: 23 nur lokale (neueste zuerst, wie save() sie ablegt) und einer aus der Cloud
+      const vA = [plan('a-cloud', A, true, 0)]; for (let i = 0; i < 23; i++) vA.push(plan('a' + i, A, false, i + 1));
+      localStorage.setItem('gs_plans_v2', JSON.stringify(vA));
+      localStorage.setItem('gs_last_active_uid', A);
+      window.__TOASTS = [];
+      gsClearUserDataKeys();
+      const nachA = lies(), satzA = window.__TOASTS.filter(t => /Plan|Pläne/.test(t)), grundA = gsPlans.parkGrund ? gsPlans.parkGrund() : '?';
+      // Konto B meldet sich an (ein Plan nur lokal, einer in der Cloud) und wieder ab
+      const l = nachA.v2.slice(); l.unshift(plan('b-cloud', B, true)); l.unshift(plan('b-lokal', B, false));
+      localStorage.setItem('gs_plans_v2', JSON.stringify(l));
+      localStorage.setItem('gs_last_active_uid', B);
+      window.__TOASTS = [];
+      gsClearUserDataKeys();
+      const nachB = lies(), satzB = window.__TOASTS.filter(t => /Plan|Pläne/.test(t));
+      const sieht = (wer, id) => { const echt = gsStore.get; gsStore.get = (k, f) => k === 'gs_sb_uid' ? wer : echt.call(gsStore, k, f); try { return !!gsPlans.load(id); } finally { gsStore.get = echt; } };
+      const bSiehtA = nachB.v2.filter(e => e && e.uid === A && sieht(B, e.localId)).map(e => e.localId);
+      localStorage.removeItem('gs_plans_v2'); localStorage.removeItem('gs_plans_wartend');
+      const f = [];
+      const wA = nachA.w.filter(e => e.uid === A).map(e => e.localId);
+      const v2A = nachA.v2.map(e => e.localId);
+      if (wA.length !== 20) f.push('A: ' + wA.length + ' statt 20 Plaene geparkt');
+      if (nachA.v2.some(e => e.cloud)) f.push('A: Cloud-Plan bleibt in gs_plans_v2');
+      if (v2A.length !== 3) f.push('A: gs_plans_v2 traegt ' + v2A.length + ' statt der 3, die nicht passen');
+      const doppelt = v2A.filter(id => wA.indexOf(id) >= 0);
+      if (doppelt.length) f.push('A: ' + doppelt.length + ' Plaene stehen geparkt UND in gs_plans_v2');
+      for (let i = 0; i < 23; i++) if (wA.indexOf('a' + i) < 0 && v2A.indexOf('a' + i) < 0) f.push('A: a' + i + ' verloren');
+      if (grundA !== 'deckel') f.push('A: parkGrund ' + JSON.stringify(grundA) + ' statt „deckel"');
+      if (!satzA.length) f.push('A: kein Satz, obwohl 3 Plaene nicht passen');
+      else if (/Speicher voll/.test(satzA[0]) || !/20/.test(satzA[0])) f.push('A: der Satz nennt den Deckel nicht („' + satzA[0] + '")');
+      else if (Object.values(gsI18nMeldungenAusQuelltext(Array.from(document.scripts).map(x => x.textContent).join('\n'))).indexOf(satzA[0]) < 0) f.push('A: der Satz kommt beim Uebersetzer nicht an (' + satzA[0].length + ' Zeichen): „' + satzA[0].slice(0, 50) + '…"');
+      const wB = nachB.w.filter(e => e.uid === B).map(e => e.localId);
+      if (wB.indexOf('b-lokal') < 0) f.push('B: der nur lokale Plan von B ist nicht geparkt' + (nachB.v2.some(e => e.localId === 'b-lokal') ? ' (liegt weiter in gs_plans_v2 — der Deckel von A sperrt den Wartebereich fuer B)' : ' — und weg'));
+      if (nachB.v2.some(e => e.uid === B)) f.push('B: in gs_plans_v2 bleiben Plaene von B: ' + nachB.v2.filter(e => e.uid === B).map(e => e.localId).join(','));
+      if (nachB.v2.some(e => e.cloud)) f.push('B: eine Cloud-Kopie bleibt in gs_plans_v2');
+      const alleA = nachB.w.filter(e => e.uid === A).map(e => e.localId).concat(nachB.v2.filter(e => e.uid === A).map(e => e.localId));
+      for (let i = 0; i < 23; i++) if (alleA.indexOf('a' + i) < 0) f.push('nach B: a' + i + ' von A verloren');
+      if (nachB.w.filter(e => e.uid === A).length > 20) f.push('nach B: ' + nachB.w.filter(e => e.uid === A).length + ' Plaene von A im Wartebereich — ueber dem Deckel');
+      if (satzB.length) f.push('B bekommt einen Satz ueber Plaene, die nicht seine sind — seine passen alle („' + satzB[0] + '")');
+      if (bSiehtA.length) f.push('B sieht Plaene von A: ' + bSiehtA.join(','));
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'A: 20 geparkt, 3 in gs_plans_v2, 0 doppelt, 0 Cloud · Satz „' + satzA[0].slice(0, 50) + '…" · B: b-lokal geparkt, gs_plans_v2 nur noch mit den 3 von A, kein Satz an B, B sieht keinen davon · 23 von 23 Plaenen von A aufbewahrt' };
+    },
+  },
+  {
+    // Brett 2026-11-16-7ebf (a), 19.11.2026: gsClearUserDataKeys unterschied nur „Deckel" und
+    // „sonst" — eine Ausnahme im Parken (parkGrund 'fehler') bekam den Satz „Speicher voll", der
+    // Person also einen Rat, der nicht hilft (Platz schaffen). Hergestellt wird die Ausnahme am
+    // Schreibversuch selbst (setItem WIRFT fuer gs_plans_wartend — der Wrapper der App tut das
+    // nie, ein gesperrter Speicher schon). Gegenrichtung: bei vollem Speicher bleibt der Satz.
+    name: 'Abmelden · scheitert das Parken an einem Fehler, nicht am Speicher, sagt der Satz nicht „Speicher voll" — und bei vollem Speicher weiter schon',
+    lauf: () => {
+      if (!window.gsPlans || typeof gsClearUserDataKeys !== 'function') return { ok: false, warum: 'gsPlans oder gsClearUserDataKeys fehlt' };
+      const A = 'aaaaaaaa-0000-4000-8000-00000000000a';
+      const plan = (id) => ({ localId: id, id: id, uid: A, type: 'garden', title: 'Plan ' + id, summary: '', payload: {}, created: new Date().toISOString(), starred: false, cloud: false });
+      const lage = (art) => {
+        localStorage.removeItem('gs_plans_wartend');
+        localStorage.setItem('gs_plans_v2', JSON.stringify([plan('f-' + art)]));
+        localStorage.setItem('gs_last_active_uid', A);
+        window.__TOASTS = [];
+        const echt = localStorage.setItem;
+        localStorage.setItem = function (k, v) {
+          if (k === 'gs_plans_wartend') { if (art === 'fehler') throw new Error('SecurityError: Zugriff verweigert'); return false; }
+          return echt.call(localStorage, k, v);
+        };
+        let grund = null;
+        try { gsClearUserDataKeys(); grund = gsPlans.parkGrund ? gsPlans.parkGrund() : '?'; } finally { localStorage.setItem = echt; }
+        const v2 = JSON.parse(localStorage.getItem('gs_plans_v2') || '[]');
+        const satz = window.__TOASTS.filter(t => /Plan|Pläne/.test(t));
+        localStorage.removeItem('gs_plans_v2'); localStorage.removeItem('gs_plans_wartend');
+        return { grund, satz, da: v2.some(e => e.localId === 'f-' + art && e.uid === A) };
+      };
+      const f = [];
+      const r1 = lage('fehler');
+      if (r1.grund !== 'fehler') return { ok: false, warum: 'Fall nicht hergestellt: parkGrund ' + JSON.stringify(r1.grund) + ' statt „fehler"' };
+      if (!r1.da) f.push('Fehler: der Plan ist weg');
+      if (!r1.satz.length) f.push('Fehler: kein Satz');
+      else if (/Speicher voll/.test(r1.satz[0])) f.push('Fehler: der Satz sagt „Speicher voll" („' + r1.satz[0] + '")');
+      const r2 = lage('voll');
+      if (r2.grund !== 'speicher_voll') f.push('voll: parkGrund ' + JSON.stringify(r2.grund));
+      if (!r2.satz.length || !/Speicher voll/.test(r2.satz[0])) f.push('voll: der Satz nennt den vollen Speicher nicht (' + JSON.stringify(r2.satz) + ')');
+      if (!r2.da) f.push('voll: der Plan ist weg');
+      // Gegenpruefung dom-plaene (19.11.2026): der Uebersetzer kennt nur Saetze, die der Sammler
+      // findet (gsI18nMeldungenAusQuelltext) — und der nimmt kein Literal ab 120 Zeichen. Der Satz
+      // „Beim Abmelden ging etwas schief: dein … Plan bleibt hier liegen, …" hatte 123: in fr/it/en/es
+      // stand er deutsch da, ohne dass etwas meldet. Gemessen wird am echten Quelltext der Seite.
+      const gesammelt = Object.values(gsI18nMeldungenAusQuelltext(Array.from(document.scripts).map(x => x.textContent).join('\n')));
+      [r1.satz[0], r2.satz[0]].forEach(t => { if (t && gesammelt.indexOf(t) < 0) f.push('der Satz kommt beim Uebersetzer nicht an (' + t.length + ' Zeichen, Sammler nimmt nur unter 120): „' + t.slice(0, 50) + '…"'); });
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Fehler: Plan bleibt, Satz „' + r1.satz[0].slice(0, 60) + '…" · voll: „' + r2.satz[0].slice(0, 40) + '…"' };
     },
   },
 ];

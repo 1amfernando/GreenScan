@@ -1,0 +1,21 @@
+{
+  "id": "2026-11-19-c3f3",
+  "art": "antwort",
+  "datum": "2026-11-19",
+  "zeit": "11:31:33",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.63",
+  "titel": "Nachtrag zu: Die Server-Seite der Sicherheitsreparatur v33.59 ist nicht angewandt und nicht ausgeliefert",
+  "text": "Nachgemessen am 19.11.2026, nur lesend: der Befund gilt seit dem 16.11. nur noch zum Teil. ANGEWANDT ist genau eine der sechs Migrationen — 20261110_sicherheit_ki_kontingent.sql (schema_migrations: 20261116112835 sicherheit_ki_kontingent); fn_ai_kontingent_reservieren und fn_ai_kontingent_freigeben stehen live als SECURITY DEFINER, ausführbar nur für service_role. NICHT angewandt sind die fünf anderen (funktionen, quiz_punkte, community_markt, konto_speicher, feedback_stimmen_zaehlen): fn_gs_bild_url_ok, fn_gs_bild_pruefen und fn_push_subs_deckel gibt es live nicht. AUSGELIEFERT wurden am 16.11. zwischen 11:29 und 11:32 UTC — also NACH der Migration (11:28), wie FUER-FERNANDO §30 es verlangt — genau die 24 Functions, die AUSLIEFERUNG.json als ausliefern (18) oder erst_nach dieser Migration (6 KI-Functions) führte; keine Function, die auf eine fehlende Migration wartet. Ob der ausgelieferte Code byte-gleich mit 57a7acf ist, ist von hier nicht geprüft (list_edge_functions nennt nur Version und Zeit; die Hauptfunktionen-Sitzung hat es für die sechs KI-Functions gemessen). Seither hat #331 (v33.63) die vier Stripe-Functions erneut geändert — die laufenden sind die Fassung vom 16.11. Offen bleibt damit: fünf Migrationen in der Reihenfolge aus §30, die Stripe-Functions nach der Modus-Prüfung (§30i), der Widerruf des NVIDIA-Schlüssels.",
+  "beleg": [
+    "mcp list_migrations (vowbiueikwrauuceilhc, 19.11.2026): letzter Eintrag 20261116112835 sicherheit_ki_kontingent; keine weitere 20261110_*",
+    "mcp list_edge_functions: updated_at 1794828555…1794828718 = 2026-11-16T11:29:15Z…11:31:58Z für 24 Functions; die übrigen 16 unverändert",
+    "select proname, prosecdef, has_function_privilege(...) from pg_proc …: fn_ai_kontingent_* vorhanden (definer, service_role ja, authenticated nein); fn_gs_bild_url_ok, fn_gs_bild_pruefen, fn_push_subs_deckel: keine Zeile"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-795a"
+    }
+  ]
+}

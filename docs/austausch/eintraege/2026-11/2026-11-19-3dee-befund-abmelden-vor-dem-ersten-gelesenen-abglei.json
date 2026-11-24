@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-19-3dee",
+  "art": "befund",
+  "datum": "2026-11-19",
+  "zeit": "16:54:04",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.68",
+  "titel": "Abmelden vor dem ersten gelesenen Abgleich: ein nur lokal vorgemerkter Garten-Plan geht verloren",
+  "vorschlag": "sbLogout führt vor flushNow einmal gsSyncUserDataOnLogin aus, wenn ein Bereich vorgemerkt und ungelesen ist — mit eigenem Fall in sync_check.",
+  "beleg": [
+    "Folge der Sperre aus v33.68 (gsCloudSync._flush lädt einen Blob erst nach einem gelesenen Abgleich, _gsBlobGelesen): scheiterte der Start-Abgleich, hält die Abmelde-Synchronisierung den Garten-Blob zurück, und gsOnLogout räumt die Vormerkung und gs_garden_plans — vorher ging der Plan hoch, auf einem frischen Gerät aber auf Kosten des ganzen Garten-Blobs (gemessen sync_check H8). Am Code gelesen, nicht gemessen (Gegenprüfung blob, 19.11.2026)"
+  ],
+  "stichworte": [
+    "gscloudsync",
+    "abmelden",
+    "gs_garden_plans",
+    "_gsBlobGelesen"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "_gsBlobGelesen"
+    }
+  ]
+}

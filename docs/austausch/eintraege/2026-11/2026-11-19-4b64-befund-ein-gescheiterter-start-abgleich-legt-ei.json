@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-19-4b64",
+  "art": "befund",
+  "datum": "2026-11-19",
+  "zeit": "16:54:08",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.68",
+  "titel": "Ein gescheiterter Start-Abgleich legt einen leeren „Mein Garten“ an, der danach neben den Cloud-Gärten steht",
+  "vorschlag": "initDefaultGarden legt bei angemeldeter Person erst an, wenn _gsBlobGelesen.garden gesetzt ist — oder der Abgleich verwirft einen unberührten isDefault-Garten, wenn die Cloud Gärten bringt.",
+  "beleg": [
+    "initDefaultGarden behandelt „leer, weil nicht gelesen“ wie „keine Gärten“; nach dem nächsten erfolgreichen Abgleich wird gard_default mit den Cloud-Gärten zusammengeführt — ein zusätzlicher leerer Garten, kein Verlust (sync_check H8, Gegenprüfung blob 19.11.2026)"
+  ],
+  "stichworte": [
+    "initdefaultgarden",
+    "gscloudsync",
+    "garten"
+  ]
+}
