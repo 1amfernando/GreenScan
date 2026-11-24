@@ -3359,6 +3359,120 @@ const FAELLE = [
     },
   },
   {
+    // Suche 12 (gemessen 24.11.2026 gegen v33.79, Tipp-Simulation aller 4'307 Mehrwort-Eingaben der Artenliste —
+    // erstes Wort + 2, 3 oder alle Zeichen des zweiten): ein Stück unter GS_SUCHE_STUECK_MIN Zeichen trifft in einer
+    // Mehrwort-Suche nur noch am Wortanfang. Vorher schlug „grüner tä" (wer den Grünen Täubling anlegt) den Grünen
+    // Knollenblätterpilz vor („ta" mitten in „Amanita") und „lila lac" den Lila Risspilz („lilacina"). 2'440
+    // Vorschläge fallen weg (266 davon giftige Arten); jeder Eintrag bleibt bei seinen eigenen Tipp-Schritten
+    // vorgeschlagen (5'147 von 5'147); Eingaben nur aus Stücken ≥ 4 Zeichen sind unverändert. Dazu das Etikett eines
+    // Online-Treffers: `cat` kommt vom Server und geht über _gsNachschlag.
+    name: 'SU10 · Pflanze anlegen: ein kurzes Wortstück trifft nur am Wortanfang — „grüner tä" schlägt den Grünen Täubling vor und nicht den Grünen Knollenblätterpilz, „lila lac" nicht den Lila Risspilz; lange Stücke, das Binomen und Klammern bleiben, jede giftige Art findet sich beim Tippen weiter — und ein Etikett aus fremder Hand zeigt keinen Funktionstext',
+    lauf: async () => {
+      if (typeof gsPlantSuggest !== 'function' || typeof openAddPlant !== 'function' || typeof _gsSucheRang !== 'function') return { ok: false, warum: 'gsPlantSuggest, openAddPlant oder _gsSucheRang fehlt' };
+      const inp = document.getElementById('mp-name'), box = document.getElementById('mp-name-sug');
+      if (!inp || !box) return { ok: false, warum: 'Namensfeld oder Vorschlagsliste fehlt — der Fall misst nichts' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const f = [], info = [];
+      const tippe = async (w) => { inp.value = w; inp.dispatchEvent(new Event('input', { bubbles: true })); await warte(300); };
+      const zeilen = () => [].slice.call(box.querySelectorAll('[data-sug-idx]'));
+      const eintrag = (z) => (z ? (window._gsLastSuggestions || [])[Number(z.getAttribute('data-sug-idx'))] : undefined);
+      const vorgeschlagen = () => zeilen().map((z) => eintrag(z) || {});
+      const art = (s) => (_gsArtAnzeige(s) || s);
+      const echtRemote = _gsRemoteSearch;
+      let remote = null;
+      _gsRemoteSearch = async function () { return remote; };
+      const online = (ja) => Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => ja });
+      const vorF = currentFilter, vorS = searchText, vorP = (typeof currentProp !== 'undefined') ? currentProp : '';
+      let giftGeprueft = 0;
+      try {
+        openAddPlant();
+        await warte(250);
+        online(false);
+        // 1 · die zwei gemessenen Paare: der gesuchte Speisepilz steht da, der giftige Doppelgänger nicht — im Namensfeld
+        //     und unter den Namenstreffern der Artensuche (dieselbe Rechnung)
+        const paare = [
+          ['grüner tä', /^Grüner Täubling$/, /Russula virescens/, /Amanita phalloides/],
+          ['lila lac', /^Lila Lacktrichterling$/, /Laccaria amethystina/, /Inocybe lilacina/],
+        ];
+        for (const [w, nameRe, latRe, fremdLat] of paare) {
+          const soll = DB.find((s) => s && nameRe.test(s.name || '') && latRe.test(s.lat || ''));
+          const fremd = DB.find((s) => s && fremdLat.test(s.lat || ''));
+          if (!soll || !fremd) { f.push('„' + w + '": Eintrag oder Doppelgänger fehlt in der Artenliste — der Fall misst dort nichts'); continue; }
+          await tippe(w);
+          const vor = vorgeschlagen();
+          if (!vor.some((x) => x.id === soll.id)) f.push('„' + w + '" schlägt „' + soll.name + '" nicht vor');
+          const da = vor.find((x) => fremdLat.test(x.lat || ''));
+          if (da) f.push('„' + w + '" schlägt „' + da.name + '" (' + da.lat + ', Stufe ' + (art(da).tox || 0) + ') vor — ein kurzes Stück mitten im Wort');
+          const inf = {}; const l = _gsSucheRang(w, null, inf) || [];
+          const pos = l.findIndex((x) => fremdLat.test(x.lat || ''));
+          if (pos >= 0 && pos < inf.vorschlaege) f.push('Artensuche „' + w + '": „' + l[pos].name + '" steht unter den Namenstreffern (Platz ' + (pos + 1) + ')');
+        }
+        // 2 · was bleiben muss: ein langes Stück mitten im Wort, ein kurzes Stück am Anfang des Binomens, eine Klammer im
+        //     Namen — und der Doppelgänger selbst, wenn man IHN tippt
+        const bleibt = [
+          ['weisser pilz', /Amanita virosa/, 'ein langes Stück mitten im Wort'],
+          ['knollenblätter pilz', /Amanita phalloides/, 'zwei lange Stücke'],
+          ['grüner rus', /Russula virescens/, 'ein kurzes Stück am Anfang des Binomens'],
+          ['fingerhut (ro', /Digitalis purpurea/, 'eine Klammer im Namen'],
+          ['grüner kn', /Amanita phalloides/, 'der Knollenblätterpilz, wenn man ihn tippt'],
+        ];
+        for (const [w, latRe, warum] of bleibt) {
+          await tippe(w);
+          if (!vorgeschlagen().some((x) => latRe.test(x.lat || ''))) f.push('„' + w + '" findet ' + latRe.source + ' nicht mehr (' + warum + ')');
+        }
+        // 3 · jede giftige Art (Stufe ≥ 3) mit einem Namen aus mehreren Wörtern steht bei ihren eigenen Tipp-Schritten
+        //     (erstes Wort + 2 bzw. 3 Zeichen des zweiten) unter den Namenstreffern — gerechnet über _gsSucheRang
+        DB.forEach((s) => {
+          if (!s || !s.id || (Number(art(s).tox) || 0) < 3) return;
+          String(s.name || '').split('/').map((x) => x.trim()).forEach((seg) => {
+            const ws = seg.split(/\s+/).filter(Boolean);
+            if (ws.length < 2) return;
+            const b = ws[1].replace(/^[(\[]+/, '');
+            [2, 3].forEach((L) => {
+              if (b.length < L) return;
+              const q = ws[0] + ' ' + b.slice(0, L), inf = {};
+              const l = _gsSucheRang(q, null, inf) || [];
+              giftGeprueft++;
+              if (!l.slice(0, inf.vorschlaege).some((x) => x.id === s.id)) f.push('„' + q + '" findet „' + s.name + '" (Stufe ' + art(s).tox + ') nicht unter den Namenstreffern');
+            });
+          });
+        });
+        if (giftGeprueft < 100) f.push('nur ' + giftGeprueft + ' Tipp-Schritte giftiger Arten — der Fall misst die Gegenrichtung kaum');
+        // 4 · eine Klammer oder ein Regex-Zeichen in der Eingabe wirft nicht (die Artensuche läuft über dieselbe Rechnung)
+        for (const w of ['grüner (t', 'grüner t[', 'roter .*', 'a+ b?']) {
+          try { currentFilter = ''; searchText = w; if (typeof currentProp !== 'undefined') currentProp = ''; getFiltered(); }
+          catch (e) { f.push('„' + w + '" wirft in der Artensuche: ' + String((e && e.message) || e).slice(0, 80)); }
+        }
+        // 5 · das Kategorie-Etikett eines Online-Treffers: „constructor" und „__proto__" zeigen keinen Funktionstext,
+        //     das echte Etikett bleibt
+        online(true);
+        remote = [{ name: 'Prüfpilz Constructor', lat: '', cat: 'constructor' }, { name: 'Prüfpilz Proto', lat: '', cat: '__proto__' },
+                  { name: 'Prüfpilz Echt', lat: '', cat: 'pilz' }];
+        await tippe('prüfpilz'); await warte(80);
+        const zeile = (n) => zeilen().find((z) => (eintrag(z) || {}).name === n);
+        const echt = zeile('Prüfpilz Echt');
+        if (!echt) f.push('die Online-Treffer stehen nicht in den Vorschlägen — der Fall misst das Etikett nicht');
+        else {
+          if (!/🍄 Pilz/.test(echt.textContent || '')) f.push('der Online-Treffer mit Kategorie „pilz" zeigt sein Etikett nicht');
+          ['Prüfpilz Constructor', 'Prüfpilz Proto'].forEach((n) => {
+            const z = zeile(n); if (!z) { f.push('„' + n + '" fehlt in den Vorschlägen'); return; }
+            const t = (z.textContent || '').replace(/\s+/g, ' ');
+            if (/function|native code|\[object/i.test(t)) f.push('„' + n + '" zeigt „' + t.slice(0, 90) + '"');
+          });
+        }
+        info.push('grüner tä → Grüner Täubling ohne Knollenblätterpilz · lila lac → Lacktrichterling ohne Risspilz · lange Stücke, Binomen, Klammer und der getippte Knollenblätterpilz bleiben · ' + giftGeprueft + ' Tipp-Schritte giftiger Arten gefunden · Etikett „constructor/__proto__" ohne Funktionstext, „pilz" bleibt');
+      } finally {
+        _gsRemoteSearch = echtRemote;
+        try { delete navigator.onLine; } catch (_) {}
+        currentFilter = vorF; searchText = vorS; if (typeof currentProp !== 'undefined') currentProp = vorP;
+        inp.value = ''; box.style.display = 'none'; box.innerHTML = '';
+        try { closeModal('modal-addplant'); } catch (_) {}
+      }
+      if (f.length) return { ok: false, warum: f.slice(0, 6).join(' · ') + (f.length > 6 ? ' · (+' + (f.length - 6) + ')' : '') };
+      return { ok: true, info: info.join(' · ') };
+    },
+  },
+  {
     name: 'SC1 · Der Scan-Chat hat Linas Schutz: Notfallnummer sofort, Warnzeile ueber einer Essbar-Zusage zu einer Giftart',
     lauf: async () => {
       var gift = DB.find(function (s) { return s.tox >= 5 && s.lat && _gsArtenTreffer(s.name + ' ' + s.lat).zahl; });

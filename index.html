@@ -40145,6 +40145,13 @@ function getFiltered(){
   window._gsSucheTippfehler = !!_info.tippfehler;
   return _liste;
 }
+// Suche 12: in einer Suche mit mehreren Wörtern zählt ein Stück unter GS_SUCHE_STUECK_MIN Zeichen nur am
+// WORTANFANG. Gemessen 24.11.2026: „grüner tä“ (wer den Grünen Täubling anlegt) schlug auf Platz 6 den Grünen
+// Knollenblätterpilz vor — „ta“ stand mitten in „Amanita“, und die Stufe „alle Wörter in Name oder Binomen“ (250)
+// zählt als Namensvorschlag; ebenso der Papageigrüne Saftling über „psittacinus“. Wer ein Wort tippt, tippt seinen
+// Anfang; ein Teil eines zusammengesetzten Worts, den jemand als eigenes Wort schreibt („knollenblätter pilz“,
+// „weisser pilz“), ist länger und darf weiter mitten im Wort stehen.
+var GS_SUCHE_STUECK_MIN = 4;
 // SUCHE-8: die Rangfolge der Artensuche als EINE Rechnung — die Suche ruft sie mit ihren Filtern,
 // die Menü-Suche ohne. Vorher hatte das Menü einen eigenen Artenteil (`includes` ohne Umlaute,
 // ohne Rangfolge, ohne Vertipper). `pass(sp)` entscheidet, welche Einträge zählen; `info` bekommt
@@ -40166,6 +40173,13 @@ function _gsSucheRang(text, pass, info){
   // SUCHE-2: mehrere Woerter. „giersch wald" wurde als EIN Stueck gesucht und fand nichts, obwohl
   // beide Woerter im Eintrag stehen. Greift nur, wenn das ganze Stueck nichts trifft.
   var teile = q.split(/\s+/).filter(function (w) { return w.length >= 2; });
+  // Suche 12: ein KURZES Stück zählt nur am Wortanfang (GS_SUCHE_STUECK_MIN) — ein langes darf mitten im Wort stehen.
+  var _teilTrifft = teile.map(function (w) {
+    if (w.length >= GS_SUCHE_STUECK_MIN) return function (h) { return h.indexOf(w) >= 0; };
+    var re = new RegExp('(?:^|[^a-z0-9])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    return function (h) { return re.test(h); };
+  });
+  var _alleTeile = function (h) { return _teilTrifft.every(function (t) { return t(h); }); };
   var scored = [];
   for (var i=0;i<idx.length;i++){
     var e=idx[i]; if(!pass(e.sp)) continue;
@@ -40179,9 +40193,10 @@ function _gsSucheRang(text, pass, info){
     else if (e.fam.indexOf(q)>=0) sc=200;
     else if (e.blob.indexOf(q)>=0) sc=100;
     else if (teile.length > 1) {
-      var _nl = e.name + ' ' + e.lat;
-      if (teile.every(function (w) { return e.name.indexOf(w) >= 0; })) sc = 450;
-      else if (teile.every(function (w) { return _nl.indexOf(w) >= 0; })) sc = 250;
+      if (_alleTeile(e.name)) sc = 450;
+      else if (_alleTeile(e.name + ' ' + e.lat)) sc = 250;
+      // der Fliesstext bleibt, wie er war (Teilstück überall) — er zählt nicht als Vorschlag, und ein vollständig getippter
+      // Name verliert so keinen Treffer (gemessen über alle 1'585 Mehrwort-Namen: 0 weniger)
       else if (teile.every(function (w) { return e.blob.indexOf(w) >= 0; })) sc = 90;
     }
     // v30.72: Synonym-Boost (ergänzt, überschreibt keinen stärkeren echten Namens-Treffer)
@@ -41446,7 +41461,7 @@ function _gsRenderSugList(list, q, dropdown){
     var name = s.name || '';
     var lat = s.lat || '';
     var cat = (s.cat || '').toLowerCase();
-    var tag = _GS_SUG_CATLABEL[cat] || '';
+    var tag = _gsNachschlag(_GS_SUG_CATLABEL, cat, '');   // Suche 12: `cat` eines Online-Treffers kommt vom Server
     // Suche 11: „giftig“ fragt dasselbe wie der Filter „☠️ Giftig“ (gsIstGiftig, an der ART über _gsArtAnzeige), und
     // das Wort kommt aus der Giftskala der App (toxInfo, wie im Artendetail) — als feste Farbpaarung, damit es in beiden
     // Modi lesbar bleibt. Ein Online-Treffer ist kein Eintrag der Liste: er geht über gsMatchScanToDb zu seiner Art;

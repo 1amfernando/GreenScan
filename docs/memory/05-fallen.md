@@ -39,6 +39,12 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   Arten ohne Warnung. Die Suche 1:1 zu nehmen waere falsch gewesen — im
   Fliesstext nennen sich Verwechsler („maigl" → Baerlauch). Regel: ein
   Namensfeld nimmt `_gsSucheRang` bis `info.vorschlaege`, giftig ist `gsIstGiftig`.
+- **v33.80 · Suche 12** Mehrere Woerter wurden je Wort UEBERALL in Name und
+  Binomen gesucht: „gruener tae" (wer den Gruenen Taeubling anlegt) schlug den
+  Gruenen Knollenblaetterpilz vor — „ta" stand mitten in „Amanita". Regel: ein
+  Stueck unter `GS_SUCHE_STUECK_MIN` (4) Zeichen zaehlt nur am Wortanfang.
+  Gemessen als Tipp-Simulation ueber alle 4'307 Mehrwort-Eingaben der Liste:
+  kein Eintrag verliert sich selbst (CLAUDE.md, Kasten Suche 11/12).
 
 ## B · Eine Ansicht, die nie etwas zeigen konnte
 
