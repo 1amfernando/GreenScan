@@ -2,7 +2,7 @@
 
 > Entwurf vom 24.11.2026, Stand `a1cf98b` (v33.69). Auftrag (Fernando): „mehr Effizienz, mehr
 > Meilensteine, Backend verbessern; Speicherorte, Verdrahtungen und alles dazu brauchen ein
-> Next-Gen-Update." **Gebaut ist Scheibe 1** (Stand unten in §3); alles andere ist Entwurf. Grundlage sind zwei lesende Karten des
+> Next-Gen-Update." **Gebaut sind Scheibe 1 und 2** (Stand unten in §3); alles andere ist Entwurf. Grundlage sind zwei lesende Karten des
 > Quelltexts; nichts wurde im Browser oder gegen den Server gemessen. Was ich selbst nachgezählt
 > habe, ist mit ✔ markiert, alles andere ist gelesen und braucht zuerst einen roten Prüfstandsfall.
 
@@ -78,6 +78,32 @@ Bewusst offen (steht auf dem Brett bzw. in Scheibe 4):
 Nicht in meinem Bereich, aber gefunden: vier Vollflächen-Fenster (gespeicherte Pläne,
 Baum-Planer, Track-Detail, Avatar-Auswahl) hängen an keinem gemeinsamen Weg — Android-Zurück
 sieht sie nicht. Das geht als Befund aufs Brett.
+
+### Scheibe 2 — der Pflegeverlauf verliert nichts (gebaut am 24.11.2026)
+
+Gemessen, bevor gebaut wurde (alle drei Fälle rot gegen den Stand davor):
+
+- **Der Deckel warf das Neueste hinaus.** `p.diary` hat drei Schreiber und zwei Reihenfolgen: Abhaken setzt vorn
+  an und behielt den Anfang, eine Notiz hängt hinten an und behielt das Ende. Ab 200 Einträgen kostete eine
+  Notiz das jüngste Abhaken, ein Abhaken die jüngste Notiz (mit Foto). Jetzt EIN Deckel nach Zeit
+  (`gsCapWithArchive(…, 'zeit')`, `GS_PFLEGEVERLAUF_MAX`): das Älteste wandert ins Archiv, die Reihenfolge der
+  übrigen bleibt. Prüfstand: `kalender_check` „Pflegeverlauf · der Deckel", beide Richtungen.
+- **Ein Tagebuch-Foto ohne Empfang lag als base64 in der Pflanzenliste** — in den 5 MB des Gerätespeichers und
+  im Pflanzen-Blob, der bei jeder Änderung ganz hochgeht. Jetzt wartet es im Ausgangskorb (IndexedDB), der
+  Eintrag trägt einen Platzhalter, der Flush trägt die Adresse im EINTRAG nach (gesucht nach Pflanze und Zeit
+  des Eintrags, nicht nach dem Platzhalter). Der Platzhalter geht weder in den Blob noch ins Backup.
+- **Der Altbestand zieht nach** (`gsDiaryFotosNachziehen`, höchstens fünf je Lauf): direkt hochladen, Adresse
+  einsetzen. Scheitert der Upload, bleibt das Bild im Eintrag, wie es ist — ein Umzug darf nichts unsicherer machen.
+- **Aufgeben heisst archivieren.** Nach acht vergeblichen Anläufen legte der Foto-Flush das Bild weg; der Korb
+  war seine einzige Kopie. Jetzt geht es ins Archiv (Einstellungen → Speicher → Archiv sichern) und verlässt
+  den Korb nur, wenn das Archiv es angenommen hat. Das gilt für alle Fotos im Korb, nicht nur fürs Tagebuch.
+- **Erst schreiben, dann melden:** der Tagebuch-Eintrag sagte „gespeichert", ohne den Speicher zu fragen. Bei
+  vollem Speicher bleibt jetzt das Formular mit der Eingabe stehen, mit einem Satz. Prüfstand: `speicher_check`.
+
+Grenzen: das Hochladen selbst ist gestellt (kein Server von hier). Trägt der Flush eine Adresse nach und der
+Speicher ist in diesem Moment voll, liegt das Bild im Bucket, der Eintrag behält den Platzhalter — wie beim
+Pflanzenfoto seit v31.06. Die Fotos im Verlauf einer GARTEN-Pflanzung gibt es nicht (das Formular kennt nur
+„Meine Pflanzen").
 
 ## 4 · Backend
 
