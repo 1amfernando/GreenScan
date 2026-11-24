@@ -23352,6 +23352,24 @@ async function gsXpCloudFlush() {
 // Beim Verlassen ungeflushte Deltas noch wegschreiben (best-effort; sonst holt Boot-Sync sie).
 try { window.addEventListener('pagehide', function(){ if (window._gsXpPending) gsXpCloudFlush(); }); } catch(_){}
 
+// 24.11.2026: ein beim Start ungelesenes Profil nach dem ersten gelungenen Abgleich nachholen — mit allem,
+// was sbInit nach dem Profil tut (XP-Abgleich, Streak). Hoechstens ein Lauf gleichzeitig; die Antwort
+// gehoert der Person, die gefragt hat (§3.6).
+async function _gsProfilNachlesen() {
+  if (window._gsProfilNachlesenLaeuft) return false;
+  window._gsProfilNachlesenLaeuft = true;
+  try {
+    var wer = _gsPersonJetzt();
+    var p = await sbLoadProfile();
+    if (_gsPersonAnders(wer) || !p || p._ungelesen) return false;
+    if (typeof gsXpBootSync === 'function') { try { await gsXpBootSync(); } catch (_) {} }
+    if (_gsPersonAnders(wer)) return false;
+    if (p.stats && typeof checkAndUpdateStreak === 'function') { try { await checkAndUpdateStreak(); } catch (_) {} }
+    return true;
+  } catch (_) { return false; }
+  finally { window._gsProfilNachlesenLaeuft = false; }
+}
+window._gsProfilNachlesen = _gsProfilNachlesen;
 // v28.77 FIX-6b: Boot/Login-Reconcile zwischen lokalem gs_xp und cloud profiles.xp.
 // local>cloud (offline verdient) → Differenz atomar pushen; cloud>local → cloud lokal übernehmen.
 async function gsXpBootSync() {
@@ -23359,6 +23377,10 @@ async function gsXpBootSync() {
     if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
     var profile = (window._sbProfile) || (typeof sbLoadProfile === 'function' ? await sbLoadProfile() : null);
     if (!profile) return;
+    // Schlusspruefung blob (24.11.2026): ein UNGELESENES Ersatzprofil traegt xp 0 — das ist kein Cloud-Stand.
+    // Ohne diese Zeile galt die ganze lokale XP als „offline verdient" und wurde per fn_add_xp noch einmal
+    // gebucht: nach einem Start ohne Empfang stand die doppelte XP in der Rangliste (save_check „XP").
+    if (profile._ungelesen) return;
     var cloud = profile.xp || 0;
     var local = gsGetXP();
     if (local > cloud) {
@@ -58849,11 +58871,17 @@ window._gsListeEinspielen = _gsListeEinspielen;
 //    ganz ueberschreibt, nahm sonst die Marken des ersten mit.
 //  · EINE Rechnung (_gsMergeEintraege) fuer den Anmelde-Abgleich. _gsMergeById (gsGardenSync.pullAll) rechnet noch daneben (lokal gewinnt, ohne Stempel und Marken) — offen, STATUS (jn).
 var GS_STEMPEL_LISTEN = ['ps_myplants', 'gs_gardens', 'gs_plantings'];
+// Schlusspruefung blob (24.11.2026): Garten-Plaene und GPX-Tracks haben viele Schreiber und keinen
+// Engpass — sie werden NICHT gestempelt. Eine Loeschmarke bekommen sie trotzdem (_gsLoeschmarke, gesetzt
+// an den zwei Stellen, an denen die Person loescht): seit der Abgleich Plaene und Tracks bei ungesendetem
+// Stand JE EINTRAG zusammenfuehrt, kaeme ein offline geloeschter Plan ohne Marke aus der Cloud zurueck
+// und ginge wieder hoch (sync_check H10). Schluessel bei Tracks: der Beginn `ts`.
+var GS_GELOESCHT_LISTEN = GS_STEMPEL_LISTEN.concat(['gs_garden_plans', 'gs_gpx_tracks']);
 var GS_GELOESCHT_TAGE = 90, GS_GELOESCHT_MAX = 300;
 function _gsGeloeschtBereinigen(o) {
   var aus = {}, grenze = Date.now() - GS_GELOESCHT_TAGE * 86400000;
   if (!o || typeof o !== 'object' || Array.isArray(o)) return aus;
-  GS_STEMPEL_LISTEN.forEach(function (k) {
+  GS_GELOESCHT_LISTEN.forEach(function (k) {
     var m = o[k]; if (!m || typeof m !== 'object' || Array.isArray(m)) return;
     var ids = Object.keys(m).filter(function (id) {
       var t = Number(m[id]); return _gsIdSicher(id) === id && isFinite(t) && t > grenze;
@@ -58873,7 +58901,7 @@ function _gsGeloeschtSchreiben(o) {
 // etwas dazukam ODER lokal mehr steht als dort (dann muss der state-Blob hoch).
 function _gsGeloeschtEinlesen(fremd) {
   var lokal = _gsGeloeschtLesen(), f = _gsGeloeschtBereinigen(fremd), neuLokal = false, nurLokal = false;
-  GS_STEMPEL_LISTEN.forEach(function (k) {
+  GS_GELOESCHT_LISTEN.forEach(function (k) {
     var l = lokal[k] || {}, c = f[k] || {};
     Object.keys(c).forEach(function (id) { if (!(id in l) || l[id] < c[id]) { l[id] = c[id]; neuLokal = true; } });
     Object.keys(l).forEach(function (id) { if (!(id in c) || c[id] < l[id]) nurLokal = true; });
@@ -58881,6 +58909,47 @@ function _gsGeloeschtEinlesen(fremd) {
   });
   if (neuLokal) _gsGeloeschtSchreiben(lokal);
   return { neu: neuLokal, nurLokal: nurLokal };
+}
+// Eine Loeschmarke von Hand — fuer Listen ohne Stempel-Engpass (GS_GELOESCHT_LISTEN: Plaene, Tracks).
+// Gibt zurueck, ob sie geschrieben wurde; die Marke reist im state-Blob.
+function _gsLoeschmarke(schluessel, id) {
+  if (GS_GELOESCHT_LISTEN.indexOf(schluessel) < 0 || id == null) return false;
+  var k = String(id); if (_gsIdSicher(k) !== k || !k) return false;
+  var g = _gsGeloeschtLesen(), tk = g[schluessel] || {};
+  tk[k] = Date.now(); g[schluessel] = tk;
+  var ok = _gsGeloeschtSchreiben(g);
+  try { if (ok && window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch (_) {}
+  return ok;
+}
+// Ein state-Wert der Cloud trifft auf einen UNGESENDETEN lokalen Stand eines Geraets, das den state-Blob
+// dieses Kontos noch nie abgeglichen hat (Schlusspruefung blob, 24.11.2026): zusammenfuehren statt „lokal
+// gewinnt ganz" — sonst ersetzte der EINE neue Favorit eines frischen Geraets die zwanzig der Cloud, nur
+// eben erst nach dem Lesen (sync_check H11). Rueckgabe: der Wert, der geschrieben wird — oder undefined,
+// wenn der lokale so bleibt. Listen: die der Cloud, bei gleichem Eintrag (id bzw. Inhalt) die lokale
+// Fassung, danach die nur lokalen. Objekte: was lokal fehlt, kommt dazu. Zahl und Text: lokal bleibt.
+function _gsStateMischen(k, c) {
+  var roh = null; try { roh = localStorage.getItem(k); } catch (_) {}
+  if (roh == null || roh === '') return c;
+  var l; try { l = JSON.parse(roh); } catch (_) { return undefined; }
+  var cv = c; if (typeof c === 'string') { try { cv = JSON.parse(c); } catch (_) { return undefined; } }
+  if (Array.isArray(l) && Array.isArray(cv)) {
+    if (!l.length) return cv;
+    var schl = function (e) { try { return (e && typeof e === 'object' && e.id != null) ? 'id:' + String(e.id) : 'w:' + JSON.stringify(e); } catch (_) { return null; } };
+    var lok = {}, reihe = [], gesehen = {};
+    l.forEach(function (e) { var s = schl(e); if (s != null) lok[s] = e; });
+    cv.forEach(function (e) { var s = schl(e); if (s == null || gesehen[s]) return; gesehen[s] = true; reihe.push(Object.prototype.hasOwnProperty.call(lok, s) ? lok[s] : e); });
+    l.forEach(function (e) { var s = schl(e); if (s == null || gesehen[s]) return; gesehen[s] = true; reihe.push(e); });
+    return reihe;
+  }
+  if (l && cv && typeof l === 'object' && typeof cv === 'object' && !Array.isArray(l) && !Array.isArray(cv)) {
+    var dazu = false;
+    Object.keys(cv).forEach(function (kk) {
+      if (kk === '__proto__' || Object.prototype.hasOwnProperty.call(l, kk)) return;
+      l[kk] = cv[kk]; dazu = true;
+    });
+    return dazu ? l : undefined;
+  }
+  return undefined;
 }
 function _gsEintragJson(e) {
   var c = {}; Object.keys(e).forEach(function (k) { if (k !== 'geaendert') c[k] = e[k]; });
@@ -58953,6 +59022,7 @@ function _gsMergeEintraege(lokal, cloud, ctx) {
   return { liste: aus, gleichCloud: gleich };
 }
 window._gsStempeln = _gsStempeln; window._gsMergeEintraege = _gsMergeEintraege; window._gsGeloeschtEinlesen = _gsGeloeschtEinlesen;
+window._gsLoeschmarke = _gsLoeschmarke; window._gsStateMischen = _gsStateMischen;
 
 // Spielt ein Backup ein und sagt, was NICHT gesichert wurde (voller Speicher:
 // der Wrapper wirft nie, er gibt false zurueck — CLAUDE.md §3.5). Kein
@@ -61595,8 +61665,12 @@ async function gsTrackDelete(idx) {
   if (!(await gsConfirmModal('Track wirklich löschen?'))) return;
   try {
     var saved = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]');
-    saved.splice(idx, 1);
+    var _weg = saved.splice(idx, 1)[0];
     localStorage.setItem('gs_gpx_tracks', JSON.stringify(saved));
+    // 24.11.2026: Loeschmarke (Schluessel: Beginn `ts`) und der Garten-Bereich wird vorgemerkt — die Tracks
+    // reisen im Garten-Blob, und ohne Vormerkung holte der naechste Abgleich den Track aus der Cloud zurueck.
+    try { if (_weg && _weg.ts != null) _gsLoeschmarke('gs_gpx_tracks', _weg.ts); } catch(_){}
+    try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('garden'); } catch(_){}
     gsTrackOpenList();
   } catch(_){}
 }
@@ -75821,8 +75895,10 @@ async function gsPPopenSavedPlans() {
         // Cloud-Zeile, deren Id nichts Brauchbares hergibt, faellt weg, statt bei jedem Oeffnen
         // eine neue Id zu bekommen.
         var byId = Object.create(null);
-        _gsSiebListe(ugPlans).forEach(function(p){ if (p && p.id) byId[p.id] = p; });
-        _gsSiebListe(gpMapped).forEach(function(p){ if (p && p.id) byId[p.id] = p; });
+        // 24.11.2026: ein auf diesem Geraet geloeschter Plan (Loeschmarke) kommt hier nicht aus der Cloud zurueck.
+        var _plTomb = {}; try { _plTomb = (_gsGeloeschtLesen()['gs_garden_plans']) || {}; } catch(_){}
+        _gsSiebListe(ugPlans).forEach(function(p){ if (p && p.id && !_plTomb[String(p.id)]) byId[p.id] = p; });
+        _gsSiebListe(gpMapped).forEach(function(p){ if (p && p.id && !_plTomb[String(p.id)]) byId[p.id] = p; });
         saved.forEach(function(p){ if (p && p.id && !byId[p.id]) byId[p.id] = p; });
         var merged = Object.keys(byId).map(function(k){ return byId[k]; }).sort(function(a,b){
           return new Date(b.created || 0) - new Date(a.created || 0);
@@ -75962,6 +76038,9 @@ async function gsPPdeletePlan(id) {
     saved = saved.filter(function(x){ return x.id !== id; });
     localStorage.setItem('gs_garden_plans', JSON.stringify(saved));
   } catch(_){}
+  // 24.11.2026: die Loeschmarke — scheitert der Cloud-Weg unten (offline), holte der naechste Abgleich
+  // den Plan sonst aus der Cloud zurueck (Zusammenfuehrung je Eintrag, sync_check H10).
+  try { _gsLoeschmarke('gs_garden_plans', id); } catch(_){}
   // Cloud (user_gardens.data.plans + garden_plans falls source='garden_plans')
   // v32.69 (Audit B4): der Dialog verspricht „auf allen deinen Geräten entfernt" —
   // jede Server-Antwort wird angesehen, und die Meldung sagt, was wirklich gilt.
@@ -76000,11 +76079,18 @@ async function gsPPdeletePlan(id) {
     }
   } catch(e) { console.warn('[gsPPdeletePlan] cloud-delete:', e); _cloud = false; }
   if (_gsPersonAnders(_wer)) return;
+  // 24.11.2026: nicht bestaetigt → der Garten-Bereich wird vorgemerkt. Der naechste Abgleich fuehrt je
+  // Eintrag zusammen, die Loeschmarke haelt den Plan draussen, und der Blob geht ohne ihn hoch (H10).
+  var _spaeter = false;
+  if (_cloud === false && !(typeof id === 'string' && id.indexOf('gp_') === 0)) {
+    try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') { gsCloudSync.markDirty('garden'); _spaeter = true; } } catch(_){}
+  }
   // v28.66 Block F.3: gelöschten Plan auch aus System-Sammlung „Garten-Pläne" räumen.
   try { if (typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch(_){}
   if (typeof showProfileToast === 'function') {
     if (_cloud === true) showProfileToast('🗑 Plan gelöscht');
     else if (_cloud === null) showProfileToast('🗑 Plan gelöscht (nur dieses Gerät — nicht angemeldet)');
+    else if (_spaeter) showProfileToast({ title: 'Plan auf diesem Gerät gelöscht', body: 'Der Server hat das Löschen noch nicht bestätigt — die App versucht es beim nächsten Abgleich erneut.', kind: 'warn', duration: 8000 });
     else showProfileToast({ title: 'Plan nur lokal gelöscht', body: 'Der Server hat das Löschen nicht bestätigt — auf anderen Geräten kann er wieder auftauchen. Bitte später erneut versuchen.', kind: 'warn', duration: 8000 });
   }
   gsPPopenSavedPlans(); // re-render
@@ -79645,7 +79731,8 @@ window.GS_RELEASES = [
         {emoji:'📍', bold:'Deine Funde bleiben deine:', text:' wer sich während des Hochladens von Funden oder Fotos abmeldet, hält es an — nichts wird unter einem anderen Konto abgelegt.'},
         {emoji:'🗂️', bold:'Pläne beim Abmelden:', text:' jedes Konto bekommt seine eigenen 20 Plätze für nur auf dem Gerät gespeicherte Pläne; was nicht hineinpasst, bleibt auf dem Gerät, und die App sagt es dir im Anmeldefenster.'},
         {emoji:'🌳', bold:'Garten-Zwilling:', text:' er gehört dem Konto, das ihn angelegt hat, und ist für andere auf demselben Gerät nicht sichtbar.'},
-        {emoji:'☁️', bold:'Deine Gärten bleiben in der Cloud:', text:' konnte die App deine Daten bei einem schwachen Netz nicht laden, hätte ein Speichern danach Gärten, Pflanzen oder Profilwerte in der Cloud überschreiben können. Jetzt lädt sie erst hoch, was sie vorher gelesen hat, und ein neuer Plan bleibt bis dahin auf dem Gerät.'}
+        {emoji:'☁️', bold:'Deine Gärten bleiben in der Cloud:', text:' konnte die App deine Daten bei einem schwachen Netz nicht laden, hätte ein Speichern danach Gärten, Pflanzen oder Profilwerte in der Cloud überschreiben können. Jetzt lädt sie erst hoch, was sie vorher gelesen hat, und ein neuer Plan bleibt bis dahin auf dem Gerät.'},
+         {emoji:'🗑️', bold:'Gelöscht bleibt gelöscht:', text:' ein Garten-Plan oder ein Track, den du ohne Empfang löschst, kommt beim nächsten Abgleich nicht mehr zurück. Und deine Punkte werden nach einem Start ohne Empfang nicht doppelt gezählt.'}
       ],
       items: [
         {emoji:'🚪', bold:'Ein Tor statt 210 Stellen:', text:' sbFetch gibt nach einem Wechsel {error:{code:person_gewechselt}} zurück, callAI und callVisionAI werfen _gsPersonAusnahme(); eine Anfrage, die ohne Person startet (Anmeldung), bleibt unberührt. Fragen: _gsPersonGewechselt, _gsPersonAnders, _gsPersonJetzt; Satz GS_PERSON_GEWECHSELT_SATZ über _gsFehlerText.'},
@@ -79654,7 +79741,8 @@ window.GS_RELEASES = [
         {emoji:'🤖', bold:'19 KI-Wege:', text:' ein catch-Zweig fragt zuerst _gsPersonGewechselt und endet still — ein Tor, das Erfolg zu Fehler macht, schob die Aufrufer sonst in Fehlerkarten für die nächste Person. Die Person wird vor dem ERSTEN await gemerkt (FileReader, Verkleinern, Wetter sind auch awaits).'},
         {emoji:'🖥️', bold:'Abmelde-Bildschirm:', text:' _gsAbmeldenFenster, _gsAbmeldenFelder, _gsAbmeldenStartseite; Sätze beim Abmelden stehen im Meldefeld des Anmeldebildschirms (_gsAbmeldenSagen) — ein Toast lag darunter und war nie sichtbar.'},
         {emoji:'🗄️', bold:'Erst lesen, dann schreiben:', text:' gsCloudSync._flush lädt plants, garden und state nur hoch, wenn _gsInitialSyncDone gilt oder die Zeile in dieser Sitzung für diese Person gelesen wurde (_gsBlobGelesen); ungesendete Pläne, current und Tracks werden beim Abgleich je Eintrag zusammengeführt; _gsGartenBlobLesen kennt da · leer · fehler · gewechselt; sbLoadProfile markiert ein ungelesenes Ersatzprofil (_ungelesen), das nichts zurückschreibt.'},
-        {emoji:'🧪', bold:'Prüfstände:', text:' sicherheit_check 227 Fälle in 24 Dateien (neu 71_person: Tor a–t, KI a–h), sync_check H8/H9, save_check 29, speicher_check 27, edge_check 82; jede Reparatur mit einem Fall, der vorher rot war, und einer gegnerischen Gegenprüfung, die selbst nachgebessert hat.'},
+         {emoji:'🧩', bold:'Schlussprüfung des Ganzen:', text:' vier Funde im Abgleich, alle behoben. Pläne und Tracks bekommen eine Löschmarke (_gsLoeschmarke, GS_GELOESCHT_LISTEN) — ohne sie holte die neue Zusammenführung je Eintrag einen offline gelöschten Plan zurück. Ein ungesendeter state auf einem Gerät, das ihn nie abgeglichen hat, wird je Schlüssel gemischt (_gsStateMischen) statt die Cloud zu ersetzen. gsXpBootSync bucht bei einem ungelesenen Profil nichts, und _gsProfilNachlesen holt das Profil nach dem ersten gelungenen Abgleich nach.'},
+        {emoji:'🧪', bold:'Prüfstände:', text:' sicherheit_check 227 Fälle in 24 Dateien (neu 71_person: Tor a–t, KI a–h), sync_check 22 (neu H8–H12), save_check 29, speicher_check 27, edge_check 82; jede Reparatur mit einem Fall, der vorher rot war, und einer gegnerischen Gegenprüfung, die selbst nachgebessert hat.'},
         {emoji:'🧯', bold:'Nicht von hier messbar:', text:' ein echter Kontowechsel auf einem Telefon und die echten Stripe-Fenster; gemessen ist Chromium mit gestellten Antworten.'}
       ]
   },
@@ -88078,7 +88166,7 @@ async function gsSyncUserDataOnLogin(){
         if (Array.isArray(d.plans)) {
           var _lokPl = []; try { _lokPl = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]'); } catch(_){}
           if (!Array.isArray(_lokPl)) _lokPl = [];
-          var _mPl = _gsMergeEintraege(_lokPl, d.plans, { schmutzig: true, tomb: {} });
+          var _mPl = _gsMergeEintraege(_lokPl, d.plans, { schmutzig: true, tomb: _tombLok['gs_garden_plans'] || {} });   // 24.11.2026: mit Loeschmarken (H10)
           var _zeit = function (x) { var t = Date.parse(x && x.created); return isFinite(t) ? t : 0; };
           _gsListeEinspielen('gs_garden_plans', _mPl.liste.slice().sort(function (a, b) { return _zeit(b) - _zeit(a); }));
         }
@@ -88146,7 +88234,17 @@ async function gsSyncUserDataOnLogin(){
       if (s && !s.error && Array.isArray(s.data) && s.data[0] && s.data[0].data) {
         var sd = s.data[0].data;
         var sUpdated = s.data[0].updated_at || null;
-        if (_shouldOverwriteLocal('state', sUpdated)) {
+        // Schlusspruefung blob (24.11.2026): ein UNGESENDETER state auf einem Geraet, das den state-Blob dieses
+        // Kontos noch nie abgeglichen hat (kein gs_sync_synced_at_state — das Abmelden raeumt ihn), wurde bis
+        // hier uebersprungen: nichts zusammengefuehrt, und der Push danach ersetzte die Cloud. Die Sperre
+        // „erst lesen" verschob den Verlust nur hinter das Lesen. Jetzt wird in genau diesem Fall je
+        // Schluessel gemischt (_gsStateMischen) und der gemischte Stand geht hoch (sync_check H11). Ein Geraet,
+        // das schon abgeglichen war, behaelt wie bisher seinen ungesendeten Stand — dort ist ein entfernter
+        // Favorit eine Entscheidung, kein blinder Fleck.
+        var _sOver = _shouldOverwriteLocal('state', sUpdated);
+        var _sBlind = false;
+        try { _sBlind = !_sOver && !!sUpdated && !!(gsCloudSync.localDirtyAt && gsCloudSync.localDirtyAt('state')) && !localStorage.getItem('gs_sync_synced_at_state'); } catch(_){}
+        if (_sOver || _sBlind) {
           // Setze JEDEN bekannten Key zurück in localStorage (für Cross-Device-Sync)
           var stateMap = {
             // v31.14: gs_streak / gs_streak_sig / gs_streak_stamp /
@@ -88244,6 +88342,7 @@ async function gsSyncUserDataOnLogin(){
                     }
                   } catch(_){}
                 }
+                if (_sBlind) { v = _gsStateMischen(k, v); if (v === undefined) continue; }
                 try {
                   if (typeof v === 'string') localStorage.setItem(k, v);
                   else localStorage.setItem(k, JSON.stringify(v));
@@ -88262,7 +88361,7 @@ async function gsSyncUserDataOnLogin(){
             try { if (typeof window._gsStreakApplyCloud === 'function') window._gsStreakApplyCloud(sd); } catch(_){}
             try { if (typeof window._gsLoginStreakApplyCloud === 'function') window._gsLoginStreakApplyCloud(sd); } catch(_){}
             // UI prefs
-            if (sd.ui) {
+            if (sd.ui && !_sBlind) {
               if (sd.ui.dark != null) try { localStorage.setItem('gs_dark', String(sd.ui.dark)); } catch(_){}
               if (sd.ui.theme_color) try { localStorage.setItem('gs_theme_color', sd.ui.theme_color); } catch(_){}
               if (sd.ui.lang) try { localStorage.setItem('gs_lang', sd.ui.lang); } catch(_){}
@@ -88270,6 +88369,11 @@ async function gsSyncUserDataOnLogin(){
           } finally {
             window._gsSyncPullInProgress = _prevPullState; // v29.28: vorigen Wert wiederherstellen
           }
+          if (_sBlind) {
+            // gemischt, nicht uebernommen: der Stand bleibt ungesendet und geht nach dem Abgleich hoch
+            window._gsStateRepairNeeded = false;
+            try { gsCloudSync.markDirty('state'); } catch(_){}
+          } else {
           // Re-Mark dirty Stand zurücksetzen (falls Patch trotz Flag durchschlug)
           try { localStorage.removeItem('gs_sync_dirty_at_state'); } catch(_){}
           var dd = JSON.parse(localStorage.getItem('gs_sync_dirty')||'{}'); delete dd.state;
@@ -88280,6 +88384,7 @@ async function gsSyncUserDataOnLogin(){
           if (window._gsStateRepairNeeded) {
             window._gsStateRepairNeeded = false;
             try { if (window.gsCloudSync && gsCloudSync.markDirty) gsCloudSync.markDirty('state'); } catch(_){}
+          }
           }
         }
       }
@@ -88299,7 +88404,8 @@ async function gsSyncUserDataOnLogin(){
             var _trL = []; try { _trL = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]'); } catch(_){}
             if (!Array.isArray(_trL)) _trL = [];
             var _trDa = {}; _trL.forEach(function (t) { if (t && t.ts != null) _trDa[String(t.ts)] = true; });
-            var _trNeu = gd2.gpx_tracks.filter(function (t) { return t && typeof t === 'object' && t.ts != null && !_trDa[String(t.ts)]; });
+            var _trTomb = _tombLok['gs_gpx_tracks'] || {};   // 24.11.2026: ein hier geloeschter Track kommt nicht zurueck (H10)
+            var _trNeu = gd2.gpx_tracks.filter(function (t) { return t && typeof t === 'object' && t.ts != null && !_trDa[String(t.ts)] && !_trTomb[String(t.ts)]; });
             if (_trNeu.length) {
               var _trAlle = _trL.concat(_trNeu).sort(function (a, b) { return (Number(a && a.ts) || 0) - (Number(b && b.ts) || 0); });
               try { localStorage.setItem('gs_gpx_tracks', JSON.stringify(_trAlle)); } catch(_){}
@@ -88390,6 +88496,9 @@ async function gsSyncUserDataOnLogin(){
     }
     window._gsInitialSyncDone = true;
     console.log('[gsSync] complete cross-device sync done for', uid);
+    // 24.11.2026: war das Profil beim Start nicht lesbar (Start ohne Empfang), wird es jetzt nachgelesen —
+    // vorher blieb es die ganze Sitzung ungelesen, und Scans, Ansichten und Meilensteine zaehlten nicht.
+    try { if (_sbProfile && _sbProfile._ungelesen && typeof _gsProfilNachlesen === 'function') _gsProfilNachlesen(); } catch(_){}
     // v27.01: nach erfolgreichem Pull eventuell zurückgehaltene Repair-Pushes ausführen
     try { if (window.gsCloudSync && gsCloudSync.flushNow) gsCloudSync.flushNow(); } catch(_){}
     // v33.26: das Backup DIESER Sitzung — hier und nicht im 5-Minuten-Takt.
