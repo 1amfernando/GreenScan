@@ -92276,7 +92276,9 @@ function _gsLinaSicherheit(antwort, treffer) {
     var STAMM = /essbar|geniess|verzehr|speisepilz|speise|bedenkenlos|unbedenklich|comestib|commestib|\bedib/;
     var VERZEHR = /\bessen\b|\bisst\b|\bkochen\b|\broh\b|\bmanger\b|\bmange\b|\bconsommer\b|\bmangiare\b|\bmangia\b|\beat\b|\beating\b|\bcook\b/;
     var JA_DAVOR = /\bja\b|\bkannst\b|\bkann man\b|\bkoennen\b|\bdarfst\b|\bdarf man\b|\beignet sich\b|\boui\b|\bpouvez\b|\bpeut\b|\bsi\b|\bpuo\b|\byes\b|\bcan\b|\bsafe\b/;
-    var NEIN = /nicht|kein|niemals|nie\b|auf keinen fall|ungeniess|unbedingt meiden|finger weg|\bpas\b|\bjamais\b|\bnon\b|\bmai\b|\bnot\b|\bnever\b|\bdon t\b|\bdo not\b|\bavoid\b/;
+    // N (kj): „nie“ als ganzes Wort — `nie\b` traf jedes Wort auf „-nie“ („Rote Rosskastanie“, „Glyzinie“): der Satz galt
+    // als verneint, und die Zusage blieb ohne Warnung (Basis wie (kg); gemessen 24.11.2026: 20 Namen, 1 giftiger)
+    var NEIN = /nicht|kein|niemals|\bnie\b|auf keinen fall|ungeniess|unbedingt meiden|finger weg|\bpas\b|\bjamais\b|\bnon\b|\bmai\b|\bnot\b|\bnever\b|\bdon t\b|\bdo not\b|\bavoid\b/;
 
     // (kg) Lina 11 neu (24.11.2026): Die Regeln der Basis (255665c, oben) bleiben, wie sie sind. Was dazukommt, ist einzeln gegen die
     // Basis gemessen — Orakel über ALLE Namen der Artenliste, sensor_check „Lina 11". Nichts, was die Basis warnt, wird still,
@@ -92303,6 +92305,15 @@ function _gsLinaSicherheit(antwort, treffer) {
     // — das ist für sie unbedenklich“); „Das ist unbedenklich, auch beim Umtopfen.“ auf eine Essfrage bleibt eine Zusage
     var PFLEGE_SUBJEKT = /\b(?:dünger|duenger|kaffeesatz|wasser|kalk|mulch|kompost|substrat|erde|blumenerde|schnitt|rückschnitt|rueckschnitt|halbschatten|schatten|sonne|morgensonne|licht)\b.*\b(?:ist|sind)\b.*\b(?:unbedenklich|bedenkenlos)|\b(?:giess|gegossen|düng|dueng|umtopf|dünger|duenger|kaffeesatz|wasser|kalk|mulch|kompost|substrat|erde|schnitt|rückschnitt|rueckschnitt|schatten|sonne|licht)\w*\b.*\b(?:das|dies)\b (?:ist|sind)\b.*\b(?:unbedenklich|bedenkenlos)/;
     var PFLEGE_GENIESST = /geniess\w* (?:\S+ ){0,2}(?:morgensonne|abendsonne|mittagssonne|sonne|halbschatten|schatten|licht|wärme|waerme|feuchtigkeit|regen)\b|\bgiess\w*\b.*\bgeniess/;
+    // G (kj): das Erlebnis ist das OBJEKT von „geniess“ — mit Artikel davor („Geniess den Garten“, „Geniess die Blüten … im
+    // Garten“), ohne Präposition dazwischen („Geniess Tollkirschen im Garten“ meint die Tollkirschen), ohne „mit …“ danach
+    // („Geniess den Garten mit seinen Tollkirschen“) — und am ROHEN Text: `_gsLinaNorm` macht aus „Herbst-Zeitlose“ und
+    // „Garten-Wolfsmilch“ zwei Wörter; ein Bindestrich oder ein Buchstabe direkt danach heisst: das Wort ist Teil eines Namens.
+    var GENIESS_ART = '(?:den|die|das|dem|der|deinen|deine|dein|deinem|euren|eure|euer|unseren|unsere|unser|einen|eine|ein|diesen|diese|dieses|diesem)';
+    var GENIESS_LUECKE = '(?:(?!(?:im|in|am|an|auf|bei|unter|vor|neben|zwischen|hinter|über|ueber|aus|von|vom|mit|nach|zu|zum|zur)\\s)\\S+\\s+){0,2}';
+    var GENIESS_ENDE = '(?![\\p{L}\\p{N}-])(?![^.!?]*\\smit\\s)';
+    var GENIESS_ERLEBNIS = new RegExp('geniess\\S*\\s+' + GENIESS_ART + '\\s+' + GENIESS_LUECKE + '(?:garten|gärten|gaerten|anblick|aussicht|duft|düfte|duefte|farben|farbenpracht|blütenpracht|bluetenpracht|pracht|spaziergang|ruhe)' + GENIESS_ENDE, 'iu');
+    var GENIESS_BLUETE_ORT = new RegExp('geniess\\S*\\s+' + GENIESS_ART + '\\s+' + GENIESS_LUECKE + '(?:blüten?|blueten?)' + GENIESS_ENDE + '[^.!?]*\\s(?:im|in|auf|am)\\s+(?:\\S+\\s+)?(?:garten|beet|balkon|park|wald|topf|kübel|kuebel|terrasse|wiese)(?![\\p{L}\\p{N}-])', 'iu');
     var ESSWORT = /\bess|\bisst\b|gegessen|\bnasch|verspeis|\bkost|probier|schmeck|lecker|\bkoch|gekocht|\bbrat|\bback|\broh\b|salat|\btee\b|suppe|\bsaft|marmelade|gelee|sirup|würz|wuerz|\bmund|magen|schluck|\bkau|frucht|früchte|fruechte|beere|pilz|samen|knolle|\beat|\bcook|\bmang|cuisin|cucin|\bfood/;
     var KONTRAST = /\bdagegen\b|\bhingegen\b|\bjedoch\b|\bwährend\b|\bwaehrend\b|\bwohingegen\b|\bpar contre\b|\btandis que\b|\balors que\b|\binvece\b|\bmentre\b|\bwhereas\b|\bwhile\b|\bwhilst\b/;
     var GIFTWORT = /giftig|tödlich|toedlich|toxisch|gefährlich|gefaehrlich|poison|toxic|deadly|velenos|tossic|mortel|mortal|toxique|vénéneu|veneneu/;
@@ -92320,25 +92331,85 @@ function _gsLinaSicherheit(antwort, treffer) {
       if (STARK.test(n) || (VERZEHR.test(n) && JA_DAVOR.test(n)) || !SCHWACH.test(n) || ESSWORT.test(n) || (satzN && ESSWORT.test(satzN))) return false;
       if (PFLEGE_BEDENKENLOS.test(n) || PFLEGE_GENIESST.test(n)) return true;
       // „unbedenklich" nur mit einem Pflegemittel (oder „das") als Satzgegenstand — „Sie ist unbedenklich" meint die Pflanze
+      if (GENIESS_ERLEBNIS.test(String(roh || '')) || GENIESS_BLUETE_ORT.test(String(roh || ''))) return true;   // G (kj), am rohen Text
       return PFLEGE_MITTEL.test(n) && PFLEGE_SUBJEKT.test(n) && !nenntArt(roh);
+    };
+    // (kj) Lina 12 (24.11.2026, Hold-out des Koordinators zu (kg)): fünf Regeln, jede einzeln gegen die Basis gemessen
+    // (Orakel über alle Namen, Vorlagen je giftigem Namen, sensor_check „Lina 12"):
+    //  F · Ein zustimmender Teil ohne eigenes Subjekt hängt am Teil davor. „Die Herbstzeitlose ist aber ebenfalls essbar." wurde
+    //      an „aber" getrennt, und „ebenfalls essbar" nannte keine Art — Basis und (kg) blieben still. Ein solcher Teil erbt die
+    //      Arten des NÄCHSTEN vorangehenden Teils, der eine Art nennt; ein Teil mit eigenem Subjekt („aber Nudeln sind essbar")
+    //      erbt nichts, ein Pflanzenteil („aber die Beeren sind essbar") oder ein Pronomen („aber sie ist essbar") schon.
+    //  K · Ein Teil ohne eigenes Prädikat vor „und" gehört zum Subjekt des nächsten: „Herbstzeitlose und Bärlauch sind essbar."
+    //  E · „Verzehr … vermeiden" ist keine Zusage („Nein, die Samen sind tödlich. Verzehr unbedingt vermeiden."); die Basis
+    //      kannte „unbedingt meiden", nicht „vermeiden". Eine echte Zusage im selben Teil („…, vermeide nur den Verzehr der
+    //      Kerne") bleibt eine.
+    //  G · „Geniess den Garten" und „Geniess die Blüten … im Garten" sind kein Essen — eine vierte Form von B, nur ohne Ess-Wort.
+    //  C2 · Ein Gegensatz OHNE Gegensatzwort („Der Kerbel ist essbar, der Gefleckte Schierling giftig.") wird wie C gelesen —
+    //      nur wenn eine Komma-Klausel mit eigener Art zusagt und eine andere eine Art giftig nennt.
+    var VERZEHR_MEIDEN = /(?:^| )(?:verzehr\S*(?: \S+){0,3} (?:vermeid|meid|verzicht|unterlass|vermied)\S*|(?:vermeid|meid|verzicht|unterlass|vermied)\S*(?: \S+){0,3} verzehr\S*|(?:vom|von) verzehr\S*(?: \S+){0,3} (?:abgeraten|abraten|abzuraten)\S*)/g;
+    var bejahtE = function (n) { return bejahtIn(String(n || '').replace(VERZEHR_MEIDEN, ' ')); };   // E
+    var ARTIKEL = /^(?:der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines|kein|keine|keinen|keinem|keiner|diese|dieser|dieses|diesen|jene|jener|jenes|manche|viele|einige|alle|beide|solche)$/;
+    var BINDE = /^(?:aber|und|doch|jedoch|dagegen|hingegen|auch|dafür|dafuer|sondern|oder|mais|ma|but|and|et|e)$/;
+    // ein Pflanzenteil ist das GANZE Nomen — „Himbeeren“ ist eine andere Pflanze, keine Beeren der genannten
+    var PFLANZENTEIL = /^(?:blatt|blätter|blaetter|beere|beeren|frucht|früchte|fruechte|fruchtfleisch|fleisch|samen|same|samenmantel|kern|kerne|knolle|knollen|wurzel|wurzeln|blüte|blüten|bluete|blueten|stängel|staengel|stengel|stiel|stiele|rinde|schale|schalen|zwiebel|zwiebeln|spross|sprosse|sprossen|trieb|triebe|hut|hüte|huete|lamelle|lamellen|nadel|nadeln|zweig|zweige|holz|saft|knospe|knospen|kraut|pflanze|pflanzen|pilz|pilze|teil|teile)$/;
+    // F: ein eigenes Subjekt steht am Anfang des Teils — ein Nomen (gross geschrieben), allein oder nach Artikel und Adjektiven,
+    // das kein Pflanzenteil ist; ein Pronomen, ein Adverb oder ein Verb am Anfang heisst: das Subjekt steht im Teil davor
+    var eigenesSubjekt = function (teilRoh) {
+      var w = String(teilRoh || '').split(/\s+/).map(function (x) { return x.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}-]+$/gu, ''); }).filter(Boolean), k = 0;
+      while (k < w.length && BINDE.test(w[k].toLowerCase())) k++;
+      if (k < w.length && ARTIKEL.test(w[k].toLowerCase())) { k++; while (k < w.length && /^\p{Ll}/u.test(w[k])) k++; }
+      var kopf = w[k] || '';
+      return /^\p{Lu}/u.test(kopf) && !PFLANZENTEIL.test(kopf.toLowerCase());
+    };
+    // ein Giftwort als AUSSAGE steht unflektiert am Wortende („… giftig“, „hochgiftig“, „lebensgefährlich“); „Giftiger Häubling“,
+    // „Giftiger Wasserschierling“ ist ein NAME — für K (kein Prädikat davor) und C2 (die giftige Klausel)
+    var PRAED_GIFT = /(?:^| )\S*(?:giftig|tödlich|toedlich|toxisch|gefährlich|gefaehrlich|poisonous|toxic|deadly)(?= |$)/;
+    var geerbt = function (teile, j) {
+      var x = [];
+      if (j < 1) return x;
+      var tj = teile[j];
+      // F
+      if (!nenntArt(tj) && !eigenesSubjekt(tj)) {
+        for (var v = j - 1; v >= 0; v--) { if (nenntArt(teile[v])) { x = x.concat(genanntIn(teile[v])); break; } }
+      }
+      // K: nur wenn die erste Klausel dieses Teils selbst zusagt (dort steht das Prädikat der Aufzählung)
+      var erste = _gsLinaNorm(tj.split(/,+/)[0] || '');
+      if (erste && !NEIN.test(erste) && bejahtE(erste)) {
+        for (var u = j - 1; u >= 0; u--) {
+          var un = _gsLinaNorm(teile[u]);
+          // ein Giftwort als PRÄDIKAT steht unflektiert („… giftig“); „Giftiger Häubling“, „Giftiger Wasserschierling“ ist ein Name
+          if (!un || PRAEDIKAT.test(un) || bejahtE(un) || PRAED_GIFT.test(un) || NEIN.test(un) || !nenntArt(teile[u])) break;
+          x = x.concat(genanntIn(teile[u]));
+        }
+      }
+      return x;
+    };
+    // C2: Gegensatz ohne Gegensatzwort — genau die Lage, in der C eine Art fallen lässt
+    var asyndetisch = function (satz) {
+      var kl = satz.split(/,+/).map(function (k) { return { r: k, n: _gsLinaNorm(k) }; }).filter(function (k) { return k.n; });
+      if (kl.length < 2) return false;
+      // die andere Klausel nennt IRGENDEINE Art („…, der Kerbel nicht.“) — fallen lässt C nur, was eine solche Klausel selbst nennt
+      var gift = kl.some(function (k) { return !ENTWARNT.test(k.n) && !bejahtE(k.n) && (PRAED_GIFT.test(k.n) || NEIN.test(k.n)) && nenntArt(k.r); });
+      return gift && kl.some(function (k) { return !NEIN.test(k.n) && bejahtE(k.n) && nenntArt(k.r); });
     };
     var zugesagt = false;
     var saetzeR = roh.split(/[.!?\n]+/);
     for (var i = 0; i < saetzeR.length; i++) {
       var satzR = saetzeR[i], satzN = _gsLinaNorm(satzR);
       if (!satzN) continue;
-      var kontrast = KONTRAST.test(_gsLinaNorm(satzR));
+      var kontrast = KONTRAST.test(_gsLinaNorm(satzR)) || asyndetisch(satzR);   // C2 (kj)
       var klauseln = kontrast ? satzR.split(/(?:[,;]+|\bund\b|\baber\b|\bmais\b|\bma\b|\bbut\b)/i) : [];
       // dieselben Teile wie die Basis: an . ! ? ; Zeilenumbruch und an und/aber/mais/ma/but
       var teile = satzR.split(/(?:;+|\bund\b|\baber\b|\bmais\b|\bma\b|\bbut\b)/i);
       for (var j = 0; j < teile.length; j++) {
         var sz = _gsLinaNorm(teile[j]);
         if (!sz) continue;
-        var basisJa = !NEIN.test(sz) && bejahtIn(sz);         // die Regel der Basis für diesen Teil
+        var basisJa = !NEIN.test(sz) && bejahtE(sz);          // die Regel der Basis für diesen Teil (E: „Verzehr … vermeiden“ zählt nicht)
         var zustimmend = (basisJa && !nurPflege(sz, teile[j], satzN)) ? [teile[j]] : [];
         if (kontrast) {
           // C: im Gegensatz-Satz zählen die Klauseln einzeln — eine mit „nicht" warnt selbst, eine andere kann trotzdem zusagen
-          var ja = teile[j].split(/,+/).filter(function (k) { var kn = _gsLinaNorm(k); return kn && !NEIN.test(kn) && bejahtIn(kn) && !nurPflege(kn, k, satzN); });
+          var ja = teile[j].split(/,+/).filter(function (k) { var kn = _gsLinaNorm(k); return kn && !NEIN.test(kn) && bejahtE(kn) && !nurPflege(kn, k, satzN); });
           if (ja.length) zustimmend = ja;
         }
         var auch = !zustimmend.length && zugesagt && !NEIN.test(sz) && AUCH.test(sz) && sz.split(' ').length <= 4 && !PRAEDIKAT.test(sz) &&
@@ -92351,13 +92422,14 @@ function _gsLinaSicherheit(antwort, treffer) {
           // die Menge der Basis (hoch, sonst imSatz des Teils) bleibt immer drin; dazu A
           kand = hoch.concat(basisJa ? imSatz(teile[j]) : []);
           zustimmend.forEach(function (k) { kand = kand.concat(genanntIn(k)); });
+          kand = kand.concat(geerbt(teile, j));   // F, K (kj)
           if (kontrast && zustimmend.every(nenntArt)) {
             kand = kand.filter(function (art) {
               if (zustimmend.some(function (k) { return genanntIn(k).some(function (x) { return gleich(x, art); }); })) return true;
               return !klauseln.some(function (q) {
                 if (zustimmend.indexOf(q) >= 0) return false;
                 var qn = _gsLinaNorm(q);
-                if (!qn || ENTWARNT.test(qn) || bejahtIn(qn) || !(GIFTWORT.test(qn) || NEIN.test(qn))) return false;
+                if (!qn || ENTWARNT.test(qn) || bejahtE(qn) || !(GIFTWORT.test(qn) || NEIN.test(qn))) return false;
                 return genanntIn(q).some(function (x) { return gleich(x, art); });
               });
             });

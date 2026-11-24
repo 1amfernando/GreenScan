@@ -157,6 +157,12 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    „Lilli auch." nach einer Zusage. Still werden nur Pflegesätze in drei engen Formen und Gegensätze mit eigener anderer
    Art. Gemessen mit einem Orakel über alle 3'138 Namen in sechs Formen: Was die Basis warnt, warnt weiter, und kein
    harmloser Name warnt neu. Ein eben notierter Schädling steht sofort bei Lina.
+12. ✅ v33.81 (`sensor_check` „Lina 12 · Gift-Gegenprobe (kj)", Hold-out zu #353, gebaut 24.11.) — **Die Gift-Gegenprobe
+    trennte Subjekt und Prädikat.** „Die Herbstzeitlose ist aber ebenfalls essbar." und „Herbstzeitlose und Bärlauch sind
+    essbar." blieben still, „Rote Rosskastanie" warnte nie (`nie\b` las „-kastanie" als Verneinung). Dazu vier Fehlalarme aus
+    (kg): „Verzehr unbedingt vermeiden", „Geniess den Garten", „Geniess die Blüten … im Garten", „Der Kerbel ist essbar, der
+    Gefleckte Schierling giftig." Jetzt erbt ein Teil ohne Subjekt die Art davor, eine Aufzählung gehört zum Subjekt, und drei
+    enge Ausnahmen sind einzeln gemessen. Orakel: „nur Basis" 0 in allen sechs Formen.
 
 ## Offen — Suche
 

@@ -2330,6 +2330,29 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > giftige Art. Die Hülle des harmlosen Namens deckt es ab, und die Basis warnte dort auch nicht. `sensor_check`
 > „Lina 11 · Gift-Gegenprobe (kg)“ trägt das Orakel im Kleinen (312 giftige Namen in zwei Formen).
 
+> **Eine Ausnahme an der Sicherheitslinie nennt, was sie wegnimmt — und jede Regel sieht den Satz so, wie er
+> geschrieben ist** (v33.81, Lina 12; Hold-out zu #353). Die Trennung an „und“/„aber“ riss Subjekt und Prädikat
+> auseinander. „Die Herbstzeitlose ist aber ebenfalls essbar.“ und „Herbstzeitlose und Bärlauch sind essbar.“ blieben
+> in Basis und (kg) still. Seither erbt ein zustimmender Teil ohne eigenes Subjekt die Arten des nächsten Teils
+> davor (F), und eine Aufzählung ohne Prädikat gehört zum Subjekt des nächsten Teils (K). Drei enge Ausnahmen nehmen
+> eine Warnung der Basis weg, je mit Messung:
+> - „Verzehr … vermeiden“ ist keine Zusage (E);
+> - „Geniess den Garten“ ist kein Essen (G);
+> - ein Gegensatz ohne Gegensatzwort („Der Kerbel ist essbar, der Gefleckte Schierling giftig.“) wird wie C gelesen (C2).
+>
+> Vier Fallen aus dem Bau:
+> 1. **Eine Verneinung ist ein ganzes Wort.** `nie\b` in NEIN las „Rote Ross**kastanie**“ als „nie“. Der Satz galt
+>    als verneint, und die giftige Art warnte nie. Lina 11 nannte dafür einen falschen Grund (N).
+> 2. **Ein Giftwort als Aussage steht unflektiert** („… giftig“, „hochgiftig“). „Giftiger Häubling“ ist ein Name;
+>    wer `giftig` als Teilwort sucht, liest ihn als Warnung.
+> 3. **`_gsLinaNorm` macht aus „Herbst-Zeitlose“ zwei Wörter.** Eine Regel, die ein Wort als Objekt erkennt
+>    („Geniess den Garten“), prüft am ROHEN Text, sonst wird „Geniess Herbst-Zeitlose im Garten!“ still.
+> 4. **Ein Pflanzenteil ist das ganze Nomen.** „Himbeeren“ enthält „beere“ und ist doch eine andere Pflanze.
+>
+> Gemessen: Orakel über alle Namen in sechs Formen, „nur Basis“ 0. Dazu Vorlagen je Regel in beiden Richtungen über
+> 312 giftige und 404 harmlose Namen. Jede der Ausnahmen ist einzeln gezählt (`sensor_check` „Lina 12 ·
+> Gift-Gegenprobe (kj)“, 16 Gegenproben).
+
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
 > lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer
