@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.81.20261124">
+<meta name="app-version" content="33.82.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -80760,6 +80760,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.82', date: '24.11.2026',
+      headline: 'Lina warnt, wenn du nach einem Ort fragst und dort eine Giftpflanze steht — und nicht mehr bei Pflegetipps',
+      summary: 'Lina 13 und 14. Fragst du nach einem Ort statt nach einer Pflanze („Kann ich die Beeren auf dem Balkon essen?“) und sagt Lina „Ja, die kannst du essen.“, warnt sie jetzt vor einer giftigen Pflanze, die du dort eingetragen hast — im Garten dieses Namens oder mit dem Ort in der Notiz. Nur als letzter Rückfall: Nennen Frage oder Antwort eine Pflanze, gilt die. Und Pflegesätze wie „Die Narzisse blüht im März und kann bedenkenlos im Garten bleiben.“ lösen keinen Fehlalarm mehr aus.',
+      user_summary: 'Lina kennt die Giftpflanzen an deinen Orten — und warnt nicht mehr bei Pflegetipps.',
+      user_items: [
+        {emoji:'🏡', bold:'Warnung nach Ort:', text:' „Kann ich die Beeren auf dem Balkon essen?“ — Lina weiss, was dort steht.'},
+        {emoji:'🪴', bold:'Kein Fehlalarm bei Pflegetipps:', text:' „kann bedenkenlos im Garten bleiben“ ist kein Essenstipp.'},
+      ]
+  },
+  {
     v: 'v33.81', date: '24.11.2026',
       headline: 'Lina warnt bei giftigen Pflanzen auch in Sätzen mit „aber“ und „und“ — und nicht mehr bei „Geniess den Garten“',
       summary: 'Lina 12. Die Gift-Gegenprobe liest zusammen, was ein Satz an „aber“ oder „und“ trennt: „Die Herbstzeitlose ist aber ebenfalls essbar.“ und „Herbstzeitlose und Bärlauch sind essbar.“ warnen jetzt. Auch die Rote Rosskastanie warnt; ein Wort auf „-nie“ galt vorher als Verneinung. Still bleibt Lina bei Sätzen, die gar nichts zum Essen zusagen: „Verzehr unbedingt vermeiden.“, „Geniess den Garten, die Narzissen blühen!“ und „Der Kerbel ist essbar, der Gefleckte Schierling giftig.“ Gemessen über alle Namen der Artenliste: Was vorher gewarnt hat, warnt weiter, ausser in diesen drei benannten Fällen.',
@@ -81053,26 +81063,6 @@ window.GS_RELEASES = [
         {emoji:'🧾', bold:'Abo verwalten:', text:' wer noch nie gekauft hat, liest einen ruhigen Hinweis statt einer Fehlermeldung, und „Kündigen“ zeigt immer auf dein laufendes Abo.'},
       ],
   },
-  {
-    v: 'v33.62', date: '19.11.2026',
-      headline: 'Kein „Daten wiederherstellen?“ mehr beim Start — was fehlt, holt die App von selbst aus dem Backup',
-      summary: 'Gemeldet von Fernando, zweimal: der Banner „Daten wiederherstellen?“ stand bei jedem Start da, und er will beim Öffnen gar nicht gefragt werden. Ursache des Dauerbanners, am Quelltext gemessen: seit v30.97 wurde nur die LOKALE Seite gefragt — ist irgendeiner der zwölf snapshot-exklusiven Bereiche leer (Bodenprofil, Käufe, Gebote, eigene Heilmittel …)? Das ist der Normalzustand, also war die Antwort bei fast jedem Konto „ja“, und das × war nirgends gemerkt. Jetzt gibt es den Banner nicht mehr. EINE Rechnung (_gsSnapshotFehlt) sagt, was eine Wiederherstellung zurückbrächte: der Snapshot hat dort Inhalt UND lokal ist es leer. Ist das so, holt gsSnapshotAutoWiederherstellen es still zurück (schreibt nur in leere Bereiche, überschreibt nie) und sagt danach einen Satz. Verloren und bewusst geleert werden unterschieden: stand ein Bereich beim letzten Backup auf DIESEM Gerät noch da (gs_snapshot_had) und ist jetzt leer, wurde er hier geleert — er bleibt leer und hält die automatischen Backups nicht an. Ein Versuch je Backup-Stand, keine Schleife bei vollem Speicher.',
-      user_summary: 'Beim Öffnen der App fragt kein Hinweis mehr nach dem Backup. Fehlt auf deinem Gerät etwas, das in deinem Cloud-Backup liegt, holt GreenScan es von selbst zurück und sagt es dir danach in einem Satz.',
-      user_items: [
-        {emoji:'🔕', bold:'Keine Frage mehr beim Start:', text:' der grüne Hinweis „Daten wiederherstellen?“ ist weg.'},
-        {emoji:'💾', bold:'Von selbst zurückgeholt:', text:' nach gelöschten Browserdaten oder auf einem neuen Gerät ergänzt die App, was fehlt. Vorhandenes wird dabei nie überschrieben.'},
-        {emoji:'🧹', bold:'Was du gelöscht hast, bleibt gelöscht:', text:' einen Bereich, den du auf diesem Gerät selbst geleert hast, holt die App nicht ungefragt zurück.'},
-        {emoji:'⚙️', bold:'Von Hand geht es weiter:', text:' Einstellungen › „Aus Cloud-Backup wiederherstellen“ holt jederzeit alles zurück.'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'Eine Rechnung:', text:' _gsSnapshotFehlt(st, mitHaupt) — Snapshot hat Inhalt UND lokal leer. Stille Wiederherstellung, Verdrängungs-Schutz (_gsSnapshotWouldLoseData) und Prüfstand fragen alle sie; die alte Lückenfrage und der Banner sind entfernt.'},
-        {emoji:'🧾', bold:'Zustand mit Grund:', text:' gsSnapshotAutoWiederherstellen gibt {geholt, grund} zurück — auch wenn nichts geschieht, steht der Grund da.'},
-        {emoji:'🔀', bold:'Verloren oder geleert:', text:' gs_snapshot_had entscheidet; bewusst Geleertes steht in gs_restore_abgelehnt, wird von gsSnapshotRestore ausgelassen (opts.ohne) und verfällt, sobald der Bereich wieder Inhalt hat. Die manuelle Wiederherstellung holt alles.'},
-        {emoji:'🗂️', bold:'Zwei neue Schlüssel:', text:' gs_restore_geprueft (Snapshot-Id, Lücken-Signatur, Ergebnis, versucht) und gs_restore_abgelehnt — beide in GS_USER_KEYS.'},
-        {emoji:'👤', bold:'Nur für dieselbe Person:', text:' meldet sich jemand während des Holens ab oder wechselt das Konto, schreibt die App nichts (_gsPerson nach jedem await).'},
-        {emoji:'🧪', bold:'Prüfstand:', text:' backup_check, Fälle W1–W7 mit gestelltem Server; gegen v33.61 rot.'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81283,7 +81273,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.81';
+var GS_VERSION = 'v33.82';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
