@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.77.20261124">
+<meta name="app-version" content="33.78.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -80726,6 +80726,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.78', date: '24.11.2026',
+      headline: 'Pilz-Vergleich: die gefährlichsten Doppelgänger zuerst — und wenn Angaben fehlen, steht es da',
+      summary: 'Scanner 14. Der Bildvergleich im Pilz-Scanner zeigt die Doppelgänger zuerst nach ihrer Gefahr laut Register (tödlich, giftig, unbekannt), dann nach dem Verwechslungs-Risiko; je Art zählt ihr höchstes Risiko. Vorher fielen bei sechs Paaren beide Knollenblätterpilze heraus, still gekürzt auf drei. Was nicht ins Fenster passt, wird genannt („N weitere Doppelgänger stehen nur in der Warnbox“). Kam zu einem Doppelgänger keine Angabe aus dem Register, sagt die Warnbox es mit Zahl, und im Vergleich steht „Essbarkeit nicht geladen“.',
+      user_summary: 'Im Pilz-Vergleich stehen die gefährlichsten Doppelgänger vorne — und fehlen Angaben, sagt die App es.',
+      user_items: [
+        {emoji:'☠️', bold:'Die gefährlichsten zuerst:', text:' tödliche und giftige Doppelgänger stehen im Bildvergleich vorne, auch wenn sie seltener verwechselt werden.'},
+        {emoji:'➕', bold:'Nichts still weggelassen:', text:' passen nicht alle Doppelgänger ins Fenster, steht dort, wie viele noch in der Warnbox stehen.'},
+        {emoji:'❓', bold:'Angaben fehlen?', text:' antwortet das Pilz-Register nicht, steht ein Hinweis in der Warnbox, und der Doppelgänger trägt „Essbarkeit nicht geladen“.'},
+      ]
+  },
+  {
     v: 'v33.77', date: '24.11.2026',
       headline: 'Ein Register für alles, was zwischen deinen Geräten reist',
       summary: 'Dritte Scheibe aus „Speicher, Abgleich, Verdrahtung“. Jeder Schlüssel des Gerätespeichers, der im Abgleich zwischen zwei Geräten reist, steht jetzt genau einmal in einem Register (51 Einträge): in welcher Cloud-Zeile er reist, welche Regel zwischen zwei Geräten gilt, ob er beim Abmelden geht oder bleibt, und sein Deckel. Zwei bisher von Hand gepflegte Listen lesen daraus. Beim Eintragen fielen zwei Lücken auf: die Filterwahl des Kalenders sowie Geräte und Sensor-Regeln lagen im Cloud-Backup und kamen beim Wiederherstellen nie zurück. Am Abgleich selbst ändert sich sonst nichts; ein neuer Prüfstandsfall hält Hinweg, Rückweg, Backup und Abmelde-Listen gegen das Register.',
@@ -81099,24 +81110,6 @@ window.GS_RELEASES = [
         {emoji:'📅', bold:'Nicht messbar von hier:', text:' ob Anthropic die Namen der Kette heute annimmt. Nach dem nächsten echten Scan zeigt es ai_usage — select model, count(*), max(created_at) from ai_usage group by 1.'}
       ]
   },
-  {
-    v: 'v33.57', date: '10.11.2026',
-      headline: 'Scanner und Scan-Chat laufen auch ohne Schlüssel im Browser',
-      summary: 'Am 10.11.2026 wurde die Migration 20260907_global_api_key_nur_proxy angewandt: der Server gibt den Anthropic-Schlüssel nur noch Admins heraus, alle anderen rufen die KI über den Proxy. Vier Stellen fragten aber weiter „liegt ein Schlüssel im Browser?“ statt „ist die KI erreichbar?“. Der Scanner (analyzeImage) zeigte damit jedem Nutzer ohne Admin-Rolle „KI gerade nicht erreichbar“, der Scan-Chat „API-Key nötig“ — im Prüfstand nachgestellt: 0 Aufrufe an den Proxy. Jetzt beantwortet EINE Funktion die Frage (gsKiVerfuegbar: Schlüssel ODER Proxy), und alle vier Stellen rufen sie. Warum es niemand sah: schluessel_check mass callAI und callVisionAI direkt, nie den Weg davor, und scan_check stellte in jedem Fall einen Schlüssel hin.',
-      user_summary: 'Die Bestimmung per Foto und die Rückfragen zu einem Scan funktionieren wieder für alle angemeldeten Nutzer. Nach einer Sicherheits-Umstellung auf dem Server hatte der Scanner fälschlich „KI gerade nicht erreichbar“ gemeldet.',
-      user_items: [
-        {emoji:'📷', bold:'Scanner:', text:' bestimmt wieder. Die Meldung „KI gerade nicht erreichbar“ kam fälschlich, obwohl die KI erreichbar war.'},
-        {emoji:'💬', bold:'Fragen zum Scan:', text:' der Chat unter dem Ergebnis antwortet wieder, statt nach einem API-Key zu fragen.'},
-        {emoji:'🔒', bold:'Sicherer:', text:' der KI-Schlüssel liegt nicht mehr auf deinem Gerät — alle Anfragen laufen über den GreenScan-Server.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen:', text:' schluessel_check „Der Weg davor“ im Proxy-Modus ohne Schlüssel, zwei Gegenproben: mit dem alten Scanner-Tor zeigt die Karte „KI gerade nicht erreichbar“ bei 0 Aufrufen an den Proxy, mit dem alten Chat-Tor kommt die Meldung „API-Key nötig“.'},
-        {emoji:'🧩', bold:'gsKiVerfuegbar(cfg):', text:' wahr bei Schlüssel ODER Proxy-Ziel (_gsAiTarget), falsch ohne beides und ohne Anmeldung. Aufrufer: analyzeImage, sendScanChat, die Hintergrund-Recherche einer neuen Art und gsPPTestConnection (zeigt „KI-Zugang über den GreenScan-Server“ statt „Kein Key — bitte oben rechts eintragen“).'},
-        {emoji:'🧪', bold:'Prüfstand:', text:' schluessel_check 10 → 11 Fälle. Der neue geht den Weg, den ein Scan wirklich geht — Sperren gestellt wie in scan_check, nur der Schlüssel nicht; der gestellte Proxy antwortet mit stellbarem Text, Meldungen werden mitgeschrieben.'},
-        {emoji:'⚠️', bold:'Ursache, ehrlich:', text:' die Migration galt seit v32.68 als verträglich; geprüft war das an callAI und callVisionAI, nicht am Scanner davor. Zwischen dem Anwenden (10.11.2026, 22:15 Uhr) und dieser Auslieferung war der Scanner für Nutzer ohne Admin-Rolle nicht benutzbar.'},
-        {emoji:'🛠️', bold:'Datenbank (am 10.11.2026 angewandt):', text:' 20260907_global_api_key_nur_proxy, 20260831_rollen_leak_fix_v30_95 und 20260924_admin_grants; v31_36_mkt_views_auth_guard war schon seit dem 01.09.2026 in Kraft und wurde unverändert noch einmal eingespielt.'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81327,7 +81320,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.77';
+var GS_VERSION = 'v33.78';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
