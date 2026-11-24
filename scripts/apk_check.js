@@ -1112,7 +1112,10 @@ function rand() {
   // build.sh: das Release-Passwort steht nicht auf der Kommandozeile.
   const sign = (bs.match(/apksigner sign[^\n]*(\\\n[^\n]*)*/) || [''])[0];
   if (/pass:\$/.test(sign)) r22.push('apksigner sign traegt das Passwort woertlich auf der Kommandozeile (pass:$…)');
-  if (!/if \[ "\$RELEASE" = "1" \]; then[\s\S]{0,120}--ks-pass env:GS_APK_KS_PASS --key-pass env:GS_APK_KS_PASS/.test(bs)) r22.push('im Release-Zweig liest apksigner das Passwort nicht aus der Umgebung (env:)');
+  // Seit dem Merge mit main (v33.59) gibt es EINE Signierstelle fuer beide Zweige: apksigner liest
+  // das Passwort immer aus der Umgebung, und der Release-Zweig verlangt die Variable.
+  if (!/--ks-pass env:GS_APK_KS_PASS --key-pass env:GS_APK_KS_PASS/.test(sign)) r22.push('apksigner liest das Passwort nicht aus der Umgebung (env:)');
+  if (!/if \[ "\$RELEASE" = "1" \]; then[\s\S]{0,240}GS_APK_KS_PASS:\?/.test(bs)) r22.push('der Release-Zweig verlangt GS_APK_KS_PASS nicht');
   F.push({
     name: 'R22 · Vier kleine Zusagen: die Dateiwahl antwortet genau einmal, eine gescheiterte Wiederherstellung laedt die App, der Bau haelt den Status von javac fest, das Release-Passwort steht nicht auf der Kommandozeile',
     r: r22.length ? { ok: false, warum: r22.join(' · ') } : { ok: true, info: 'onShowFileChooser: catch RuntimeException → true · restoreState gelesen · JAVAC-Status + MainActivity.class · Release: env:GS_APK_KS_PASS' },
