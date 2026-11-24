@@ -1189,4 +1189,25 @@ module.exports = [
       return { ok: true, info: 'Meldefeld: ' + JSON.stringify(r.feld.slice(0, 90)) + ' · kein Toast' };
     },
   },
+  {
+    name: 'Abmelden · Bildvergleich (Scanner 12/13): das Foto der Person, das der Vergleich im Speicher hält, geht beim Abmelden mit — Pflanze und Pilz',
+    lauf: async (seite, h) => {
+      const r = await seite.evaluate(() => {
+        let wurf = null, vor = null, nach = null;
+        try {
+          _gsVglStand = { scanId: 'S-1', foto: 'data:image/jpeg;base64,FOTO-A', haupt: { name: 'Bärlauch' }, alts: [] };
+          _gsPilzVglStand = { pilzNr: _gsPilzNr, foto: 'data:image/jpeg;base64,PILZ-A', haupt: { name: 'Steinpilz' }, verwechsler: [] };
+          vor = JSON.stringify([_gsVglStand, _gsPilzVglStand]);
+          gsOnLogout();
+          nach = JSON.stringify([typeof _gsVglStand === 'undefined' ? null : _gsVglStand, typeof _gsPilzVglStand === 'undefined' ? null : _gsPilzVglStand]);
+        } catch (e) { wurf = String(e && e.message); }
+        return { vor, nach, wurf };
+      });
+      await h.frisch();
+      if (r.wurf) return { ok: false, warum: 'Ausnahme: ' + r.wurf };
+      if (!/FOTO-A/.test(r.vor || '') || !/PILZ-A/.test(r.vor || '')) return { ok: false, warum: 'der Fall hat die Vergleiche nicht hergestellt — er misst nichts' };
+      if (/FOTO-A|PILZ-A|data:image/.test(r.nach || '')) return { ok: false, warum: 'nach dem Abmelden hält der Vergleich noch ein Foto: ' + String(r.nach).slice(0, 160) };
+      return { ok: true, info: 'vorher zwei Fotos (Pflanze, Pilz) · nach gsOnLogout keines' };
+    },
+  },
 ];

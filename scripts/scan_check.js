@@ -5330,9 +5330,12 @@ const FAELLE = [
       const antwort = () => ({ matched_slug: 'russula_virescens', confidence: 88,
         mushroom: { slug: 'russula_virescens', common_name_de: 'Grasgrüner Täubling', scientific_name: 'Russula virescens', edibility: 'speisepilz' },
         edibility: 'speisepilz', safety_color: 'green',
-        lookalikes: [{ edible_slug: 'russula_virescens', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', visual_differences: 'Knollenblätterpilze haben eine Knolle mit Scheide.' }],
+        lookalikes: [{ edible_slug: 'russula_virescens', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', visual_differences: 'Knollenblätterpilze haben eine Knolle mit Scheide.' },
+          // Prüfung von #347: das Register führt Slugs MIT Bindestrich — ohne ihn fehlte dort „☠️ TÖDLICH"
+          { edible_slug: 'russula_virescens', lookalike_slug: 'gemeiner-fliegenpilz-var-alba', confusion_risk: 'hoch', visual_differences: 'ganz weiss, mit Knolle' }],
         vapko_required: true });
-      const REG = [{ slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', common_name_fr: 'Amanite phalloïde', scientific_name: 'Amanita phalloides', edibility: 'toedlich' }];
+      const REG = [{ slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', common_name_fr: 'Amanite phalloïde', scientific_name: 'Amanita phalloides', edibility: 'toedlich' },
+        { slug: 'gemeiner-fliegenpilz-var-alba', common_name_de: 'Kegelhütiger Knollenblätterpilz', scientific_name: 'Amanita virosa', edibility: 'toedlich' }];
       const text = () => (box.textContent || '').replace(/\s+/g, ' ');
       const klagen = [];
       try {
@@ -5342,7 +5345,9 @@ const FAELLE = [
         box.innerHTML = '';
         await gsMushroomRenderResult(antwort());
         const t = text();
-        if (!anfragen.some(u => /mushroom_register\?slug=in\.\(amanita_phalloides\)/.test(u))) klagen.push('das Register wurde nicht nach dem Verwechsler gefragt: ' + JSON.stringify(anfragen));
+        const inListe = (anfragen.map(u => (/mushroom_register\?slug=in\.\(([^)]*)\)/.exec(u) || [])[1]).filter(Boolean)[0] || '').split(',');
+        if (inListe.indexOf('amanita_phalloides') < 0 || inListe.indexOf('gemeiner-fliegenpilz-var-alba') < 0) klagen.push('das Register wurde nicht nach beiden Verwechslern gefragt (auch dem mit Bindestrich): ' + JSON.stringify(anfragen));
+        if (!/Kegelhütiger Knollenblätterpilz \(Amanita virosa\) ☠️ TÖDLICH/.test(t)) klagen.push('der Verwechsler mit Bindestrich-Slug steht ohne Namen oder „TÖDLICH" da: ' + (t.match(/Kegelh.{0,60}|Gemeiner.{0,60}/) || ['(fehlt)'])[0]);
         if (!/LEBENSGEFAHR ?Grüner Knollenblätterpilz \(Amanita phalloides\) ☠️ TÖDLICH/.test(t)) klagen.push('Name, Latein oder „TÖDLICH" fehlen beim Verwechsler: ' + (t.match(/LEBENSGEFAHR.{0,90}/) || [''])[0]);
         if (/Amanita Phalloides|amanita_phalloides/.test(t)) klagen.push('der Slug steht noch da');
         // auf Französisch der französische Name aus dem Register
@@ -5365,7 +5370,7 @@ const FAELLE = [
         await gsMushroomRenderResult(antwort());
         if (!/Grüner Knollenblätterpilz/.test(text())) klagen.push('nach einem Fehler bleibt der Name weg — der Fehler wurde gemerkt');
         if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
-        return { ok: true, info: 'Register gefragt (slug=in.(amanita_phalloides)) · „Grüner Knollenblätterpilz (Amanita phalloides) ☠️ TÖDLICH" · fr „Amanite phalloïde" · ohne Register „Amanita phalloides" · ein Fehler wird nicht gemerkt' };
+        return { ok: true, info: 'Register gefragt (slug=in.(amanita_phalloides,gemeiner-fliegenpilz-var-alba)) · „Grüner Knollenblätterpilz (Amanita phalloides) ☠️ TÖDLICH" · Bindestrich-Slug „Kegelhütiger Knollenblätterpilz (Amanita virosa) ☠️ TÖDLICH" · fr „Amanite phalloïde" · ohne Register „Amanita phalloides" · ein Fehler wird nicht gemerkt' };
       } finally {
         window.sbFetch = es; window.gsShowMushroomDangerOverlay = ov; gsI18n.getLang = sl; window._gsMergeMushI18n = sm;
         _gsPilzRegCache = Object.create(null);
@@ -5386,13 +5391,13 @@ const FAELLE = [
         lookalikes: [
           { edible_slug: 'agaricus_campestris', lookalike_slug: 'agaricus_xanthodermus', confusion_risk: 'mittel', visual_differences: 'gilbt beim Anschneiden, riecht nach Tinte' },
           { edible_slug: 'agaricus_campestris', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', visual_differences: 'Knolle mit Scheide, Lamellen bleiben weiss' },
-          { edible_slug: 'agaricus_campestris', lookalike_slug: 'amanita_virosa', confusion_risk: 'hoch', visual_differences: 'ganz weiss, Ring hängt' },
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'gemeiner-fliegenpilz-var-alba', confusion_risk: 'hoch', visual_differences: 'ganz weiss, Ring hängt' },
           { edible_slug: 'agaricus_campestris', lookalike_slug: 'amanita_phalloides', confusion_risk: 'hoch', visual_differences: 'doppelt' },
           { edible_slug: 'agaricus_arvensis', lookalike_slug: 'agaricus_campestris', confusion_risk: 'gering', visual_differences: 'grösser' } ] };
       const REG = [
         { slug: 'agaricus_xanthodermus', common_name_de: 'Karbol-Champignon', scientific_name: 'Agaricus xanthodermus', edibility: 'giftig' },
         { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' },
-        { slug: 'amanita_virosa', common_name_de: 'Kegelhütiger Knollenblätterpilz', scientific_name: 'Amanita virosa', edibility: 'toedlich' },
+        { slug: 'gemeiner-fliegenpilz-var-alba', common_name_de: 'Kegelhütiger Knollenblätterpilz', scientific_name: 'Amanita virosa', edibility: 'toedlich' },
         { slug: 'agaricus_arvensis', common_name_de: 'Schaf-Champignon', scientific_name: 'Agaricus arvensis', edibility: 'speisepilz' } ];
       try {
         window.gsShowMushroomDangerOverlay = () => {};
@@ -5436,6 +5441,66 @@ const FAELLE = [
         return { ok: true, info: '0 Anfragen vor dem Antippen · danach 4 · ' + namen.join(' · ') + ' · Register-Essbarkeit, Risiko, Unterschied · VAPKO-Satz · kein „Das ist es"' };
       } finally {
         window._gsFetch = ef; window.sbFetch = es; window.gsShowMushroomDangerOverlay = ov; window._gsMushroomPhotoB64 = fb;
+        _gsPilzRegCache = Object.create(null);
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+        box.innerHTML = '';
+      }
+    },
+  },
+  {
+    name: 'PV6 · Pilz-Vergleich · am VERWECHSLER nur Warnungen — ein „Speisepilz laut Register" steht dort nicht (wie in der Warnbox), an der erkannten Art schon; und ein Fehler beim Merken des Vergleichs reisst die Warnbox nicht mit',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const es = window.sbFetch, ov = window.gsShowMushroomDangerOverlay, fb = window._gsMushroomPhotoB64, merk = _gsPilzVglMerken;
+      const antwort = { matched_slug: 'champignon-de-paris', confidence: 77,
+        mushroom: { slug: 'champignon-de-paris', common_name_de: 'Zucht-Champignon', scientific_name: 'Agaricus bisporus', edibility: 'speisepilz' },
+        edibility: 'speisepilz', safety_color: 'green', vapko_required: true,
+        lookalikes: [
+          { edible_slug: 'champignon-de-paris', lookalike_slug: 'agaricus_arvensis', confusion_risk: 'hoch', visual_differences: 'grösser, riecht nach Anis' },
+          { edible_slug: 'champignon-de-paris', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', visual_differences: 'Knolle mit Scheide' } ] };
+      const REG = [
+        { slug: 'agaricus_arvensis', common_name_de: 'Schaf-Champignon', scientific_name: 'Agaricus arvensis', edibility: 'speisepilz' },
+        { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' } ];
+      const klagen = [];
+      try {
+        window.gsShowMushroomDangerOverlay = () => {};
+        window._gsMushroomPhotoB64 = 'data:image/jpeg;base64,PILZFOTO';
+        window.sbFetch = async (pfad) => (/mushroom_register\?/.test(pfad) ? { data: REG.slice(), error: null } : { data: [], error: null });
+        _gsPilzRegCache = Object.create(null);
+        box.innerHTML = '';
+        await gsMushroomRenderResult(antwort);
+        const knopf = box.querySelector('.gs-pilz-vgl-knopf');
+        if (!knopf) return { ok: false, warum: 'kein Knopf „Mit Bildern vergleichen"' };
+        knopf.click();
+        const dlg = document.getElementById('gs-vergleich');
+        if (!dlg) return { ok: false, warum: 'der Knopf öffnet kein Fenster' };
+        const karte = (k) => dlg.querySelector('.gs-vgl-karte[data-vgl="' + k + '"]');
+        const marken = (el) => el ? [...el.querySelectorAll('.gs-pilz-essbar')].map(x => x.textContent.trim()) : null;
+        const haupt = marken(karte('haupt'));
+        const verw = [...dlg.querySelectorAll('.gs-vgl-karte:not([data-vgl="haupt"])')].map(k => ({ name: ((k.querySelector('.gs-vgl-name') || {}).textContent || ''), marken: marken(k), text: (k.textContent || '').replace(/\s+/g, ' ') }));
+        const schaf = verw.find(v => /Schaf-Champignon/.test(v.name)), gift = verw.find(v => /Grüner Knollenblätterpilz/.test(v.name));
+        if (!schaf || !gift) klagen.push('die zwei Verwechsler fehlen im Fenster: ' + JSON.stringify(verw.map(v => v.name)));
+        else {
+          if (schaf.marken.length || /Speisepilz/.test(schaf.text)) klagen.push('am Verwechsler „Schaf-Champignon" steht eine milde Marke: ' + JSON.stringify(schaf.marken));
+          if (!/HOCH/.test(schaf.text)) klagen.push('am Verwechsler fehlt das Risiko');
+          if (!gift.marken.some(m => /TÖDLICH/.test(m))) klagen.push('am tödlichen Verwechsler fehlt „TÖDLICH": ' + JSON.stringify(gift.marken));
+        }
+        if (!haupt || !haupt.some(m => /Speisepilz laut Register/.test(m))) klagen.push('an der erkannten Art fehlt ihre Register-Angabe: ' + JSON.stringify(haupt));
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+        // Ein Wurf beim Merken des Vergleichs: die Warnbox steht trotzdem
+        _gsPilzVglMerken = function () { throw new Error('PV6-Wurf'); };
+        box.innerHTML = '';
+        let wurf = null;
+        try { await gsMushroomRenderResult(antwort); } catch (e) { wurf = String(e && e.message); }
+        _gsPilzVglMerken = merk;
+        const t2 = (box.textContent || '').replace(/\s+/g, ' ');
+        if (wurf || !/LEBENSGEFAHR/.test(t2) || !/Grüner Knollenblätterpilz/.test(t2)) klagen.push('ein Fehler beim Merken des Vergleichs nimmt die Warnbox mit' + (wurf ? ' (' + wurf + ')' : ': ' + t2.slice(0, 80)));
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Verwechsler „Schaf-Champignon" ohne „Speisepilz", mit Risiko · „Grüner Knollenblätterpilz" mit „TÖDLICH" · die Art mit „Speisepilz laut Register" · ein Wurf beim Merken: Warnbox steht' };
+      } finally {
+        _gsPilzVglMerken = merk;
+        window.sbFetch = es; window.gsShowMushroomDangerOverlay = ov; window._gsMushroomPhotoB64 = fb;
         _gsPilzRegCache = Object.create(null);
         try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
         box.innerHTML = '';

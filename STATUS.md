@@ -89,6 +89,13 @@ die Verwechsler-Galerie (`gsOpenMushroomLookalikesModal`) zeigten die Pilze als 
 amanita phalloides"). Jetzt dieselben Namen aus dem Register (`_gsPilzNameBekannt` liest, was `_gsPilzRegister` geholt hat).
 `scan_check` PV5, gegen den alten Stand rot; zwei Gegenproben (Register im Hinweis · Galerie mit dem alten Slug) einzeln rot.
 
+**Nachtrag (Prüfung von #347, ein Fix-Commit, kein Bump):** (A) Das Register führt Slugs MIT Bindestrich
+(`champignon-de-paris`, `gemeiner-fliegenpilz-var-alba` — tödlich); `_gsPilzRegister` und `_gsPilzNameBekannt` verwarfen sie, und
+genau dort fehlte „☠️ TÖDLICH". Beide nehmen jetzt `[a-z0-9_-]`; PV1/PV2 tragen einen Bindestrich-Slug. (C) Am VERWECHSLER im
+Vergleichsfenster steht nur noch eine Warnung (`gefahr`), wie in der Warnbox — ein „🍽️ Speisepilz laut Register" neben einem
+Doppelgänger lädt zum Verwechseln ein (PV6). (D) Ein Wurf beim Merken des Vergleichs nimmt die Warnbox nicht mit (`try`, PV6). (E)
+`gsOnLogout` räumt beide Vergleiche samt Foto (`sicherheit_check` 98_schluss_e „Abmelden · Bildvergleich"). Gegenproben einzeln rot.
+
 **Offen:** nichts — brett:2026-11-24-3aa8 und brett:2026-11-24-bc4f sind mit diesem Paket geschlossen.
 **Nicht geprüft:** ein echtes Telefon; das echte Register (gestellt — die Spalten sind die von `_live_schema.mjs`); wie oft Wikipedia
 für einen Pilz der Liste ein Bild hat; der Unterschied (`visual_differences`) ist nur deutsch, wo `mushroom_lookalikes_i18n` keine
@@ -147,6 +154,12 @@ Schalter-Knopf, `gsPestAddToDiary` und `gsDiaryAddEntry` mit `gsCloudTagebuchLad
 `saveUserLocation`) — gegen v33.71 rot; elf Gegenproben einzeln rot, je an der richtigen Lage. „Lina · Einblick" verlangt die
 Entwarnung jetzt in beiden Lagen (ohne und mit geladenem Tagebuch); sein Schädling an der Pflanze (`p.diary`, action `pest`) ist als
 das bezeichnet, was er ist: heute schreibt ihn kein Weg der App.
+
+**Nachtrag (Prüfung von #347, ein Fix-Commit, kein Bump):** (B) Die Sätze zum ausgeschalteten Einblick sagten „Lina bekommt nur
+deine Frage" — mit geht aber das bisherige Gespräch (`hist`, auch Linas Antworten aus der Zeit mit Einblick). Jetzt sagen alle vier
+Stellen (leerer Verlauf, laufendes Gespräch, zwei Zeilen der Release-Notiz) und der Vorschlag in FUER-FERNANDO §33, was stimmt:
+nichts aus Pflanzen, Gärten, Scans, Geräten oder dem Ort — das bisherige Gespräch geht mit. `sensor_check` (a2) misst beides:
+der Satz steht da, und das Gespräch geht wirklich mit. Gegenproben einzeln rot.
 
 **Offen:** nichts — brett:2026-11-24-6bbf ist mit diesem Paket geschlossen; der Wortlaut der Datenschutztexte wartet auf Fernando (FUER-FERNANDO §33).
 **Nicht geprüft:** ein echtes Telefon; eine echte KI-Antwort (gestellt); ob das Cloud-Tagebuch live `pest_observation`-Zeilen so liefert wie gestellt (nur die Spalten, die `gsCloudTagebuchLaden` holt).

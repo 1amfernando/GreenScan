@@ -55,7 +55,8 @@ Ein zweiter Block neben `gsLinaZahlen`, abschaltbar im Lina-Fenster
 
 **„Aus" heisst aus** (Brett 6bbf, seit v33.74): ohne Einblick gibt `gsLinaContext` NUR Sprache,
 Jahreszeit und die ARTEN der Frage weiter — keine Pflanzenzahl, keine Region, nichts aus
-`gsLinaZahlen` —, und die KI erfährt, dass sie die Daten nicht kennt. Der Schalter steht im
+`gsLinaZahlen` —, und die KI erfährt, dass sie die Daten nicht kennt. Das bisherige Gespräch geht
+weiter mit (`hist`), und die Sätze sagen das — „nur deine Frage" stimmte nicht (Prüfung von #347). Der Schalter steht im
 leeren Verlauf UND als Zeile im laufenden Gespräch (`gsLinaEinblickSchalten`). Gelingt das
 Speichern nicht (voller Speicher: `setItem` gibt `false`), gilt „aus" bis zum Neuladen
 (`_gsLinaEinblickSitzung`), und ein Satz sagt es. Ein Ortsname, der eine KOORDINATE ist (der
