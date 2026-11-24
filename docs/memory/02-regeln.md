@@ -37,11 +37,35 @@ Tagebuch in `CLAUDE.md`.
    `state`-Blob auf HIN- und RUECKWEG (`_gsBuildStateBlob` + `stateMap`) und
    `markDirty('state')` am Schreiber. *(storage_check, sync_check)*
 
+5a. **Zwei Geräte, ein Konto: Pflanzen und Gärten werden je EINTRAG
+   zusammengeführt, nie als ganze Liste ersetzt** (v33.66).
+   `_gsMergeEintraege` (Stempel `geaendert`, Löschmarken `gs_geloescht`),
+   gestempelt in `savePlantsToStorage` / `saveGardenData`, eingespielt über
+   `_gsListeEinspielen`. Und: speichern heisst erst schreiben, dann melden —
+   `=== false` nimmt den Eintrag zurück und sagt einen Satz.
+   *(sync_check „Zwei Geräte", speicher_check, save_check)*
+
+5a′. **Ein Blob geht erst hoch, wenn er gelesen wurde** (v33.68). `_flush` schiebt
+   nur, was `_gsBlobGelesen[scope]` für diese Person trägt; ein Lesefehler ist nie
+   „leer“ (`_gsGartenBlobLesen`). Pläne und Tracks: je Eintrag, mit Löschmarke
+   (`_gsLoeschmarke`); state auf einem nie abgeglichenen Gerät: je Schlüssel
+   gemischt (`_gsStateMischen`); ein ungelesenes Profil (`_ungelesen`) ist kein
+   Cloud-Stand. *(CLAUDE.md §3.3; sync_check H8–H12)*
+
 5b. **Eine Antwort nach einem `await` gehört der Person, die gefragt hat.**
    `sbLogout` lädt nicht neu. Wer nach einem `await` zeichnet oder schreibt, merkt
    sich vorher `_gsPerson()` und prüft danach, ob es noch dieselbe ist; was nur im
    Arbeitsspeicher liegt und einer Person gehört, räumt `gsOnLogout`.
-   *(§3.6; sensor_check L10, scan_check SC3)*
+   *(§3.6; sensor_check L10, scan_check SC3)* — Und dem VORGANG: wer abbrechen lässt
+   oder einen neuen Vorgang über den laufenden startet, gibt jedem eine Nummer und prüft
+   sie nach jedem `await` (`_gsScanNr`, `gsScanAbbrechen`). *(scan_check AB1–AB4)*
+   Seit 19.11.2026 ein TOR in `sbFetch` und `_gsAiAnfrage`: wechselt die Person, kommt
+   keine Antwort an (`_gsPersonGewechselt`, Fehler `person_gewechselt`). Das Tor sieht
+   nicht, was erst NACH dem Wechsel losgeht: die Person vor dem ERSTEN `await` merken,
+   ein rohes `fetch` vor dem Senden und danach fragen, eine Schleife die uid einmal
+   merken, ein `catch` zuerst `_gsPersonGewechselt(e)` fragen und still enden. Abmelden
+   heisst derselbe Bildschirm wie nach einem Neuladen (`_gsAbmeldenFenster`,
+   `_gsAbmeldenFelder`, `_gsAbmeldenStartseite`). *(sicherheit_check 71_person, 98_schluss_e)*
 
 6. **Fremder Text ist Text, nie Code.** `escHtml(s)` fuer Text/Attribut,
    `_gsOcStr(s)` fuer Werte in `onclick="…"`, `gsSanitizeHtml(html)` fuer

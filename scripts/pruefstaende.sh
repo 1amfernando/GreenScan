@@ -7,8 +7,9 @@
 # Playwright: $GS_PW (Pfad zum playwright-Modul) — in CI scripts/node_modules/playwright,
 # in der Claude-Cloud /opt/node22/lib/node_modules/playwright (Vorgabe in den Pruefstaenden).
 # Android (apk_check): aapt/apksigner/zipalign/dalvik-exchange + android.jar (Ubuntu-Archiv, NICHT dl.google.com).
-# Postgres (quiz_check, schluessel_check, nutzung_check, backup_check, quiz_gen_check): $GS_PG_URL, sonst 127.0.0.1:54329 (scripts/_pg_local.sh).
-# Ohne Postgres melden diese beiden „nicht pruefbar" (Exit 2) — hier gilt das als Warnung, nicht als rot.
+# Postgres (quiz_check, schluessel_check, nutzung_check, backup_check, quiz_gen_check, naht_check, admin_check, stripe_check):
+# $GS_PG_URL, sonst 127.0.0.1:54329 (scripts/_pg_local.sh). Ohne Postgres melden sie „nicht pruefbar" (Exit 2) — hier
+# gilt das als Warnung, nicht als rot. (Bis v33.59 stand hier „diese beiden" und fuenf Namen; es sind acht.)
 set -u
 cd "$(dirname "$0")/.."
 ROT=0; WARN=0; N=0
@@ -85,11 +86,17 @@ run risiko       node scripts/risiko_check.js
 #                ohne Postgres „nicht pruefbar", Exit 2 — nie gruen)
 run sicherheit   node scripts/sicherheit_check.js
 run edge         node scripts/edge_check.js
+# v33.63 (P-C2): der Zahlungsweg Ende zu Ende — die ECHTEN Handler von stripe-checkout, -portal, -webhook
+# gegen eine gestellte Welt (Stripe, supabase-js, Sicht v_user_entitlements), dazu eine SQL-Hälfte im
+# lokalen Postgres (ohne es „nicht pruefbar", Exit 2). Aus PR #329, auf zahlung_regeln.mjs umgestellt.
+run stripe       node scripts/stripe_check.js
 run rls          node scripts/rls_check.js
 # Das Brett, an dem sich die KI-Sitzungen austauschen (docs/austausch/README.md):
 # stimmt, was eine Sitzung der naechsten hinterlaesst? Braucht nur Node und git.
 run austausch    node scripts/austausch_check.js
 if [ "$SCHNELL" != "schnell" ]; then
+  # v33.60: contrast_check und render_check sind ein TOR (Exit 1 bei einem Fund) — bis v33.59 endeten
+  # beide immer mit 0, und „1 Textstelle unter AA" stand in jedem CI-Lauf gruen da.
   TAILN=12 run contrast   node scripts/contrast_check.js
   TAILN=14 run einstellungen node scripts/einstellungen_check.js
   run offline      node scripts/offline_check.js

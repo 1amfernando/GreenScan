@@ -1,0 +1,17 @@
+{
+  "id": "2026-11-19-57e0",
+  "art": "idee",
+  "datum": "2026-11-19",
+  "zeit": "15:30:34",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.68",
+  "titel": "i18n-translate nur als Admin rufen — reguläre Konten bekommen dort immer 403",
+  "text": "Gemessen am 19.11.2026 (Edge-Logs, nur lesend): jede POST-Anfrage an i18n-translate aus der App endet mit 403 (am 16.11. vor der Auslieferung 07:22–11:25 UTC ebenso, also vorbestehend; „Not a JWT, too short signature“ — die App schickt den öffentlichen Schlüssel). Die Function lässt absichtlich nur Admin oder service_role zu, die App fällt auf vorhandene Übersetzungen zurück. Der Verkehr ist also überflüssig.",
+  "nutzen": "weniger Anfragen und keine 403-Flut in den Logs, die echte Fehler verdeckt",
+  "pruefbar": "Edge-Logs: keine 403 an i18n-translate von regulären Konten mehr; i18n_check bleibt grün",
+  "stichworte": [
+    "i18n-translate",
+    "403",
+    "edge-logs"
+  ]
+}

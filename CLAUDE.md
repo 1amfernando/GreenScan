@@ -150,10 +150,10 @@ GreenScan/
 │                        Lizenztexte liegen daneben (LICENSE-*.txt, OFL 1.1 bzw. Apache-2.0)
 ├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Teilen-Ziel POST /teilen seit v33.55, Push) — sein altes Changelog liegt in docs/_archiv/SW-CHANGELOG.md
 ├── supabase/functions/  # Edge-Function-Verzeichnisse + _shared (Scan/Pilz/Schädling/Stripe/Push/i18n …)
-│                        _shared/ = elf reine ESM-Module, von Deno UND Node importierbar (§7.1 edge_check):
+│                        _shared/ = zwölf reine ESM-Module, von Deno UND Node importierbar (§7.1 edge_check):
 │                        auth_vergleich · ingest_regeln · loeschung_regeln · push_helfer · quiz_gen_regeln ·
 │                        sensor_push_regeln · modelle (v33.58) · ki_tor · zahlung_regeln · markt_regeln ·
-│                        plan_antwort (die vier letzten v33.59) — AUSLIEFERUNG.json: was ausgeliefert wird
+│                        plan_antwort (die vier v33.59) · pilz_wissen (v33.64) — AUSLIEFERUNG.json: was ausgeliefert wird
 ├── supabase/migrations/ # SQL-Migrationen (alle idempotent; die 20261110_* sind NICHT angewandt — §3.6, FUER-FERNANDO §30) — Zahlen: STATUS.md §1
 ├── manifest.json        # PWA-Manifest (share_target fuer FOTOS seit v33.55 — vorher nur Text/Link per GET; kein file_handlers, das stand hier bis v33.54 falsch)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
@@ -316,18 +316,23 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 | Geräte | `localStorage.gs_geraete` (`gsGeraete` / `_gsGeraeteSchreiben`); für **gekoppelte** Geräte (`cloud_id`) ist Supabase `devices` die Instanz für Status, `paired_at`, Firmware (`gsGeraeteCloudAbgleich`, seit v32.62) und der Server meldet die Alarme | nie den Status eines gekoppelten Geräts lokal raten; `cloud_id` nur nach `_gsSchreibOk` setzen; das Token nie speichern |
 | Messwerte | `localStorage.gs_messwerte`, **nur** über `_gsMesswerteAnhaengen` / `gsMesswertEintragen` (seit v32.52: ein Weg, Dublettensperre auf Gerät · Messgrösse · Zeit) | nie direkt `push`en — der Deckel und die Sortierung nach `ts` hängen daran |
 | Quiz-Tag | `dqDayKey()` — **UTC**, weil der Server mit `current_date` rotiert; die Anzeige der Grenze rechnet `dqNaechsteFrage()` | nie `new Date().toISOString()` je Anzeige, nie die lokale Mitternacht |
+| Pflanzen- und Gartenlisten zwischen ZWEI Geräten (seit v33.66) | `_gsMergeEintraege(lokal, cloud, {schmutzig, tomb, ohneId})` — EINE Rechnung je Eintrag nach id: der spätere `geaendert`-Stempel gewinnt, ohne Stempel oder bei Gleichstand das lokale, wenn es ungesendet (dirty) ist; einseitige Einträge bleiben, ausser eine Löschmarke (`gs_geloescht` `{liste:{id:ms}}`, 90 Tage, höchstens 300 je Liste, im state-Blob und im Snapshot, auf dem Rückweg eine VEREINIGUNG) ist jünger. Gestempelt wird an den Engpässen `savePlantsToStorage` / `saveGardenData` (`_gsStempeln`). `gsSyncUserDataOnLogin` geht für `ps_myplants`, `gs_gardens`, `gs_plantings` immer hindurch und schreibt über `_gsListeEinspielen`; nach jedem `await` gilt `_gsPerson()` | nie eine ganze Liste aus der Cloud über die lokale legen (`myPlants = pd.plants`); keine zweite Merge-Rechnung neben `_gsMergeEintraege`; Tagebuch, Ernte-Log, Friedhof und Saatgut sind NICHT gestempelt (viele Schreiber, kein Engpass — offen, STATUS (jn)) |
+| Ein Blob geht erst hoch, wenn er GELESEN wurde (seit v33.68) | `gsCloudSync._flush` schiebt `user_plants` / `user_gardens` / `user_app_state` nur, wenn `_gsInitialSyncDone` gilt oder `_gsBlobGelesen[scope]` die uid dieser Sitzung trägt (gesetzt in `gsSyncUserDataOnLogin` nach einem Lesen OHNE Fehler; 0 Zeilen zählen). Wer den Garten-Blob von Hand liest und zurückschreibt, nimmt `_gsGartenBlobLesen(r)` (da · leer · fehler · gewechselt) — nur über „da“ oder „leer“ wird geschrieben. Bei ungesendetem Stand werden Pläne und Tracks je Eintrag zusammengeführt, mit Löschmarken (`_gsLoeschmarke`, `GS_GELOESCHT_LISTEN` = die drei Stempel-Listen + `gs_garden_plans` + `gs_gpx_tracks`); ein ungesendeter state auf einem Gerät ohne `gs_sync_synced_at_state` wird je Schlüssel gemischt (`_gsStateMischen`). Ein ungelesenes Profil trägt `_ungelesen`: nichts darüber zurückschreiben, nicht als Cloud-Stand rechnen (`gsXpBootSync`), nachlesen über `_gsProfilNachlesen` | einen Lesefehler als „leer“ nehmen und dann die ganze Zeile schreiben; eine Liste je Eintrag zusammenführen, ohne zu fragen, wie ein LÖSCHEN darin überlebt (ohne Marke kommt das Gelöschte zurück — `sync_check` H10); einen Ersatzwert (xp 0) als gemessenen Stand behandeln |
 | Lernkarten („Üben") | `localStorage.gs_dq_training` über `gsTrainingLaden()` / `gsTrainingBuchen(schluessel, richtig)`; Schlüssel = normiertes Binomen + Fragetyp (die ART, nicht der Eintrag) | nie direkt schreiben — Deckel, Karteileichen-Räumung und `markDirty('state')` hängen daran; und nie `gs_dq_stats` mitzählen: Üben ist vom Tagesquiz getrennt |
 | Arten in einem FREITEXT (Lina, Chat) | `_gsArtenTreffer(text)` — ganzer Name oder ganzes Binomen an Wortgrenzen, plus das letzte Wort eines mehrteiligen Namens (≥ 10 Zeichen, gegen die deutsche Deklination); der Umgangsname zieht seine FAMILIE mit; je Art durch `_gsArtAnzeige` | nie den Vergleich aus `getSmartAnswer` nachbauen (er nimmt IRGENDEIN Wort — „braune Blätter" ergibt die Braune Krustenflechte), nie bei mehreren Arten eine auswählen (`[0]` ist die Dateireihenfolge), und nie eine Zusage geben, wenn der volle Name gar nicht in der Frage stand |
 | Quiz-Kategorie | `supabase/functions/_shared/quiz_gen_regeln.mjs` (`QUIZ_KATEGORIEN` + `QUIZ_KAT_ALIAS`), in der App gespiegelt als `GS_QUIZ_KATEGORIEN` / `GS_QUIZ_KAT_ALIAS`; angezeigt **nur** über `_gsQuizKatLabel(slug)` | nie `quiz.category` roh anzeigen (es gab 35 Schreibweisen aus drei Quellen), nie eine Kategorie erfinden — was das Vokabular nicht kennt, wird verworfen bzw. bleibt leer |
 | Quiz-Serie und -Statistik | `gs_dq_stats` über `dqStatsBuchen(correct)` (bucht Serie, Versuch, Jahreswechsel) und `dqSerie()` (die LEBENDE Serie) | nie `stats.streak++` und nie `stats.streak` in einer Anzeige — eine gerissene Serie steht sonst weiter da |
 | „Heute schon gespielt" | `localStorage.gs_dq_tag_<datum>` über `dqTodayKey()` / `dqGetToday()`; Deckel `GS_DQ_TAGE_MAX` | kein eigener Tagesschlüssel daneben — er müsste in `GS_USER_PREFIXES` und in den Deckel |
+| Abhaken („erledigt") | `p.tasks[key].lastDone` UND ein Eintrag in `p.diary` mit `source` — geschrieben von `gsQuickDone(id, key)` (dorthin gehen auch `doneTask`, die Fällig-Karte und der Kalender) und von `gsDoneAllDue()`; gelesen über `_gsTbAbgehakt(e)` (beide Merker) und `_gsTbTitel(e)` | nie `lastDone` setzen ohne Verlaufseintrag (der Knopf auf der Pflanzenkarte tat das bis v33.59), nie `e.source === 'quick_done'` an einer neuen Stelle, nie `e.title` roh anzeigen |
+| Notfall-Nummern | `GS_NOTFALL_NUMMERN` (145 · Ausland · 144 · 112, mit Prüfdatum; Quelle Tox Info Suisse) — gezeigt von `gsNotfallOeffnen()`, gefunden über `_gsMenuNotfallTrifft(q, tags)` | keine Nummer als Literal an einer neuen Stelle; kein Erste-Hilfe-Satz ohne Quelle; `_gsNotfallStufe` sagt Nein mit dem WORT `'keiner'` — den Zustand vergleichen, nicht die Wahrheit |
 | Messgrössen-Katalog | Supabase `metric_catalog` → `gs_metric_catalog` (nur bei Erfolg ersetzt, `gsMetricKatalogLaden`), Rückfall `GS_METRIC_KATALOG_START` | kein `if (metric === …)` im Code (OEKOSYSTEM-V1 §9) |
 | KI-Grenzen je Plan und Function (seit v33.59) | `KI_GRENZEN` in `supabase/functions/_shared/ki_tor.mjs` — Tageslimit je Plan, Gesamt- und Bilddeckel, Texte, `max_tokens`; gebucht über `kiTor` → `fn_ai_kontingent_reservieren` (Migration `20261110_sicherheit_ki_kontingent.sql`), zurück über `kiFreigeben`, wenn der Anbieter nicht gerechnet hat (`kiFreigabeNoetig`) | keine Zahl in einer `index.ts`; der Plan wird mit dem TOKEN der Person gelesen (mit Service-Role sieht `v_user_entitlements` keine Zeile — alles wäre still `free`); ein bezahlter Plan bekommt nie weniger als vorher (§3.4) |
 | Feste Fehlersätze des KI-Proxys (seit v33.59) | `KI_SAETZE` / `kiFehlerCode` in `ki_tor.mjs`; die App kennt die Typen in `GS_KI_PROXY_SAETZE` und zeigt den Satz des Servers (`_gsAiProxySatz`) | keinen Satz aus dem HTTP-Status raten („API Key ungültig" für ein gesperrtes Konto); ein neuer Typ steht in BEIDEN Listen — `sicherheit_check` 98_schluss_b hält sie gegeneinander |
-| Bezahl-Regeln (seit v33.59) | `supabase/functions/_shared/zahlung_regeln.mjs` — Preis (`preisErlaubt`), Rückkehr-Adresse (`EIGENE_URSPRUENGE`, `rueckkehrAdresse`), Startangebot (`launchAngebot`), Gratistage, Reihenfolge der Ereignisse (`ereignisIstNeuer`), Entzug einer Lifetime, Experten-Zahlung, „gibt es das Konto noch?“ (`kontoFehlt` — nur 23503 auf `user_id`: ein Abo- oder Rechnungsereignis eines gelöschten Kontos wird mit 200 abgeschlossen und in `system_events` vermerkt; 23503 auf `price_id` heilt und wirft weiter, ein Lifetime-Kauf ohne Konto bleibt 500) | nie ein Preis, eine Adresse oder ein Flag aus dem Rumpf der Anfrage übernehmen; eine Zahlung setzt nie einen Zustand, den ein MENSCH bestätigen soll (`expertenZahlungFelder` schreibt nie `verified`) |
+| Welche Pilzarten das Modell kennt — und ab wann ein Pilz-Ergebnis eine Bestimmung ist (seit v33.64) | `pilzWissenAuswahl` in `supabase/functions/_shared/pilz_wissen.mjs`: ALLE Arten des Registers; muss je gekürzt werden, fallen zuerst Speisepilze, nie eine giftige vor einer harmloseren. Die Schwelle ist `PILZ_SICHER_AB` (70), in der App gespiegelt als `GS_PILZ_SICHER_AB`; `edge_check` 80_pilz hält beide | ein `.limit(N)` auf `mushroom_register` im Rand (live fehlten so 19 giftige Arten, gemessen 19.11.2026); eine eigene Zahl für die Trefferquote in App oder Function; die Essbarkeit eines Pilzes aus der Artenliste der App nehmen, wo das Register sie kennt — die Liste ist bei 10 Giftpilzen milder (Brett 2026-11-19-a24a) |
+| Bezahl-Regeln (seit v33.59; seit v33.63 EIN Modul für den ganzen Zahlungsweg — PR #329 hatte daneben `stripe_regeln.mjs`, das es nicht mehr gibt) | `supabase/functions/_shared/zahlung_regeln.mjs` — was gekauft werden darf (`checkoutPlan`: kein zweites Abo neben einem laufenden, nichts neben Lifetime; Stripe wird gefragt, ob das Abo läuft), was an Checkout geht (`checkoutParameter` / `CHECKOUT_PARAMETER` — nie `automatic_payment_methods`), welcher Kunde (`kundeFinden`), welches Abo „kündigen“ meint (`portalZiel`), welche Ereignisse der Webhook kennt UND der Endpunkt abonniert (`STRIPE_EREIGNISSE`, `stripe-admin-extend-webhook`), Abo-Zeile in beiden API-Formen (`aboZeile`, `aboIdAusRechnung`), Modus von Ereignis und Schlüssel (`modusPasst`); Preis (`preisErlaubt`), Rückkehr-Adresse (`EIGENE_URSPRUENGE`, `rueckkehrAdresse`), Startangebot (`launchAngebot`), Gratistage, Reihenfolge der Ereignisse (`ereignisIstNeuer`), Entzug einer Lifetime, Experten-Zahlung, „gibt es das Konto noch?“ (`kontoFehlt` — nur 23503 auf `user_id`: ein Abo- oder Rechnungsereignis eines gelöschten Kontos wird mit 200 abgeschlossen und in `system_events` vermerkt; 23503 auf `price_id` heilt und wirft weiter, ein Lifetime-Kauf ohne Konto bleibt 500) | nie ein Preis, eine Adresse oder ein Flag aus dem Rumpf der Anfrage übernehmen; eine Zahlung setzt nie einen Zustand, den ein MENSCH bestätigen soll (`expertenZahlungFelder` schreibt nie `verified`) |
 | Erfolgsmeldung nach einer Zahlung (seit v33.59) | `_gsBillingPruefen()` — erst wenn `v_user_entitlements` einen bezahlten Plan zeigt | nie `?billing=success` oder eine Popup-Nachricht als Beleg nehmen |
 | Push-Dienste (seit v33.59) | `PUSH_HOSTS` / `pushEndpunktOk` in `_shared/push_helfer.mjs`, gebunden an den CHECK `push_subscriptions_endpoint_push_dienst` der Migration `20261110_sicherheit_konto_speicher.sql`; Abos je Nutzer `ABOS_JE_NUTZER` (10) = Deckel `fn_push_subs_deckel` | an einen Endpunkt senden, den keine der beiden Listen kennt — den Endpunkt schreibt die Person selbst; eine der zwei Zahlen allein ändern (`edge_check` 30_push hält beide) |
-| Gespeicherte Pläne (seit v33.59) | `gs_plans_v2` (in `GS_USER_KEYS`, geht beim Abmelden) über `gsPlans`; nur lokal gespeicherte warten mit `uid` gestempelt in `gs_plans_wartend` (`GS_KEEP_ON_LOGOUT`, 20 je Konto, 90 Tage ab dem PARKEN — `e.geparkt`, seit der Gesamtprüfung vom 16.11.2026), bis DASSELBE Konto wiederkommt; `gsPlans.parken` gibt −1 zurück, wenn der Schreibversuch scheitert ODER der Deckel (20 je Konto) einen nicht abgelaufenen Plan verdrängen würde — es schreibt dann nichts, `gsPlans.parkGrund()` sagt `speicher_voll` · `deckel` · `fehler`, und der Satz beim Abmelden nennt den Grund; dann räumt `gsClearUserDataKeys` zuerst alles andere, parkt ein zweites Mal und lässt sonst nur liegen, was `gsPlans.bewahrbar()` zulässt (jeder Eintrag trägt eine uid) — und davon nur die lokalen (`gsPlans.nurLokalBehalten`). `writeLS` kürzt nur Einträge, die auch in der Cloud liegen (`kuerzen`): ein nur lokaler Plan bleibt immer | einen Plan ohne Eigentümer einem anderen Konto zeigen; beim Abmelden wegwerfen, was noch nicht oben ist; die einzige Kopie löschen, bevor der Rettungsweg „geschrieben“ gemeldet hat; eine Liste „zur Not“ kürzen, in der die einzige Kopie eines Plans liegt |
+| Gespeicherte Pläne (seit v33.59) | `gs_plans_v2` (in `GS_USER_KEYS`, geht beim Abmelden) über `gsPlans`; nur lokal gespeicherte warten mit `uid` gestempelt in `gs_plans_wartend` (`GS_KEEP_ON_LOGOUT`, 20 je Konto, 90 Tage ab dem PARKEN — `e.geparkt`, seit der Gesamtprüfung vom 16.11.2026), bis DASSELBE Konto wiederkommt; `gsPlans.parken` parkt seit dem 19.11.2026 JE KONTO, was unter dessen Deckel (20) passt — ein schon wartender Plan behält seinen Platz, neue füllen freie Plätze, die neuesten zuerst; −1 heisst „`gs_plans_v2` bleibt liegen“ (Schreibversuch gescheitert, Fehler oder ein Teil passt nicht), `gsPlans.parkGrund()` sagt `speicher_voll` · `fehler` · `deckel` · `deckel_anderes_konto`, und der Satz beim Abmelden (`_gsAbmeldenSagen`) nennt den Grund; dann räumt `gsClearUserDataKeys` zuerst alles andere, parkt ein zweites Mal und lässt sonst nur liegen, was `gsPlans.bewahrbar()` zulässt (jeder Eintrag trägt eine uid) — und davon nur die lokalen, ohne das eben Geparkte (`gsPlans.nurLokalBehalten`). `writeLS` kürzt nur Einträge, die auch in der Cloud liegen (`kuerzen`): ein nur lokaler Plan bleibt immer | einen Plan ohne Eigentümer einem anderen Konto zeigen; beim Abmelden wegwerfen, was noch nicht oben ist; die einzige Kopie löschen, bevor der Rettungsweg „geschrieben“ gemeldet hat; eine Liste „zur Not“ kürzen, in der die einzige Kopie eines Plans liegt |
 | Eigene Listen aus fremder Hand (seit v33.59) | `_gsListeEinspielen(schluessel, liste, opts)` mit der Tabelle `GS_LISTEN_EINGANG` — Sieb, Speicher UND Variable in einem Schritt; die Variable wird nur gesetzt, wenn der Schreibversuch gelang. Backup-Import, Login-Abgleich (alle Zweige), Snapshot (`_gsRestoreKey`), `gsGardenSync.pullAll` und „Meine Garten-Pläne“ (`gsPPopenSavedPlans`: siebt die Cloud-Listen VOR dem Mischen, sonst stehen gesiebte und rohe Fassung nebeneinander) gehen hindurch. **Dieselbe Tabelle sagt, was beim Abmelden geht:** `gsClearUserDataKeys` setzt jede Variable und jeden Cache aus `GS_LISTEN_EINGANG` zurück, dazu die Spiegel ausserhalb (`favs`, `myVotes`, `marketChats`, `myBids`, `myPurchases`, `weatherCache`, `socialUserName`); und der Login-Abgleich liest `favs`/`myVotes` nach dem Holen neu — wer einen Eintrag hinzufügt, hat beide Richtungen | eine Liste (`gs_gardens`, `gs_plantings`, `ps_myplants`, `gs_gartentagebuch`, `gs_ernte_log`, `gs_garden_plans`, `gs_dead_plants`) aus Cloud, Snapshot oder Datei direkt schreiben — oder nur die Variable setzen (`gardens = d.gardens`); `sicherheit_check` 98_schluss_e findet jeden Schreiber |
 | Bild eines ANDEREN Nutzers (seit v33.59) | `_gsFremdBild(u)` — nur der eigene Supabase-Speicher (`SB_URL_DEFAULT` + `/storage/v1/object/public/`) oder `data:image`; serverseitig dieselbe Regel in `fn_gs_bild_url_ok` (Migration `20261110_sicherheit_community_markt.sql`, nicht angewandt) | `_gsSafeUrl` für fremde Bilder — es prüft nur das Schema, und ein fremder Host zählt jeden Betrachter mit |
 
@@ -381,7 +386,11 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   — auch der Pilz-Scanner. Deshalb gilt beim Ausliefern: **erst die Migration,
   dann die Functions** (FUER-FERNANDO §30). Stand 11.11.2026: weder die Migration
   angewandt noch eine Function mit Tor ausgeliefert; live laufen die sechs
-  KI-Functions von v33.58 ohne Tor.
+  KI-Functions von v33.58 ohne Tor. **Nachgemessen am 19.11.2026 (nur lesend):** die
+  Migration ist seit dem 16.11. um 11:28 UTC angewandt (`fn_ai_kontingent_*`,
+  SECURITY DEFINER, nur `service_role`), und die sechs KI-Functions laufen seit
+  11:29–11:32 UTC mit dem Tor — in dieser Reihenfolge, wie oben verlangt (Brett
+  `2026-11-19-c3f3`).
 - **Eine KI-Zeile, die in eine Tabelle geht, läuft durch eine Erlaubnisliste der
   Spalten** (`kiSchemaSpalten`, `kiZeileOk`) — gelesen aus dem Schema-TEXT, mit
   dem das Modell angewiesen wird, nicht aus einer zweiten Liste daneben.
@@ -473,6 +482,13 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   Fehlerfall wartet: der Offline-Rückfall der Wissenssuche hing an genau so
   einem `catch` und lief nie (gefunden v33.59, `sicherheit_check`
   95_nebenbefunde). Wer einen Rückfall braucht, prüft `r.error`.
+  **Seit dem 19.11.2026 kennt es einen Fehler mehr:** wechselte die Person zwischen
+  Anfrage und Antwort (abgemeldet, anderes Konto), kommt
+  `{data:null, error:{message:'person_gewechselt', code:'person_gewechselt', status:0}}`
+  zurück — §3.6, „Eine Antwort nach einem `await`“. Achtung: `status` 0 sieht für eine
+  alte Prüfung wie ein Netzfehler aus. Wer bei einem Fehler EINREIHT oder es später
+  erneut versucht, fragt zuerst `_gsPersonGewechselt(r)` — sonst reiht er die Arbeit
+  von A für B ein.
   Wer eine Antwort auswerten will, nimmt `.then` oder `await` — und prüft
   `_gsSchreibOk(r)` (Ablehnung ODER 0 Zeilen), nie nur `r.error`.
   **Ein Nein ist nicht immer ein Fehler:** `fn_achievements_showcase_set` gibt
@@ -662,7 +678,13 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   > entfernt); die Rechte auf dem Server nimmt erst
   > `20261110_sicherheit_funktionen.sql` weg.
 - **Die Server-Seite dieser Reparatur ist NICHT live** (Stand 11.11.2026, nur
-  lesend gemessen: 0 von 23 neuen Funktionsnamen existieren). Sechs Migrationen
+  lesend gemessen: 0 von 23 neuen Funktionsnamen existieren). *Nachgemessen am
+  19.11.2026, nur lesend:* eine der sechs Migrationen ist seit dem 16.11. angewandt
+  (`20261110_sicherheit_ki_kontingent.sql`), und am selben Tag sind die 24 Functions
+  ausgeliefert, die `AUSLIEFERUNG.json` damals als `ausliefern` bzw. `erst_nach` dieser
+  Migration führte — nach der Migration, wie §30 verlangt. Die fünf anderen
+  Migrationen sind NICHT angewandt (`fn_gs_bild_url_ok`, `fn_push_subs_deckel` gibt es
+  live nicht); was sie schliessen, ist live weiter offen (Brett `2026-11-19-c3f3`). Sechs Migrationen
   `supabase/migrations/20261110_*.sql` und die überarbeiteten Edge-Functions
   liegen im Repo; bis Fernando sie anwendet bzw. ausliefert, sind die Lücken,
   die ihre Köpfe beschreiben, live offen — und das Repo ist öffentlich. Was
@@ -695,6 +717,42 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   `gsOnLogout` (Lina, letztes Scan-Ergebnis, Foto, Scan-Chat). Prüfstände:
   `sensor_check` L10, `scan_check` SC3 — beide mit Antwort VOR und NACH der Anmeldung
   der nächsten Person.
+  **Und sie gehört dem VORGANG, für den gefragt wurde** (v33.67, Scanner 4). Wer einen
+  laufenden Vorgang abbrechen lässt oder einen neuen über den alten startet, gibt jedem
+  eine Nummer und prüft sie nach jedem `await` (`analyzeImage`: `_gsScanNr`, `_gilt()`;
+  der Knopf `gsScanAbbrechen`). Vorher schrieben zwei Scans ihren Sekundenzähler in
+  dieselbe Wartefläche, und die spätere Antwort legte sich über die neuere. Abgebrochen
+  wird die FOLGE, nicht der Aufruf — `callVisionAI` kennt kein Abbruchsignal (Brett-Idee
+  `2026-11-16-8186`); die Anfrage läuft weiter und kann zählen, und der Satz nach dem
+  Abbrechen sagt das. `scan_check` AB1–AB4.
+  **Und es gibt seit dem 19.11.2026 ein TOR an den zwei Stellen, durch die jede Antwort
+  muss** (Brett `2026-11-16-89ee`, statt rund 210 Einzelstellen): `sbFetch` und
+  `_gsAiAnfrage` merken die Person beim Eintritt und geben bei einem Wechsel KEINE Daten
+  zurück — `sbFetch` den Fehler `person_gewechselt` (§3.5), `callAI`/`callVisionAI`
+  werfen `_gsPersonAusnahme()` (`e.code`, Satz `GS_PERSON_GEWECHSELT_SATZ`). Eine Anfrage,
+  die OHNE Person startet (Anmeldung), bleibt unberührt; ein Token-Refresh wechselt das
+  Token, nicht die uid, und ein später Refresh schreibt keine Sitzung mehr über die des
+  nächsten Kontos (`_gsRefreshShared`). Die Fragen dazu: `_gsPersonGewechselt(x)`,
+  `_gsPersonAnders(wer)`, `_gsPersonJetzt()`. **Was das Tor NICHT sieht und jeder Weg
+  selbst tun muss:** (1) die Person VOR dem ERSTEN `await` merken — FileReader,
+  Verkleinern, Wetter, Fotos aus dem Speicher, `_gsFreshToken` sind auch `await`s, und
+  eine Anfrage, die erst NACH dem Wechsel losgeht, läuft als B; (2) ein rohes `fetch` an
+  eine Edge-Function oder zu Stripe fragt vor dem Senden UND nach der Antwort; (3) eine
+  Schleife über die Daten einer Person (Warteschlangen, Funde hochladen, Fotos
+  nachholen) merkt die uid EINMAL und fragt vor jeder Runde; (4) ein `catch` nach einem
+  KI- oder Server-Weg fragt ZUERST `_gsPersonGewechselt(e)` und endet still (keine
+  Karte, kein Toast, Knöpfe zurück) — ein Tor, das Erfolg zu Fehler macht, schiebt die
+  Aufrufer in ihren `catch`-Zweig. Prüfstand: `sicherheit_check` 71_person (Tor a–t,
+  KI a–h). **Und Abmelden heisst derselbe BILDSCHIRM wie nach einem Neuladen:**
+  `gsClearUserDataKeys` → `_gsAbmeldenFenster` (jedes Fenster zu, auch die festen am
+  `<body>`), `_gsAbmeldenFelder` (jedes Textfeld auf seinen `defaultValue`; Ausnahmen
+  in `GS_ABMELDEN_FELDER_GERAET` mit einem Schlüssel aus `GS_KEEP_ON_LOGOUT`),
+  `GS_ABMELDEN_ANZEIGEN`, `GS_ABMELDEN_ENTWUERFE`, `GS_ABMELDEN_ZEICHNER`, danach die
+  Startseite (`_gsAbmeldenStartseite`). Sätze, die beim Abmelden entstehen, sagt
+  `_gsAbmeldenSagen` im Meldefeld des Anmeldebildschirms — ein Toast liegt darunter und
+  wäre nie sichtbar. Der Garten-Zwilling trägt sein Konto (`gsTwinGet` zeigt ihn nur
+  diesem; er liegt nur auf dem Gerät, Löschen wäre Datenverlust). `sicherheit_check`
+  98_schluss_e.
 
 ### 3.7 · revDSG (Schweizer Datenschutz)
 - Analytics ist **Opt-In** (Consent-Banner beim ersten Launch). Niemals
@@ -1293,6 +1351,29 @@ Funde der anderen) → gegenprüfen → aufs Brett.
 > das `n` aus `\n` und rutschte an jedem `\b` vorbei. **Wer einen Text
 > durchsucht, durchsucht ihn in der Form, in der ein Mensch ihn schreibt.**
 
+> **Und wer zwölf Stunden allein an einem Zweig arbeitet, arbeitet nicht allein** (11.11.2026, v33.60).
+> Dieser Zweig holte `main` am Anfang und dann nicht mehr. Beim Zusammenführen vor dem Bump stand da:
+> `main` hatte das Brett bekommen (#325), PR #324 einen zweiten Commit — und ein dritter Zweig
+> (`ccr-5e705a36-jveaak`) hatte **denselben Zahlungsweg unabhängig neu geschrieben**, mit eigenem
+> Regel-Modul und eigenem Prüfstand. Zwei Sitzungen, dieselben drei Functions, dieselben Kernfehler
+> gemessen, zwei Fassungen; der Probe-Merge ergab neun Dateien mit Konflikt. Gesehen hat es `holen`
+> („Frische Branches"), in einer Minute — zwölf Stunden zu spät. Drei Regeln daraus:
+> **(1) `git fetch` und `holen` vor JEDER Scheibe, nicht nur vor der ersten** — eine Scheibe ist die
+> Einheit, nicht die Sitzung. **(2) Früh pushen, auch Unfertiges:** ein Zweig, den niemand sieht, kann
+> niemand umgehen; „zwei Köpfe an derselben Stelle" rechnet das Brett nur aus Zweigen, die auf `origin`
+> liegen. **(3) Zwei Fassungen derselben Sache werden von EINER Sitzung zusammengeführt, und beide
+> Prüfstände müssen danach grün sein** — wer nur seine eigene Fassung behält, verliert, was die andere
+> gemessen hat (hier: der Lifetime-Entzug bei einem Chargeback dort, das zweite Abo hier). Und das Gute
+> daran: **zwei unabhängige Messungen mit demselben Ergebnis sind der stärkste Beleg, den dieses Repo
+> je für einen Befund hatte** — das Brett sollte solche Doppel sichtbar machen, nicht nur verhindern.
+>
+> **Und ein Befund auf dem Brett hat an einem Tag zwei Lücken im eigenen neuen Code gefunden.** A3 wurde
+> rot, weil dieser Zweig zwei der drei genannten Prüfstände zum Tor gemacht hatte und den dritten
+> (`field_check`) nicht kannte; und der Befund „Spanisch ist die fünfte App-Sprache" traf den neuen
+> Notfall-Eintrag der Menü-Suche, der gerade erst mit vier Sprachen gebaut worden war. **Wer etwas Neues
+> baut, sucht auf dem Brett nach der KLASSE, zu der es gehört** (`klasse <wort>`, `suche <wort>`) — der
+> Fehler, den ein anderer gestern gemessen hat, steckt mit einiger Wahrscheinlichkeit auch im Neuen.
+
 ## 6 · Deployment
 
 - Push auf `main` → Cloudflare Pages baut automatisch (kein Build-Step).
@@ -1415,11 +1496,11 @@ tatsächliche Reihenfolge im DOM auslesen.
 Zwei weitere Prüfstände liegen daneben:
 
 ```bash
-node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi; seit v33.55 mit Stapelreihenfolge — vorher galt jeder Text in einem Dialog am <body> als von #app verdeckt und wurde nie vermessen
+node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi — seit v33.60 ein TOR (Exit 1 bei einem Fund; render_check ebenso), mit dem Artendetail und den gerechneten Farbpaaren der Statusbox; seit v33.55 mit Stapelreihenfolge — vorher galt jeder Text in einem Dialog am <body> als von #app verdeckt und wurde nie vermessen; seit v33.60 GANZE Tabs (in Bildschirmhoehen, Deckel 12, eine Zeile je Tab — vorher ein Bildschirm je Tab), ALLE elf (vorher neun), Oeffner ueber `_gsNlOpen(` (59 statt 43), „ging nicht auf" statt einer Zahl fuer ein Fenster, das es nicht gab; `GS_KONTRAST_TABS=home,map` fuer einen Teil-Lauf
 node scripts/touch_check.js      # Antippflächen unter 24×24 px (WCAG 2.5.8)
 node scripts/perf_check.js       # Kaltstart unter Telefon-Drosselung (1×/4×/6×)
-node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (seit v31.45)
-python3 scripts/field_check.py   # Formularfelder, die niemand liest (seit v31.74)
+node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (seit v31.45); seit v33.60 Richtung 6 (ein Funktionsname als Zeichenkette in einem Feld — fn · hol · html · tap · zu — muss eine Funktion sein), die Benachrichtigungs-Ziele zaehlen im Exit-Code, und die Oeffner ueber `_gsNlOpen(` werden aufgerufen
+python3 scripts/field_check.py   # Formularfelder, die niemand liest (seit v31.74); seit v33.60 ein TOR (Exit 1, sobald ein Feld nirgends sonst vorkommt — die mittlere Klasse „zusammengesetzt nachgeschlagen" zaehlt nicht)
 node scripts/data_check.js       # liest der Code Felder, die es nicht gibt? (seit v31.80)
 node scripts/save_check.js       # kommt an, was gespeichert wird? (seit v31.85)
 node scripts/planer_check.js     # rechnet der Planer, was er behauptet? (seit v31.93)
@@ -1436,7 +1517,7 @@ node scripts/tour_check.js       # zeigt die App-Tour auf etwas, oder erzaehlt s
 node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
 node scripts/arten_quellen_vergleich.js # was sagen die zwei belegten Repo-Datensaetze zur Artenliste? (seit v32.43, nur Messung)
 node scripts/speicher_check.js   # was tut die App, wenn der Geraetespeicher voll ist? (seit v32.44)
-node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46); seit v33.33 auch die Scan-Zeit aus EINEM Leser (die Garten-Timeline, an der es gemessen wurde, ist seit v33.38 weg — M2); seit v33.34 das PRUEFWERK (KALENDER-V2 §3): Frost×Aussaat, Regen×Giessen (eine Rechnung mit gsGetDueTasks), Ernte nur mit Kulturdaten, erntereif ohne Eintrag, Ueberfaellig-Stufe, drei Leerzustaende — je gut · schlecht · nicht pruefbar aus dem HTML; seit v33.35 das SIEB (§4): Filter auf dem Ergebnis (die Rechnung bleibt), fuenf Gruppen-Chips mit ihren Zahlen aus der UNGEFILTERTEN Liste, Zustand ueberlebt, Punkte nach Gruppe, dritter Leerzustand; seit v33.36 EIN WETTER (GS_WETTER_GRENZEN, vier Schwellen, R6/R7, dasselbe im Warnfenster); seit v33.37 die DREI QUELLEN, die es laengst gab (Scan-Verlauf, Karten-Fundorte mit _gsFundZeit, die wirkliche Ernte quelle hand neben der Schaetzung); seit v33.38 zaehlt „Mein Naturjahr“ aus dem KALENDER (M1) und die Garten-Timeline ist darin aufgegangen (M2)
+node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46); seit v33.33 auch die Scan-Zeit aus EINEM Leser (die Garten-Timeline, an der es gemessen wurde, ist seit v33.38 weg — M2); seit v33.34 das PRUEFWERK (KALENDER-V2 §3): Frost×Aussaat, Regen×Giessen (eine Rechnung mit gsGetDueTasks), Ernte nur mit Kulturdaten, erntereif ohne Eintrag, Ueberfaellig-Stufe, drei Leerzustaende — je gut · schlecht · nicht pruefbar aus dem HTML; seit v33.35 das SIEB (§4): Filter auf dem Ergebnis (die Rechnung bleibt), fuenf Gruppen-Chips mit ihren Zahlen aus der UNGEFILTERTEN Liste, Zustand ueberlebt, Punkte nach Gruppe, dritter Leerzustand; seit v33.36 EIN WETTER (GS_WETTER_GRENZEN, vier Schwellen, R6/R7, dasselbe im Warnfenster); seit v33.37 die DREI QUELLEN, die es laengst gab (Scan-Verlauf, Karten-Fundorte mit _gsFundZeit, die wirkliche Ernte quelle hand neben der Schaetzung); seit v33.38 zaehlt „Mein Naturjahr“ aus dem KALENDER (M1) und die Garten-Timeline ist darin aufgegangen (M2); seit v33.60 der Pflegeverlauf (der ECHTE Knopf auf der Pflanzenkarte schreibt einen Eintrag, „Alle erledigt ✓" zaehlt als erledigt und nicht als Notiz, jeder Eintrag hat seine eigene Zeit, kein „(Quick)"/„(Bulk)") und N5: jeder Verweis des Kalenders nennt eine Funktion, die es gibt, und der Knopf „›" wird angetippt
 node scripts/sensor_check.js     # funktioniert das Messwerte-Dashboard, bevor es ein Geraet gibt? (seit v32.48)
 node scripts/ingest_check.js     # rechnet der Empfaenger device-ingest, was der Vertrag verspricht? (seit 05.09.2026, ohne Deno)
 node scripts/sensor_push_check.js # wird aus einem Sensor-Alarm ein Push, und nur einer? (seit 06.09.2026, ohne Deno)
@@ -1446,10 +1527,10 @@ node scripts/nutzung_check.js    # liest jemand, was die Nutzungsmessung schreib
 node scripts/backup_check.js     # ist das Backup da, wenn man es braucht? Aufbewahrung (lokales Postgres) + die EINE Faelligkeitsregel (seit v33.26)
 node scripts/quiz_gen_check.js   # kommt nur eine Frage in die Tabelle, die man auch anzeigen kann? Regeln in Node + Vorrat in lokalem Postgres + Anzeige (seit v33.29)
 node scripts/quiz_check.js       # zaehlt der Server, was der Spieler richtig hatte? SQL in lokalem Postgres + App (seit v32.65; vorher `bash scripts/_pg_local.sh start`); seit v33.27 auch: wertet das Quiz nach der ART, zaehlt die Serie Tage, stimmt die Tagesgrenze der Anzeige, gehoert der Tagesschluessel dem Konto, erreicht der Zeitablauf den Server
-node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66); seit v33.54 A10b: boese Stile (CSS-Escapes, image-set) werden WIRKLICH ins Dokument gerendert und die Anfragen des Browsers gezaehlt (0), plus Ueberlagerung und die guten Stile der Uebersetzungen
+node scripts/escape_check.js     # kommt Fremdtext als Text an, oder als Code? Feed, Artendetail, Mitteilungs-Links, SW, Sanitizer (seit v32.66); seit v33.54 A10b: boese Stile (CSS-Escapes, image-set) werden WIRKLICH ins Dokument gerendert und die Anfragen des Browsers gezaehlt (0), plus Ueberlagerung und die guten Stile der Uebersetzungen; seit v33.60 die Foto-Ansicht (gsFotoAnsicht) und das Pflanzentagebuch (Titel und Foto-Adresse aus dem Bestand)
 node scripts/robust_check.js     # kleine Versprechen: sbFetch ohne opts, Toast-Dauer, Escape nur oberstes Fenster, SW wartet (seit v32.67); seit v32.73 auch die Fehlertexte (_gsFehlerText), seit v32.74 Admin-Gate und Alt-Sensor-Assistent, seit v32.75 das Push-Helfer-Modul, seit v32.76 species-search (Quelltext), seit v32.77 der Deckel gegen Funktionen ohne Aufrufer, seit v32.79 pdf.js nur bei Bedarf, seit v32.80 console.gsRestore(), seit v32.82 die optimistischen Anzeigen (Herz, Vitrinen-Stern, Stimme) und der Deckel gegen tote .catch() auf sbFetch
 node scripts/schluessel_check.js # verlaesst der Anthropic-Schluessel den Server? SQL (lokales Postgres) + App (seit v32.68); seit v33.57 der WEG DAVOR: Scanner (analyzeImage) und Scan-Chat laufen ohne Schluessel im Browser ueber den Proxy, gsKiVerfuegbar in beide Richtungen
-node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70)
+node scripts/nutzersicht_check.js # sagt die App, was stimmt, in der Sprache der Person? Menue-Zahlen, „Was ist neu", Lina, Jargon, Kompakt/Senioren (seit v32.70); seit v33.60 E12–E16: Saatgut-Knopf, „hast du schon" ist kein Fehler, „Abo verwalten", der Notfall in der Menue-Suche, keine Zahlungsart, die die App nicht kennt
 node scripts/admin_check.js      # sagt das Admin-Panel, was stimmt? Zugang, vier Zustände je Sektion, Einzel-Refresh, Überblick (seit v33.42); seit v33.50 die SCHREIB-Seite: GS_ADM_AKTIONEN + _gsAdmTun (sechs Zustände, 0 Zeilen = abgelehnt, kein return=minimal), ein toter Knopf SAGT es, die Meldung kommt NACH der Antwort; seit v33.51 die SPUR: jede Aktion sagt spur · spur_ab · ohne_spur, der Fuss unter dem Protokoll rechnet die Deckung, und eine SQL-Hälfte (lokales Postgres) spielt 20260925_admin_audit_vollstaendig.sql nach — ohne Postgres „nicht prüfbar" (Exit 2)
 node scripts/android_check.js    # hält die App, was eine Android-App verspricht? Der Zurück-Knopf, ein Prädikat für „läuft als App", assetlinks (seit v33.43)
 node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wiederkehrenden Texten, ungedeckelte Abfragen, die Zahlen in docs/RISIKEN.md (seit v33.44); seit v33.45 R4: jede Frist aus GS_FRISTEN steht auch auf dem Bildschirm (gerenderte Karte), und jedes Datum aus dem Inventar hat einen Eintrag
@@ -1457,6 +1538,7 @@ node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.4
 node scripts/rezept_link_check.js # zeigt ein Rezept auf die gemeinte Art — und nie auf eine giftige? (seit v33.58, reines Node: 524 Eintraege gegen data/plants.v1.js; doppelte Rezept-Ids, Ids ohne Art, Giftstufe, essbar)
 node scripts/modell_check.js     # antwortet die KI noch, wenn Anthropic ein Modell abschaltet? (seit v33.58) Drei Haelften: RECHNUNG (_shared/modelle.mjs in Node — Ketten, Secret, Freigabe, Zusatz je Modell, Denk-Bloecke, Rueckfall) · RAND (der ECHTE Handler von ai-proxy, Typen entfernt, Deno/Supabase/Anthropic gestellt: Stufen, Sperre, Notschalter, Groesse, Schluessel, CORS) · QUELLTEXT (kein Modellname in einer Edge-Function; App und Server meinen dieselben Modelle und denselben Zusatz). Ohne stripTypeScriptTypes: „nicht pruefbar" (Exit 2)
 node scripts/sicherheit_check.js # kommt Fremdes als TEXT an, ueber ALLE Wege? (seit v33.59) Fall-Dateien in scripts/sicherheit/ (je Themengruppe EINE Datei, `_`-Dateien sind Helfer), je Datei eine FRISCH geladene App mit einer angemeldeten Sitzung; jeder Fall rendert die echte Funktion mit h.BOESE / h.OC / h.OCQ / h.ATTR und misst ZWEI Dinge: window.__pwned bleibt unberuehrt UND der Wert steht sichtbar da; dazu die Empfaenger-Liste (97_empfaenger), die onclick-Bauform als Klasse (92_onclick), die Schlusspruefung (98/99). `node scripts/sicherheit_check.js scan markt` faehrt nur passende Dateien
+node scripts/stripe_check.js     # kommt an, was bezahlt wurde — und nur das? (seit v33.63, aus PR #329) die ECHTEN Handler von stripe-checkout/-portal/-webhook gegen eine gestellte Welt, SQL-Haelfte im lokalen Postgres, Quelltext; misst die Regeln von main (STATUS (jk), W1–W11) — und die Attrappe in scripts/edge/_zahlung_stripe.mjs lehnt seither einen unbekannten Checkout-Parameter ab (400 parameter_unknown), wie Stripe
 node scripts/edge_check.js       # halten die Edge-Functions, was sie ueber ihre Tore sagen? (seit v33.59) Ohne Deno: die Rechnung der _shared/*.mjs (ki_tor, zahlung_regeln, push_helfer, markt_regeln …) wird in Node AUSGEFUEHRT, der Rand (index.ts) am Quelltext geprueft — fuer die Zahlungs-Functions laeuft die ECHTE index.ts in Node 22 (Typen gestrichen, npm:/jsr:/esm.sh auf gestellte Module umgelenkt) gegen eine Supabase-Attrappe, die sich wie PostgREST verhaelt (scripts/edge/_live_schema.mjs: Live-Spalten und -Fremdschluessel, PGRST200 / 42703); 40_lieferkette: jede Import-Angabe exakt versioniert, ein Paket ueberall dieselbe Version
 node scripts/rls_check.js        # haelt die Datenbank, was die App ueber sie annimmt? (seit v33.59) Lokales Postgres (`bash scripts/_pg_local.sh start`, CI: GS_PG_URL); je Fall ein AUSSCHNITT des Live-Stands im Wortlaut (datiert) → Angriff MUSS vorher gelingen → Migration zweimal → Angriff scheitert, der Weg der App geht weiter → Gegenprobe; 05_fixture_policies haelt jeden Nachbau gegen scripts/rls/live_policies.json, 70_reihenfolge spielt beide Reihenfolgen alter und neuer Migrationen. Ohne Postgres: „nicht pruefbar" (Exit 2), nie gruen
 node scripts/austausch_check.js  # kommt an, was eine KI-Sitzung der nächsten sagt? Das Brett (Form, Bezüge, Wächter, Anker, Zählungen), die zwei Übergabe-Zeilen in STATUS.md §0, die vier Zahlen in STATUS.md §1, die Agenten-Runde — und jede Regel gegen gebaute gute UND schlechte Fälle, das Werkzeug als Prozess, zwei echte git-Branches (seit 11.11.2026; braucht nur Node und git)
@@ -1476,6 +1558,8 @@ bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code
 #   data_check prueft seit v31.89 zusaetzlich Widersprueche in den
 #   Sicherheitsangaben — siehe docs/ARTEN-LUECKEN.md
 ```
+
+> **Speichern heisst: erst schreiben, dann melden — und ein Zustand, den der Speicher abgelehnt hat, wird zurückgenommen** (v33.66, Auftrag P-F). Fünf Wege meldeten „hinzugefügt/erledigt", ohne den Rückgabewert von `savePlantsToStorage()` / `saveGardenData()` zu lesen (`gsAddScanToMyPlants`, `savePlant`, `savePlanting`, `gsQuickDone`, dazu `gsDueCardDone`, das die Karte schon ausgeblendet hatte). Jetzt: `=== false` → Eintrag aus der Liste nehmen bzw. den alten Wert zurückgeben, Fenster offen lassen, EIN Satz. `gsQuickDone` gibt `true` · `false` (nicht gespeichert) · `null` (Aufgabe fehlt) zurück — wer die Karte ausblendet, wartet darauf. **Und ein Pflanzen-Schreiber zieht ALLE Anzeigen mit** (`savePlanting`: `_gsPflanzungenNachruesten`, Kopfzahlen, `updatePlantStat`, Tagesplan, Glocke, Notizzettel): `save_check` „Anzeigen ziehen sofort mit" vergleicht den Stand nach dem Speichern mit einem vollständigen Neuzeichnen. Zwei Fälle im Sync-Weg: eine Änderung, die WÄHREND eines laufenden Pushes vorgemerkt wird, darf `_setDirty(stillDirty)` nicht überleben lassen als „gesichert" (H6), und beim Schliessen gehen alle drei Blobs gleichzeitig und trotz laufendem Push hinaus (H7) — beides in `sync_check` „Zwei Geräte, EIN Konto". *Grenzen:* ein `keepalive`-Fetch über 64 KiB schlägt fehl (der Stand bleibt dirty und geht beim nächsten Start hinaus; der Merge macht das sicher); ein echter Server und ein echtes zweites Gerät sind von hier nicht messbar.
 
 > **Nach Mitternacht in Ortszeit lügt ein Fall** (11.11.2026). `_seed.js` ankert auf
 > der UTC-Mitternacht, die App rechnet Kalendertage in Ortszeit: zwischen 00:00 und 01:00
@@ -1674,9 +1758,29 @@ steht NICHT auf `window`.** `window.socialPosts = […]` legt eine zweite,
 unbenutzte Eigenschaft an; `renderSocialFeed` meldet danach „Noch keine Posts".
 In `page.evaluate` ohne `window.` zuweisen.
 
-**Richtung 3 (seit v31.98): geht das Fenster ueberhaupt auf?** Alle 43
-Oeffner ohne Parameter (`open…` / `gsOpen…` / `show…` mit `openModal(` im
-Rumpf) werden **wirklich aufgerufen**. Zwei Regeln stecken drin, beide im
+**Richtung 6 (seit v33.60): ein Funktionsname als Zeichenkette in einem Feld.**
+Dieselbe Klasse wie `MENU_ITEMS` und `GS_NOTIF_ZIELE`, nur verstreut: ein Ziel
+steht als NAME in einem Feld (`verweis: { fn: 'openPlantDiary' }`,
+`{ id: …, zu: 'closeDailyQuiz' }`, `tap: 'gsOpenSeedInventory'`) und wird
+ueber `window[name]` gerufen; jeder Leser prueft `typeof` und tut sonst
+**nichts**. Gemessen am 11.11.2026: der Kalender haengte an JEDE Scan-Zeile
+einen Knopf „›" mit einer Funktion, die es nie gab — Richtung 1 sah es nicht
+(im `onclick` steht `gsKalHin`, und das gibt es), `kalender_check` N1 auch
+nicht (er fragte, ob der Verweis GESETZT ist). Die Felder werden nicht
+aufgezaehlt, sondern **gefunden**: ein Feld gilt, sobald einer seiner Werte
+eine Funktion der Seite ist — heute `fn` · `hol` · `html` · `tap` · `zu`,
+58 Namen. Und seit v33.60 zaehlen die Benachrichtigungs-Ziele im Exit-Code
+mit: „davon kaputt: N" stand dort bis dahin nur im Bericht.
+
+> **Ein Fall, der fragt, ob etwas GESETZT ist, prueft die Vorlage** — eine
+> Zeichenkette ist immer gesetzt. Wer einen Verweis prueft, loest ihn auf
+> UND tippt den Knopf an (`kalender_check` N5: mit `gsKalHin`, der nichts
+> mehr ruft, ist nur die zweite Haelfte rot).
+
+**Richtung 3 (seit v31.98): geht das Fenster ueberhaupt auf?** Alle
+Oeffner ohne Parameter (`open…` / `gsOpen…` / `show…` / `gs…Oeffnen` mit
+`openModal(` — oder seit v33.60 `_gsNlOpen(` — im Rumpf; 59 statt 43) werden
+**wirklich aufgerufen**. Zwei Regeln stecken drin, beide im
 ersten Lauf gelernt: **Sperren werden erfuellt, nicht umgangen** (vier Oeffner
 brechen ohne Anmeldung oder Admin-Rechte ab — das ist richtig), und
 **bewusstes Ablehnen ist kein Fehler** — unterschieden wird daran, ob die
@@ -2747,7 +2851,9 @@ steht der Stand in STATUS (je) und §2.
 
 **Von der Server-Seite ist nichts live** (§3.6): keine der Migrationen
 `20261110_*` angewandt, keine der überarbeiteten Edge-Functions ausgeliefert.
-Was die drei Prüfstände unten grün melden, ist der REPO-Stand.
+Was die drei Prüfstände unten grün melden, ist der REPO-Stand. *(Stand 11.11.2026;
+seit dem 16.11. sind die KI-Kontingent-Migration und 24 Functions live, die fünf
+anderen Migrationen nicht — §3.6, nachgemessen 19.11.2026.)*
 
 > **Die Schlussprüfung des zusammengeführten Diffs hat einen kritischen Fehler
 > der Reparatur selbst gefunden** — und ohne sie wäre er ausgeliefert worden.
@@ -2854,7 +2960,7 @@ einem untergeschobenen Token. 188 Fälle in 23 Dateien (Stand 16.11.2026).
 > Schutz — so steht er in der Gegenprüfung, nicht als „geprüft".
 
 **`edge_check.js` (seit v33.59) fragt, ob die Edge-Functions halten, was sie
-über ihre Tore sagen.** 76 Fälle in acht Dateien unter `scripts/edge/` (Stand 16.11.2026). Deno gibt es hier
+über ihre Tore sagen.** 80 Fälle in neun Dateien unter `scripts/edge/` (Stand 19.11.2026; 80_pilz seit v33.64). Deno gibt es hier
 nicht; deshalb dieselbe Aufteilung wie bei `device-ingest` (v32.61): was sich
 RECHNEN lässt (wer darf, welches Kontingent, welche Adresse, welcher Preis),
 steht in einem Modul unter `supabase/functions/_shared/*.mjs` und wird in Node

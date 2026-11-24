@@ -259,6 +259,168 @@ const FAELLE = [
       return { ok: true, info: GS_VOLLBILD_OVERLAYS.length + ' in der Liste · ' + Object.keys(window.GS_VOLLBILD_OHNE_ZURUECK || {}).length + ' mit Grund ausgenommen · Tagesquiz zu' };
     },
   },
+  {
+    // Gemessen am 11.11.2026: Rezeptfotos oeffneten per window.open — im
+    // Browser ein neuer Tab, in der Android-App der Browser des Telefons (die
+    // App wird verlassen), bei einem blob:/data:-Foto „kein Ziel". Die
+    // Foto-Ansicht ist EINE Schicht der Zurueck-Regel: sie liegt ueber dem
+    // Rezept, und ein Druck nimmt genau sie ab.
+    name: 'Foto-Ansicht · ein Rezeptfoto öffnet IN der App — Zurück, Escape und ✕ nehmen genau diese eine Schicht ab',
+    lauf: async () => {
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      // Ein Foto, das GRÖSSER ist als der Bildschirm (1600×1200 auf 412×915) —
+      // sonst misst „passt ganz hinein“ nichts: ein 8×6-Bild passt immer.
+      const KLEIN = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAIAAABxZ0isAAAAEUlEQVR4nGPQqzXCihgGUgIAJFopcWysNWAAAAAASUVORK5CYII=';   // 8×6, grün
+      const leinwand = document.createElement('canvas');
+      leinwand.width = 1600; leinwand.height = 1200;
+      const stift = leinwand.getContext('2d');
+      stift.fillStyle = '#2e7d32'; stift.fillRect(0, 0, 1600, 1200);
+      stift.fillStyle = '#ffffff'; stift.fillRect(120, 120, 400, 260);
+      const PNG = leinwand.toDataURL('image/jpeg', 0.6);
+      if (PNG.indexOf('data:image/jpeg') !== 0) return { ok: false, warum: 'der Browser liefert kein JPEG aus dem Canvas — der Fall misst nichts' };
+      const rz = (typeof recipesData !== 'undefined' && recipesData[0]) || null;
+      if (!rz) return { ok: false, warum: 'kein Rezept in den Beispieldaten — der Fall misst nichts' };
+      const fotosVorher = rz.photo_urls;
+      const echtOpen = window.open; let hinaus = 0;
+      window.open = function () { hinaus++; return null; };
+      const klagen = [];
+      const ansicht = () => document.getElementById('gs-foto-ansicht');
+      const rezeptOffen = () => { const m = document.getElementById('modal-recipe-detail'); return !!(m && m.classList.contains('open')); };
+      try {
+        try { switchTab('home'); } catch (_) {}
+        await warte(300);
+        rz.photo_urls = [PNG];
+        openRecipeDetail(rz.id);
+        await warte(400);
+        const vorschau = Array.from(document.querySelectorAll('#recipe-detail-body img')).find(i => i.getAttribute('src') === PNG);
+        if (!vorschau) return { ok: false, warum: 'das Rezept zeigt sein Foto nicht — der Fall misst nichts' };
+        // 1 · antippen: die Ansicht steht IN der App, nichts geht hinaus
+        vorschau.click();
+        await warte(400);
+        let a = ansicht();
+        if (hinaus) klagen.push(hinaus + '× window.open — das Foto verlässt die App');
+        if (!a) return { ok: false, warum: (klagen.concat(['nach dem Antippen steht keine Foto-Ansicht (#gs-foto-ansicht) im Dokument'])).join(' · ') };
+        const gross = a.querySelector('img');
+        if (!gross || gross.getAttribute('src') !== PNG) klagen.push('die Ansicht zeigt nicht das angetippte Foto');
+        else {
+          for (let i = 0; i < 20 && !(gross.complete && gross.naturalWidth); i++) await warte(50);
+          if (!gross.naturalWidth) klagen.push('das Foto in der Ansicht lädt nicht (naturalWidth 0)');
+          else {
+            const k = gross.getBoundingClientRect();
+            if (k.width > innerWidth + 0.5 || k.height > innerHeight + 0.5 || k.left < -0.5 || k.top < -0.5) klagen.push('das Foto passt nicht ganz auf den Bildschirm (' + Math.round(k.width) + '×' + Math.round(k.height) + ' in ' + innerWidth + '×' + innerHeight + ')');
+            if (k.width < innerWidth - 1 && k.height < innerHeight - 1) klagen.push('das Foto ist kleiner als nötig (' + Math.round(k.width) + '×' + Math.round(k.height) + ' berührt keine Kante von ' + innerWidth + '×' + innerHeight + ')');
+            if (Math.abs(k.width / k.height - 1600 / 1200) > 0.02) klagen.push('das Foto ist verzerrt (' + Math.round(k.width) + '×' + Math.round(k.height) + ' statt 4:3)');
+          }
+        }
+        if (a.getAttribute('role') !== 'dialog' || !(a.getAttribute('aria-label') || '').trim()) klagen.push('die Ansicht ist kein benannter Dialog (role/aria-label)');
+        if (!a.contains(document.activeElement)) klagen.push('der Fokus liegt nicht in der Ansicht — mit der Tastatur bedient man das Fenster darunter');
+        if (!history.state || history.state.gsBack !== 1) klagen.push('kein Verlaufs-Eintrag, solange die Ansicht offen ist');
+        // 2 · Zurück: der ECHTE Weg (history.back → popstate), genau EINE Schicht
+        history.back();
+        await warte(500);
+        if (ansicht()) klagen.push('ein Zurück-Druck (popstate) hat die Foto-Ansicht nicht geschlossen');
+        if (!rezeptOffen()) klagen.push('der Zurück-Druck hat das Rezept darunter mitgeschlossen — ein Druck ist EINE Schicht');
+        // 3 · Escape: derselbe Weg
+        vorschau.click();
+        await warte(400);
+        if (!ansicht()) klagen.push('die Ansicht geht kein zweites Mal auf');
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await warte(400);
+        if (ansicht()) klagen.push('Escape hat die Foto-Ansicht nicht geschlossen');
+        if (!rezeptOffen()) klagen.push('Escape hat das Rezept mitgeschlossen');
+        // 4 · der eigene Knopf — und er hat einen Namen
+        vorschau.click();
+        await warte(400);
+        a = ansicht();
+        // 4a · die Lupe heisst nach dem, was sie TUT — und tut es. Ohne eigenen
+        // Namen bekäme der Knopf vom Auto-Beschrifter (_gsAutoArias) den Namen
+        // „Suchen": ein Name wäre da, nur der falsche. Gemessen wird deshalb der
+        // Name vor UND nach dem Antippen und die Grösse des Fotos.
+        const lupeMessen = async (wurzel, was) => {
+          const lupe = wurzel ? Array.from(wurzel.querySelectorAll('button')).find(b => b.hasAttribute('aria-pressed')) : null;
+          const foto = wurzel && wurzel.querySelector('img');
+          if (!lupe || !foto) { klagen.push(was + ': die Ansicht hat keinen Knopf zum Vergrössern'); return; }
+          const feld = foto.parentElement;
+          const nameVor = (lupe.getAttribute('aria-label') || '').trim();
+          const breiteVor = foto.getBoundingClientRect().width;
+          lupe.click();
+          await warte(150);
+          const nameNach = (lupe.getAttribute('aria-label') || '').trim();
+          const breiteNach = foto.getBoundingClientRect().width;
+          if (!/vergr/i.test(nameVor)) klagen.push(was + ': der Knopf zum Vergrössern heisst „' + nameVor + '“');
+          if (lupe.getAttribute('aria-pressed') !== 'true' || !/verklein/i.test(nameNach)) klagen.push(was + ': nach dem Vergrössern sagt der Knopf nicht, dass er jetzt verkleinert („' + nameNach + '“, aria-pressed ' + lupe.getAttribute('aria-pressed') + ')');
+          if (!(breiteNach > breiteVor * 1.5)) klagen.push(was + ': Vergrössern macht das Foto nicht grösser (' + Math.round(breiteVor) + ' → ' + Math.round(breiteNach) + ' px)');
+          if (!(feld.scrollWidth > feld.clientWidth)) klagen.push(was + ': das vergrösserte Foto lässt sich nicht verschieben (Inhalt ' + feld.scrollWidth + ' px in ' + feld.clientWidth + ' px)');
+          lupe.click();
+          await warte(150);
+          const breiteZurueck = foto.getBoundingClientRect().width;
+          if (Math.abs(breiteZurueck - breiteVor) > 1) klagen.push(was + ': Verkleinern stellt die Grösse nicht wieder her (' + Math.round(breiteVor) + ' → ' + Math.round(breiteZurueck) + ' px)');
+          if (lupe.getAttribute('aria-pressed') !== 'false') klagen.push(was + ': nach dem Verkleinern steht aria-pressed nicht wieder auf false');
+        };
+        await lupeMessen(a, 'grosses Foto (1600×1200)');
+        const zu = a && a.querySelector('button[data-gs-close]');
+        if (!zu) klagen.push('die Ansicht hat keinen Schliessen-Knopf');
+        else {
+          if (!(zu.getAttribute('aria-label') || '').trim()) klagen.push('der Schliessen-Knopf hat keinen Namen (aria-label)');
+          zu.click();
+          await warte(400);
+          if (ansicht()) klagen.push('der Schliessen-Knopf hat die Ansicht nicht geschlossen');
+        }
+        if (!rezeptOffen()) klagen.push('der Schliessen-Knopf hat das Rezept mitgeschlossen');
+        if (hinaus) klagen.push('am Ende ' + hinaus + '× window.open');
+        // 5 · allein (ohne Fenster darunter): per ✕ geschlossen steht der Verlauf wieder auf dem Grundeintrag
+        try { closeModal('modal-recipe-detail'); } catch (_) {}
+        await warte(700);
+        // 4b · dasselbe mit einem KLEINEN Foto (8×6): ein Flex-Kind darf schrumpfen,
+        // und sein Mindestmass ist die NATÜRLICHE Breite — ein kleines Foto bliebe
+        // sonst auf Bildschirmbreite stehen, die Lupe täte nichts Verschiebbares.
+        if (typeof gsFotoAnsicht === 'function') gsFotoAnsicht(KLEIN);
+        await warte(400);
+        await lupeMessen(ansicht(), 'kleines Foto (8×6)');
+        { const z0 = ansicht() && ansicht().querySelector('button[data-gs-close]'); if (z0) z0.click(); }
+        await warte(600);
+        const grund = JSON.stringify(history.state);
+        const laenge = history.length;
+        for (let i = 0; i < 5; i++) {
+          if (typeof gsFotoAnsicht === 'function') gsFotoAnsicht(PNG);
+          await warte(300);
+          const z = ansicht() && ansicht().querySelector('button');
+          if (z) z.click();
+          await warte(500);
+        }
+        if (ansicht()) klagen.push('allein geöffnet bleibt die Ansicht stehen');
+        if (JSON.stringify(history.state) !== grund) klagen.push('nach dem Schliessen per ✕ steht der Verlauf auf ' + JSON.stringify(history.state) + ' statt auf ' + grund);
+        if (history.length - laenge > 1) klagen.push('der Verlauf wuchs um ' + (history.length - laenge) + ' Einträge (5× öffnen)');
+        // 6 · über einem ANDEREN dynamischen Dialog mit demselben z-index (99999):
+        // die Ansicht liegt oben, also geht SIE zuerst. Die Daten ziehen die zwei
+        // denkbaren Regeln auseinander (v33.28): bei Gleichstand nähme gsZurueck
+        // die erste Schicht im Dokument — das wäre der Dialog darunter.
+        const unten = document.createElement('div');
+        unten.id = 'gs-pruef-dialog';
+        unten.style.cssText = 'position:fixed;inset:0;z-index:var(--z-image-overlay,99999);display:flex;';
+        document.body.appendChild(unten);
+        gsRegisterOverlay(unten);
+        await warte(200);
+        if (typeof gsFotoAnsicht === 'function') gsFotoAnsicht(PNG);
+        await warte(300);
+        const was = gsZurueck();
+        await warte(300);
+        if (ansicht()) klagen.push('über einem anderen Dialog blieb die Foto-Ansicht nach Zurück („' + was + '") offen');
+        if (!document.getElementById('gs-pruef-dialog')) klagen.push('Zurück hat den Dialog UNTER der Foto-Ansicht geschlossen — die Ansicht liegt nicht oben');
+        try { gsDismissOverlay(unten); } catch (_) { unten.remove(); }
+        await warte(400);
+      } finally {
+        window.open = echtOpen;
+        rz.photo_urls = fotosVorher;
+        try { const x = ansicht(); if (x) x.remove(); } catch (_) {}
+        try { const y = document.getElementById('gs-pruef-dialog'); if (y) y.remove(); } catch (_) {}
+        try { closeModal('modal-recipe-detail'); } catch (_) {}
+        await warte(300);
+      }
+      if (klagen.length) return { ok: false, warum: klagen.slice(0, 4).join(' · ') };
+      return { ok: true, info: '0× window.open · Dialog mit Foto, Fokus darin · popstate, Escape und ✕ je EINE Schicht, das Rezept bleibt offen · das Foto (1600×1200) passt ganz hinein · die Lupe heisst „Vergrössern“/„Verkleinern“ und tut es, auch bei einem kleinen Foto · 5× allein: Verlauf zurück auf dem Grundeintrag · über einem zweiten Dialog (gleicher z-index) geht die Ansicht zuerst' };
+    },
+  },
 ];
 
 // ── assetlinks.json (Datei, kein Browser) ─────────────────────────────────

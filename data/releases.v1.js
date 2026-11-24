@@ -30,6 +30,133 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.48', date: '17.09.2026',
+      headline: 'Die Artenliste hat einen zweiten Versuch',
+      summary: 'Das Script-Tag der 2,1-MB-Artenliste hatte kein onerror und keinen Rückfall: fiel die Datei aus, lief die App mit einer leeren Liste weiter und sagte beim Start nichts. Jetzt gibt es einen zweiten Ladeversuch mit Cache-Umgehung — und wenn auch der danebengeht, steht es auf der Startseite.',
+      user_summary: 'Wenn die Artenliste beim Laden einmal ausfällt, holt die App sie von selbst nach. Klappt auch das nicht, sagt sie es dir auf der Startseite — mit einem Knopf zum Nochmal-Versuchen, statt dass Suche und Bestimmung einfach leer bleiben.',
+      user_items: [
+        {emoji:'🔄', bold:'Zweiter Versuch von selbst:', text:' die häufigste Ursache ist ein abgebrochener Download, und der ist beim zweiten Mal weg.'},
+        {emoji:'⚠️', bold:'Und wenn nicht, steht es da:', text:' „Die Artenliste konnte nicht geladen werden" auf der Startseite, mit „Neu laden" daneben.'}
+      ],
+      items: [
+        {emoji:'🧩', bold:'Gemessen an v33.47:', text:' <script src="data/plants.v1.js?v=1"> ohne onerror. Mit blockierter Datei: DB.length = 0, und die Startseite sagte nichts — man merkte es erst beim Öffnen von etwas, das die Liste braucht.'},
+        {emoji:'🧮', bold:'Ein Weg, nicht zwei:', text:' die Datei trägt 4342 Einträge, die App läuft mit 4337 — deduplicateDB war eine anonyme IIFE und lief nur beim normalen Laden. Jetzt ist sie eine benannte Funktion, die der Nachlade-Weg GENAUSO ruft; sonst liefe die App nach einem Nachladen mit fünf Duplikaten weiter.'},
+        {emoji:'🚦', bold:'gsArtenStand():', text:' drei Zustände — ok · laedt · fehlt MIT Grund. Gemessen wird die Liste selbst (DB.length), nicht der gemerkte Ladeversuch: kommt sie über einen anderen Weg doch an, gibt es nichts zu melden.'},
+        {emoji:'🧪', bold:'offline_check 22 → 24 Fragen:', text:' der erste Versuch wird wirklich abgebrochen und der zweite durchgelassen (muss sich erholen, auf dieselbe Artenzahl), dann beide (muss es sagen) — mit der Gegenrichtung „im guten Fall keine Zeile". Drei Gegenproben, jede einzeln rot.'}
+      ],
+    },
+  {
+    v: 'v33.47', date: '17.09.2026',
+      headline: '„Nicht geprüft" ist keine Entwarnung',
+      summary: 'Fällt die Artenliste beim Laden aus, konnte der Scanner nichts gegenprüfen — und sagte trotzdem „Nichts spricht dagegen", unter der Überschrift „Gegengeprüft mit unserer Artenliste". Für einen Knollenblätterpilz, den das Modell als essbar meldet, stand damit eine Entwarnung auf dem Bildschirm. Das Prüfwerk hat jetzt einen vierten Zustand.',
+      user_summary: 'Wenn die Artenliste einmal nicht geladen werden konnte, sagt dir das Scan-Ergebnis das jetzt deutlich — statt so auszusehen, als sei alles gegengeprüft worden.',
+      user_items: [
+        {emoji:'⚠️', bold:'„Nicht gegengeprüft":', text:' steht als Überschrift auf der Karte, wenn keine einzige Prüfung laufen konnte — mit dem Hinweis, die App neu zu laden.'},
+        {emoji:'🛡️', bold:'Keine falsche Beruhigung:', text:' „Nichts spricht dagegen" gibt es nur noch, wenn wirklich geprüft wurde und nichts widersprochen hat.'}
+      ],
+      items: [
+        {emoji:'🔬', bold:'Gemessen, nicht vermutet:', text:' mit blockiertem data/plants.v1.js sind alle sieben Regeln „unbekannt", gsMatchScanToDb gibt null, die Giftstufe bleibt die ungeprüfte 0 der KI statt der 5 aus unserer Liste — und die Stufe fiel in den Zweig warn === 0.'},
+        {emoji:'🚦', bold:'Vierter Zustand im Prüfwerk:', text:' ok === 0 && warn === 0 ergibt jetzt „Nicht geprüft" MIT Grund (Artenliste nicht geladen), in der Warnfarbe — demselben Token wie „schwach", also in beiden Modi längst vermessen.'},
+        {emoji:'📛', bold:'Die Überschrift behauptet nicht mehr, als geschehen ist:', text:' sie stand fest im Code und sagte immer „Gegengeprüft mit unserer Artenliste", auch wenn nichts gegengeprüft hatte.'},
+        {emoji:'📍', bold:'Selten, aber genau der richtige Fehler:', text:' mit geladener Liste ist der Zustand nicht erreichbar — S1 liefert immer ok oder warn (an sieben Ergebnisformen gemessen, darunter „gar nichts erkannt"). Er gehört dem Fehler auf dem GERÄT, den kein Prüfstand vor der Auslieferung sieht.'},
+        {emoji:'🧪', bold:'scan_check P1 und P2:', text:' P1 rechnet die Stufe, P2 liest die GERENDERTE Überschrift (Regel aus v31.90). Beide mit Gegenrichtung „mit Liste unverändert"; zwei Gegenproben, einzeln rot (vierter Zustand ausgebaut → 2 rot, Überschrift wieder fest → 1 rot).'}
+      ],
+    },
+  {
+    v: 'v33.46', date: '16.09.2026',
+      headline: 'Ein Sync, der klemmt, sagt es — dort, wo du bist',
+      summary: 'Ein unvollständiger Cloud-Abgleich landete bis hierher in der Browser-Konsole und sonst nirgends. Die Statuszeile in den Einstellungen sagte zwar das Richtige, stand aber in den Einstellungen — und kannte keinen Unterschied zwischen „seit einer Minute offen" und „seit drei Tagen offen". gsSyncStand() ist jetzt EINE Rechnung mit vier Zuständen, und ab 24 Stunden steht sie auf der Startseite.',
+      user_summary: 'Wenn deine Änderungen länger als einen Tag nicht in die Cloud kommen, obwohl du angemeldet und online bist, sagt es dir die Startseite — mit einem Knopf, der es sofort versucht. Bist du schlicht offline, passiert nichts: dafür ist die Warteschlange da.',
+      user_items: [
+        {emoji:'⚠️', bold:'Auf der Startseite:', text:' „3 Änderungen sind seit über 24 Stunden nicht gesichert" — mit „Jetzt sichern" daneben.'},
+        {emoji:'📶', bold:'Offline ist kein Fehler:', text:' ohne Verbindung oder abgemeldet warten die Änderungen einfach, und die App sagt nichts. Gemeldet wird nur, was klemmt, obwohl es gehen müsste.'},
+        {emoji:'✅', bold:'Die Antwort kommt nach dem Versuch:', text:' „Gesichert." erst, wenn es wirklich durch ist — sonst steht da, wie viel noch offen ist.'},
+        {emoji:'⚠️', bold:'Warnungen sehen wieder aus wie Warnungen:', text:' 77 Meldungen in der App standen mit einem Blatt-Symbol auf neutralem Grund, statt orange mit Warnzeichen. Das lag an einer Schreibweise im Code und ist an einer Stelle behoben.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'gsSyncStand():', text:' vier Zustände — ok · unterwegs · klemmt · nicht_bekannt MIT GRUND. „Klemmt" verlangt alle drei Teile: es ist etwas offen UND die App könnte senden (angemeldet und online) UND die letzte vollständige Übertragung ist älter als GS_SYNC_KLEMMT_H (24 h) oder es gab nie eine. Zwei Anzeigen, eine Rechnung: der Tagesplan und die Statuszeile in den Einstellungen lesen dieselbe Funktion.'},
+        {emoji:'🔇', bold:'Ein Fehler, den nur die Konsole sieht, ist kein gemeldeter Fehler:', text:' dieselbe Klasse wie der wegdestrukturierte Fehler im daily-push-checker (v33.41), Prefer: return=minimal beim Quiz (v32.65) und die dreizehn Admin-Sektionen (v33.42).'},
+        {emoji:'🔕', bold:'Kein Alarm im Normalzustand:', text:' wer offline ist, klemmt nicht — genau dafür gibt es die Warteschlange. Eine Warnung, die bei jedem Flugmodus aufleuchtet, ist die Zahl, die man zu ignorieren lernt (v32.21).'},
+        {emoji:'📊', bold:'sync_stuck im Vokabular:', text:' zwei Zahlen (stunden, offen), nie welche Daten und nie wohin; stunden ist −1, wenn noch nie vollständig übertragen wurde. Einmal je Tag über gs_sync_klemmt_tag (in GS_USER_KEYS, geht mit dem Konto) — ein Ereignis bei jedem Rendern wäre Rauschen, kein Signal.'},
+        {emoji:'🧪', bold:'sync_check 7 → 10 Fälle:', text:' klemmt · unterwegs · offline klemmt NICHT · die Tages-Sperre. Vier Gegenproben, jede einzeln rot: Funktion umbenannt (3 rot), „lange" fest auf true (2 rot), der canPush-Zweig ausgehängt (1 rot), das Tagesgedächtnis entfernt (1 rot).'},
+        {emoji:'⚠️', bold:'Toast-Typ normiert (Nebenfund, beim Nachlesen der eigenen Zeile):', text:' gezählt über alle Aufrufe — error 142 · info 110 · success 96 · warn 77 · warning 55. „warn" ist die EINZIGE Schreibweise, die weder die Icon-Tabelle noch das CSS kennt (.gs-toast.warning ist orange, .gs-toast.warn gibt es nicht): 77 Warnungen trugen 🌿 auf neutralem Grund. EIN Tor in _gsToastShowNow statt 77 Pflaster (wie v32.16, v32.33); robust_check B5b misst Symbol UND Fläche, plus die Gegenrichtung.'}
+      ],
+    },
+  {
+    v: 'v33.45', date: '16.09.2026',
+      headline: 'Was demnächst abläuft, steht jetzt auf dem Bildschirm',
+      summary: 'v33.44 hat das Risiko-Inventar gebaut und im selben Atemzug notiert, was daran fehlt: eine Liste, die niemand liest, ist Speicherplatz. GS_FRISTEN rechnet sechs Fristen selbst aus — fünf live auf dem Gerät, eine gemessen mit Datum — und das Admin-Panel zeigt sie.',
+      user_summary: 'Diese Auslieferung betrifft nur das Admin-Panel. Für dich ändert sich nichts — sie sorgt dafür, dass Deckel und Fristen nicht erst auffallen, wenn sie erreicht sind.',
+      user_items: [
+        {emoji:'⏳', text:'Der Speicher auf deinem Gerät und die Deckel der App werden überwacht, bevor etwas voll ist.'}
+      ],
+      items: [
+        {emoji:'📋', bold:'GS_FRISTEN + gsFristenStand():', text:' zwei Arten — ein DATUM ist gemessen (mit Messdatum und Quelle daneben), eine SCHWELLE rechnet die App live. Vier Zustände: ok · bald (ab 80 %) · fällig · nicht_bekannt MIT GRUND.'},
+        {emoji:'⚖️', bold:'Am Deckel ist der Normalzustand, nicht der Alarm:', text:' das Changelog steht bei 20 von 20, und der nächste Bump schiebt den ältesten ins Archiv. ‚Fällig‘ ist erst DARÜBER — ein Alarm, der im Normalzustand steht, ist die Zahl, die man zu ignorieren lernt.'},
+        {emoji:'🧪', bold:'risiko_check R4:', text:' liest die GERENDERTE Karte, nicht das Objekt — und beide Richtungen: jeder Eintrag steht auf dem Bildschirm, und jedes Datum aus dem Inventar hat einen Eintrag. Die Gegenrichtung fehlte zuerst, und die Gegenprobe ‚eine Frist entfernt‘ blieb genau deshalb grün.'},
+        {emoji:'🏷️', bold:'GS_MESSWERTE_MAX:', text:' der Messwerte-Deckel hiess bis hierher nur 2000 an seiner Aufrufstelle. Ein Deckel ohne Namen steht in keinem Dokument und in keiner Regel.'}
+      ],
+    },
+  {
+    v: 'v33.44', date: '16.09.2026',
+      headline: 'Was später schiefgeht — gemessen, bevor es passiert',
+      summary: 'Die Wochen-Tipps werden nur nach Kalenderwoche ausgewählt, wiederholen sich also jedes Jahr — und elf davon nannten ein Jahr im Sinn von ‚dieses Jahr‘. Ab dem 1. Januar 2027 hätte die App in Woche 13 von einer Pilzsaison erzählt, die vorbei ist. Bereinigt, und ein neuer Prüfstand hält es fest.',
+      user_summary: 'Die saisonalen Tipps nennen keine Jahreszahl mehr, wenn sie ‚dieses Jahr‘ meinen — sie wären sonst ab Neujahr falsch gewesen.',
+      user_items: [
+        {emoji:'📅', text:'Kein Tipp erzählt mehr von einem Jahr, das vorbei ist.'}
+      ],
+      items: [
+        {emoji:'🔎', bold:'Gemessen:', text:' WEEKLY_SEASONAL_FACTS hat 521 Einträge und wird NUR nach Kalenderwoche gefiltert (gsGetKW) — die Liste wiederholt sich jährlich. Elf Zeilen nannten ‚Pilzsaison 2026‘, ‚Jahresrückblick Natur 2026‘, ‚Planung für 2027‘. Fünf Jahresnennungen bleiben, weil sie feste Punkte sind (Zieljahr 2030, datierte Berichte) — namentlich mit Grund im Prüfstand.'},
+        {emoji:'🧪', bold:'scripts/risiko_check.js (neu, 38. Prüfstand):', text:' R1 kein ‚dieses Jahr‘ in einem jährlich wiederkehrenden Text · R2 jede Listen-Abfrage ohne limit= ist eingeordnet (80 gedeckelt, 25 Katalog, 13 Einzelzeile, 13 wächst-mit-der-Person, je mit Grund) · R3 was docs/RISIKEN.md als Zahl nennt, steht so auch im Quelltext. Vier Gegenproben, jede macht ihren Fall rot.'},
+        {emoji:'📘', bold:'docs/RISIKEN.md:', text:' vier Klassen — was an einem DATUM aufhört (Quiz-Vorrat ermüdet am 16.06.2027, Migration nicht angewandt), was mit der GRÖSSE aufhört, was von ANDEREN abhängt (pdf.js ist der einzige CDN-Rest), und was eine ENTSCHEIDUNG braucht statt Code.'},
+        {emoji:'⚠️', bold:'Ein Messfehler von mir, festgehalten:', text:' mein erster Zähler las nur das ERSTE Zeichenketten-Literal eines Pfades und meldete device_readings als ‚ohne Deckel‘ — das limit= steht im zweiten. Gelesen wird jetzt der ganze erste Parameter von sbFetch(.'}
+      ],
+    },
+  {
+    v: 'v33.43', date: '16.09.2026',
+      headline: 'Der Zurück-Knopf schliesst ein Fenster — nicht die ganze App',
+      summary: 'Erster Schritt zur Android-App: die App schrieb nichts in den Browser-Verlauf, also schloss der Android-Zurück-Knopf bei jedem offenen Fenster die ganze App. Jetzt gibt es EINE Zurück-Regel, an der Zurück-Taste und an Escape — und sie erreicht auch die acht Vollbild-Fenster (Tagesquiz, ‚Ueben‘, Lichtmesser), die Escape noch nie erreicht hat.',
+      user_summary: 'Escape (am Computer) und der Zurück-Knopf (am Handy) schliessen jetzt genau EIN Fenster — nicht zwei auf einmal, und nicht gleich die ganze App.',
+      user_items: [
+        {emoji:'↩️', text:'Zurück schliesst das oberste Fenster. Ist keines offen, geht es einen Tab zurück.'},
+        {emoji:'🧩', text:'Auch das Tagesquiz, ‚Ueben‘ und der Lichtmesser lassen sich so schliessen — vorher ging das nur über ihr eigenes X.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen an v33.42:', text:' null Treffer auf history.pushState, popstate und history.back in der ganzen Datei. In einer Android-Hülle (TWA) schliesst der Zurück-Knopf damit die App — rund vierzig Fenster, elf Tabs. Im Browser fällt das nicht auf, weil es den Knopf dort nicht gibt.'},
+        {emoji:'↩️', bold:'gsZurueck():', text:' die eine Regel. Nimmt die OBERSTE Schicht ab — über drei Familien hinweg (dynamische Dialoge, gestapelte Fenster, Vollbild-Fenster), danach den Tab. Escape und popstate rufen sie beide; ein Druck ist EINE Schicht (Escape schloss vorher zwei).'},
+        {emoji:'🧮', bold:'GS_VOLLBILD_OVERLAYS:', text:' acht Vollbild-Fenster laufen nicht über openModal und waren damit für Escape unsichtbar — Tagesquiz, Ueben, Rangliste, Scan-Verlauf, Wetter, Lichtmesser, Pro-Messung, Kalibrierung. Die Liste ist die Prüfung.'},
+        {emoji:'📱', bold:'gsLaeuftAlsApp():', text:' ein Prädikat statt zwei. Nur das des Install-Banners kannte die Android-Hülle (referrer android-app://); der Push-Weg und der Druck-Rückfall hängen jetzt an derselben Rechnung.'},
+        {emoji:'🧪', bold:'scripts/android_check.js (neu, 37. Prüfstand):', text:' neun Fragen, acht davon rot gegen v33.42. Drei meiner eigenen Fälle massen zuerst nichts — die Gegenproben haben es gezeigt; sie gehen jetzt den ECHTEN Weg (history.back → popstate) statt die Funktion direkt zu rufen. docs/ANDROID-APK.md nennt die Handgriffe und die Risiken.'}
+      ],
+    },
+  {
+    v: 'v33.42', date: '16.09.2026',
+      headline: 'Admin-Panel: was nicht geladen hat, sagt es — und lässt sich einzeln nachholen',
+      summary: 'Dreizehn von sechzehn Admin-Sektionen lasen den Fehler gar nicht: eine Ablehnung wurde zur leeren Liste, und auf dem Bildschirm stand ‚Keine offenen Meldungen‘. Sieben fragten nicht einmal, ob die Person Admin ist. Jetzt gibt es eine Liste, einen Weg und vier Zustände — dazu einen Überblick ganz oben und einen Aktualisieren-Knopf je Sektion.',
+      user_summary: 'Diese Auslieferung betrifft nur das Admin-Panel — für dich ändert sich nichts. Sie sorgt dafür, dass gemeldete Beiträge nicht liegen bleiben, weil eine Abfrage stillschweigend fehlgeschlagen ist.',
+      user_items: [
+        {emoji:'🛡️', text:'Meldungen an die Moderation gehen nicht mehr unbemerkt unter.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'Gemessen an v33.41:', text:' 13 von 16 Sektionen endeten auf catch(e) { return []; } — Ablehnung, 404, Netzfehler und ‚leer‘ sahen gleich aus. 7 von 16 hatten kein gsIsAdmin()-Tor und schickten ihre Anfrage trotzdem los.'},
+        {emoji:'📋', bold:'GS_ADM_SEKTIONEN + _gsAdmHole:', text:' eine Liste mit Titel, Pfad, Anzeige und Element je Sektion; ein Weg, der IMMER einen Umschlag {state, daten, grund} zurückgibt — daten · nicht_verfuegbar · fehler · kein_zugriff. Der Grund kommt aus _gsFehlerText, nie roh aus PostgREST.'},
+        {emoji:'🔄', bold:'gsAdmSektionNeu(schlüssel):', text:' eine Anfrage statt sechzehn. Der alte _gsAdminRefreshSection nahm Funktionsreferenzen (von aussen nicht adressierbar) und baute bei fehlendem Element das ganze Panel neu auf.'},
+        {emoji:'🔎', bold:'Überblick oben im Panel:', text:' ‚3 von 16 Sektionen konnten nicht geladen werden: Moderation · Hintergrund-Jobs · Gutscheine‘ mit ‚Nur diese erneut versuchen‘ — das sind dann drei Anfragen, nicht sechzehn.'},
+        {emoji:'🧪', bold:'scripts/admin_check.js (neu, 36. Prüfstand):', text:' sechs Fälle — Zugang, drei Zustände je Sektion, was auf dem Bildschirm steht, Einzel-Refresh, die Liste selbst, der Überblick. Alle sechs waren gegen v33.41 rot; jede Regel hat ihre eigene Gegenprobe.'}
+      ],
+    },
+  {
+    v: 'v33.41', date: '16.09.2026',
+    headline: 'Der Server kennt jetzt auch deine Beete — und zwei Migrationen, die gar nicht angewendet werden konnten',
+    summary: 'Siebte und letzte Scheibe von KALENDER-V2. Drei Befunde, alle live gemessen: der Aufgaben-Push kannte nur „Meine Pflanzen" und nie eine Garten-Pflanzung; die saisonale Erinnerung filterte auf eine Spalte, die es gar nicht gibt (`priority`), und der Fehler wurde verschluckt — sie hat seit dem Bau keine einzige Zeile gehabt; und zwei Migrationen, die seit Tagen als „bereit" in der Liste standen, waeren beim Anwenden gescheitert, weil `CREATE OR REPLACE VIEW` Spalten nur anhaengen darf.',
+    user_summary: 'Erinnerungen fuer Pflanzen in deinen Beeten sind vorbereitet — bisher kannte der Server nur die Pflanzen aus „Meine Pflanzen".',
+    user_items: [
+      {emoji: '🌱', bold: 'Beete zaehlen mit:', text: ' Der Server, der die Erinnerungen verschickt, kannte nur „Meine Pflanzen". Gemessen: 15 Pflanzungen in Beeten mit Pflege-Aufgaben, und keine einzige davon hat je eine Erinnerung ausgeloest. Die App zaehlte beide Listen, der Server eine.'},
+      {emoji: '📅', bold: 'Die saisonale Erinnerung kam nie:', text: ' Sie suchte nach einem Feld, das die Tabelle nicht hat — die Abfrage schlug jedes Mal fehl, und niemand hat es gemerkt, weil der Fehler weggeworfen wurde. Jetzt sucht sie das richtige Feld, und ein Fehler wird gesagt.'},
+      {emoji: '🧱', bold: 'Zwei Datenbank-Aenderungen waren gar nicht anwendbar:', text: ' Sie standen seit Tagen als „bereit" da und waeren beim ersten Versuch gescheitert. Jetzt sind sie es wirklich — nachgerechnet in einer echten Datenbank.'}
+    ],
+  },
+  {
     v: 'v33.40', date: '16.09.2026',
     headline: 'Die Woche auf einen Blick — und deine Stillen Tage stehen im Kalender',
     summary: 'Sechste Scheibe von KALENDER-V2. Eine Zeile sagt, was die Woche bringt — auf der Startseite, im Kalender und in Linas Kontext, aus DERSELBEN Rechnung. Und wenn du Stille Tage eingestellt hast, sagt jede Aufgabe, die hineinfällt, dass sie hineinfällt. Dabei gemessen: mit Stillen Tagen bis zum 11.9. fielen SIEBEN Fälligkeiten in die Abwesenheit, und kein Ereignis sagte es; und der Wochenrückblick zählte einen selbst notierten Tagebuch-Eintrag als erledigte Aufgabe.',

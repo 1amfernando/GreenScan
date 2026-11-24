@@ -4,13 +4,381 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-16 · **Branch**: `main` · **Version**: `v33.61` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-11-24 · **Branch**: `main` · **Version**: `v33.69` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-11-24 (jq) - v33.69: Gelöscht bleibt gelöscht — die Schlussprüfung von v33.68, nachgezogen
+
+**Auftrag:** Fernando, „Bitte schau das auch alles gemergt wird." PR #337 (v33.68) ist seit dem 24.11., 13:05 UTC,
+auf `main`. Die Schlussprüfung des zusammengeführten Diffs (sechs Linsen, je Fund drei Widerleger) lief über das
+Wochenlimit: die Linse „Blob" kam durch und meldete vier Funde, die fünf anderen fielen aus und wurden am 24.11.
+auf einem eingefrorenen Baum (`3f126c4`) neu gestartet. Die vier Funde sind von Hand am Code nachgelesen und mit
+je einem Fall belegt, der gegen v33.68 rot ist — dieser Eintrag ist ihr Nachzug.
+
+| # | Fund | Herkunft | Reparatur | Fall |
+|---|---|---|---|---|
+| 1 | Ein ohne Empfang gelöschter Garten-Plan oder GPX-Track kam beim nächsten Abgleich aus der Cloud zurück und ging wieder hoch | **durch v33.68 entstanden** (die Zusammenführung je Eintrag aus H8 kannte keine Löschmarke; davor gewann die ganze lokale Liste) | `GS_GELOESCHT_LISTEN` (die drei Stempel-Listen + `gs_garden_plans` + `gs_gpx_tracks`), `_gsLoeschmarke` in `gsPPdeletePlan` und `gsTrackDelete`; beide merken den Garten-Bereich vor; der Abgleich und `gsPPopenSavedPlans` lesen die Marke | `sync_check` H10 |
+| 2 | Ein ungesendeter state auf einem Gerät, das ihn nie abgeglichen hat, ersetzte nach dem ersten gelesenen Abgleich die Cloud (der eine neue Favorit die zwanzig alten) | vorbestehend — v33.68 wies es als behoben aus, die Sperre verschob den Verlust nur hinter das Lesen | `_gsStateMischen`: ohne `gs_sync_synced_at_state` je Schlüssel mischen (Listen vereinigt, Objekte ergänzt, Zahl und Text lokal); ein schon abgeglichenes Gerät behält seinen Stand | `sync_check` H11, beide Richtungen |
+| 3 | `gsXpBootSync` nahm die 0 des ungelesenen Ersatzprofils als Cloud-Stand und buchte die ganze lokale XP noch einmal | vorbestehend | bei `_ungelesen` wird nichts gebucht | `sync_check` H12 |
+| 4 | Ein beim Start ungelesenes Profil wurde in der Sitzung nie nachgelesen | vorbestehend | `_gsProfilNachlesen` nach dem ersten gelungenen Abgleich (XP-Abgleich und Streak danach) | `sync_check` H12 |
+
+**Was sich für die Person ändert:** der Satz nach einem unbestätigten Plan-Löschen sagt jetzt, dass die App es beim
+nächsten Abgleich erneut versucht (für Pläne aus `user_gardens`; für `gp_`-Pläne bleibt der alte Satz, dort wird das
+DELETE nicht nachgeholt).
+
+**Prüfstände:** `sync_check` 22 Fragen (H10–H12 gegen v33.68: 3 rot) · gezielt grün: `save_check` 29,
+`speicher_check` 27, `storage_check`, `versprechen_check`, `robust_check` 33, `i18n_check`, `backup_check`,
+`nutzersicht_check` 12, `wiring_check`, `planer_check` 25, `austausch_check` 17. Voller Lauf am Stand von v33.68
+(`3f126c4`, 19.11.): 46 Prüfstände, 0 rot; CI auf #337 grün.
+
+**Offen:** brett:2026-11-24-f70e (solange das Profil ungelesen ist, zählen Scans und Meilensteine nicht und werden nicht nachgebucht), brett:2026-11-19-3dee, brett:2026-11-19-4b64, brett:2026-11-19-db62
+**Nicht geprüft:** die vier Funde durch unabhängige Widerleger (die Agenten fielen am Limit aus — nachgelesen und gemessen habe ich sie selbst); ein zweites echtes Gerät und ein echter Server; ob `_gsStateMischen` die Reihenfolge jeder Liste trifft, die „neueste zuerst" erwartet (die Cloud-Reihenfolge bleibt, nur lokale Einträge stehen am Ende)
+
+### 2026-11-19 (jp) - v33.68: Eine Antwort nach dem Abmelden landet nie mehr im nächsten Konto — ein Tor in sbFetch und in der KI
+
+**Auftrag:** Fernando, „Verbesser alles komplett. Alle Sicherheitslücken sollten behoben werden" — Fortsetzung
+der Sicherheitsreparatur v33.59 (PR #327, am 16.11. gemergt) auf demselben Branch `ccr-5e705a36-jveaak`. Der
+Koordinator hatte die Fehlerklasse `2026-11-16-89ee` als „ohne Besitzer" gemeldet (18 KI-Wege ausserhalb der vier
+Hauptfunktionen). Gebaut auf main v33.61 (`a5adfc0`), eingespielt auf v33.67 (`0485b2d`; Konflikte mit #336
+`analyzeImage`/`_gilt()`, #333 Pilz-Scanner und #335 `gsCloudSync._flush` aufgelöst). **v33.68 ist ein
+Platzhalter** (`docs/AGENTEN-NETZ.md` §2): die Nummer gilt, wenn dieser Stand an der Spitze der Merge-Reihe steht.
+
+**Gemessen** (Bestandsaufnahme mit acorn über `index.html`, main `a5adfc0`): 26 async-Funktionen warten auf
+`callAI`/`callVisionAI`, 21 ohne Personen-Vergleich; 253 warten nur auf Server-Wege, 193 davon zeigen oder schreiben
+danach etwas. `sbLogout` lädt die Seite nicht neu — jede dieser Antworten konnte nach dem Abmelden von A beim
+nächsten Konto B ankommen.
+
+**Gebaut** — drei Gruppen in eigenen Arbeitsbäumen, je Fall rot gegen den alten Stand → Reparatur → Geschwister →
+gegnerische Gegenprüfung (alle drei Prüfer haben selbst nachgebessert):
+
+| Gruppe | Was | Prüfstand |
+|---|---|---|
+| Tor | `sbFetch` und `_gsAiAnfrage` merken die Person beim Eintritt; nach einem Wechsel `{error:{code:'person_gewechselt'}}` bzw. `_gsPersonAusnahme()` — keine Daten. Fragen: `_gsPersonGewechselt`, `_gsPersonAnders`, `_gsPersonJetzt`; Satz `GS_PERSON_GEWECHSELT_SATZ` über `_gsFehlerText`. Ein später Token-Refresh schrieb die Sitzung von A über die von B (`_gsRefreshShared`, jetzt nur, wenn der eingelöste Token noch gilt). Wege am Tor vorbei (rohes `fetch`): Pflanzendoktor, Schädling, Pilz, Garten-Scan, Plan anpassen, Abo-Portal, Kasse, Verkäuferkonto, Inserat. Warteschlangen und Schleifen: `gsCloudSync._flush`, Korrekturen, `gsGardenSync.flushQueue`, `gsMapFinds._uploadLocalOnly` (Funde mit genauen Koordinaten gingen unter dem Konto von B hinaus), `gsRetryPhotoUploads`, `gsScanPersistToCloud`, `gsUploadImage`, `sbLoadProfile`, die Wissens-Cache-Hülle | `sicherheit_check` 71_person (neu, Tor a–t) |
+| KI-Wege | die 19 Funktionen der Liste und Geschwister (`gsRunServerTriage`, `gsAdminReviewSpeciesProposal`, `gsTwinOnPhoto`, `_gsTPphoto`): die Person wird vor dem ERSTEN `await` gemerkt, ein `catch` fragt zuerst `_gsPersonGewechselt` und endet still. Der Garten-Zwilling trägt sein Konto (`gsTwinGet`) — er überlebte das Abmelden und stand im KI-Kontext des nächsten Kontos | 71_person KI a–h |
+| Erst lesen, dann schreiben | Gefunden von der Gegenprüfung der Gruppe Tor, vorbestehend: ein gescheitertes Lesen von `user_gardens` galt beim Plan-Speichern (`gsPPsavePlan`, `gsPPduplicatePlan`) als leerer Blob — der POST mit `merge-duplicates` ersetzte Gärten, Pflanzungen, `current` und Tracks durch `{plans:[…]}`. Die Gegenprüfung dieser Gruppe fand dieselbe Klasse im Sync selbst (gemessen, `sync_check` H8/H9): scheiterte der Start-Abgleich, lud `gsCloudSync._flush` einen fast leeren lokalen Garten-, Pflanzen- oder Status-Blob über die Cloud. Jetzt geht ein Blob erst hoch, wenn seine Zeile in dieser Sitzung für diese Person gelesen wurde (`_gsBlobGelesen`); ungesendete Pläne, `current` und Tracks werden beim Abgleich zusammengeführt; `_gsGartenBlobLesen` (da · leer · fehler · gewechselt); `sbLoadProfile` schreibt ein ungelesenes Ersatzprofil nicht zurück (Streak, Statistik, Meilensteine); `what_if_runs` nur über eine gelesene Zeile | `sync_check` H8/H9, `save_check` (29), `speicher_check` (27) |
+| Abmelden | Brett `a6d6`: Abmelden heisst derselbe Bildschirm wie nach einem Neuladen — `_gsAbmeldenFenster`, `_gsAbmeldenFelder` (72 Textfelder trugen nach dem Abmelden den Text von A), `GS_ABMELDEN_ANZEIGEN`/`_ENTWUERFE`/`_ZEICHNER`, `_gsAbmeldenStartseite`; Sätze beim Abmelden im Meldefeld (`_gsAbmeldenSagen` — ein Toast lag unter dem Anmeldebildschirm). Brett `7ebf`: `gsPlans.parken` je Konto, eigener Satz für `fehler` | 98_schluss_e, 98_schluss_b, `speicher_check` |
+
+**Prüfstände** (gezielt, nacheinander, `TZ=UTC`, am eingespielten Stand): `sicherheit_check` 227 Fälle in 24
+Dateien · `scan_check` 131 · `sensor_check` 65 · `speicher_check` 26 · `sync_check` 17 · `save_check` 24 ·
+`edge_check` 82 (der App-Ausschnitt in 70_reste nimmt die Personen-Helfer jetzt mit) · `stripe_check` 51 ·
+`robust_check` 33 · `einstellungen_check` 39 · `backup_check` 17 · `nutzersicht_check` 12 · `schluessel_check` 13 ·
+`planer_check` 25 — je 0 kaputt; `offline_check` hing einmal im bekannten Fall 35 (Brett `75c2`), allein 48/0.
+
+**Live-Lage, nur lesend nachgemessen** (Brett `2026-11-19-c3f3`): seit dem 16.11. sind
+`20261110_sicherheit_ki_kontingent.sql` angewandt und 24 Functions ausgeliefert (nach der Migration, wie §30
+verlangt); die fünf anderen Migrationen `20261110_*` nicht. CLAUDE.md §3.4/§3.6 datiert berichtigt.
+
+**Offen:** brett:2026-11-19-3dee (Abmelden vor dem ersten gelesenen Abgleich: ein nur lokal vorgemerkter Garten-Plan geht verloren — Folge der neuen Sperre, eng), brett:2026-11-19-4b64 (leerer „Mein Garten“ nach gescheitertem Start-Abgleich), brett:2026-11-19-db62 (Sammlungs-Aufräumen und Wiederherstellung nehmen einen Lesefehler als „nichts da“), brett:2026-11-19-e3ad (acht Schlüssel ohne Speicherliste, darunter KI-Artprofile aus fremden Scans), brett:2026-11-19-dee0 (`_gsAdmTun` nach einem Wechsel), brett:2026-11-19-f05b (book-ingest), brett:2026-11-19-b7d9 (Meldungen ≥ 120 Zeichen unübersetzt), brett:2026-11-19-d999 (Stempel und Toast nach dem Abmelden), brett:2026-11-19-57e0 (i18n-translate nur als Admin rufen), brett:2026-11-11-75c2 (offline_check Fall 35) · `supabase/functions/AUSLIEFERUNG.json` führt die 18 am 16.11. ausgelieferten Functions ohne KI-Tor noch als `ausliefern` — ein Byte-Abgleich mit dem Live-Code steht aus
+**Nicht geprüft:** ein echter Kontowechsel auf einem Telefon; die echten Stripe-Fenster (Portal, Kasse, Connect) — gemessen ist Chromium mit gestellten Antworten; ob die 24 am 16.11. ausgelieferten Functions byte-gleich mit `57a7acf` sind
+
+### 2026-11-19 (jo) - v33.67: Scanner 4 — einen laufenden Scan abbrechen; ein neuer ersetzt den alten; keine erfundenen Meldungen über der Kamera
+
+**Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"; Arbeitsliste
+`docs/HAUPTFUNKTIONEN.md`, Scanner 4). Gebaut auf main v33.64 (`eaf9ee1`), zusammengeführt mit v33.65 (`cc8bb60`, #334). Die Nummer v33.67 hat die Head-Sitzung am Kopf der Merge-Reihe vergeben —
+die Nummer vergibt die Head-Sitzung am Kopf der Merge-Reihe (laut Koordinator als nächste frei: v33.67).
+
+**Gemessen** (lokal, `analyzeImage` mit gestellter, langsamer KI, Stand v33.64):
+
+- **Kein Weg hinaus.** Solange die KI rechnet (60 s Zeitlimit, eine Wiederholung, bis zu vier Modelle), waren
+  auf der Wartefläche nur Glocke und Hauptmenü antippbar. Der Zurück-Knopf (`gsZurueck` → `tab`) führte zur
+  Startseite, der Scan lief weiter: seine Antwort wurde in den verborgenen Scanner gezeichnet und in Verlauf
+  und Cloud gespeichert.
+- **Zwei Scans in einer Wartefläche.** Ein zweiter Scan über einen laufenden: beide Sekundenzähler schrieben in
+  dieselbe Zeile (aufgezeichnet: „0 s · 5 s · 1 s · 6 s · 2 s"), die spätere Antwort des ersten legte sich über
+  das Ergebnis des zweiten („Antwort nach 7 s" über „Antwort nach 2 s"), und beide kamen in den Verlauf.
+- **Erfundene Meldungen über der Kamera.** Der Auslöser startete `gsStartScanStatus`: fünf Meldungen
+  („🔍 Analysiere Struktur…" bis „🍃 Fast fertig…"), alle 0,9 s die nächste, gestoppt nur von einem
+  erfolgreichen Ergebnis. Während des Scans lagen sie unter der Wartefläche; nach einem Fehler und „zurück zur
+  Kamera" wechselten sie endlos über dem Sucher (sechs Wechsel in 5,4 s, während nichts geschah) — dieselben
+  erfundenen Schritte, die v31.79 aus der Wartefläche genommen hat.
+
+**Behoben:**
+
+- **„Abbrechen"** auf der Wartefläche (`gsScanAbbrechen`, `.gs-scan-abbruch`: 44 px, unten klebend — auf
+  320×568 stand er sonst unter dem Bildrand; Text aus `btn_cancel_generic`): zurück zur Kamera
+  (`gsResetScanner`), Zähler, Animation und Scan-Linie stehen; der Satz danach sagt, ob das Foto schon zur KI
+  unterwegs war („dieser Versuch kann für heute zählen") oder nichts geschickt wurde. Abgebrochen wird die
+  FOLGE, nicht der Aufruf — `callVisionAI` kennt kein Abbruchsignal (Brett-Idee 8186; `callAI` /
+  `callVisionAI` bleiben unangetastet, Absprache mit der Sitzung „KI-Modelle").
+- **Eine Nummer je Scan** (`_gsScanNr`; `_gilt()` nach jedem `await` in `analyzeImage` — Schlüssel nachladen,
+  Bildqualität, Farben, KI-Antwort, Fehler): eine Antwort zählt nur, solange ihr Scan der laufende ist und
+  dieselbe Person angemeldet ist (§3.6). Ein neuer Scan löst den laufenden ab (`_gsScanLaufLoesen`: dessen
+  Zähler und Animation stehen). Abgebrochen vor der KI: sie wird nicht gefragt, die Kamera bleibt an.
+- **`gsStartScanStatus` und die fünf Meldungen sind weg**; den Statusbalken setzt `analyzeImage` selbst.
+- **Bewusst nicht geändert:** der Zurück-Knopf während eines Scans — wer weggeht, findet das Ergebnis beim
+  Zurückkommen; wer abbrechen will, tippt „Abbrechen".
+- **Doku:** CLAUDE.md §3.6 und `docs/memory/02-regeln.md` 5b (eine Antwort gehört auch dem VORGANG, für den
+  gefragt wurde); `docs/HAUPTFUNKTIONEN.md` — Scanner 4 ✅, ein Stand, was in den vier Funktionen noch offen
+  ist, und bei der Suche die Haken an 2, 3, 4, 6, 7 und 9 (der Kopf nannte sie seit v33.61 als geliefert, die
+  Punkte selbst trugen keinen).
+
+**Prüfstände:** `scan_check` AB1–AB4 — Knopf frei und ≥ 44 px, späte Antwort weder gezeichnet noch gespeichert,
+später Fehler ohne Karte, abgebrochen vor der KI ohne Anfrage und mit laufender Kamera, ein Zähler je
+Wartefläche in beiden Reihenfolgen der Antworten, über den echten Auslöser keine erfundene Meldung. Gegen main
+alle vier rot, mit genau den gemessenen Zahlen. Gegenproben je Schutzzeile, jede am richtigen Fall rot: ohne
+Prüfung nach der Farbmessung AB2 („die KI wurde nach dem Abbrechen noch gefragt · die Kamera wurde
+ausgeschaltet" — und AB3, weil der Zähler des abgebrochenen Scans im nächsten weiterschreibt); ohne Prüfung im
+`catch` AB1 („ein Fehler NACH dem Abbrechen legt die Fehlerkarte über die Kamera"); ohne Prüfung nach der
+KI-Antwort AB1, AB3, AB4; ohne Ablösen des laufenden Scans AB3 („0 · 2 · 1 · 3 · 2 s"); ohne das Abschalten der
+Scan-Linie AB4. **Der erste Bau von AB2 hing** gegen die kaputte Fassung, statt rot zu melden: er wartete auf
+einen Scan, der nie endet. Jedes Warten auf einen Scan hat jetzt eine Frist (`fertig`, 3 s) — ein Fall muss auch
+dann melden, wenn die Funktion dahinter hängt.
+
+**Und `scan_check` als Ganzes war nicht sauber** — gefunden, weil AB1 einzeln grün und in der vollen Suite rot war
+(alle Fälle laufen in EINER Seite): (1) vier ältere Fälle (`Ablauf · jedes Foto gemessen`, `Dritter Blick`, H5,
+H7) ersetzten acht Funktionen — darunter `gsResetScanner` durch `() => {}` — und gaben sie nie zurück; für jeden
+späteren Fall war das Zurücksetzen des Scanners tot. Jetzt merkt sich jeder, was er ersetzt, und gibt es im
+`finally` zurück (H7 hatte keins). (2) SB1 löst „Zu meinen Pflanzen" aus, das 350 ms später per `setTimeout` auf
+„Meine Pflanzen" wechselt — der Wechsel landete mitten im nächsten Fall, dessen Scanner dann ausgeblendet war
+(Knopf 0 px). SB1 wartet seinen Zeitgeber jetzt ab, bevor es `switchTab` zurückgibt. **Ein Fall, der eine Funktion
+ersetzt, gibt sie zurück; ein Fall, der einen Zeitgeber auslöst, wartet ihn ab.** Danach `scan_check` 131/0.
+
+**Offen:** brett:2026-11-16-8186 — ein echtes Abbruchsignal in `callAI` / `callVisionAI` (Sitzung „KI-Modelle"); dann spart „Abbrechen" auch das Kontingent, der Knopf bleibt derselbe. Versionsnummer `v33.67` am Kopf der Reihe.
+**Nicht geprüft:** ein echtes Telefon; ob eine abgebrochene Anfrage beim Anbieter tatsächlich zählt (von hier antwortet kein KI-Dienst — der Satz sagt deshalb „kann zählen"); der Pilz-Scanner (eigener Weg, `gsMushroomRunScan`) hat weiter kein Abbrechen
+
+### 2026-11-19 (jn) - v33.66: Neu eingetragene Pflanzen gehen nicht mehr verloren und stehen sofort überall da (Auftrag P-F)
+
+**Auftrag (Head-Sitzung „main", 19.11.2026), Punkt 10/11:** neu eingetragene Pflanzen und Informationen sind teils
+nicht sichtbar, viele Einträge werden wieder gelöscht, Speichern muss sofort und verlässlich sein. Vorgehen: fünf
+Hypothesen (H1–H5) und der Sofort-Sichern-Weg zuerst mit einem ROTEN Fall MESSEN, nur Bestätigtes repariert.
+(Die Nummer war v33.65/(jm); zwei PRs gehen davor auf main, deshalb v33.66/(jn).)
+
+| Hyp. | Ergebnis | Messung (alter Stand) |
+|---|---|---|
+| **H1** Anmelde-Abgleich arbeitet mit ganzen Listen | **bestätigt** | `sync_check` H1a: A trägt X ein, B (alter Stand, ungesendet durch Abhaken) meldet sich an → X weg auf B, Bs Push trägt X nicht · H1c Gärten/Pflanzungen ebenso · H1d: auf A Gelöschtes kam über B zurück. Der saubere Fall H1b (B ohne Änderungen) war schon grün |
+| **H2** „gespeichert" ohne Prüfung | **bestätigt** (vier Wege) | `speicher_check`: `gsAddScanToMyPlants`, `savePlant` (neu und ändern), `savePlanting`, `gsQuickDone` — bei vollem Speicher blieb der Eintrag in der Liste (bzw. `lastDone`/Tagebuch gesetzt), Toast „hinzugefügt/erledigt" |
+| **H3** `savePlanting` zeichnet nicht alles neu | **bestätigt** | `save_check` „Anzeigen ziehen sofort mit": nach dem Speichern 3 von 6 Anzeigen alt („5 Pflanzen" statt „6", Kachel „5" statt „6", Tagesplan „2 in den nächsten Tagen" statt „3") |
+| **H4** `gardens[0].id` ohne Garten | **bestätigt, schlimmer als gedacht** | ohne `gsConfirmModal` warf die Zeile, der äussere `catch` schluckte es — und es entstand STILL eine Wohnungs-Pflanze, obwohl „Garten" gewählt war. (Mit `gsConfirmModal`, dem Normalfall, kam die Stelle nie dran: nicht ohne Eingriff nachstellbar, nur über den Zweig ohne die Funktion) |
+| **H5** `gsDueCardDone` blendet aus, auch wenn nichts erledigt ist | **bestätigt** | voller Speicher UND unbekannte Pflanze: Karte weg, Aufgabe offen, kein Satz |
+| **H6** (neu gefunden) Änderung WÄHREND eines laufenden Pushes | **bestätigt** | `_setDirty(stillDirty)` und das Entfernen von `dirty_at` löschten die Marke einer zweiten Änderung: Cloud „mp_A (die zweite fehlt)", „ungesendet: {}" |
+| **H7** (neu gefunden) Sofort-Sichern beim Schliessen | **bestätigt** | die drei Blobs gingen nacheinander mit `await`, und ein Sofort-Flush bei laufendem Push wurde verworfen; der Fall hängt mit dem alten Code (Zeitablauf, rot) |
+
+**Repariert.**
+- **H1 — Zusammenführen je Eintrag** (`_gsMergeEintraege`, EINE Rechnung): Änderungsstempel `geaendert` (gestempelt an den Engpässen `savePlantsToStorage` / `saveGardenData`, `_gsStempeln`), Löschmarken `gs_geloescht` (`{liste:{id:ms}}`, 90 Tage, höchstens 300 je Liste; in `GS_USER_KEYS`, im state-Blob und im Snapshot; Rückweg = VEREINIGUNG). Regel: der spätere Stempel gewinnt; ohne Stempel oder bei Gleichstand gilt das lokale, wenn es ungesendet ist, sonst die Cloud; einseitige Einträge bleiben, ausser eine Löschmarke ist jünger. `gsSyncUserDataOnLogin` geht für `ps_myplants`, `gs_gardens`, `gs_plantings` immer hindurch, über `_gsListeEinspielen`, mit `_gsPerson()` nach jedem `await`; `markDirty` nur, wenn sich gegenüber der Cloud etwas unterscheidet.
+- **H2** `=== false` → Eintrag aus der Liste bzw. alter Wert zurück, bei `savePlant`/`savePlanting` bleibt das Fenster offen, EIN Satz. `gsQuickDone` gibt `true`/`false`/`null` zurück und ruft den Server (`gsRpcTaskDone`) erst nach erfolgreichem Speichern.
+- **H3** `savePlanting`: `_gsPflanzungenNachruesten`, `renderGarden`, `renderMyPlants`, `updatePlantStat`, `gsRenderDayPlan`, Glocke, Notizzettel.
+- **H4** immer ein Satz statt Weiterlaufen. **H5** die Karte kommt zurück (und bei „Aufgabe fehlt" ein Satz + Neuzeichnen).
+- **H6/H7** `_flush`: die drei Blobs starten gleichzeitig; ein Aufruf bei laufendem Push merkt sich `nochmal` (Sofort-Flush wird nicht verworfen); während des Fluges neu vorgemerkte Scopes bleiben dirty; `_markSuccess` entfernt `dirty_at` nur, wenn es sich seit dem Start nicht geändert hat.
+
+**Prüfstände.** `sync_check` 17 Fragen (neu: Block „Zwei Geräte, EIN Konto" H1a–d, H6, H7; zwei Geräte = der localStorage-Stand wird getauscht, die Cloud ist eine Attrappe für `sbFetch` UND den rohen `fetch` des Beacons), `speicher_check` 24 Fälle (+6, `gsCanDo` wie `gsRequire` gestellt), `save_check` 24 (+1). Jeder Fall erst gegen den alten Stand ROT.
+**Gegenproben (je einzeln gefahren, md5 der Datei danach gleich):** H1 (Merge liefert die Cloud-Liste) → vier Fälle rot (H1a, H1c, H1d, „Pull frischt …"); H6 (Marke nicht behalten) → H6 rot („Cloud: mp_A (die zweite fehlt)"); H7 (`if (inFlight) return`) → der Prüfstand hängt (Zeitablauf, nicht sauber rot); H2 vier Brüche (`if (false)` an Scan, `savePlant`, `gsQuickDone`) und H5 (`return` statt Prüfung) → je der zugehörige Fall rot; H3 (Neuzeichnen entfernt) → rot mit denselben drei Anzeigen; H4 (`return` entfernt) → rot.
+
+**Nicht bestätigt / nicht verändert.** Das Sofort-Sichern beim Schliessen ist bis auf H7 in Ordnung (`markDirty` → 500 ms → Push, Beacon mit `keepalive`). `_gsMergeById` in `gsGardenSync.pullAll` rechnet weiter daneben (zweite Merge-Rechnung — offen, siehe unten).
+
+**Offen:** nichts auf dem Brett; im Code: (1) `gsGardenSync.pullAll` → `_gsMergeById` auf `_gsMergeEintraege` umstellen (nur Zusammenführung, kein Verhaltensfehler gemessen); (2) Tagebuch (`gs_gartentagebuch`), Ernte-Log, Friedhof (`dead_plants`) und Saatgut haben KEINE Stempel/Löschmarken — viele Schreiber, kein Engpass, hier nicht gemessen; (3) ein `keepalive`-Fetch über 64 KiB schlägt fehl (der Stand bleibt dirty und geht beim nächsten Start hinaus — der Merge macht das sicher); (4) Entscheidung Fernando: ob die Löschmarken-Frist 90 Tage richtig ist (ein Gerät, das länger offline war, bringt eine gelöschte Pflanze zurück).
+**Nicht geprüft:** ein echter Server (RLS, Grösse, Antwortzeit der drei Blobs) und ein echtes zweites Gerät — beides von hier nicht messbar; Fotos/Buckets (Branch `scan-fotos-signiert`) bewusst ausgenommen. Unter Last (parallele Sitzungen) waren `kalender_check`, `a11y_check`, `quiz_check` und `sicherheit_check` (Wetter) im Gesamtlauf je ein Mal rot und einzeln grün — Zeit-/Lastabhängigkeit, nicht von dieser Änderung (bei `a11y`/`kalender` kein Bezug zu den geänderten Funktionen; nachgemessen einzeln).
+
+### 2026-11-19 (jm) - v33.65: Der Rest von PR #329 ohne den Zahlungsteil (Auftrag P-R)
+
+**Auftrag (Head-Sitzung „main", 19.11.2026):** den Rest von #329 (`claude/zahlungsweg-nachgemessen-011L7G`,
+Kopf 234a16e, nicht mergebar) auf `main` (v33.63) bringen — Hunk für Hunk gegen die Basis 2ba302e, nicht als
+Merge des Zweigs. Der Zahlungsteil steht seit v33.63 (#331) auf main, #324 (Backup-Hinweis) seit v33.62; beides
+blieb unberührt.
+
+**Übernommen.**
+- **Abhaken** auf der Pflanzenkarte (`doneTask` → `gsQuickDone`), „Alle erledigt" zählt in Tagebuch, Kalender und
+  Wochenrückblick (`_gsTbAbgehakt`, `_gsTbTitel`, `_gsDoneAllDueAusfuehren`: jeder Eintrag mit eigener Zeit).
+- **Notfall-Nummern** (`GS_NOTFALL_NUMMERN`, `gsNotfallOeffnen`, `_gsMenuNotfallTrifft`, Eintrag mit `vorrang`
+  in `MENU_ITEMS`), in der Menü-Suche in fünf Sprachen auffindbar.
+- **„Tödlich giftig" lesbar** im Artendetail (TOX bekommt eine `voll`-Farbe, Plakette als Paar `bg`+`color`),
+  rund zwanzig weitere Kontraststellen; die **Verzehr-Zeile** des Scanners wird gerechnet (`_gsListeZumEssen`,
+  `_gsGegenprobeLesen`, `_gsGegenprobeVerzehr`).
+- **Foto-Ansicht** (`gsFotoAnsicht`, `_gsFotoAdresse`) und die Saatgut-Leiste (`_gsAussaatFenster`,
+  `_gsSaeZuSaatgut`, Frost in drei Zuständen); **Artennamen-Prüfung** als Messung (`scripts/arten_namen_pruefung.py`,
+  `docs/arten-namen-pruefung.csv`) — sie ändert **keine** Daten, `tox`/`edible` in `data/plants.v1.js` sind unberührt.
+- Die zugehörigen Prüfstand-Fälle (`kalender_check`, `scan_check`, `nutzersicht_check`, `wiring_check`,
+  `escape_check`, `a11y_check`, `apk_check`, `robust_check`, `field_check`, `contrast_check`, `touch_check`,
+  `render_check`, `_seed.js` mit `anmeldebildWeg`) und die Memory-/CLAUDE.md-Teile ohne Zahlung.
+- **Neu, eigener Punkt:** `translate="no"` an `<html>` und `<meta name="google" content="notranslate">`
+  (Fernandos Meldung „die eingestellte Sprache poppt bei jedem Neuladen auf"; im Code gibt es keinen
+  Sprachdialog, vermutet wird die Übersetzungsleiste des Browsers). `applyToDOM` setzt nur `lang`, das Attribut
+  bleibt. Fall in `i18n_check`; gegen den Stand ohne Attribut rot.
+
+**Nicht übernommen.** Alles Zahlungs- und Banner-Zeug (`stripe_*`, `_shared/stripe_regeln.mjs`, die Migration zum
+Launch-Zähler, `backup_check`, die Snapshot-Hunks, `gs_restore_*`), die Release-Einträge und die Versionsstellen von
+#329; wo main (v33.59/v33.61) dieselbe Stelle anders gelöst hatte, gilt main (`gsPickAlternative`/`showScanResult`
+mit `_gsScanNeueArt`, `_gsArtEingang`, `_gsPerson()` nach jedem await). ROADMAP.md, die Zahlungs- und
+Brett-Teile von STATUS/FUER-FERNANDO und `docs/austausch/*` von #329 sind nicht herübergenommen — bis auf den Abschluss 2026-11-11-8bb1 (schliesst ec73: die drei Tore).
+
+**Offen:** nichts neu — #329 wird nicht gemergt; ob es geschlossen wird, entscheidet die Head-Sitzung
+**Nicht geprüft:** ob die Übersetzungsleiste auf einem echten Telefon (Chrome, Safari) wirklich ausbleibt — gemessen ist nur das geladene Dokument; Safari/Firefox; die Live-Seite (von hier nicht erreichbar); CI.
+
+### 2026-11-19 (jl) - v33.64: Pilz-Scanner — die KI kannte 19 Giftpilze nicht, und ein tödlicher Pilz ohne Farbangabe stand als „Vorsicht" da
+
+**Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"). Anlass: Brett
+`2026-11-11-2714` — der Pilz-Scanner, der Bildschirm mit dem höchsten Einsatz der App, hatte keinen
+einzigen Prüfstand-Fall. Die Nummer v33.64 hat die Head-Sitzung am Kopf der Merge-Reihe vergeben (Bump, Changelog-Eintrag, v33.43 ins Archiv).
+
+**Gemessen** (Live-Datenbank und Live-Function nur lesend, 19.11.2026):
+
+- **Die KI kannte 76 der 276 Pilzarten nicht, 19 davon giftig.** `mushroom-identify` v5 (Code von v33.59,
+  ausgeliefert am 16.11.) lädt das Register mit `.order("slug").limit(200)`; was alphabetisch ab
+  „pluteus_salicinus" steht, sieht das Modell nie: Pluteus salicinus, Ramaria formosa, Flockenstieliger
+  Hexen-Röhrling, Rubroboletus legaliae, **Satansröhrling**, vier Täublinge (emetica, nobilis, queletii,
+  sardonia), beide **Kartoffelboviste**, sieben Ritterlinge (**Grünling**, **Tiger-Ritterling**, saponaceum,
+  scalpturatum, sulphureum, terreum, ustale) und die **Käppchenmorchel**. Das Modell darf nur einen Slug aus
+  seiner Liste nennen — eine giftige Art, die es nicht kennt, kann es nicht nennen, und die ähnlichste, die es
+  kennt, ist oft der essbare Doppelgänger. v33.58 kannte 50 Arten in Speicherreihenfolge.
+- **Die App:** Schwelle 60 % gegen 70 % am Server (dazwischen „✅ Speisepilz", während der Server die
+  Kontrolle verlangte); ohne `safety_color` die Kopfzeile „⚠️ Vorsicht" über einem tödlichen Pilz (das rote
+  Vollbild darüber stimmte); Kandidaten als roher Slug („amanita_phalloides"), ein tödlicher ohne Warnung;
+  Fehler als Kennung („⚠️ rate_limited", „⚠️ invalid token"); eine Antwort, die nach dem Abmelden ankam,
+  wurde gezeichnet (§3.6).
+- **Die Daten:** die Artenliste ist bei 10 Giftpilzen des Registers milder (9× „Mässig giftig", der
+  Birken-Dachpilz „Ungiftig, keine bekannten Risiken"), und 34 giftige Register-Arten fehlen ihr, darunter
+  4 tödliche — Brett `2026-11-19-a24a` (Datenseite, nicht angefasst).
+
+**Behoben:**
+
+- **Server** (wirkt erst mit Fernandos Auslieferung, `docs/FUER-FERNANDO.md` §31): neues Modul
+  `supabase/functions/_shared/pilz_wissen.mjs` — `pilzWissenAuswahl` (alle Arten; muss je gekürzt werden,
+  fallen zuerst Speisepilze, nie eine giftige vor einer harmloseren; Kürzung wird protokolliert),
+  `pilzAlternativen` (Kandidaten mit Name und Essbarkeit aus der Liste des Prompts, als
+  `alternative_arten`), `PILZ_SICHER_AB` = 70 (Prompt und `vapko_required` aus derselben Zahl). Ohne
+  Register antwortet die Function mit 503, BEVOR ein Kontingent reserviert ist. `AUSLIEFERUNG.json`:
+  `mushroom-identify` auf „ausliefern", live v5; die übrigen fünf KI-Functions von v33.59 auf „live" —
+  nachgesehen per `get_edge_function`: alle laufen seit dem 16.11. mit dem Code von `57a7acf`.
+- **App:** `GS_PILZ_SICHER_AB` (= Server), rote Kopfzeile für toedlich/giftig unabhängig von
+  `safety_color` (Farbtabelle über `_gsNachschlag`), `_gsPilzKandidatenHtml` (Name, ☠️/⚠️ aus dem Register;
+  ältere Function: lesbarer Slug), `_gsPilzFehlerSatz` (fester Satz des KI-Tors bleibt, sonst Satz aus dem
+  Status), `_gsPerson` vor und nach dem `await`.
+- **Bewusst nicht gebaut: der Eintrag im Scan-Verlauf.** Der Verlauf liest die Giftigkeit aus der
+  Artenliste — ein Eintrag hätte einen Grünling als „Mässig giftig" gezeigt, den der Scanner „GIFTIG" nannte.
+  Erst die Essbarkeit des Registers im Eintrag und „die vorsichtigere gewinnt" im Verlauf (Antwort
+  `2026-11-19-1163` auf 2714).
+
+**Prüfstände:** `scan_check` PZ1–PZ4 (gegen main rot: PZ1, PZ2, PZ4 — mit genau den gemessenen
+Sätzen), `edge_check` 80_pilz (4 Fälle; Gegenproben: alter Rand, Kürzung nach Slug, Prototypkette, Register
+nach dem Tor — je rot). Auf diesem Stand: scan 119/0, edge 80/0, robust 33/0, i18n, versprechen grün.
+
+**Offen:** brett:2026-11-19-a24a — Auslieferung `mushroom-identify` (FUER-FERNANDO §31, Fernando); Versionsnummer `v33.64` am Kopf der Reihe; der Verlaufseintrag für Pilze (Befund 2026-11-11-2714, liegt auf dem Branch `claude/zahlungsweg-nachgemessen-011L7G`, beantwortet mit 1163) erst nach a24a
+**Nicht geprüft:** ob das Modell mit allen 276 Arten besser bestimmt (von hier antwortet kein Modell — geprüft ist, welche Liste es bekommt); die Mehrkosten je Scan (rund 2 Rappen geschätzt aus 258'000 statt 190'000 Zeichen); die Darstellung auf einem Telefon
+
+
+### 2026-11-19 (jk) - v33.63: Der Zahlungsweg in EINER Fassung (Auftrag P-C2)
+
+**Auftrag (Head-Sitzung „main", 19.11.2026):** aus PR #329 (`claude/zahlungsweg-nachgemessen-011L7G`)
+NUR den Zahlungsweg herauslösen und mit `main` zu EINER Fassung vereinen — Grundlage der Bericht
+P-C (Analyse beider Fassungen, Widersprüche W1–W11). #329 wurde nicht gemergt (61 Konfliktblöcke,
+andere Themen); die Dateien sind gezielt geholt.
+
+**Was woher stammt.**
+- **Das eine Modul** bleibt `supabase/functions/_shared/zahlung_regeln.mjs`. Aus #329s
+  `stripe_regeln.mjs` sind hineingekommen: `dbMuss`/`dbNein`, `STRIPE_EREIGNISSE`/`ereignisWirkung`,
+  `idVon`/`istUuid`/`nutzerAusMetadaten`, `aboZeitraum`/`aboPreisId`/`aboEndetVonSelbst`/`aboZeile`/
+  `aboIdAusRechnung`, `checkoutPlan` (der Launch-Teil über `launchAngebot` von main, Kennungen statt
+  Text), `CHECKOUT_PARAMETER`/`checkoutParameterFremd`/`checkoutParameter`, `stripeSprache`,
+  `kundeFinden`, `ABO_LAEUFT`/`laufendeAboIds`/`hatLifetime`/`portalZiel`, `datumSchweiz`/
+  `probeEndeMitteilung`, `stripeKenntNicht`/`stripeLehntAb`/`schluesselModus`/`modusPasst`.
+  Nicht übernommen: `signaturPruefen` (W9), `istNutzerWeg` (eine Regel: `kontoFehlt`),
+  `erstattungWirkung` (W8), `launchStand`/`probeTage` (main: Zähler mit Service-Role, `gratisTage`),
+  die zweite `rueckkehrAdresse`/`preisIntervall` (W10). `stripe_regeln.mjs` gibt es nicht.
+- **`stripe-checkout`**: Ablauf von #329 (Kunde finden, „läuft schon ein Abo?" bei Stripe gefragt,
+  `checkoutPlan`, Kunden-Rückfall bei „No such customer", `checkoutParameter`, Sprache), Rand von main.
+  **Kein `automatic_payment_methods` mehr** — v8 schickte ihn an Checkout, wo es ihn nicht gibt.
+- **`stripe-portal`**: Ablauf von #329 (`kundeFinden`, `portalZiel`, Rückfall aufs gewöhnliche
+  Portal, 404 `kunde_unbekannt`), Rand von main (Kennungen, eigene Ursprünge).
+- **`stripe-webhook`**: Gerüst von main (pruefe/warne, `kontoFehlt` + `system_events`,
+  Reihenfolge über `gs_stripe_stand`, constructEventAsync), dazu aus #329: `aboZeile` (Zeitraum in
+  beiden API-Formen), `aboIdAusRechnung`, `checkout.session.async_payment_succeeded`, ein Abo-Abschluss
+  zieht das Abo sofort nach, `abosBeenden` (Lifetime beendet ein laufendes Abo zum Periodenende),
+  Launch-Platz frei bei voller Erstattung, `processed = true`, `modusPasst`, `probeEndeMitteilung`,
+  Nutzer über die Kunden-Metadaten, Vermerk in `stripe_webhook_events.error`, Experten-Gebühr ohne
+  passende Zeile wird vermerkt, Webhook-Geheimnis aus `app_settings` wird nach einem Wechsel neu gelesen.
+- **`stripe-admin-extend-webhook`** abonniert aus `STRIPE_EREIGNISSE` (alles ausser „nichts").
+- **Client** (`index.html`): `GS_LAUNCH_PLAETZE`, `GS_ZAHLUNG_FEHLER` um elf Kennungen erweitert,
+  `_gsCheckoutKeinFehler` (schon da / ausverkauft ist kein Fehler), `_gsPortalKennung`, `locale` an
+  Checkout und Portal. `_gsBillingPruefen`, `BroadcastChannel('gs-billing')`, `popup=1` nur mit Fenster
+  und das Nicht-Lesen von `gs_sb_url` bleiben, wie sie auf main stehen.
+
+**W1–W11, je eine Zeile.**
+- **W1** Experten-Zahlung: main — nur die Gebühr, nie `verified` (`expertenZahlungFelder`).
+- **W2** Rückbuchung: main — entzieht eine eindeutig zugeordnete Lifetime (Bestätigung durch Fernando offen, §30f).
+- **W3** Fehler nach aussen: main — Kennungen (`fehlerCode`, `{error, grund}`), nie Stripe-Rohtext.
+- **W4** Rückkehr-Ursprünge: main — nur green-scan.ch und greenscan-app.pages.dev (+ Vorschauen); kein www, Netlify, localhost.
+- **W5** Versionen: main — exakt (`stripe@17.7.0`, `supabase-js@2.119.0`).
+- **W6** Unbekannter Preis: main — 500, Stripe wiederholt; neu mit dem Satz aus #329 in `stripe_webhook_events.error`.
+- **W7** Launch zählen: main — am PREIS (Webhook) bzw. mit Service-Role im Zähler (Checkout).
+- **W8** Erstattung zuordnen: main — nur eindeutig über den PaymentIntent; dazu aus #329 die Freigabe des Launch-Platzes.
+- **W9** Signatur: main — `constructEventAsync`. Nicht nachweislich falsch; gemessen an einer Attrappe, die selbst mit node:crypto rechnet (`stripe_check` RAND „Signatur", Fremdmassstab mit `GS_STRIPE_PAKET`).
+- **W10** Gleichnamige Funktionen: main-Signaturen (`rueckkehrAdresse` → Text, `preisIntervall` month/year/lifetime).
+- **W11** Ereignisliste: EINE — `STRIPE_EREIGNISSE`, auch für `stripe-admin-extend-webhook`.
+
+**Prüfstände.** Neu `stripe_check` (aus #329, auf `zahlung_regeln.mjs` umgestellt, in
+`pruefstaende.sh`): 51 Fälle, 0 rot — RECHNUNG, RAND (die echten drei Handler), SQL (Teil A von
+`20261110_sicherheit_konto_speicher.sql` statt der nicht übernommenen
+`20261111_launch_offer_usage_nur_server.sql`), QUELLTEXT. Wo #329 etwas anderes erwartete als main,
+misst der Fall jetzt die Regel von main (W1, W6, W7, Fund 4, Kennungen). `edge_check` 76 → 78:
+die Stripe-Attrappe (`scripts/edge/_zahlung_stripe.mjs`) lehnt einen unbekannten Checkout-Parameter
+mit 400 `parameter_unknown` ab — mit einer EIGENEN Liste, nicht der des Moduls —, zwei neue Fälle
+(Parameter, „was das Konto schon hat"). **Gegenprobe gefahren:** `stripe-checkout` vom Stand v33.62
+eingesetzt → `edge_check` 9 rot (alle am `automatic_payment_methods`), `stripe_check` 12 rot;
+wiederhergestellt, md5 gleich. `60_spalten` verlangt für die vier Stripe-Functions die Bedingung
+„Modus-Prüfung" in `AUSLIEFERUNG.json`.
+
+**Stripe: Live oder Test?** Der Kopf von STATUS sagte „Live-Mode seit v26.40". Im Repo ist das nicht
+belegt: der Sammeleintrag v26.38–v26.42 und die drei folgenden führen den Umstieg selbst als offen,
+`stripe_webhook_events` hatte nie eine Zeile, `app_settings.stripe_publishable_key` ist ein
+`pk_test_` (den niemand liest). Gekennzeichnet als „nicht belegt"; die Anleitung für Fernando steht in
+FUER-FERNANDO §30i (Schritt 0 vor jeder Stripe-Auslieferung).
+
+**Offen:** brett:2026-11-16-adb3 (Lifetime ohne Konto) — dazu zwei Einträge, die nur auf anderen Branches liegen (hier nicht geerntet): Befund `2026-11-11-4e38` (die Zusammenführung ist hiermit getan, die Auslieferung wartet auf die Modus-Prüfung) und Frage `2026-11-11-7f36` (Datumsschranke in `v_user_entitlements`)
+**Nicht geprüft:** Stripe selbst — ob es `automatic_payment_methods` an Checkout wirklich ablehnt und ob es die neuen Aufrufe annimmt (kein Netz dorthin, nur aus der API-Referenz gefolgert); Live- oder Testmodus; ob `constructEventAsync` in Deno ohne ausdrücklichen SubtleCrypto-Provider läuft; nichts ist ausgeliefert oder angewandt; `GS_STRIPE_PAKET` (Fremdmassstab mit Stripes echter Bibliothek) nicht gefahren — kein Paket in dieser Umgebung.
+### 2026-11-19 (jj) - v33.62: Kein „Daten wiederherstellen?“ mehr beim Start — was fehlt, holt die App still von selbst (ersetzt #324)
+
+**Anlass:** Fernando, 10.11.2026 (Bildschirmfoto): „Das kommt die ganze Zeit" — und 11.11.2026: „Keine Lust, dass
+jedes Mal ein Pop-up kommt und nach dem Backup fragt."
+
+**Ursache des Dauerbanners (am Quelltext gemessen):** `gsSnapshotMaybeOfferRestore` fragte seit v30.97 nur, ob lokal
+IRGENDEINER der zwölf snapshot-exklusiven Bereiche leer ist — der Normalzustand. Die Cloud-Seite wurde nur auf
+„gibt es einen Snapshot?" geprüft, und das × war nirgends gemerkt.
+
+**Was jetzt gilt — es wird nicht mehr gefragt:**
+- Der Banner ist ENTFERNT (`_gsShowRestoreBanner`, `gsSnapshotMaybeOfferRestore`, `_gsSnapshotHasExclusiveGap`).
+- **Eine Rechnung:** `_gsSnapshotFehlt(st, mitHaupt)` — ein Bereich zählt nur, wenn der Snapshot dort Inhalt HAT
+  und er lokal LEER ist. Die Hauptbereiche (`_GS_SNAPSHOT_HAUPT`) zählen nur, wenn lokal gar kein Inhalt da ist.
+- **`gsSnapshotAutoWiederherstellen()`** holt das still zurück (`gsSnapshotRestore({still, st, ohne})` — schreibt
+  nur in leere Bereiche) und sagt danach EINEN Satz („Aus deinem Cloud-Backup ergänzt: …"). Rückgabe immer
+  `{geholt, grund}` (`window._gsRestoreStand`).
+- **Verloren oder geleert?** Steht ein Bereich in `gs_snapshot_had` (war beim letzten Backup auf DIESEM Gerät da)
+  und ist jetzt leer, wurde er hier geleert: er bleibt leer, kommt in `gs_restore_abgelehnt` und hält die
+  automatischen Backups nicht mehr an. Ohne Spur (Browserdaten gelöscht, neues Gerät, neu angemeldet) ist es ein
+  Verlust und wird zurückgeholt. Hat ein geleerter Bereich wieder Inhalt, verfällt der Eintrag.
+- **Von Hand** (Einstellungen › „Aus Cloud-Backup wiederherstellen") kommt alles zurück, auch Geleertes.
+- **Kosten:** je Start die Liste; der ganze Snapshot nur bei neuem Snapshot oder geänderten Lücken
+  (`gs_restore_geprueft`: Id, Lücken-Signatur, Ergebnis, `versucht`). EIN Versuch je Stand — keine Schleife bei
+  vollem Speicher. Ein Netzfehler wird nicht als Ergebnis gemerkt.
+- Beide neuen Schlüssel stehen in `GS_USER_KEYS`. Der FAQ-Satz dazu ist angepasst.
+
+**Zwei Preise, benannt:** (1) Wer einen Bereich hier leert, dessen altes Backup wird von neueren verdrängt
+(Aufbewahrung: 6 + je Anlass der neueste) — vorher stoppten die automatischen Backups in dem Fall still für
+immer. (2) Die Unterscheidung hängt an der lokalen Spur: verliert ein Gerät EINEN Bereich und behält die Spur
+(kein bekannter Weg ausser Programmfehler), gilt er als geleert; die manuelle Wiederherstellung holt ihn.
+
+**Prüfstand:** `backup_check` W1–W6 (gestellter Server; Anfragen, Meldungen und „fragt etwas?" gezählt).
+Gegenprobe: die Verloren/Geleert-Unterscheidung ausgebaut → W3 und W4 rot. Gegen `origin/main` (v33.58) bricht
+der Prüfstand an den Fällen ab (die Funktion gibt es dort nicht) — die Reproduktion des Dauerbanners stammt aus
+dem ersten Stand dieses PRs („Banner STEHT DA"). `pruefstaende.sh schnell` (TZ=UTC): 37 · rot 0 · nicht prüfbar 8
+(kein lokales Postgres / keine Android-Werkzeuge hier); die vier langsamen laufen in der CI.
+
+**Mit v33.62 nachgezogen (Auflagen der Abschlussprüfung zu #324):** neue Versionsnummer (der Stand von #324 hiess v33.59, das inzwischen
+vergeben ist); main per Merge eingearbeitet; `backup_check` W1 stellt seine Vorbedingung („Pflanzen da") selbst her, weil ein früherer
+Fall `gs_sb_uid` auf ein anderes Konto setzt und der Kontowechsel seit v33.59 `ps_myplants` räumt; und `gsSnapshotAutoWiederherstellen`
+prüft nach jedem `await` die Person (`_gsPerson()`, v33.61) — meldet sich jemand dazwischen ab oder wechselt das Konto, wird nichts
+geschrieben (Fall W7, Gegenprobe gefahren). `GS_RELEASES`: der älteste Inline-Eintrag ist ins Archiv umgezogen (Deckel 20).
+
+**Prüfstände (19.11.2026, nach dem Bump, `TZ=UTC bash scripts/pruefstaende.sh schnell`):** 41 Prüfstände · rot 0 · nicht prüfbar 1 (apk:
+keine Android-Werkzeuge hier); `backup_check` 13 Fälle (W1–W7) rot 0, lokales Postgres lief. W7-Gegenprobe: ohne `_weg()` und ohne die
+Prüfung in `gsSnapshotRestore` ist W7 rot; wiederhergestellt (md5 gleich). Die vier langsamen laufen in der CI.
+
+**Offen:** nichts
+**Nicht geprüft:** das echte Gerät und die Live-Datenbank; Safari/Firefox; die vier langsamen Prüfstände (nur CI).
+
 
 ### 2026-11-16 (je) - v33.61: Suche, Scanner und Lina — „Essbar“ gilt überall gleich, Tippfehler werden verziehen, nichts geht mehr verloren
 
@@ -830,7 +1198,6 @@ Skripte sind unverändert) — ihr Lauf für diesen Stand ist der CI-Lauf am PR.
 
 **Offen:** brett:2026-11-11-fcaf, brett:2026-11-11-df0b, brett:2026-11-11-030e, brett:2026-11-11-2e3a, brett:2026-11-11-ec73, brett:2026-11-11-e383, brett:2026-11-11-9f91, brett:2026-11-11-75c2 (acht Befunde, keiner behoben) · brett:2026-11-11-669d, brett:2026-11-11-90db (zwei Fragen an Fernando, §2) · acht Fehlerklassen ohne Suche (`node scripts/austausch.mjs klasse`)
 **Nicht geprüft:** ob eine geplante Routine das Brett wirklich liest (dazu muss ihr Auftrag `CLAUDE.md` laden und sie das Repo erreichen, brett:2026-11-11-669d); ob `Workflow({ name: 'austausch-runde' })` den Namen in einer Cloud-Sitzung auflöst (mit `scriptPath` geht es in jedem Fall), und die Runde selbst ist nach ihrem Umbau nicht gelaufen — geprüft ist, dass sie sich übersetzen lässt und nur Felder schreibt, die das Brett annimmt; das Verhalten mit einer neueren git-Fassung als 2.43. Die Funde der ersten Agenten-Runde, die ich nicht selbst nachmessen konnte, stehen NICHT auf dem Brett.
-
 ### 2026-11-11 (jc) - v33.58: Rezepte und Fruchtfolge zeigen nie mehr auf eine Giftpflanze — und die KI läuft über den 30. November hinaus
 
 **Auftrag (Fernando, 10.11.2026):** „Die App muss einmal komplett verbessert werden. Es
@@ -16193,7 +16560,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 16.11.2026** (davor am 11.11. und 22.10.). Er stand am 02.09. auf
+> **Nachgemessen am 24.11.2026** (davor am 19.11., 16.11., 11.11. und 22.10.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -16202,11 +16569,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.61` (Client) · SW-Cache `gs-v33.61` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
-- **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **98'409 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
+- **Version:** `v33.69` (Client, Platzhalter bis zur Spitze der Merge-Reihe) · SW-Cache `gs-v33.69` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
+- **Frontend:** `index.html` **101'865 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **596 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **45** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 45** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (je). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **46** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 46** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (je). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -16226,7 +16593,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | **Migration `20260831_kosten_und_cron_wachhund_v30_95.sql`** | **Stand in keiner Liste offener Migrationen**, obwohl live nicht angewandt (gemessen 10.11.2026). Seit v33.59 mit Wächter: eingespielt nach `20261110_sicherheit_funktionen.sql` lässt sie deren `fn_log_ai_usage` stehen (vorher hätte sie die Sperre still zurückgedreht). `rls_check` `70_reihenfolge`, beide Reihenfolgen. | §30 · (je) |
 | **NVIDIA-Schlüssel beim Anbieter widerrufen** (`nvapi-Pr2M…usrB`) | Er steht in der git-Historie dieses öffentlichen Repos; entfernt ist er nur aus dem Stand. Ob er widerrufen wurde, ist nirgends belegt — die Historie umzuschreiben ersetzt den Widerruf nicht. | §30 · (je) |
 | ~~Vier ältere Migrationen~~ | **Erledigt — am 10.11.2026 21:15–21:18 UTC angewandt** (von der Sitzung der v33.57, nachgemessen 11.11.2026 in `schema_migrations`): `20260907_global_api_key_nur_proxy` · `20260831_rollen_leak_fix_v30_95` · `v31_36_mkt_views_auth_guard` · `20260924_admin_grants`. Damit sind auch die zwei „toten Admin-Knöpfe" aus v33.50 frei (`fn_assign_role`, `fn_set_global_api_key` für `authenticated` ausführbar; beide prüfen die Rolle selbst). | (jb), (je) |
-| **Zahlungsweg zweimal neu geschrieben — beim zweiten Merge zusammenführen** | Dieser Branch: `_shared/zahlung_regeln.mjs` + `edge_check` 10_stripe (seit der Gesamtprüfung mit `kontoFehlt` und einer Attrappe, die Fremdschlüssel kennt — beim Zusammenführen mitnehmen); `claude/zahlungsweg-nachgemessen-011L7G`: `stripe_regeln.mjs` + `stripe_check` (52 Fälle). Jede Fassung hat, was der anderen fehlt — dort u. a. kein zweites Abo neben einem laufenden oder neben Lifetime, `checkout.session.async_payment_succeeded`, eine gemerkte Kunden-Id, die Stripe nicht kennt (hier nachgezählt: 0 Treffer). Wer als Zweiter auf `main` kommt, führt zu EINEM Modul zusammen; beide Prüfstände müssen danach grün sein. Ob `stripe-checkout`, `stripe-webhook` und `stripe-portal` vorher ausgeliefert werden: Release-Zug und Fernando. | Befund `2026-11-11-4e38` (auf jenem Branch) · (je) |
+| **Stripe-Modus prüfen (Schritt 0), dann den vereinten Zahlungsweg ausliefern** | Seit v33.63 gibt es EINE Fassung (`_shared/zahlung_regeln.mjs`; `stripe_check` 51 Fälle und `edge_check` grün). `stripe-checkout`, `-portal`, `-webhook` und `-admin-extend-webhook` tragen in `AUSLIEFERUNG.json` die Bedingung „erst nach der Modus-Prüfung durch Fernando“: ob Schlüssel, Preise und Webhook-Endpunkt im Live- oder im Testmodus sind, sieht nur das Stripe-Dashboard. Live läuft weiter `stripe-checkout` v8 mit `automatic_payment_methods` — sehr wahrscheinlich scheitert dort jeder Kauf (gefolgert, nicht gemessen). | FUER-FERNANDO §30i · (jk) · Befund `2026-11-11-4e38` |
 | **Lifetime-Kauf für ein gelöschtes Konto** | `stripe-webhook` schliesst Abo- und Rechnungsereignisse eines gelöschten Kontos seit der Gesamtprüfung mit 200 ab (`kontoFehlt`); ein Lifetime-Kauf ohne Konto bleibt bewusst 500 — Geld ohne Gegenwert, von Hand erstatten. So lassen oder abschliessen und dem Admin melden? | brett:2026-11-16-adb3 · (je) |
 | **Budget von `plan-iterate`** | 8000 Ausgabe-Token gegen 10000/14000 beim Erzeuger; ein grösserer Plan wird bei jeder Iteration abgeschnitten (die App sagt es seit der Gesamtprüfung ehrlich). Erst nur lesend die Plangrössen und das Tempo eines echten Aufrufs messen. | brett:2026-11-16-cfcd · (je) |
 | **Drei Branches tragen v33.59 — die Reihenfolge steht auf dem Brett** | Die Sicherheitsreparatur (`ccr-5e705a36-jveaak`, PR #327), PR #324 (`claude/restore-banner-nur-bei-bedarf`) und `ccr-dce5a17c-2xzhvi` tragen dieselbe Nummer. Die Antwort `2026-11-11-1d9f` (Sitzung `claude/leitstand-kw46`, liegt nur auf deren Branch) nennt als Fernandos Entscheidung: die Sicherheitsreparatur zuerst (behält v33.59), danach #324 als v33.60, dann `ccr-dce5a17c-2xzhvi` als v33.61 — und dass jene Sitzung den Merge und die Schritte aus §30b übernimmt. **Diese Sitzung hat das nur gelesen, nicht von Fernando gehört:** sie mergt nicht und wendet nichts an. Den PR für diesen Branch hat jene Sitzung angelegt (#327, 11.11.2026 14:42 UTC); was hier danach gepusht wird, nimmt er mit. Die Reihe nennt dort inzwischen fünf Plätze (v33.59 #327 · v33.60 #324 · v33.61 `ccr-dce5a17c-2xzhvi` · v33.62 #326 · v33.63 `claude/scan-fotos-signiert`), und `claude/zahlungsweg-nachgemessen-011L7G` trägt ebenfalls schon v33.60 (Frage `2026-11-11-23d2` auf jenem Branch). Ein Merge von `ccr-dce5a17c-2xzhvi` bricht ohne Nacharbeit das Lockfile (brett:2026-11-11-7a6c). Im Text kollidiert mit #324 nur der Kopf von `GS_RELEASES`. Dringlichkeit: der Branch der Reparatur beschreibt Lücken, die live offen sind, bis er gemergt und angewandt ist. | brett:2026-11-11-699a · (je) |

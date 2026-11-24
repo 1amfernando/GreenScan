@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-19-b7d9",
+  "art": "befund",
+  "datum": "2026-11-19",
+  "zeit": "15:30:28",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.68",
+  "titel": "Neun Meldungen mit 120 Zeichen oder mehr werden nie übersetzt — und i18n_check prüft die Grenze nicht",
+  "vorschlag": "Ein i18n_check-Fall „kein Meldungs-Literal ≥ 120 Zeichen“; die neun Sätze kürzen oder teilen.",
+  "beleg": [
+    "gsI18nMeldungenAusQuelltext nimmt nur Literale unter 120 Zeichen; betroffen (gsToast/_gsSatz/gsConfirmModal): Stripe, Zweitfoto, Artenliste, Ort 1 km, Recovery-Link, Organisation, Wiederherstellung, Schwellen, Wettervorhersage — in fr/it/en/es steht dort Deutsch (Gegenprüfung dom-plaene 19.11.2026)"
+  ],
+  "stichworte": [
+    "i18n",
+    "i18n_check",
+    "meldungen"
+  ]
+}

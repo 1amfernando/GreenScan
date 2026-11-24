@@ -1,0 +1,27 @@
+{
+  "id": "2026-11-19-e3ad",
+  "art": "befund",
+  "datum": "2026-11-19",
+  "zeit": "15:30:17",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.68",
+  "titel": "Acht Schlüssel ohne Speicherliste, weil sie über eine Konstante geschrieben werden — darunter KI-Artprofile aus den Scans des vorigen Kontos",
+  "vorschlag": "storage_check löst var X = 'gs_…' zusammen mit setItem(X auf (dann wird er für die acht rot); jeden Schlüssel einordnen — Geräte-Vorliebe (GS_KEEP_ON_LOGOUT) oder Nutzerdaten (GS_USER_KEYS); für gs_user_species_db zusätzlich DB beim Abmelden von den KI-Profilen befreien.",
+  "beleg": [
+    "storage_check erkennt setItem('<literal>'), nicht setItem(KONSTANTE, …); ohne Eintrag in GS_USER_KEYS/GS_KEEP_ON_LOGOUT und ohne removeItem: gs_user_species_db, gs_onboarding_done, gs_onboarded_v1, gs_gps_perm, gs_gps_always_ask, gs_cam_always_ask, gs_set_acc, gs_live_tracking (am Quelltext gelesen, Gegenprüfung ki-wege, 19.11.2026)",
+    "gs_user_species_db hält KI-Profile aus den Scans von A; sie überleben das Abmelden und bleiben in der laufenden Sitzung über DB.push auch für B in der Artenliste"
+  ],
+  "stichworte": [
+    "storage_check",
+    "abmelden",
+    "gs_user_species_db",
+    "speicherliste"
+  ],
+  "zaehle": [
+    {
+      "datei": "index.html",
+      "text": "gs_user_species_db",
+      "n": 1
+    }
+  ]
+}

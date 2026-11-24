@@ -153,11 +153,10 @@ async function scan(browser, file) {
   await page.waitForTimeout(3500);
   // Der Token ist nicht echt, also zeigt gsCheckOnboarding trotzdem das
   // Onboarding — aber ohne gs-preauth laesst es sich normal schliessen.
-  await page.evaluate(() => {
-    try { document.documentElement.classList.remove('gs-preauth'); } catch (e) {}
-    const o = document.getElementById('gs-onboarding');
-    if (o) { o.style.setProperty('display', 'none', 'important'); }
-  });
+  // v33.60: erst wegblenden, wenn es DA ist (scripts/_seed.js anmeldebildWeg) —
+  // kam es nach dem Wegblenden, lag es ueber allen elf Tabs und wurde
+  // mitgezaehlt (3'283 statt 3'063 Elemente), und die Zeile unten sagte „nein".
+  await SEED.anmeldebildWeg(page);
   await page.waitForTimeout(400);
 
   // Direkt nach dem Laden pruefen, nicht erst nach dem Tab-Durchlauf: ein
@@ -177,8 +176,11 @@ async function scan(browser, file) {
     perTab[t] = c.length;
     rows.push(...c.map(o => ({ ...o, key: t + '::' + o.key })));
   }
+  // v33.60: und am ENDE noch einmal — die Zeile „Onboarding blockiert noch"
+  // fragte nur direkt nach dem Laden, ein spaeter erschienenes Bild sah sie nie.
+  const onbEnde = await page.evaluate(SEED.ANMELDEBILD_STEHT);
   await ctx.close();
-  return { rows, errs, perTab, onb };
+  return { rows, errs, perTab, onb, onbEnde };
 }
 
 (async () => {
@@ -192,6 +194,7 @@ async function scan(browser, file) {
   for (const [f, r] of res) {
     console.log('=== ' + path.basename(f));
     console.log('  Onboarding blockiert noch:', r.onb ? 'JA (Gast-Modus griff nicht)' : 'nein');
+    if (r.onb || r.onbEnde) { console.log('  !! ' + SEED.ANMELDEBILD_SATZ); process.exitCode = 2; }
     console.log('  JS-Fehler:', r.errs.length ? [...new Set(r.errs)].slice(0,4).join(' | ') : 'keine');
     console.log('  sichtbare Elemente je Tab:', Object.entries(r.perTab).map(([k,v]) => k+'='+v).join(' '));
     console.log('  gesamt vermessen:', r.rows.length);
@@ -217,6 +220,15 @@ async function scan(browser, file) {
       .forEach(o => console.log('     ', String(f(o)) + 'px  ' + o.key.replace(/\|/g,' ').slice(0, 88)));
     if (cut.length)  { console.log('   -- am staerksten abgeschnitten:'); show(cut,  o => Math.max(o.clipX, o.clipY)); }
     if (offs.length) { console.log('   -- am weitesten draussen:');       show(offs, o => o.offscreen); }
+    // v33.60: ein TOR, kein Bericht — im Lauf ueber EINEN Stand. Bis v33.59 endete
+    // dieser Pruefstand immer mit 0; „verdaechtige Textstellen: muss 0 sein" stand
+    // nur in CLAUDE.md. Der Vergleich zweier Staende (zwei Dateien) bleibt eine
+    // Messung ohne Urteil. Nicht pruefbar (Exit 2) geht vor.
+    const befunde = new Set(r.errs).size + muell.length + cut.length + offs.length;
+    if (res.length === 1 && befunde && process.exitCode !== 2) {
+      console.log('  ROT: ' + befunde + ' Befund(e) — JS-Fehler ' + new Set(r.errs).size + ' · verdaechtige Textstellen ' + muell.length + ' · abgeschnitten ' + cut.length + ' · ausserhalb ' + offs.length);
+      process.exitCode = 1;
+    }
   }
 
   if (res.length === 2) {
