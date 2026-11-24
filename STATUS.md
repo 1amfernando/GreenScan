@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-19 · **Branch**: `main` · **Version**: `v33.67` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
+**Stand**: 2026-11-24 · **Branch**: `main` · **Version**: `v33.69` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
 
 ---
 
@@ -36,6 +36,33 @@ Installation — ein roter Prüfstand nimmt dem nächsten Lauf den Speicher nich
 
 **Offen:** brett:2026-11-18-cf93 (schliesst sich erst mit zwei gemessenen CI-Läufen am PR: einer ohne, einer mit Speicher), brett:2026-11-18-70cd (Punkt 2: die Branch-Regel für `zz-sicherung` kann nur Fernando in den Einstellungen setzen)
 **Nicht geprüft:** ob `actions/cache` in der CI trifft und wie viel Zeit es spart (erst der Lauf am PR); ein Fork-PR; die Unversehrtheit der Browser im Speicher (keine signierte Liste); der Wächter auf `main` (läuft erst nach dem Merge)
+
+### 2026-11-24 (jq) - v33.69: Gelöscht bleibt gelöscht — die Schlussprüfung von v33.68, nachgezogen
+
+**Auftrag:** Fernando, „Bitte schau das auch alles gemergt wird." PR #337 (v33.68) ist seit dem 24.11., 13:05 UTC,
+auf `main`. Die Schlussprüfung des zusammengeführten Diffs (sechs Linsen, je Fund drei Widerleger) lief über das
+Wochenlimit: die Linse „Blob" kam durch und meldete vier Funde, die fünf anderen fielen aus und wurden am 24.11.
+auf einem eingefrorenen Baum (`3f126c4`) neu gestartet. Die vier Funde sind von Hand am Code nachgelesen und mit
+je einem Fall belegt, der gegen v33.68 rot ist — dieser Eintrag ist ihr Nachzug.
+
+| # | Fund | Herkunft | Reparatur | Fall |
+|---|---|---|---|---|
+| 1 | Ein ohne Empfang gelöschter Garten-Plan oder GPX-Track kam beim nächsten Abgleich aus der Cloud zurück und ging wieder hoch | **durch v33.68 entstanden** (die Zusammenführung je Eintrag aus H8 kannte keine Löschmarke; davor gewann die ganze lokale Liste) | `GS_GELOESCHT_LISTEN` (die drei Stempel-Listen + `gs_garden_plans` + `gs_gpx_tracks`), `_gsLoeschmarke` in `gsPPdeletePlan` und `gsTrackDelete`; beide merken den Garten-Bereich vor; der Abgleich und `gsPPopenSavedPlans` lesen die Marke | `sync_check` H10 |
+| 2 | Ein ungesendeter state auf einem Gerät, das ihn nie abgeglichen hat, ersetzte nach dem ersten gelesenen Abgleich die Cloud (der eine neue Favorit die zwanzig alten) | vorbestehend — v33.68 wies es als behoben aus, die Sperre verschob den Verlust nur hinter das Lesen | `_gsStateMischen`: ohne `gs_sync_synced_at_state` je Schlüssel mischen (Listen vereinigt, Objekte ergänzt, Zahl und Text lokal); ein schon abgeglichenes Gerät behält seinen Stand | `sync_check` H11, beide Richtungen |
+| 3 | `gsXpBootSync` nahm die 0 des ungelesenen Ersatzprofils als Cloud-Stand und buchte die ganze lokale XP noch einmal | vorbestehend | bei `_ungelesen` wird nichts gebucht | `sync_check` H12 |
+| 4 | Ein beim Start ungelesenes Profil wurde in der Sitzung nie nachgelesen | vorbestehend | `_gsProfilNachlesen` nach dem ersten gelungenen Abgleich (XP-Abgleich und Streak danach) | `sync_check` H12 |
+
+**Was sich für die Person ändert:** der Satz nach einem unbestätigten Plan-Löschen sagt jetzt, dass die App es beim
+nächsten Abgleich erneut versucht (für Pläne aus `user_gardens`; für `gp_`-Pläne bleibt der alte Satz, dort wird das
+DELETE nicht nachgeholt).
+
+**Prüfstände:** `sync_check` 22 Fragen (H10–H12 gegen v33.68: 3 rot) · gezielt grün: `save_check` 29,
+`speicher_check` 27, `storage_check`, `versprechen_check`, `robust_check` 33, `i18n_check`, `backup_check`,
+`nutzersicht_check` 12, `wiring_check`, `planer_check` 25, `austausch_check` 17. Voller Lauf am Stand von v33.68
+(`3f126c4`, 19.11.): 46 Prüfstände, 0 rot; CI auf #337 grün.
+
+**Offen:** brett:2026-11-24-f70e (solange das Profil ungelesen ist, zählen Scans und Meilensteine nicht und werden nicht nachgebucht), brett:2026-11-19-3dee, brett:2026-11-19-4b64, brett:2026-11-19-db62
+**Nicht geprüft:** die vier Funde durch unabhängige Widerleger (die Agenten fielen am Limit aus — nachgelesen und gemessen habe ich sie selbst); ein zweites echtes Gerät und ein echter Server; ob `_gsStateMischen` die Reihenfolge jeder Liste trifft, die „neueste zuerst" erwartet (die Cloud-Reihenfolge bleibt, nur lokale Einträge stehen am Ende)
 
 ### 2026-11-19 (jp) - v33.68: Eine Antwort nach dem Abmelden landet nie mehr im nächsten Konto — ein Tor in sbFetch und in der KI
 
@@ -16771,7 +16798,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
 >
-> **Nachgemessen am 19.11.2026** (davor am 16.11., 11.11. und 22.10.). Er stand am 02.09. auf
+> **Nachgemessen am 24.11.2026** (davor am 19.11., 16.11., 11.11. und 22.10.). Er stand am 02.09. auf
 > `v30.80` — 140 Versionen daneben; heute stand er auf `v33.00`, sechs
 > Versionen zurueck, und trug noch die alte Artenzahl — genau die, die v33.04
 > ueberall sonst berichtigt hat. **Ein Ueberblick veraltet leise:** niemand
@@ -16780,9 +16807,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.68` (Client, Platzhalter bis zur Spitze der Merge-Reihe) · SW-Cache `gs-v33.68` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.69` (Client, Platzhalter bis zur Spitze der Merge-Reihe) · SW-Cache `gs-v33.69` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **101'599 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
+- **Frontend:** `index.html` **101'865 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **596 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **46** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 46** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (je). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
