@@ -30,6 +30,48 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.50', date: '24.09.2026',
+      headline: 'Das Admin-Panel sagt, was der Server wirklich getan hat',
+      summary: 'Fünfzehn Admin-Schreibwege (Sperren, Plan setzen, Gutscheine, Wissen, Meldungen, Broadcast) prüften nur „kein Fehler“ — und PostgREST meldet bei einer abgewiesenen Zeile KEINEN Fehler. Gemessen an der Live-Datenbank: zwei Knöpfe („Nutzer sperren“, „Globalen KI-Schlüssel setzen“) dürfen Admins gar nicht ausführen, und die App stellte trotzdem die Rückfrage „wirkt sofort“. Jetzt geht jeder Schreibweg durch EINE Funktion mit sechs Zuständen und Grund.',
+      user_summary: 'Für Admins: jede Aktion im Admin-Panel sagt jetzt, ob sie wirklich ausgeführt wurde — und wenn nicht, warum. Ein Knopf, der noch nicht freigeschaltet ist, sagt das, statt eine Rückfrage zu stellen und danach zu scheitern.',
+      user_items: [
+        {emoji:'✅', bold:'Bestätigung erst nach der Antwort:', text:' „Als erledigt markiert“ steht nur da, wenn der Server eine Zeile geändert hat.'},
+        {emoji:'🔒', bold:'Ein gesperrter Knopf nennt den Grund:', text:' „Noch nicht freigeschaltet — Migration … anwenden“ statt einer Rückfrage ins Leere.'},
+        {emoji:'📋', bold:'Der Überblick oben zählt es:', text:' welche Aktionen der Server noch nicht freigegeben hat, steht als Zeile über den Sektionen.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen an der Live-DB (nur lesend):', text:' 12 von 13 Schreib-RPCs sind SECURITY DEFINER mit is_admin_user(), die RLS auf user_reports ist dicht. Aber fn_assign_role und fn_set_global_api_key tragen die ACL {postgres, service_role} — authenticated darf sie nicht ausführen. Zwei frühere Re-Grants (v29_20, v30_57) stehen im Repo und sind live nicht in Kraft; 20260924_admin_grants.sql (nicht angewandt) liefert sie nach.'},
+        {emoji:'🗂️', bold:'GS_ADM_AKTIONEN — die Liste ist die Prüfung:', text:' 15 Aktionen, jede mit GENAU einem Ziel (rpc · pfad+method · fn) und optional der Migration, die sie freischaltet. _gsAdmTun ist der eine Weg; GS_ADM_LESE_RPC nennt die zwei POST-Abfragen, die nur lesen.'},
+        {emoji:'🚦', bold:'Sechs Zustände mit Grund:', text:' ok · abgelehnt (RLS, 401/403, {ok:false}, 0 Zeilen am Tabellenweg) · nicht_freigeschaltet („permission denied for function“ — die Sitzung merkt es sich) · nicht_verfuegbar (404/PGRST202: eine nicht angewandte Migration, kein Fehler des Admins) · fehler (Netz) · kein_zugriff (ohne Server-Ja geht keine Anfrage hinaus).'},
+        {emoji:'👁️', bold:'return=representation ist Pflicht am Tabellenweg:', text:' gsAdminReviewReport schickte return=minimal — die Ablehnung war damit unsichtbar, und „✅ Als erledigt markiert.“ stand für nichts da.'},
+        {emoji:'🔕', bold:'gsAdminToggleVoucher las die Antwort gar nicht:', text:' ein Gutschein, der nicht umgeschaltet wurde, sah nach dem Neuladen genauso aus wie vorher, ohne Satz.'},
+        {emoji:'🧪', bold:'admin_check 6 → 11 Fälle, fünf Gegenproben:', text:' ein Schreibweg am einen Weg vorbei · 0 Zeilen als ok · return=minimal · Rückfrage trotz Sperre · Meldung ohne Blick auf den Zustand — jede einzeln rot, mit dem richtigen Fall und den echten Zahlen.'},
+        {emoji:'📵', bold:'Grenze:', text:' der Server ist im Prüfstand gestellt. Geprüft ist, was die App aus einer Antwort MACHT — nicht, ob die RPC antwortet. Und versprechen_check bleibt hier blind, weil ein if (r.error) als Prüfung zählt — eigene Scheibe.'}
+      ]
+  },
+  {
+    v: 'v33.49', date: '17.09.2026',
+      headline: 'GreenScan ist jetzt eine Android-App',
+      summary: 'Es gibt ein APK zum Herunterladen — dieselbe App, aber die Dateien liegen IM Paket statt im Netz. Sie startet ohne Empfang, hat nie eine Adressleiste und braucht keinen Play Store. Fünf Dinge sind in der App anders als im Browser, und die App sagt jedes davon mit Grund.',
+      user_summary: 'GreenScan gibt es jetzt als richtige App zum Herunterladen. Sie startet auch ohne Empfang — die ganze Artenliste ist schon drin — und sieht nirgends mehr nach einer Webseite aus. Was in der App noch nicht geht, steht in der App.',
+      user_items: [
+        {emoji:'📱', bold:'Eine Datei, keine Anmeldung bei Google:', text:' herunterladen, einmal „Installieren erlauben“ antippen, fertig.'},
+        {emoji:'🌲', bold:'Der erste Start geht im Wald:', text:' die Artenliste und alle Bilder sind Teil der App, nicht ein Download beim ersten Öffnen.'},
+        {emoji:'↩️', bold:'Der Zurück-Knopf schliesst ein Fenster,', text:' nicht die ganze App.'},
+        {emoji:'🔎', bold:'Was noch nicht geht, sagt es:', text:' Erinnerungen und der Export von Backup/CSV/PDF kommen in der App später — im Browser auf green-scan.ch gehen sie weiter.'}
+      ],
+      items: [
+        {emoji:'📦', bold:'Nackte WebView statt TWA:', text:' dl.google.com ist aus dieser Umgebung gesperrt (403) — damit kein Google Maven, kein AndroidX, also weder Bubblewrap/TWA noch Capacitor. Und eine TWA ohne gültige Fingerabdrücke zeigt die Adressleiste, wäre also weiter eine Webseite in einer Hülle.'},
+        {emoji:'🌐', bold:'Derselbe Ursprung:', text:' shouldInterceptRequest liefert die Dateien unter https://green-scan.ch aus dem Paket. Deshalb gelten CORS, Anmelde-Rückkehr, Stripe und die CSP aus _headers unverändert — am Backend ist NICHTS zu ändern.'},
+        {emoji:'🚫', bold:'Nie null für den eigenen Ursprung:', text:' was das Paket nicht kennt, bekommt eine 404 aus dem Paket. null hiesse „hol es aus dem Netz“ — und dann wäre die App wieder eine Webseite.'},
+        {emoji:'📋', bold:'GS_HUELLE_ANDERS:', text:' fünf Einträge (kein Service Worker, kein Push, Update als Datei, kein Export, Bezahlen im Browser). Jeder hat eine Durchsetzungsstelle im Code UND steht auf dem Bildschirm; apk_check R8 hält beides gegeneinander.'},
+        {emoji:'🚪', bold:'Ein Tor statt acht Pflaster:', text:' acht Stellen bauen sich ihren eigenen Export-Anker. Das Tor sitzt am Klick auf a[download] — dieselbe Entscheidung wie das Kamera-Tor (v32.33) und die Tastatur-Nachrüstung (v32.16).'},
+        {emoji:'⏳', bold:'_gsSwReady:', text:' navigator.serviceWorker.ready kommt ohne registrierten Worker NIE zurück. Fünf Stellen warteten darauf — der Test-Push hätte für immer „⏳ Sende …“ gezeigt. Jetzt EIN Leser, der null liefert.'},
+        {emoji:'🧪', bold:'apk_check (28 Fälle, 18 Gegenproben):', text:' Pfade.java wird übersetzt und AUSGEFÜHRT (Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:), das Paket wird wirklich gebaut und aufgemacht (index.html byte-gleich), und die App läuft zweimal — mit und ohne die Kennung der Hülle.'},
+        {emoji:'📵', bold:'Grenze:', text:' hier läuft kein Android. Geprüft sind Bau, Rechnung und Entscheidung — nicht, wie sich ein Telefon verhält.'}
+      ]
+  },
+  {
     v: 'v33.48', date: '17.09.2026',
       headline: 'Die Artenliste hat einen zweiten Versuch',
       summary: 'Das Script-Tag der 2,1-MB-Artenliste hatte kein onerror und keinen Rückfall: fiel die Datei aus, lief die App mit einer leeren Liste weiter und sagte beim Start nichts. Jetzt gibt es einen zweiten Ladeversuch mit Cache-Umgehung — und wenn auch der danebengeht, steht es auf der Startseite.',

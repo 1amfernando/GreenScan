@@ -349,10 +349,20 @@ const FAELLE = [
       if (falsch.length) return { ok: false, warum: falsch.length + ' feste Stelle(n) mit falscher Zahl oder falschem Wort: ' + falsch.slice(0, 5).join(' · ') };
 
       // ── 2 · die LIVE gerechneten Anzeigen ────────────────────────────────
-      const live = await __seite.evaluate(() => {
+      const live = await __seite.evaluate(async () => {
         const holen = (id) => { const el = document.getElementById(id); return el ? el.textContent.replace(/[^\d]/g, '') : null; };
         try { if (typeof gsUpdateStats === 'function') gsUpdateStats(); } catch (_) {}
         try { if (typeof loadSettings === 'function') loadSettings(); } catch (_) {}
+        // Die Startkachel zaehlt hoch (gsAnimateCounter, 1,4 s, ab dem Aufbau der Startseite) und
+        // ueberschreibt dabei auch, was gsUpdateStats gerade gesetzt hat. Lief E9 allein — also
+        // frueh —, las er 3'129 … 3'134 statt 3'136: eine Zwischenzahl der Animation, kein Fehler.
+        // Gelesen wird, wenn die Zahl zweimal hintereinander gleich ist (hoechstens 5 s).
+        for (let i = 0, vorher = null; i < 20; i++) {
+          const jetzt = holen('stat-total');
+          if (jetzt && jetzt === vorher) break;
+          vorher = jetzt;
+          await new Promise(r => setTimeout(r, 250));
+        }
         return {
           splash: holen('splash-count'),
           statTotal: holen('stat-total'),
@@ -415,9 +425,76 @@ const FAELLE = [
       }
       if (blockKlagen.length) return { ok: false, warum: blockKlagen.join(' · ') };
 
+      // ── 4 · Wissen-Tab: Kopf-Chip und Lexikon-Kacheln (Home 3 / Brett 4d79) ──
+      // Bis zum 19.11.2026 zaehlte der Wissen-Tab mit eigenen Regeln: „4'337 Arten" (DB.length) im
+      // Kopf und auf der Kachel, „Essbar" 1'130 neben 1'062 auf der Startseite und im Filter (die
+      // ungeprueften Eintraege zaehlten mit), „Giftig" 598 neben 675 im Filter (die Eintraege der
+      // Stufe 1 mit `toxic` fehlten). Die Zahl steht nicht als Literal im Quelltext, also sah Teil 1
+      // sie nie, und Teil 2 kannte die Elemente nicht. Gemessen wird wie eine Person: das Lexikon
+      // ueber seinen Knopf oeffnen, die Kachel lesen, sie ANTIPPEN und die Trefferzahl der Liste
+      // lesen, die sich oeffnet — eine Zahl auf einer Kachel ist ein Versprechen ueber diese Liste.
+      const wissen = await __seite.evaluate(async () => {
+        const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+        const ziffern = (t) => { const z = String(t || '').replace(/[^\d]/g, ''); return z ? parseInt(z, 10) : null; };
+        const o = { kacheln: [] };
+        try { switchTab('wissen'); } catch (e) { o.fehler = 'switchTab(wissen): ' + e.message; return o; }
+        await warte(300);
+        const hero = document.getElementById('wissen-hero');
+        o.chip = (hero ? [...hero.querySelectorAll('span')].map(s => s.textContent.trim()).find(t => /Arten/.test(t) && /\d/.test(t)) : null) || null;
+        const WORT = /^(Arten|Essbar|Giftig|Heilkraft)$/i;
+        const lexikon = async () => {
+          try { switchTab('wissen'); } catch (_) {}
+          const knopf = [...document.querySelectorAll('#wissen-nav .recipe-cat')].find(b => /Lexikon/.test(b.textContent));
+          if (!knopf) return [];
+          knopf.click(); await warte(300);
+          const box = document.getElementById('wissen-content');
+          return box ? [...box.querySelectorAll('div')].filter(d => d.children.length === 2 && WORT.test((d.lastElementChild.textContent || '').trim())) : [];
+        };
+        const anzahl = (await lexikon()).length;
+        for (let i = 0; i < anzahl; i++) {
+          const k = (await lexikon())[i];
+          if (!k) break;
+          const e = { wort: k.lastElementChild.textContent.trim().toLowerCase(), zahl: ziffern(k.firstElementChild.textContent) };
+          k.click(); await warte(400);
+          const aktiv = document.querySelector('.screen.active');
+          const st = document.getElementById('search-status');
+          e.bildschirm = aktiv ? aktiv.id : null;
+          e.status = st ? st.textContent.trim() : '';
+          o.kacheln.push(e);
+        }
+        try { if (typeof gsUpdateStats === 'function') gsUpdateStats(); } catch (_) {}
+        o.homeEssbar = ziffern((document.getElementById('stat-edible') || {}).textContent);
+        try { gsSucheMitFilter(''); } catch (_) {}            // keinen Filter fuer die naechsten Faelle stehen lassen
+        return o;
+      });
+      const wKlagen = [];
+      if (wissen.fehler) wKlagen.push(wissen.fehler);
+      const chipZahl = wissen.chip ? parseInt(wissen.chip.replace(/[^\d]/g, ''), 10) : null;
+      if (chipZahl == null) wKlagen.push('Kopf des Wissen-Tabs: kein Chip „N Arten" — der Fall misst dort nichts');
+      else if (chipZahl !== ARTEN) wKlagen.push('Kopf des Wissen-Tabs zeigt „' + wissen.chip + '" (echt ' + ARTEN + ' Arten' + (chipZahl === EINTRAEGE ? ', das sind die Einträge' : '') + ')');
+      const kachel = {};
+      for (const k of wissen.kacheln) kachel[k.wort] = k;
+      for (const w of ['arten', 'essbar', 'giftig', 'heilkraft']) {
+        const k = kachel[w];
+        if (!k) { wKlagen.push('Lexikon: keine Kachel „' + w + '" gefunden'); continue; }
+        if (k.bildschirm !== 'screen-search') { wKlagen.push('Kachel „' + w + '" öffnet keine Liste (danach: ' + k.bildschirm + ')'); continue; }
+        if (w === 'arten') {
+          if (k.zahl !== ARTEN) wKlagen.push('Kachel „Arten" zeigt ' + k.zahl + ' (echt ' + ARTEN + (k.zahl === EINTRAEGE ? ', das sind die Einträge' : '') + ')');
+          continue;
+        }
+        const m = /^([\d'’.]+)\s/.exec(k.status);           // „1062 Treffer · ✅ Essbar"
+        const treffer = m ? parseInt(m[1].replace(/[^\d]/g, ''), 10) : null;
+        if (treffer == null) wKlagen.push('Kachel „' + w + '": Statuszeile danach „' + k.status + '" ohne Trefferzahl');
+        else if (treffer !== k.zahl) wKlagen.push('Kachel „' + w + '" sagt ' + k.zahl + ', die Liste, die sie öffnet, hat ' + treffer);
+      }
+      if (kachel.essbar && wissen.homeEssbar != null && kachel.essbar.zahl !== wissen.homeEssbar) {
+        wKlagen.push('„Essbar": Lexikon ' + kachel.essbar.zahl + ', Startseite ' + wissen.homeEssbar);
+      }
+      if (wKlagen.length) return { ok: false, warum: wKlagen.join(' · ') };
+
       const gemessen = [live.splash, live.statTotal, live.settings, live.dbTotal, live.modalAbout].filter(x => x != null && x !== '').length;
       if (!gemessen) return { ok: false, warum: 'keine einzige Live-Anzeige gerendert — der Fall misst nichts' };
-      return { ok: true, info: ARTEN + ' Arten / ' + EINTRAEGE + ' Einträge selbst gezählt · ' + gemessen + ' Live-Anzeigen stimmen · Aufschlüsselung und Suchkopf benannt · feste Texte in index.html, install.html und manifest.json geprüft' };
+      return { ok: true, info: ARTEN + ' Arten / ' + EINTRAEGE + ' Einträge selbst gezählt · ' + gemessen + ' Live-Anzeigen stimmen · Aufschlüsselung und Suchkopf benannt · Wissen-Tab: Kopf und vier Kacheln = die Listen, die sie öffnen · feste Texte in index.html, install.html und manifest.json geprüft' };
     },
   },
   {

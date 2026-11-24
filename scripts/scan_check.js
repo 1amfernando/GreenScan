@@ -2423,12 +2423,22 @@ const FAELLE = [
     // Die Untergrenze war Absicht („gering" zaehlt nicht), die Obergrenze nicht:
     // 131 Eintraege mit Stufe 4 und 5 fehlten — genau die stark giftigen und die
     // toedlichen. Gemessen wird die GERENDERTE Zahl, nicht die Rechnung.
-    name: 'D1g · Die Lexikon-Zahl „Giftig" schliesst Stufe 4 und 5 ein',
+    // Home 3 / Brett 4d79 (19.11.2026): die Kachel zaehlt jetzt wie der Filter „☠️ Giftig", den sie
+    // oeffnet — Stufe 2 und mehr ODER `toxic`. Die Eintraege der Stufe 1, die `toxic` tragen
+    // (Spitzmorchel roh, Stinktaeubling, Gelbe Teichrose), zaehlen mit; Stufe 1 OHNE Giftangabe
+    // weiterhin nicht. Bis dahin verlangte dieser Fall „nur Stufe 2 und mehr" (598), waehrend
+    // nutzersicht_check E9 die Zahl des Filters verlangte (675) — zwei Faelle, zwei Regeln fuer
+    // dieselbe Kachel (dieselbe Klasse wie E3/E9, v33.08). Gerechnet wird weiter mit eigenem Massstab.
+    name: 'D1g · Die Lexikon-Zahl „Giftig" schliesst Stufe 4 und 5 ein — und zählt wie der Filter, den sie öffnet (Stufe ≥ 2 oder Giftangabe)',
     lauf: async () => {
       if (typeof renderLexikon !== 'function') return { ok: false, warum: 'renderLexikon fehlt' };
-      const erwartet = DB.filter(s => s && ((typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(s) : s).tox | 0) >= 2).length;
-      const toedlich = DB.filter(s => s && ((typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(s) : s).tox | 0) >= 4).length;
+      const A = (s) => (typeof _gsArtAnzeige === 'function' ? (_gsArtAnzeige(s) || s) : s);
+      const erwartet = DB.filter(s => { if (!s) return false; const a = A(s); return !!a.toxic || (a.tox | 0) >= 2; }).length;
+      const nurStufe = DB.filter(s => s && (A(s).tox | 0) >= 2).length;
+      const mitAngabe = erwartet - nurStufe;
+      const toedlich = DB.filter(s => s && (A(s).tox | 0) >= 4).length;
       if (!toedlich) return { ok: false, warum: 'keine Art mit Stufe 4+ in der Liste — der Fall misst nichts' };
+      if (!mitAngabe) return { ok: false, warum: 'kein Eintrag unter Stufe 2 mit Giftangabe — der Fall misst die Regel des Filters nicht' };
       // renderLexikon GIBT das HTML ZURUECK (es haengt es nicht ein) — der erste
       // Anlauf suchte im Dokument und traf eine fremde Plakette „Giftig"; er
       // waere gruen gewesen, sobald die Zahl zufaellig gepasst haette.
@@ -2439,11 +2449,13 @@ const FAELLE = [
       const eltern = kacheln[0].parentElement;
       const zahl = parseInt(((eltern && eltern.firstElementChild && eltern.firstElementChild.textContent) || '').replace(/\D/g, ''), 10);
       if (!zahl) return { ok: false, warum: 'keine Zahl neben „Giftig" gefunden' };
+      const alt = DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length;
       if (zahl !== erwartet) {
-        const alt = DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length;
-        return { ok: false, warum: 'Kachel zeigt ' + zahl + ', erwartet ' + erwartet + ' (alte Regel tox 2|3 waere ' + alt + ' — ' + toedlich + ' Eintraege mit Stufe 4+ fehlten)' };
+        return { ok: false, warum: 'Kachel zeigt ' + zahl + ', erwartet ' + erwartet
+          + (zahl === nurStufe ? ' — das ist „nur Stufe ≥ 2": die ' + mitAngabe + ' Einträge darunter mit Giftangabe fehlen, der Filter zeigt sie' : '')
+          + ' (alte Regel tox 2|3 waere ' + alt + ' — ' + toedlich + ' Eintraege mit Stufe 4+ fehlten)' };
       }
-      return { ok: true, info: 'Kachel „Giftig" zeigt ' + zahl + ' · davon ' + toedlich + ' mit Stufe 4 oder 5 (alte Regel tox 2|3: ' + DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length + ')' };
+      return { ok: true, info: 'Kachel „Giftig" zeigt ' + zahl + ' · davon ' + toedlich + ' mit Stufe 4 oder 5 und ' + mitAngabe + ' unter Stufe 2 mit Giftangabe (nur Stufe ≥ 2: ' + nurStufe + ' · alte Regel tox 2|3: ' + alt + ')' };
     },
   },
 
@@ -4709,6 +4721,257 @@ const FAELLE = [
       box.innerHTML = '';
       if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
       return { ok: true, info: 'Kopfzeile Speisepilz · kein Vollbild · Zubereitung · Kontrollstelle · Hinweis „ersetzt keine Pilzkontrolle"' };
+    },
+  },
+  // ── Pilz-Scanner (19.11.2026): ein Ergebnis gehört zu seinem Foto. Gemessen auf v33.66: ein neues Foto liess das
+  // Ergebnis des vorigen stehen; nach Schliessen und neuem Öffnen stand der Knopf auf „⏳ Identifiziere…", und die
+  // Antwort zum alten Foto erschien unter dem neuen — bei einem Giftpilz mit Vollbild-Warnung; nach dem Schliessen
+  // legte sich die Warnung später über die App. Stehen hier VOR PZ4 (die Fälle hinter PZ4 gehören zu #336).
+  {
+    name: 'PZ5 · Pilz-Scan: ein Ergebnis gehört zu seinem Foto — ein neues Foto räumt das alte Ergebnis, Schliessen und neues Öffnen lösen die laufende Bestimmung ab, ihre Antwort kommt nicht unter das neue Foto',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      const knopf = () => document.getElementById('mushroom-submit-btn');
+      if (!box || !knopf() || typeof gsMushroomLoadPhoto !== 'function') return { ok: false, warum: 'Pilz-Fenster, Knopf oder gsMushroomLoadPhoto fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);   // ein haengender Lauf meldet sich als Befund
+      const s = { f: window._gsFetch, tok: window._gsFreshToken, toast: window.showProfileToast, ohne: window._gsFotoOhneMeta, ov: window.gsShowMushroomDangerOverlay, kt: knopf().textContent };
+      const klagen = [], loeser = [];
+      let vollbild = 0;
+      const speise = { matched_slug: 'boletus_edulis', confidence: 92, mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green', vapko_required: false };
+      const tod = { matched_slug: 'amanita_phalloides', confidence: 95, mushroom: { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' }, edibility: 'toedlich', safety_color: 'red', vapko_required: true };
+      const antwort = (body) => ({ ok: true, status: 200, json: async () => body });
+      const foto = async (n) => { await gsMushroomLoadPhoto({ files: [new File([new Uint8Array([255, 216, 255, n])], 'pilz' + n + '.jpg', { type: 'image/jpeg' })] }); };
+      const text = () => (box.textContent || '').replace(/\s+/g, ' ');
+      const ohneVollbild = () => { const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove(); };
+      try {
+        window._gsFreshToken = async () => 'tok';
+        window.showProfileToast = () => {};
+        window._gsFotoOhneMeta = async (f) => 'data:image/jpeg;base64,FOTO' + String(f.name).replace(/\D/g, '');
+        window.gsShowMushroomDangerOverlay = function () { vollbild++; return s.ov.apply(this, arguments); };
+        window._gsFetch = (url, o, t) => (/mushroom-identify/.test(String(url)) ? new Promise((res) => loeser.push(res)) : s.f(url, o, t));
+        // 1 · ein fertiges Ergebnis, dann ein neues Foto: das alte Urteil bleibt nicht unter dem neuen Pilz stehen
+        openMushroomModal(); await foto(1);
+        const l1 = gsMushroomRunScan(); await warte(50);
+        if (loeser.length !== 1) return { ok: false, warum: 'die Bestimmung hat den Server nicht gefragt — der Fall misst nichts' };
+        loeser[0](antwort(speise)); await fertig(l1);
+        if (!/Speisepilz/.test(text())) return { ok: false, warum: 'das erste Ergebnis erscheint nicht — der Fall stellt den Zustand nicht her' };
+        await foto(2);
+        if (/Speisepilz/.test(text())) klagen.push('1: nach einem neuen Foto steht „Speisepilz" des vorigen weiter da');
+        // 2 · eine Bestimmung läuft, dann ein neues Foto im selben Fenster
+        await foto(3);
+        const l2 = gsMushroomRunScan(); await warte(50);
+        await foto(4);
+        if (knopf().disabled) klagen.push('2: nach dem neuen Foto ist der Knopf gesperrt („' + knopf().textContent.trim() + '")');
+        loeser[1](antwort(speise)); await fertig(l2); await warte(50);
+        if (/Speisepilz/.test(text())) klagen.push('2: die Antwort zum vorigen Foto („Speisepilz") steht unter dem neuen');
+        if (knopf().disabled) klagen.push('2: nach der verworfenen Antwort ist der Knopf gesperrt');
+        // Gegenprobe: die Bestimmung des neuen Fotos kommt an — tödlich, mit Vollbild
+        const l3 = gsMushroomRunScan(); await warte(50);
+        loeser[2](antwort(tod)); await fertig(l3);
+        if (!/TÖDLICH/.test(text()) || vollbild !== 1) klagen.push('Gegenprobe: die Bestimmung des neuen Fotos kommt nicht an (Vollbild ' + vollbild + '×) — der Fall misst nichts');
+        ohneVollbild();
+        // 3 · läuft, Fenster zu, neu öffnen, neues Foto: Knopf frei — und kommt die alte (tödliche) Antwort, während
+        // schon die NEUE Bestimmung läuft: keine Karte, kein Vollbild, und der Knopf bleibt gesperrt
+        await foto(5);
+        const l4 = gsMushroomRunScan(); await warte(50);                       // loeser[3]
+        closeModal('modal-mushroom'); openMushroomModal(); await foto(6);
+        if (knopf().disabled || /Identifiziere/.test(knopf().textContent)) klagen.push('3: nach dem neuen Öffnen steht der Knopf auf „' + knopf().textContent.trim() + '" (gesperrt: ' + knopf().disabled + ')');
+        const l4b = gsMushroomRunScan(); await warte(50);                      // loeser[4]
+        const vb = vollbild;
+        loeser[3](antwort(tod)); await fertig(l4); await warte(50);
+        if (/TÖDLICH|Knollenblätterpilz/.test(text())) klagen.push('3: die Antwort zum alten Foto steht unter dem neuen');
+        if (vollbild !== vb) klagen.push('3: die alte Antwort legt eine Vollbild-Warnung über das neue Foto');
+        if (!knopf().disabled) klagen.push('3: die alte Antwort gibt den Knopf frei, während die neue Bestimmung läuft');
+        loeser[4](antwort(speise)); await fertig(l4b);
+        if (!/Speisepilz/.test(text())) klagen.push('3: die neue Bestimmung kommt danach nicht an');
+        ohneVollbild();
+        // 3b · läuft, und das Fenster wird neu geöffnet, OHNE vorher zu schliessen und OHNE neues Foto (sonst
+        // deckte dessen Schutz den Fall mit — eine Gegenprobe ohne den Schutz am Öffnen blieb so grün)
+        const l5a = gsMushroomRunScan(); await warte(50);                      // loeser[5]
+        openMushroomModal();
+        if (knopf().disabled) klagen.push('3b: neu geöffnet ohne Schliessen — der Knopf steht auf „' + knopf().textContent.trim() + '"');
+        const vb3 = vollbild;
+        loeser[5](antwort(tod)); await fertig(l5a); await warte(50);
+        if (/TÖDLICH|Knollenblätterpilz/.test(text()) || vollbild !== vb3) klagen.push('3b: neu geöffnet ohne Schliessen — die alte Antwort kommt in das frische Fenster');
+        ohneVollbild();
+        // 4 · läuft, Fenster zu (ohne neues Öffnen): später keine Vollbild-Warnung über der App
+        openMushroomModal(); await foto(7);
+        const l5 = gsMushroomRunScan(); await warte(50);                       // loeser[6]
+        closeModal('modal-mushroom');
+        const vb2 = vollbild;
+        loeser[6](antwort(tod)); await fertig(l5); await warte(50);
+        if (vollbild !== vb2 || document.getElementById('gs-mushroom-danger')) klagen.push('4: nach dem Schliessen legt sich die Vollbild-Warnung über die App');
+        // 5 · geschlossen, während noch der Zugangsschlüssel geholt wird: die Anfrage geht gar nicht hinaus
+        openMushroomModal(); await foto(9);
+        let tokLos = null;
+        window._gsFreshToken = () => new Promise((res) => { tokLos = res; });
+        const l7 = gsMushroomRunScan(); await warte(50);
+        const vorher = loeser.length;
+        closeModal('modal-mushroom');
+        if (tokLos) tokLos('tok'); await fertig(l7); await warte(50);
+        if (loeser.length !== vorher) klagen.push('5: abgebrochen, bevor die Anfrage hinausging — sie ging trotzdem an den Server');
+      } finally {
+        window._gsFetch = s.f; window._gsFreshToken = s.tok; window.showProfileToast = s.toast; window._gsFotoOhneMeta = s.ohne; window.gsShowMushroomDangerOverlay = s.ov;
+        ohneVollbild(); box.innerHTML = '';
+        try { closeModal('modal-mushroom'); } catch (_) {}
+        window._gsMushroomPhotoB64 = null;
+        const k = knopf(); if (k) { k.disabled = false; k.style.opacity = '1'; k.textContent = s.kt; }
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'neues Foto: altes Urteil weg · läuft + neues Foto: Knopf frei, alte Antwort verworfen · neu geöffnet: Knopf frei, die alte tödliche Antwort während der neuen Bestimmung ohne Karte, ohne Vollbild, Knopf bleibt gesperrt · neu geöffnet ohne Schliessen: ebenso · geschlossen: kein Vollbild · Gegenprobe: die neue Bestimmung kommt an' };
+    },
+  },
+  {
+    name: 'PZ6 · Pilz-Scan: nach der Bestimmung trägt der Knopf wieder SEINE Beschriftung — nicht fest „🔍 Pilz identifizieren" in jeder Sprache',
+    lauf: async () => {
+      const k = document.getElementById('mushroom-submit-btn');
+      if (!k) return { ok: false, warum: 'Knopf fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const s = { f: window._gsFetch, tok: window._gsFreshToken, toast: window.showProfileToast, kt: k.textContent, foto: window._gsMushroomPhotoB64 };
+      const box = document.getElementById('mushroom-result');
+      let waehrend = '', nachher = '';
+      try {
+        window._gsFreshToken = async () => 'tok'; window.showProfileToast = () => {};
+        window._gsFetch = async () => { waehrend = k.textContent.trim(); return { ok: true, status: 200, json: async () => ({ matched_slug: null, confidence: 20, mushroom: null }) }; };
+        // so setzt die Sprachschicht die Beschriftung auf Französisch
+        k.textContent = '🔍 Identifier le champignon';
+        window._gsMushroomPhotoB64 = 'data:image/jpeg;base64,AAAA';
+        await Promise.race([gsMushroomRunScan(), warte(3000)]);
+        nachher = k.textContent.trim();
+      } finally {
+        window._gsFetch = s.f; window._gsFreshToken = s.tok; window.showProfileToast = s.toast; window._gsMushroomPhotoB64 = s.foto;
+        k.disabled = false; k.style.opacity = '1'; k.textContent = s.kt; if (box) box.innerHTML = '';
+      }
+      if (!/Identifiziere/.test(waehrend)) return { ok: false, warum: 'während der Bestimmung stand „' + waehrend + '" — der Fall misst nichts' };
+      if (nachher !== '🔍 Identifier le champignon') return { ok: false, warum: 'nach der Bestimmung steht „' + nachher + '" statt der Beschriftung von vorher' };
+      return { ok: true, info: 'während: „' + waehrend + '" · danach wieder „' + nachher + '"' };
+    },
+  },
+  // ── Pilz-Scanner, Nachtrag (gegnerische Prüfung, 24.11.2026). PZ5 lief nur auf Deutsch — und nur dort
+  // zeichnet gsMushroomRenderResult ohne Warten. In fr/it/en/es wartet es auf die Übersetzung (bis zu zwei
+  // Abfragen), NACH der Prüfung in gsMushroomRunScan, und RunScan wartete nicht auf die Anzeige: unter einem
+  // neuen Foto erschien „✅ Speisepilz" des alten, sogar über einem neueren „TÖDLICH". Dazu drei Ränder, die
+  // kein Fall sah: der catch-Zweig einer abgelösten Bestimmung, zwei sich überholende Foto-Ladevorgänge, und
+  // das stille Schliessen (ein Tipp auf den dunklen Rand brach ab, ohne dass etwas es sagte).
+  {
+    name: 'PZ7 · Pilz-Scan in einer anderen Sprache: wer auf die Übersetzung wartet, zeichnet nur, wenn die Bestimmung noch gilt — ein älteres „Speisepilz" kommt nie über ein neueres „TÖDLICH"; ein abgelöster Fehler bleibt still; ein langsames älteres Foto verdrängt kein neueres; Schliessen sagt, dass abgebrochen ist',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      const knopf = () => document.getElementById('mushroom-submit-btn');
+      if (!box || !knopf() || !window.gsI18n) return { ok: false, warum: 'Pilz-Fenster, Knopf oder Sprachschicht fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);
+      const s = { f: window._gsFetch, tok: window._gsFreshToken, toast: window.showProfileToast, ohne: window._gsFotoOhneMeta, ov: window.gsShowMushroomDangerOverlay,
+        merge: window._gsMergeMushI18n, lang: gsI18n.getLang, t: gsI18n.t, sf: window.sbFetch, kt: knopf().textContent };
+      const klagen = [], loeser = [], mergeLoeser = [], toasts = [];
+      const speise = { matched_slug: 'boletus_edulis', confidence: 92, mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green', vapko_required: false };
+      const tod = { matched_slug: 'amanita_phalloides', confidence: 95, mushroom: { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' }, edibility: 'toedlich', safety_color: 'red', vapko_required: true };
+      const antwort = (body) => ({ ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(body)) });
+      const text = () => (box.textContent || '').replace(/\s+/g, ' ');
+      const ohneVollbild = () => { const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove(); };
+      const foto = async (n) => { await gsMushroomLoadPhoto({ files: [new File([new Uint8Array([255, 216, 255, n])], 'pilz' + n + '.jpg', { type: 'image/jpeg' })] }); };
+      try {
+        window._gsFreshToken = async () => 'tok';
+        window.showProfileToast = (t, typ) => toasts.push({ t: String(t), typ });
+        window._gsFotoOhneMeta = async (f) => 'data:image/jpeg;base64,FOTO' + String(f.name).replace(/\D/g, '');
+        window.gsShowMushroomDangerOverlay = function () { return s.ov.apply(this, arguments); };
+        window._gsFetch = (url, o, t) => (/mushroom-identify/.test(String(url)) ? new Promise((res, rej) => loeser.push({ res, rej })) : s.f(url, o, t));
+        // die Anzeige auf Französisch: sie wartet auf die Übersetzung des Pilzes (gestellt, freigegeben vom Fall)
+        gsI18n.getLang = () => 'fr';
+        window._gsMergeMushI18n = (m) => new Promise((res) => mergeLoeser.push(() => res(m)));
+        window.sbFetch = async () => ({ data: [], error: null });
+        gsI18n.t = (k, f) => (k === 'mush_identifiziere' ? '⏳ Identification…' : s.t(k, f));
+
+        // 1 · Gegenrichtung zuerst: ohne Wechsel kommt das Ergebnis an — und der Knopf bleibt gesperrt, solange es wartet
+        openMushroomModal(); await foto(1);
+        const l0 = gsMushroomRunScan(); await warte(40);
+        if (!/Identification/.test(knopf().textContent)) klagen.push('5: der Knopf trägt während der Bestimmung „' + knopf().textContent.trim() + '" — nicht die Sprachschicht');
+        loeser[0].res(antwort(speise)); await warte(60);
+        if (!mergeLoeser[0]) return { ok: false, warum: 'die Anzeige wartet nicht auf die Übersetzung — der Fall misst den deutschen Weg' };
+        if (!knopf().disabled) klagen.push('1: während die Anzeige auf die Übersetzung wartet, ist der Knopf schon frei');
+        mergeLoeser[0](); await fertig(l0);
+        if (!/Speisepilz|Steinpilz/.test(text())) return { ok: false, warum: 'ohne Wechsel kommt das Ergebnis nicht an — der Fall misst nichts' };
+
+        // 2 · ein neues Foto, während die Anzeige wartet: das alte Ergebnis kommt nicht darunter
+        await foto(2);
+        const l1 = gsMushroomRunScan(); await warte(40);
+        loeser[1].res(antwort(speise)); await warte(60);
+        await foto(3);
+        mergeLoeser[1](); await fertig(l1); await warte(30);
+        if (/Speisepilz|Steinpilz/.test(text())) klagen.push('2: nach dem neuen Foto steht „Speisepilz" des vorigen darunter');
+
+        // 3 · das ältere „Speisepilz" wartet noch, das neuere Foto kommt als TÖDLICH zurück — und bleibt TÖDLICH
+        const l2 = gsMushroomRunScan(); await warte(40);                 // Foto 3
+        loeser[2].res(antwort(speise)); await warte(60);                  // wartet auf mergeLoeser[2]
+        await foto(4);
+        const l3 = gsMushroomRunScan(); await warte(40);                 // Foto 4
+        loeser[3].res(antwort(tod)); await warte(60);
+        mergeLoeser[3](); await fertig(l3); await warte(30);
+        if (!/TÖDLICH|Knollenblätterpilz/.test(text())) klagen.push('3: das tödliche Ergebnis des neuen Fotos kommt nicht an — der Fall misst nichts');
+        mergeLoeser[2](); await fertig(l2); await warte(30);
+        if (/Speisepilz/.test(text()) || !/TÖDLICH|Knollenblätterpilz/.test(text())) klagen.push('3: ein älteres „Speisepilz" überschreibt das neuere „TÖDLICH" („' + text().slice(0, 80) + '")');
+        ohneVollbild();
+
+        // 4 · der catch-Zweig: eine abgelöste Bestimmung scheitert am Netz — unter dem neuen Foto steht kein Fehler
+        await foto(5);
+        const l4 = gsMushroomRunScan(); await warte(40);
+        await foto(6);
+        toasts.length = 0;
+        loeser[4].rej(new TypeError('Failed to fetch')); await fertig(l4); await warte(30);
+        if (toasts.some(x => x.typ === 'error')) klagen.push('4: die abgelöste Bestimmung meldet ihren Netzfehler unter dem neuen Foto („' + toasts.map(x => x.t).join(' | ') + '")');
+
+        // 5 · zwei Foto-Ladevorgänge überholen sich: das zuerst gewählte, langsamer kodierte Foto verdrängt das neuere nicht
+        const ladeLos = [];
+        window._gsFotoOhneMeta = (f) => new Promise((res) => ladeLos.push(() => res('data:image/jpeg;base64,FOTO' + String(f.name).replace(/\D/g, ''))));
+        const la = foto(7); await warte(20);
+        const lb = foto(8); await warte(20);
+        ladeLos[1](); await lb;
+        ladeLos[0](); await la; await warte(20);
+        if (!/FOTO8$/.test(String(window._gsMushroomPhotoB64 || ''))) klagen.push('5: nach dem späten Foto 7 ist „' + String(window._gsMushroomPhotoB64 || '').slice(-6) + '" das Foto — nicht das zuletzt gewählte 8');
+        const vb = document.querySelector('#mushroom-photo-preview img');
+        if (!vb || !/FOTO8/.test(vb.getAttribute('src') || '')) klagen.push('5: die Vorschau zeigt nicht das zuletzt gewählte Foto');
+        window._gsFotoOhneMeta = async (f) => 'data:image/jpeg;base64,FOTO' + String(f.name).replace(/\D/g, '');
+
+        // 6 · Schliessen sagt, dass abgebrochen ist — nach dem Absenden mit „kann zählen", davor ohne; ohne Lauf still
+        const l6 = gsMushroomRunScan(); await warte(40);                 // läuft, Anfrage ist hinaus
+        toasts.length = 0;
+        closeModal('modal-mushroom'); await warte(20);
+        const t6 = toasts.map(x => x.t).join(' | ');
+        if (!/abgebrochen/i.test(t6)) klagen.push('6: geschlossen, während die Bestimmung lief — kein Satz');
+        else if (!/unterwegs|zählen/.test(t6)) klagen.push('6: die Anfrage war schon hinaus, der Satz sagt es nicht („' + t6 + '")');
+        loeser[5].res(antwort(tod)); await fertig(l6); await warte(20);
+        if (document.getElementById('gs-mushroom-danger')) klagen.push('6: nach dem Schliessen kam doch eine Vollbild-Warnung');
+        ohneVollbild();
+        openMushroomModal(); await foto(9);
+        let tokLos = null; window._gsFreshToken = () => new Promise((r) => { tokLos = r; });
+        const l7 = gsMushroomRunScan(); await warte(30);
+        toasts.length = 0;
+        closeModal('modal-mushroom'); await warte(20);
+        const t7 = toasts.map(x => x.t).join(' | ');
+        if (!/abgebrochen/i.test(t7) || /unterwegs/.test(t7)) klagen.push('6: geschlossen, bevor die Anfrage hinausging — „' + t7 + '"');
+        if (tokLos) tokLos('tok'); await fertig(l7);
+        window._gsFreshToken = async () => 'tok';
+        // eine Bestimmung läuft GANZ durch, dann wird geschlossen: nichts lief mehr — kein „abgebrochen"
+        // (direkt geschlossen; ein neues Öffnen davor räumte den Laufzustand ohnehin ab und prüfte nichts)
+        openMushroomModal(); await foto(10);
+        const l8 = gsMushroomRunScan(); await warte(40);
+        loeser[loeser.length - 1].res(antwort(speise)); await warte(60);
+        if (mergeLoeser.length) mergeLoeser[mergeLoeser.length - 1]();
+        await fertig(l8); await warte(20);
+        toasts.length = 0;
+        closeModal('modal-mushroom'); await warte(20);
+        if (toasts.some(x => /abgebrochen/i.test(x.t))) klagen.push('6: geschlossen, nachdem die Bestimmung fertig war — trotzdem „abgebrochen"');
+      } finally {
+        window._gsFetch = s.f; window._gsFreshToken = s.tok; window.showProfileToast = s.toast; window._gsFotoOhneMeta = s.ohne; window.gsShowMushroomDangerOverlay = s.ov;
+        window._gsMergeMushI18n = s.merge; gsI18n.getLang = s.lang; gsI18n.t = s.t; window.sbFetch = s.sf;
+        ohneVollbild(); box.innerHTML = '';
+        try { closeModal('modal-mushroom'); } catch (_) {}
+        window._gsMushroomPhotoB64 = null;
+        const k = knopf(); if (k) { k.disabled = false; k.style.opacity = '1'; k.textContent = s.kt; }
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'fr: ohne Wechsel da, Knopf gesperrt bis gezeichnet · neues Foto während der Übersetzung: nichts darunter · älteres „Speisepilz" nach neuerem „TÖDLICH": TÖDLICH bleibt · abgelöster Netzfehler still · Foto 8 vor dem späten Foto 7 bleibt · Schliessen: Satz mit und ohne „unterwegs", ohne Lauf still · Knopf über die Sprachschicht' };
     },
   },
   {

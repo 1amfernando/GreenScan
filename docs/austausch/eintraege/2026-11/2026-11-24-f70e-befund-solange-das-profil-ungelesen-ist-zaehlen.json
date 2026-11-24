@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-24-f70e",
+  "art": "befund",
+  "datum": "2026-11-24",
+  "zeit": "13:10:22",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.68",
+  "titel": "Solange das Profil ungelesen ist, zählen Scans, Ansichten und Meilensteine nicht — und werden nicht nachgebucht",
+  "vorschlag": "Ein kleiner lokaler Zwischenzähler je Feld (gs_profil_nachtrag, GS_USER_KEYS), den _gsProfilNachlesen nach dem Lesen addiert und leert; Fall in sync_check: Start ohne Empfang, zwei Scans, Empfang → stats.scans +2.",
+  "beleg": [
+    "profileTrackScan / profileTrackView / profileTrackFav / profileTrackQuizCorrect / checkMilestones steigen bei _sbProfile._ungelesen aus (richtig: sonst schrieben sie {scans:1} als ganze Spalte). Seit dem 24.11.2026 liest _gsProfilNachlesen das Profil nach dem ersten gelungenen Abgleich nach (sync_check H12); was BIS dahin gezählt worden wäre, fehlt in profiles.stats — es gibt keinen lokalen Zwischenzähler. Gefunden von der Schlussprüfung des PR #337, Linse blob, nicht gegengeprüft (Limit)."
+  ],
+  "stichworte": [
+    "profil",
+    "ungelesen",
+    "profileTrackScan",
+    "meilensteine"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "if (!_sbProfile || _sbProfile._ungelesen) return;"
+    }
+  ]
+}

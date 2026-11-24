@@ -62,6 +62,20 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     Registers zeigt und die vorsichtigere gewinnt: die Artenliste ist bei 10 Giftpilzen milder als das
     Register, 34 fehlen ihr (Brett 2026-11-19-a24a). Die Function muss Fernando ausliefern
     (FUER-FERNANDO §31).
+    **Nachtrag v33.70 (`scan_check` PZ5, PZ6) — ein Ergebnis gehört zu seinem Foto.** Gemessen 19.11.: ein
+    neues Foto liess das Urteil des vorigen stehen („✅ Speisepilz" unter einem anderen Pilz); wer während der
+    Bestimmung das Fenster schloss und mit einem neuen Foto wieder öffnete, sah den Knopf weiter auf
+    „⏳ Identifiziere…", und die Antwort zum alten Foto erschien unter dem neuen — bei einem Giftpilz samt
+    Vollbild; nach dem Schliessen legte sich die Vollbild-Warnung später über die App. Jetzt eine Nummer je
+    Bestimmung (`gsPilzAbbrechen`), und der Knopf trägt danach wieder seine eigene Beschriftung statt fest
+    „🔍 Pilz identifizieren" in jeder Sprache.
+    **Nachtrag 24.11. (gegnerische Prüfung, `scan_check` PZ7):** in fr/it/en/es wartet die Anzeige auf bis zu zwei
+    Übersetzungs-Abfragen — NACH der Prüfung, und `gsMushroomRunScan` wartete nicht auf sie: unter einem neuen Foto
+    stand „✅ Speisepilz" des alten, sogar über einem neueren „TÖDLICH"; PZ5 lief nur auf Deutsch. Jetzt wartet die
+    Bestimmung auf ihre Anzeige und reicht `gilt` hinein. Dazu: ein später kodiertes älteres Foto verdrängt kein neueres
+    mehr (`_gsPilzFotoNr`), ein abgelöster Netzfehler bleibt still (der Zweig war ungeprüft), wer während der
+    Bestimmung schliesst (ein Tipp auf den dunklen Rand genügt), bekommt einen Satz statt Stille, und „⏳ Identifiziere…"
+    geht durch die Sprachschicht.
 
 ## Offen — Lina
 
@@ -83,6 +97,15 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    Monat, ohne Bezug zu fälligen Aufgaben oder zum letzten Scan.
 8. ✅ v33.61 (bestätigt und schlimmer: mit Text dahinter stand die Zeile roh in der Antwort;
    `sensor_check` L6) — Verdacht: ein kaputtes `[[GS_ACTION]]` am Antwortende wird still verworfen.
+9. ✅ v33.70 (`sensor_check` L12, gefunden 24.11. beim Nachlesen von `gsLinaSend`) — **Eine Antwort
+   landet im falschen Gespräch.** Wer während „Lina denkt nach…" auf „＋ Neu" tippte, sah das neue
+   Gespräch mit der Antwort auf eine Frage beginnen, die dort nicht stand; die nächste Frage ging mit
+   dieser Antwort als Vorgeschichte an die KI. Wer ein früheres Gespräch öffnete, bekam die Antwort dort
+   angehängt UND unter dessen Id in der Cloud gespeichert — im gefragten Gespräch fehlte sie. Wurde
+   während des Anlegens eines neuen Gesprächs gewechselt, bekam das andere Gespräch dessen Id. Eine
+   zweite Frage verschluckte der Riegel wortlos. Jetzt zählt jeder Wechsel (`_gsLinaGespraechNr`),
+   Vorgeschichte, Id und Antwort bleiben beim gefragten Gespräch (Cloud), ein Satz sagt, wo die Antwort
+   ist, und die zweite Frage bekommt einen Satz statt Stille.
 
 ## Offen — Suche
 
@@ -120,9 +143,18 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 2. ✅ v33.61 (`scan_check` HW1, HW2; dazu: die Sturmwarnung las die Stunden 00–02 Uhr) — **Wetterkarte hat zwei Schreiber** (`loadHomeWeather`, `gsApplyWeatherToWidget`) mit
    eigenen Regeln für Frost und Regen statt `GS_WETTER_GRENZEN`; was dasteht, hängt davon ab,
    wer zuletzt lief. Kein Prüffall (`hw-*` kommt in `scripts/` nicht vor).
-3. **„Arten" zählt verschieden:** Lexikon zeigt `DB.length`, Home `gsArtenZahlen().arten`.
+3. ✅ v33.70 (`nutzersicht_check` E9 Teil 4, `scan_check` D1g) — **„Arten" zählt verschieden:** Lexikon zeigt `DB.length`, Home `gsArtenZahlen().arten`.
    Die Startseite zählt richtig; der Fehler liegt im Wissen-Tab → Brett `2026-11-16-4d79`
    (dort auch „Essbar" und „Giftig" mit eigenen Regeln).
+   **Behoben 19.11.:** Kopf-Chip und Kachel „Arten" zeigen 3'136 (vorher 4'337 Einträge), „Essbar"
+   1'062 wie Startkachel und Filter (vorher 1'130 — die 68 ungeprüften Einträge zählten mit),
+   „Giftig" 675 wie der Filter (vorher 598 — die 77 Einträge der Stufe 1 mit `toxic` fehlten:
+   Spitzmorchel roh, Stinktäubling, Gelbe Teichrose). „Giftig" ist jetzt EINE Funktion
+   (`gsIstGiftig`) für Filter und Kachel, und jede Kachel öffnet die Liste, die sie zählt — E9 tippt
+   sie an und vergleicht die Zahl mit den Treffern danach. Dabei: E9 las die Startkachel mitten in
+   ihrer Hochzähl-Animation, sobald er früh lief (3'129 … 3'134) — er wartet jetzt, bis die Zahl steht.
+   Und `scan_check` D1g verlangte für dieselbe Kachel noch die alte Regel (598): zwei Fälle, zwei Regeln —
+   D1g rechnet jetzt die Regel des Filters mit eigenem Massstab nach.
 4. ❎ nachgesehen 16.11.: kein Fehler — beide zählen dasselbe wie die Liste, die die Kachel öffnet (Verlauf + bestätigte Karten). **`stat-scans` hat zwei Schreiber;** Verdacht auf Doppelzählung. Fester Ersatzwert 4330.
 5. ✅ v33.61 (bestätigt: ohne Bauernregel eine leere Folie mit Punkt; `scan_check` HK1) — **Karten-Stapel** (`gsBuildWidgetStack`): `wisdom-card` immer eingeblendet (leer ohne
    Bauernregel?), dreht alle 8 s ohne Pause-Knopf, `gsRenderWochenrueckblick` doppelt gerufen
@@ -149,10 +181,10 @@ Brett `c699`. Wer hier einen Fall baut, misst mit eigenem Massstab und realistis
 
 ## Nebenfunde (nicht in den vier Funktionen)
 
-- Das Lexikon (Wissen) schreibt `DB.length` (4'337 Einträge) unter „Arten" — CLAUDE.md §1
-  verlangt `gsArtenZahlen()` (3'136 Arten). Gefunden 16.11.2026, nicht angefasst; gemessen und
-  aufs Brett gelegt als `2026-11-16-4d79` (auch der Kopf-Chip des Wissen-Tabs, „Essbar" und
-  „Giftig" mit eigenen Regeln).
+- ✅ v33.70 — Das Lexikon (Wissen) schreibt `DB.length` (4'337 Einträge) unter „Arten" — CLAUDE.md §1
+  verlangt `gsArtenZahlen()` (3'136 Arten). Gefunden 16.11.2026, gemessen und aufs Brett gelegt als
+  `2026-11-16-4d79` (auch der Kopf-Chip des Wissen-Tabs, „Essbar" und „Giftig" mit eigenen Regeln);
+  behoben 19.11. als Home 3.
 - Standort-Fenster ohne Standort: im Dunkelmodus 1,51:1 (fest heller Kasten, kippende Schrift)
   → Brett `2026-11-16-a082`.
 - Der Lärchen-Röhrling (T039, *Suillus grevillei*) steht als `baum` in der Artenliste, dieselbe Art
@@ -173,9 +205,9 @@ Scanner 1–3 und Lina 1–3 zuerst (jemand verliert Arbeit oder liest etwas Fal
 Suche 1–4, dann Home. Ausgeliefert wird einzeln: jede Auslieferung ändert `GS_VERSION`,
 `GS_RELEASES` und `sw.js`.
 
-**Stand 19.11.2026 (nach Scanner 4):** in den vier Funktionen ist nur noch offen, was nicht
+**Stand 19.11.2026 (nach Scanner 4 und Home 3):** in den vier Funktionen ist nur noch offen, was nicht
 an dieser Sitzung hängt — Scanner 9 (der Abo-Zähler fürs Scannen, eine Entscheidung über
-Pläne und Zahlung: Brett 2e3a), der Pilz-Eintrag im Scan-Verlauf (Scanner 11, erst nach der
-Datenseite: Brett a24a) und Home 3 (der Fehler liegt im Wissen-Tab: Brett 4d79). Ein echtes
+Pläne und Zahlung: Brett 2e3a) und der Pilz-Eintrag im Scan-Verlauf (Scanner 11, erst nach der
+Datenseite: Brett a24a). Home 3 ist behoben (Wissen-Tab, Brett 4d79). Ein echtes
 Abbrechen der KI-Anfrage (statt ihre Folge zu verwerfen) braucht ein Signal in `callAI` /
 `callVisionAI` — Brett-Idee 8186, bei der Sitzung „KI-Modelle".

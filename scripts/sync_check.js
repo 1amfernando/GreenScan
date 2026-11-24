@@ -790,6 +790,268 @@ const melde = (frage, ok, wie) => {
         : (h9.fehler ? 'Ausnahme: ' + h9.fehler : 'Start ok=' + h9.startOk + ' · 1,5 s nach dem Eintragen: ' + S(h9.s1) + ' (erwartet Pflanzen „mp_c“, Tagebuch 1, wartet „ja“, Gaerten „g_c,g_neu“) · nach dem Abgleich: ' + S(h9.s2)));
   }
 
+  // ── Schlusspruefung blob (24.11.2026) · H10: offline geloescht bleibt geloescht ──
+  // Seit H8 fuehrt der Abgleich Plaene und Tracks bei ungesendetem Stand JE EINTRAG zusammen. Ohne
+  // Loeschmarke kaeme ein offline geloeschter Plan (und Track) damit aus der Cloud zurueck und ginge wieder
+  // hoch — vor H8 gewann die ganze lokale Liste, das Loeschen hielt. Gemessen wird der ganze Weg mit den
+  // ECHTEN Loesch-Funktionen: Geraet war abgeglichen, loescht ohne Empfang, ein anderes Geraet legt
+  // inzwischen einen Plan und einen Track an, dann kommt das Netz zurueck.
+  const h10 = await page.evaluate(async () => {
+    const raus = {};
+    const warte = (ms) => new Promise(r2 => setTimeout(r2, ms));
+    const echt = { fetch: window.sbFetch, login: window.sbIsLoggedIn, raw: window.fetch, toast: window.showProfileToast, frage: window.gsConfirmModal, liste: window.gsTrackOpenList, plaene: window.gsPPopenSavedPlans, agent: window.gsAgentScheduleNotifications };
+    const exp0 = localStorage.getItem('gs_sb_expires'), tok0 = localStorage.getItem('gs_sb_token');
+    const TAB = /\/rest\/v1\/(user_plants|user_gardens|user_app_state)/;
+    const cloud = {};
+    let netz = false;
+    const nimm = (tab, body) => { try { cloud[tab] = { data: JSON.parse(body).data, updated_at: new Date().toISOString() }; } catch (_) {} };
+    const aus = { data: null, error: { message: 'Failed to fetch', status: 0 }, status: 0 };
+    window.sbFetch = async function (pfad, opts) {
+      opts = opts || {}; const m = (opts.method || 'GET').toUpperCase();
+      if (!netz) return aus;
+      const tab = (String(pfad).match(TAB) || [])[1];
+      if (tab && (m === 'POST' || m === 'PATCH')) { nimm(tab, opts.body); return { data: [{}], error: null, status: 200 }; }
+      if (tab && m === 'GET') return cloud[tab] ? { data: [cloud[tab]], error: null, status: 200 } : { data: [], error: null, status: 200 };
+      return { data: [], error: null, status: 200 };
+    };
+    window.fetch = async function (url, opts) {
+      const tab = (String(url).match(TAB) || [])[1];
+      if (tab && opts && opts.body) { if (!netz) throw new TypeError('Failed to fetch'); nimm(tab, opts.body); return new Response('[{}]', { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+      return echt.raw.apply(this, arguments);
+    };
+    window.sbIsLoggedIn = () => true;
+    window.showProfileToast = (x) => { raus.toast = (x && x.title) || String(x); };
+    window.gsConfirmModal = async () => true;
+    window.gsTrackOpenList = () => {};
+    window.gsPPopenSavedPlans = () => {};
+    window.gsAgentScheduleNotifications = async () => {};
+    localStorage.setItem('gs_sb_expires', String(Date.now() + 3600e3));
+    if (!tok0) localStorage.setItem('gs_sb_token', 'x.y.z');
+    const lies = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+    const ids = (a) => (a || []).map(x => x && x.id).sort().join(',');
+    const tss = (a) => (a || []).map(x => x && x.ts).sort().join(',');
+    const P = (id, tag) => ({ id: id, created: '2026-0' + tag + '-01T00:00:00.000Z', title: id, plan: { summary: id, plants: [] } });
+    try {
+      const stand = { gardens: [{ id: 'g_c', name: 'Hochbeet' }], plantings: [], plans: [P('plan-a', 5), P('plan-b', 6)], current: null,
+                      gpx_tracks: [{ ts: 1767225600000, end: 1767229200000, points: [] }, { ts: 1767312000000, end: 1767315600000, points: [] }] };
+      cloud.user_gardens = { data: JSON.parse(JSON.stringify(stand)), updated_at: '2026-11-01T08:00:00.000Z' };
+      // Dieses Geraet: derselbe Stand, abgeglichen (nichts ungesendet).
+      ['gs_sync_dirty', 'gs_sync_dirty_at_garden', 'gs_sync_dirty_at_state', 'gs_garden_plan_current', 'gs_geloescht'].forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('gs_sb_uid', 'nutzer-H10'); localStorage.setItem('gs_last_active_uid', 'nutzer-H10');
+      localStorage.setItem('gs_gardens', JSON.stringify(stand.gardens)); localStorage.setItem('gs_plantings', '[]');
+      localStorage.setItem('gs_garden_plans', JSON.stringify(stand.plans)); localStorage.setItem('gs_gpx_tracks', JSON.stringify(stand.gpx_tracks));
+      localStorage.setItem('gs_sync_synced_at_garden', '2026-11-01T08:00:00.000Z'); localStorage.setItem('gs_sync_synced_at_state', '2026-11-01T08:00:00.000Z');
+      gardens = stand.gardens.slice(); plantings = [];
+      window._gsBlobGelesen = {}; window._gsInitialSyncDone = false;
+      // Ohne Empfang: einen Plan und einen Track loeschen — mit den Funktionen, die die Knoepfe rufen.
+      netz = false;
+      await gsPPdeletePlan('plan-a');
+      await gsTrackDelete(0);
+      await warte(900);
+      raus.l1 = { plaene: ids(lies('gs_garden_plans')), tracks: lies('gs_gpx_tracks').length, wartet: localStorage.getItem('gs_sync_dirty_at_garden') ? 'ja' : 'nein' };
+      raus.c1 = { plaene: ids(cloud.user_gardens.data.plans), tracks: (cloud.user_gardens.data.gpx_tracks || []).length };
+      // Inzwischen legt ein ANDERES Geraet einen Plan und einen Track an.
+      cloud.user_gardens.data.plans.push(P('plan-c', 7));
+      cloud.user_gardens.data.gpx_tracks.push({ ts: 1767398400000, end: 1767402000000, points: [] });
+      cloud.user_gardens.updated_at = '2026-11-20T08:00:00.000Z';
+      // Das Netz ist wieder da.
+      netz = true;
+      await gsSyncUserDataOnLogin();
+      await warte(1500);
+      raus.l2 = { plaene: ids(lies('gs_garden_plans')), tracks: tss(lies('gs_gpx_tracks')) };
+      raus.c2 = { plaene: ids(cloud.user_gardens.data.plans), tracks: tss(cloud.user_gardens.data.gpx_tracks) };
+      raus.marken = Object.keys((((cloud.user_app_state || {}).data || {}).geloescht || {})).sort().join(',');
+      raus.wartet2 = localStorage.getItem('gs_sync_dirty_at_garden') ? 'ja' : 'nein';
+    } catch (e) { raus.fehler = String(e && e.stack || e).split('\n').slice(0, 3).join(' | '); }
+    finally {
+      window.sbFetch = echt.fetch; window.sbIsLoggedIn = echt.login; window.fetch = echt.raw; window.showProfileToast = echt.toast;
+      window.gsConfirmModal = echt.frage; window.gsTrackOpenList = echt.liste; window.gsPPopenSavedPlans = echt.plaene; window.gsAgentScheduleNotifications = echt.agent;
+      if (exp0 == null) localStorage.removeItem('gs_sb_expires'); else localStorage.setItem('gs_sb_expires', exp0);
+      if (tok0 == null) localStorage.removeItem('gs_sb_token');
+    }
+    return raus;
+  });
+  {
+    const S = (o) => JSON.stringify(o);
+    const T = '1767312000000,1767398400000';
+    const ok1 = !h10.fehler && h10.l1 && h10.l1.plaene === 'plan-b' && h10.l1.tracks === 1 && h10.l1.wartet === 'ja' && h10.c1.plaene === 'plan-a,plan-b' && h10.c1.tracks === 2;
+    const ok2 = ok1 && h10.l2.plaene === 'plan-b,plan-c' && h10.l2.tracks === T && h10.c2.plaene === 'plan-b,plan-c' && h10.c2.tracks === T
+      && h10.marken.indexOf('gs_garden_plans') >= 0 && h10.marken.indexOf('gs_gpx_tracks') >= 0 && h10.wartet2 === 'nein';
+    melde('H10 · offline geloescht bleibt geloescht: ein ohne Empfang geloeschter Plan und Track kommt beim naechsten Abgleich NICHT aus der Cloud zurueck, geht dort mit weg — und der Plan und der Track eines anderen Geraets kommen dazu',
+      ok2,
+      ok2 ? 'ohne Empfang: lokal ' + S(h10.l1) + ', Cloud noch ' + S(h10.c1) + ' · nach dem Abgleich: Geraet und Cloud ' + S(h10.c2) + ' · Loeschmarken im state-Blob: ' + h10.marken
+        : h10.fehler ? 'Ausnahme: ' + h10.fehler
+          : (!ok1 ? 'ohne Empfang — lokal: ' + S(h10.l1) + ' (erwartet plan-b, 1 Track, wartet ja) · Cloud: ' + S(h10.c1)
+            : 'nach dem Abgleich — Geraet: ' + S(h10.l2) + ' · Cloud: ' + S(h10.c2) + ' (erwartet plan-b,plan-c und Tracks ' + T + ') · Marken: „' + h10.marken + '“ · wartet: ' + h10.wartet2));
+  }
+
+  // ── H11 · ein UNGESENDETER state auf einem Geraet, das nie abgeglichen hat, wird gemischt ──
+  // Die Sperre „erst lesen" (H9) haelt den state-Blob zurueck, bis er gelesen ist. Beim Lesen wurde ein
+  // ungesendeter Stand aber uebersprungen (lokal gewinnt ganz) und danach hochgeschoben: der EINE neue
+  // Favorit eines frischen Geraets ersetzte die zwanzig der Cloud — nur eben nach dem Lesen. Zwei Richtungen:
+  // (a) nie abgeglichen → zusammenfuehren; (b) schon abgeglichen → der lokale Stand bleibt eine Entscheidung
+  // (ein entfernter Favorit kommt nicht zurueck).
+  const h11 = await page.evaluate(async () => {
+    const raus = {};
+    const warte = (ms) => new Promise(r2 => setTimeout(r2, ms));
+    const echt = { fetch: window.sbFetch, login: window.sbIsLoggedIn, raw: window.fetch, agent: window.gsAgentScheduleNotifications };
+    const exp0 = localStorage.getItem('gs_sb_expires'), tok0 = localStorage.getItem('gs_sb_token');
+    const TAB = /\/rest\/v1\/(user_plants|user_gardens|user_app_state)/;
+    const cloud = {};
+    let stateLesbar = false;
+    const nimm = (tab, body) => { try { cloud[tab] = { data: JSON.parse(body).data, updated_at: new Date().toISOString() }; } catch (_) {} };
+    window.sbFetch = async function (pfad, opts) {
+      opts = opts || {}; const m = (opts.method || 'GET').toUpperCase();
+      const tab = (String(pfad).match(TAB) || [])[1];
+      if (tab && (m === 'POST' || m === 'PATCH')) { nimm(tab, opts.body); return { data: [{}], error: null, status: 200 }; }
+      if (tab && m === 'GET') {
+        if (tab === 'user_app_state' && !stateLesbar) return { data: null, error: { message: 'Service Unavailable', status: 503 }, status: 503 };
+        return cloud[tab] ? { data: [cloud[tab]], error: null, status: 200 } : { data: [], error: null, status: 200 };
+      }
+      return { data: [], error: null, status: 200 };
+    };
+    window.fetch = async function (url, opts) {
+      const tab = (String(url).match(TAB) || [])[1];
+      if (tab && opts && opts.body) { nimm(tab, opts.body); return new Response('[{}]', { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+      return echt.raw.apply(this, arguments);
+    };
+    window.sbIsLoggedIn = () => true;
+    window.gsAgentScheduleNotifications = async () => {};
+    localStorage.setItem('gs_sb_expires', String(Date.now() + 3600e3));
+    if (!tok0) localStorage.setItem('gs_sb_token', 'x.y.z');
+    const zwanzig = []; for (let i = 1; i <= 20; i++) zwanzig.push('cloud-' + i);
+    const lies = (k, v) => { try { return JSON.parse(localStorage.getItem(k) || v); } catch (_) { return JSON.parse(v); } };
+    const STATE = ['ps_favs', 'ps_votes', 'gs_recipe_favs', 'gs_achievements', 'gs_reminder_prefs', 'gs_sync_dirty', 'gs_sync_dirty_at_state', 'gs_sync_synced_at_state'];
+    const cloudStand = () => ({ data: { favs: zwanzig.slice(), votes: { 'idee-1': 1, 'idee-2': -1 }, recipe_favs: ['r1', 'r2'], reminder_prefs: { disabled: { p9: true } } }, updated_at: '2026-11-01T08:00:00.000Z' });
+    try {
+      // (a) frisches Geraet: der Start-Abgleich scheitert am state-Blob, dann EIN neuer Favorit und eine Stimme.
+      cloud.user_app_state = cloudStand();
+      STATE.forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('gs_sb_uid', 'nutzer-H11'); localStorage.setItem('gs_last_active_uid', 'nutzer-H11');
+      favs = []; myVotes = {};
+      window._gsBlobGelesen = {}; window._gsInitialSyncDone = false;
+      await gsSyncUserDataOnLogin();
+      raus.a_start = !!window._gsInitialSyncDone;
+      favs = ['lokal-neu']; localStorage.setItem('ps_favs', JSON.stringify(favs));
+      localStorage.setItem('ps_votes', JSON.stringify({ 'idee-2': 1, 'idee-3': 1 }));
+      gsCloudSync.markDirty('state');
+      await warte(1500);
+      raus.a_c1 = (cloud.user_app_state.data.favs || []).length;         // vor dem Lesen: die Cloud unveraendert
+      stateLesbar = true;
+      window._gsInitialSyncDone = false;
+      await gsSyncUserDataOnLogin();
+      await warte(1500);
+      const cf = cloud.user_app_state.data.favs || [], lf = lies('ps_favs', '[]');
+      raus.a_cloud = { zahl: cf.length, neu: cf.indexOf('lokal-neu') >= 0, alle20: zwanzig.every(x => cf.indexOf(x) >= 0) };
+      raus.a_lokal = { zahl: lf.length, neu: lf.indexOf('lokal-neu') >= 0, spiegel: (typeof favs !== 'undefined' && Array.isArray(favs)) ? favs.length : -1 };
+      raus.a_votes = JSON.stringify(cloud.user_app_state.data.votes || {});       // lokal gewinnt bei idee-2, idee-1 kommt dazu, idee-3 bleibt
+      raus.a_rezepte = (cloud.user_app_state.data.recipe_favs || []).length;      // lokal nichts → der Cloud-Stand
+      raus.a_erinnerung = JSON.stringify(cloud.user_app_state.data.reminder_prefs || {});
+      raus.a_wartet = localStorage.getItem('gs_sync_dirty_at_state') ? 'ja' : 'nein';
+      // (b) ein Geraet, das abgeglichen WAR: es entfernt einen Favoriten ohne Empfang — der kommt nicht zurueck.
+      cloud.user_app_state = cloudStand();
+      STATE.forEach(k => localStorage.removeItem(k));
+      const neunzehn = zwanzig.slice(1);
+      favs = neunzehn.slice(); localStorage.setItem('ps_favs', JSON.stringify(favs));
+      localStorage.setItem('gs_sync_synced_at_state', '2026-11-01T08:00:00.000Z');
+      gsCloudSync.markDirty('state');
+      window._gsBlobGelesen = {}; window._gsInitialSyncDone = false;
+      await gsSyncUserDataOnLogin();
+      await warte(1500);
+      const cb = cloud.user_app_state.data.favs || [];
+      raus.b_cloud = { zahl: cb.length, entfernt_zurueck: cb.indexOf('cloud-1') >= 0 };
+      raus.b_lokal = lies('ps_favs', '[]').length;
+    } catch (e) { raus.fehler = String(e && e.stack || e).split('\n').slice(0, 3).join(' | '); }
+    finally {
+      window.sbFetch = echt.fetch; window.sbIsLoggedIn = echt.login; window.fetch = echt.raw; window.gsAgentScheduleNotifications = echt.agent;
+      if (exp0 == null) localStorage.removeItem('gs_sb_expires'); else localStorage.setItem('gs_sb_expires', exp0);
+      if (tok0 == null) localStorage.removeItem('gs_sb_token');
+    }
+    return raus;
+  });
+  {
+    const S = (o) => JSON.stringify(o);
+    const okA = !h11.fehler && h11.a_start === false && h11.a_c1 === 20
+      && h11.a_cloud && h11.a_cloud.zahl === 21 && h11.a_cloud.neu && h11.a_cloud.alle20
+      && h11.a_lokal.zahl === 21 && h11.a_lokal.neu && h11.a_lokal.spiegel === 21
+      && h11.a_votes === S({ 'idee-2': 1, 'idee-3': 1, 'idee-1': 1 }) && h11.a_rezepte === 2
+      && h11.a_erinnerung === S({ disabled: { p9: true } }) && h11.a_wartet === 'nein';
+    const okB = okA && h11.b_cloud && h11.b_cloud.zahl === 19 && !h11.b_cloud.entfernt_zurueck && h11.b_lokal === 19;
+    melde('H11 · state wird gemischt, wenn das Geraet ihn nie abgeglichen hat: der eine neue Favorit eines frischen Geraets kommt zu den zwanzig der Cloud (21, auch im Arbeitsspeicher), Stimmen und Erinnerungen bleiben — und auf einem abgeglichenen Geraet kommt ein entfernter Favorit NICHT zurueck',
+      okB,
+      okB ? 'frisch: Cloud ' + h11.a_cloud.zahl + ' Favoriten (vor dem Lesen 20, unberuehrt), Stimmen ' + h11.a_votes + ' · abgeglichen: Cloud ' + h11.b_cloud.zahl + ', der entfernte bleibt weg'
+        : h11.fehler ? 'Ausnahme: ' + h11.fehler
+          : (!okA ? 'frisches Geraet — Start ok=' + h11.a_start + ' · Cloud vor dem Lesen: ' + h11.a_c1 + ' · danach Cloud: ' + S(h11.a_cloud) + ' · Geraet: ' + S(h11.a_lokal) + ' · Stimmen: ' + h11.a_votes + ' · Rezepte: ' + h11.a_rezepte + ' · Erinnerung: ' + h11.a_erinnerung + ' · wartet: ' + h11.a_wartet + ' (erwartet 21 Favoriten mit allen zwanzig der Cloud)'
+            : 'abgeglichenes Geraet — Cloud: ' + S(h11.b_cloud) + ' · lokal: ' + h11.b_lokal + ' (erwartet 19, der entfernte Favorit bleibt weg)'));
+  }
+
+  // ── H12 · ein UNGELESENES Profil ist kein Cloud-Stand ──
+  // Start ohne Empfang: sbLoadProfile legt ein Ersatzprofil mit xp 0 an (`_ungelesen`). gsXpBootSync nahm die
+  // 0 als Cloud-Stand, hielt die ganze lokale XP fuer „offline verdient" und buchte sie per fn_add_xp noch
+  // einmal — die Rangliste zeigte danach das Doppelte. Und das Profil blieb die ganze Sitzung ungelesen.
+  const h12 = await page.evaluate(async () => {
+    const raus = { rpc: [] };
+    const warte = (ms) => new Promise(r2 => setTimeout(r2, ms));
+    const echt = { fetch: window.sbFetch, login: window.sbIsLoggedIn, raw: window.fetch, agent: window.gsAgentScheduleNotifications, streak: window.checkAndUpdateStreak };
+    const exp0 = localStorage.getItem('gs_sb_expires'), tok0 = localStorage.getItem('gs_sb_token');
+    let netz = false;
+    const profil = { id: 'nutzer-H12', display_name: 'Pruefperson', xp: 1200, level: 5, login_streak: 3 };
+    window.sbFetch = async function (pfad, opts) {
+      opts = opts || {}; const m = (opts.method || 'GET').toUpperCase(); const p = String(pfad);
+      if (!netz) return { data: null, error: { message: 'Failed to fetch', status: 0 }, status: 0 };
+      if (/\/rpc\/fn_add_xp/.test(p)) { let n = null; try { const bd = JSON.parse(opts.body || '{}'); n = bd.p_amount != null ? bd.p_amount : (bd.amount != null ? bd.amount : bd); } catch (_) {} raus.rpc.push(n); return { data: profil.xp, error: null, status: 200 }; }
+      if (/\/rest\/v1\/profiles/.test(p) && m === 'GET') return { data: [profil], error: null, status: 200 };
+      return { data: [], error: null, status: 200 };
+    };
+    window.fetch = async function (url, opts) {
+      if (/\/rpc\/fn_add_xp/.test(String(url))) { raus.rpc.push('roh'); return new Response('1200', { status: 200 }); }
+      if (/\/rest\/v1\/(user_plants|user_gardens|user_app_state)/.test(String(url)) && opts && opts.body) return new Response('[{}]', { status: 200, headers: { 'Content-Type': 'application/json' } });
+      return echt.raw.apply(this, arguments);
+    };
+    window.sbIsLoggedIn = () => true;
+    window.gsAgentScheduleNotifications = async () => {};
+    window.checkAndUpdateStreak = async () => {};
+    localStorage.setItem('gs_sb_expires', String(Date.now() + 3600e3));
+    if (!tok0) localStorage.setItem('gs_sb_token', 'x.y.z');
+    const xp0 = localStorage.getItem('gs_xp');
+    try {
+      localStorage.setItem('gs_sb_uid', 'nutzer-H12'); localStorage.setItem('gs_last_active_uid', 'nutzer-H12');
+      ['gs_sync_dirty', 'gs_sync_dirty_at_state', 'gs_sync_dirty_at_garden', 'gs_sync_dirty_at_plants'].forEach(k => localStorage.removeItem(k));
+      gsStore.set('gs_xp', '1200');
+      window._gsXpPending = 0; _sbProfile = null;
+      // Start ohne Empfang.
+      netz = false;
+      const p1 = await sbLoadProfile();
+      raus.ungelesen = !!(p1 && p1._ungelesen);
+      await gsXpBootSync();
+      raus.vorgemerkt = window._gsXpPending || 0;
+      // Der Empfang kommt zurueck: der naechste Abgleich holt das Profil nach.
+      netz = true;
+      window._gsBlobGelesen = {}; window._gsInitialSyncDone = false;
+      await gsSyncUserDataOnLogin();
+      await warte(1200);
+      raus.gelesen = !!(_sbProfile && !_sbProfile._ungelesen && _sbProfile.xp === 1200);
+      raus.vorgemerkt2 = window._gsXpPending || 0;
+      raus.lokal = gsGetXP();
+    } catch (e) { raus.fehler = String(e && e.stack || e).split('\n').slice(0, 3).join(' | '); }
+    finally {
+      window.sbFetch = echt.fetch; window.sbIsLoggedIn = echt.login; window.fetch = echt.raw; window.gsAgentScheduleNotifications = echt.agent; window.checkAndUpdateStreak = echt.streak;
+      window._gsXpPending = 0; _sbProfile = null;
+      if (xp0 == null) localStorage.removeItem('gs_xp'); else localStorage.setItem('gs_xp', xp0);
+      if (exp0 == null) localStorage.removeItem('gs_sb_expires'); else localStorage.setItem('gs_sb_expires', exp0);
+      if (tok0 == null) localStorage.removeItem('gs_sb_token');
+    }
+    return raus;
+  });
+  {
+    const ok = !h12.fehler && h12.ungelesen === true && h12.vorgemerkt === 0 && h12.gelesen === true && h12.vorgemerkt2 === 0 && h12.rpc.length === 0 && h12.lokal === 1200;
+    melde('H12 · ein ungelesenes Profil ist kein Cloud-Stand: nach einem Start ohne Empfang wird die lokale XP NICHT noch einmal gebucht (0 Aufrufe fn_add_xp), und der naechste gelungene Abgleich liest das Profil nach',
+      ok,
+      ok ? 'ohne Empfang: Ersatzprofil ungelesen, nichts vorgemerkt · mit Empfang: Profil gelesen (1200 XP), 0 Buchungen'
+        : h12.fehler ? 'Ausnahme: ' + h12.fehler
+          : 'ungelesen=' + h12.ungelesen + ' · vorgemerkt ohne Empfang: ' + h12.vorgemerkt + ' XP (erwartet 0) · nach dem Abgleich gelesen=' + h12.gelesen + ' · vorgemerkt: ' + h12.vorgemerkt2 + ' · Buchungen: ' + JSON.stringify(h12.rpc) + ' · lokale XP: ' + h12.lokal);
+  }
+
   await b.close();
 
   // ── Bericht ────────────────────────────────────────────────────────────
@@ -836,7 +1098,7 @@ const melde = (frage, ok, wie) => {
       : 'ungeprüft, weil kein Probewert eingetragen: ' + ohneProbe.join(', '));
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 19 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 22 · davon rot: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (fehler.length ? fehler.slice(0, 3).join(' | ') : 'keine'));
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;
 })();

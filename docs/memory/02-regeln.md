@@ -45,13 +45,26 @@ Tagebuch in `CLAUDE.md`.
    `=== false` nimmt den Eintrag zurück und sagt einen Satz.
    *(sync_check „Zwei Geräte", speicher_check, save_check)*
 
+5a′. **Ein Blob geht erst hoch, wenn er gelesen wurde** (v33.68). `_flush` schiebt
+   nur, was `_gsBlobGelesen[scope]` für diese Person trägt; ein Lesefehler ist nie
+   „leer“ (`_gsGartenBlobLesen`). Pläne und Tracks: je Eintrag, mit Löschmarke
+   (`_gsLoeschmarke`); state auf einem nie abgeglichenen Gerät: je Schlüssel
+   gemischt (`_gsStateMischen`); ein ungelesenes Profil (`_ungelesen`) ist kein
+   Cloud-Stand. *(CLAUDE.md §3.3; sync_check H8–H12)*
+
 5b. **Eine Antwort nach einem `await` gehört der Person, die gefragt hat.**
    `sbLogout` lädt nicht neu. Wer nach einem `await` zeichnet oder schreibt, merkt
    sich vorher `_gsPerson()` und prüft danach, ob es noch dieselbe ist; was nur im
    Arbeitsspeicher liegt und einer Person gehört, räumt `gsOnLogout`.
    *(§3.6; sensor_check L10, scan_check SC3)* — Und dem VORGANG: wer abbrechen lässt
    oder einen neuen Vorgang über den laufenden startet, gibt jedem eine Nummer und prüft
-   sie nach jedem `await` (`_gsScanNr`, `gsScanAbbrechen`). *(scan_check AB1–AB4)*
+   sie nach jedem `await` (`_gsScanNr`, `gsScanAbbrechen`). *(scan_check AB1–AB4)* — Und
+   dem GESPRÄCH: kann die Person während des Wartens das Gespräch wechseln, zählt jeder
+   Wechsel (`_gsLinaGespraechNr`), und Vorgeschichte, Gesprächs-Id und Antwort gehören dem
+   Gespräch, in dem gefragt wurde — ist es nicht mehr offen, in die Cloud dorthin, mit einem
+   Satz. *(sensor_check L12)* — Die Prüfung reicht bis zum Zeichnen, auch durch eine
+   aufgerufene Funktion, die selbst wartet: auf sie warten und die Prüfung hineinreichen
+   (`gsMushroomRenderResult(j, gilt)`, wartet in fr/it/en/es auf Übersetzungen). *(scan_check PZ7)*
    Seit 19.11.2026 ein TOR in `sbFetch` und `_gsAiAnfrage`: wechselt die Person, kommt
    keine Antwort an (`_gsPersonGewechselt`, Fehler `person_gewechselt`). Das Tor sieht
    nicht, was erst NACH dem Wechsel losgeht: die Person vor dem ERSTEN `await` merken,
