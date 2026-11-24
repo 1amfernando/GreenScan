@@ -3009,6 +3009,172 @@ const FAELLE = [
     },
   },
   {
+    name: 'Lina 11 · Gift-Gegenprobe (kg): was die Basis warnt, warnt weiter — für jeden giftigen Namen der Liste; deklinierte Namen und alle eigenen Pflanzen der Frage warnen zusätzlich; Pflege- und Gegensatz-Sätze nur in engen Formen still; ein Warnsatz ist kein „auch“; harmlose Namen bleiben still — und ein frisch notierter Schädling steht sofort bei Lina',
+    lauf: async () => {
+      const sichern = { mp: myPlants, pl: plantings, ga: gardens, ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, pt: window.showProfileToast,
+        on: Object.getOwnPropertyDescriptor(navigator, 'onLine'),
+        ls: ['gs_garden_diary_cache', 'gs_lina_einblick'].map(k => [k, localStorage.getItem(k)]) };
+      const klagen = [];
+      try {
+        localStorage.removeItem('gs_lina_einblick'); _gsLinaEinblickSitzung = null;
+        // Eigene Beispieldaten — die Fragen nennen die Pflanzen beim Spitznamen und beim Ort
+        myPlants = [
+          { id: 'l11-1', name: 'Maiglöckchen', nick: 'Lilli', notes: 'steht im Wohnzimmer am Fenster', tasks: {}, diary: [] },
+          { id: 'l11-2', name: 'Basilikum', nick: 'Basi', tasks: {}, diary: [] },
+          { id: 'l11-3', name: 'Eibe', nick: 'Hecke', tasks: {}, diary: [] },
+          { id: 'l11-4', name: 'Oleander', nick: 'Olli', tasks: {}, diary: [] } ];
+        gardens = [{ id: 'l11-g', name: 'Balkon', type: 'balkon' }];
+        plantings = [{ id: 'l11-p', gardenId: 'l11-g', name: 'Tollkirsche', tasks: {} }];
+        const pruef = (frage, antwort) => !!_gsLinaSicherheit(antwort, _gsLinaTrefferMitPflanzen(frage, _gsArtenTreffer(frage)));
+        // (a) Zusagen, die WARNEN müssen — die ersten fünf liefen vor Lina 11 ohne Warnung durch (Mehrzahl, Genitiv,
+        //     Zusammensetzung, ein deklinierter Name in der Frage); dazu Deckel, Ort und eine „Entwarnung" im Gegensatz
+        const E = 'Was kann ich essen?';
+        const W = [
+          ['Welche Beeren kann ich im Wald essen?', 'Tollkirschen kannst du essen.'],
+          ['Was wächst da?', 'Die Blätter des Gefleckten Schierlings sind essbar.'],
+          ['Kann ich die essen?', 'Ja, Herbstzeitlosen kannst du roh essen.'],
+          ['Kann ich Tollkirschen essen?', 'Ja, die kannst du essen.'],
+          ['Kann ich die Pflanze essen?', 'Ja, Oleanderblätter sind essbar.'],
+          ['Was kann ich im Garten ernten?', 'Den Blauen Eisenhut kannst du kochen und essen.'],
+          ['Kann ich Lilli und Basi essen?', 'Ja, Basilikum kannst du essen. Lilli auch.'],
+          ['Kann ich Lilli essen?', 'Ja, wie Bärlauch kannst du sie essen.'],
+          ['Was mache ich mit Lilli?', 'Das Maiglöckchen ist giftig, aber gekocht kannst du es essen.'],
+          ['Kann ich Lilli essen?', 'Lilli ist nicht giftig, Basilikum dagegen kannst du auch essen.'],
+          // die Sätze des Lesers an #350 (die Basis 255665c warnt sie, der zurückgenommene Kopf b43d70a nicht)
+          [E, 'Ja, Aronstab kannst du essen.'], [E, 'Die Narzisse ist essbar.'], [E, 'Liguster ist essbar.'], [E, 'Ja, Hahnenfuß kannst du essen.'],
+          [E, 'Besenginster ist essbar.'], [E, 'Kuhschelle ist essbar.'], [E, 'Kreuzdorn ist essbar.'], [E, 'Schwefelkopf ist essbar.'],
+          ['Kann ich Eibenbeeren essen?', 'Die Samen der Eibe sind giftig, das rote Fruchtfleisch dagegen ist essbar.'],
+          ['Kann ich Tollkirschen essen?', 'Die Blätter der Tollkirsche sind giftig, die Beeren dagegen sind essbar.'],
+          [E, 'Geniess die Beeren der Eibe!'], [E, 'Die Beeren der Eibe kannst du ohne Bedenken verspeisen.'],
+          // was die engen Ausnahmen NICHT treffen darf: die Pflanze selbst „unbedenklich", ein Ess-Wort im Pflegesatz, ein Gegensatz ohne
+          // eigene Art im zustimmenden Teil — dazu die Namens-Regeln (ein Einlese-Rumpf und ein Klammer-Zusatz sperren nicht)
+          ['Wie pflege ich Lilli?', 'Lilli ist unbedenklich, auch nach dem Umtopfen.'],
+          ['Wie pflege ich Lilli?', 'Sie ist unbedenklich, auch nach dem Umtopfen.'],
+          ['Kann ich Tollkirschen essen?', 'Tollkirschen kannst du bedenkenlos schneiden, für den Salat.'],
+          ['Kann ich Tollkirschen naschen?', 'Ja, Tollkirschen kannst du bedenkenlos naschen, sie wachsen gern in der Sonne.'],
+          ['Kann ich Tollkirschen essen?', 'Tollkirschen dagegen, die kannst du essen.'],
+          [E, 'Ja, Kreuzdornbeeren kannst du essen.'],
+          [E, 'Ja, Hahnenfußblätter kannst du essen.'],
+          // Pflege B nur in ihren engen Formen: „das“ ohne vorherige Pflegehandlung ist eine Zusage, und ein Ess-Wort irgendwo im
+          // Satz hebt B auf (die Teile werden an „und“ getrennt); Gegensatz C: eine Zusage in einem eigenen Teil bleibt
+          ['Kann ich Lilli essen?', 'Das ist unbedenklich, auch beim Umtopfen.'],
+          ['Kann ich Lilli essen?', 'Du kannst sie bedenkenlos klein schneiden und roh essen.'],
+          ['Kann ich Lilli essen?', 'Du kannst sie bedenkenlos zurückschneiden und die Blätter kochen.'],
+          [E, 'Bärlauch ist essbar, die Eibe auch, aber die Herbstzeitlose ist giftig.'],
+          [E, 'Bärlauch ist essbar, die Eibe auch, während die Herbstzeitlose giftig ist.'],
+        ];
+        // (b) Sätze, die STILL bleiben müssen — Pflege, Gegensatz, Verwechsler-Hinweis, ein harmloses Kraut
+        const S = [
+          ['Wie pflege ich Lilli richtig?', 'Lilli geniesst die Morgensonne.'],
+          ['Wie pflege ich Lilli richtig?', 'Giess sie, wenn die Erde trocken ist — das ist für sie unbedenklich.'],
+          ['Wie pflege ich Lilli richtig?', 'Du kannst Lilli bedenkenlos umtopfen.'],
+          ['Wie pflege ich Lilli richtig?', 'Du kannst Lilli bedenkenlos zurückschneiden.'],
+          ['Wie pflege ich Lilli richtig?', 'Ein Dünger alle vier Wochen ist unbedenklich.'],
+          ['Wie pflege ich Lilli richtig?', 'Du kannst Kaffeesatz als Dünger nehmen, das ist bedenkenlos.'],
+          ['Wie pflege ich Lilli richtig?', 'Lilli mag es, wenn du sie mit abgestandenem Wasser giesst — das geniesst sie.'],
+          ['Kann ich Lilli und Basi essen?', 'Basilikum ist essbar, das Maiglöckchen hingegen ist sehr giftig.'],
+          ['Kann ich Lilli und Basi essen?', 'Basilikum kannst du essen, Lilli jedoch nicht.'],
+          ['Kann ich Lilli und Basi essen?', 'Während Basilikum essbar ist, ist das Maiglöckchen giftig.'],
+          ['Kann ich Lilli und Basi essen?', 'Basilikum ist essbar, während das Maiglöckchen tödlich giftig ist.'],
+          ['Kann ich Lilli und Basi essen?', 'Basilikum dagegen ist essbar; Lilli ist giftig.'],
+          ['Welche Kräuter kann ich essen?', 'Ja, Petersilie ist essbar.'],
+          ['Welche Kräuter kann ich essen?', 'Bärlauch kannst du essen, aber verwechsle ihn nicht mit Maiglöckchen.'],
+          [E, 'Ja, Bärlauch kannst du essen. Aber Vorsicht: Auch das Maiglöckchen wächst an denselben Stellen, und es ist giftig.'],
+          [E, 'Pfifferlinge sind essbar. Achtung, auch der Grüne Knollenblätterpilz wächst im Laubwald.'],
+          [E, 'Ja, Basilikum kannst du essen. Lilli wächst auch.'],
+          [E, 'Ja, Bärlauch kannst du essen. Vorsicht bei Lilli auch.'],
+          // ein Giftmuster IN einem längeren harmlosen Namen meint nicht die giftige Art (die Basis warnt hier auch nicht)
+          [E, 'Ja, Narzissen-Scheidling kannst du essen.'], [E, 'Ja, Grauer Wulstling kannst du essen.'],
+          [E, 'Ja, Schopf-Tintling kannst du essen.'], [E, 'Ja, Birkenreizker kannst du essen.'],
+        ];
+        // (c) harmlose Lebensmittel und Wildkräuter bleiben still (Holunder: der Rote Holunder heisst ohne Zusatz wie der
+        //     Schwarze), die giftigen warnen
+        const harmlos = ['Holunderblüten', 'Holunderbeeren', 'Mohnsamen', 'Kartoffeln', 'Tomaten', 'Bohnen', 'Rhabarberstängel', 'Petersilie',
+          'Bärlauch', 'Kirschen', 'Vogelbeeren', 'Hagebutten', 'Brennnesseln', 'Löwenzahn', 'Gänseblümchen', 'Giersch', 'Pfifferlinge', 'Steinpilze',
+          'Morcheln', 'Maroni', 'Bucheckern', 'Schlehen', 'Mangold', 'Sauerampfer', 'Waldmeister', 'Johannisbeeren', 'Brombeeren', 'Heidelbeeren'];
+        const giftig = ['Kirschlorbeer', 'Eiben', 'Efeu', 'Fingerhut', 'Tollkirschen', 'Herbstzeitlosen', 'Maiglöckchen', 'Oleanderblätter'];
+        W.forEach(([f, a]) => { if (!pruef(f, a)) klagen.push('(a) keine Warnung: „' + f + '" → „' + a + '"'); });
+        S.forEach(([f, a]) => { if (pruef(f, a)) klagen.push('(b) Fehlalarm: „' + f + '" → „' + a + '"'); });
+        harmlos.forEach((w) => { if (pruef('Was kann ich essen?', 'Ja, ' + w + ' kannst du essen.')) klagen.push('(c) Fehlalarm bei „' + w + '"'); });
+        giftig.forEach((w) => { if (!pruef('Was kann ich essen?', 'Ja, ' + w + ' kannst du essen.')) klagen.push('(c) keine Warnung bei „' + w + '"'); });
+        // (o) das Orakel im Kleinen: für JEDEN Namen der Liste, dessen Art giftig ist (Stufe >= 3), warnen „Ja, N kannst du essen."
+        //     und „N ist essbar." — wie in der Basis 255665c, die nur bei diesen zwei ebenso schweigt: „Wüstenrose (kl.)" (der Punkt
+        //     der Abkürzung trennt den Satz) und „Rote Rosskastanie" (eine harmlose Fassung desselben Namens geht vor)
+        const AUSNAHME = ['Wüstenrose (kl.)', 'Rote Rosskastanie'];
+        const toxNamen = [], gesehen = {};
+        DB.forEach((sp) => { const n = String(sp && sp.name || '').trim(); const a = (_gsArtAnzeige(sp) || sp); if (n && (a.tox | 0) >= 3 && !gesehen[n]) { gesehen[n] = 1; toxNamen.push(n); } });
+        const still = toxNamen.filter((n) => AUSNAHME.indexOf(n) < 0 && (!pruef(E, 'Ja, ' + n + ' kannst du essen.') || !pruef(E, n + ' ist essbar.')));
+        if (toxNamen.length < 250) klagen.push('(o) nur ' + toxNamen.length + ' giftige Namen gefunden — der Fall misst nichts');
+        if (still.length) klagen.push('(o) ' + still.length + ' giftige Namen ohne Warnung: ' + still.slice(0, 6).join(', '));
+        // Die Arten der Frage UND des Satzes: bei einer Frage nach Lilli nennt die Warnung auch die Tollkirsche der Antwort;
+        // „Lilli auch." nach einer Zusage warnt auch dann, wenn die Frage keine Art nennt
+        const beide = _gsLinaSicherheit('Tollkirschen kannst du essen.', _gsLinaTrefferMitPflanzen('Kann ich Lilli essen?', _gsArtenTreffer('Kann ich Lilli essen?')));
+        if (!/Tollkirsche/.test(beide) || !/Maiglöckchen/.test(beide)) klagen.push('(a) Frage nach Lilli, Antwort „Tollkirschen": ' + String(beide).slice(0, 120));
+        if (!pruef('Was kann ich essen?', 'Ja, Basilikum kannst du essen. Lilli auch.')) klagen.push('(a) „Lilli auch." nach einer Zusage warnt nicht');
+        // (d) der echte Weg: gsLinaSend setzt die Warnung über die Antwort — mit der DRITTEN Pflanze der Frage (bis Lina 11
+        //     prüfte die Gegenprobe nur die ersten zwei eigenen Pflanzen)
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        window.showProfileToast = () => {};
+        window.sbFetch = async () => ({ data: [{}], error: null });
+        let antwort = '';
+        window.callAI = async () => antwort;
+        const sende = async (frage, a) => {
+          antwort = a;
+          window._gsLinaSending = false; window._gsLinaConvId = 'conv-L11'; window._gsLinaMsgs = [];
+          gsLinaRender(false);
+          const f = document.getElementById('gs-lina-input');
+          if (!f) throw new Error('Lina hat kein Eingabefeld');
+          f.value = frage;
+          await gsLinaSend();
+          const m = (window._gsLinaMsgs || []).filter(x => x && x.role === 'assistant').pop();
+          return m ? String(m.content) : '';
+        };
+        const drei = await sende('Kann ich Olli, Hecke und Lilli essen?', 'Ja, die kannst du alle essen.');
+        const kopf = drei.split('\n')[0];
+        if (!/^⚠️ Achtung/.test(kopf) || !/Eibe/.test(kopf) || !/Maiglöckchen/.test(kopf) || !/Oleander/.test(kopf)) klagen.push('(d) drei eigene Pflanzen: ' + kopf.slice(0, 160));
+        const dekl = (await sende('Was kann ich im Wald essen?', 'Tollkirschen kannst du essen.')).split('\n')[0];
+        if (!/^⚠️ Achtung/.test(dekl) || !/Tollkirsche/.test(dekl)) klagen.push('(d) „Tollkirschen" in der Antwort: ' + dekl.slice(0, 120));
+        const pflege = (await sende('Wie pflege ich Lilli?', 'Du kannst Lilli bedenkenlos zurückschneiden.')).split('\n')[0];
+        if (/Achtung/.test(pflege)) klagen.push('(d) Pflegesatz mit Warnung: ' + pflege.slice(0, 120));
+        const nichtGiftig = (await sende('Kann ich Lilli essen?', 'Lilli ist nicht giftig, Basilikum dagegen kannst du auch essen.')).split('\n')[0];
+        if (!/^⚠️ Achtung/.test(nichtGiftig) || !/Maiglöckchen/.test(nichtGiftig)) klagen.push('(d) „Lilli ist nicht giftig, … dagegen": ' + nichtGiftig.slice(0, 120));
+        // (f) ein frisch notierter Schädling steht SOFORT im Spiegel, den Lina liest — über den echten Schreiber
+        localStorage.setItem('gs_garden_diary_cache', '[]');
+        const vor = gsSchaedlingeNotiert();
+        const ctxVor = gsLinaContext('Wie geht es meinen Pflanzen?');
+        window.sbFetch = async (pfad, o) => {
+          if (o && o.method === 'POST' && /\/rest\/v1\/garden_diary$/.test(pfad)) {
+            const b = JSON.parse(o.body);
+            return { data: [Object.assign({ id: 'l11-gd-' + Math.random().toString(36).slice(2, 7), created_at: new Date().toISOString() }, b)], error: null };
+          }
+          return { data: [], error: null };
+        };
+        await gsPestAddToDiary('blattlaus');
+        const nach = gsSchaedlingeNotiert();
+        const ctxNach = gsLinaContext('Wie geht es meinen Pflanzen?');
+        if (vor.liste.length || !vor.bekannt) klagen.push('(f) der Fall hat den leeren, geladenen Spiegel nicht hergestellt');
+        if (!/kein Schädling/.test(ctxVor)) klagen.push('(f) vorher fehlt „kein Schädling" — der Fall misst nichts');
+        if (!nach.liste.some(x => /blattlaus/.test(x.was))) klagen.push('(f) der eben notierte Schädling fehlt in gsSchaedlingeNotiert');
+        if (!/Schädlinge im Tagebuch[^\n]*blattlaus/.test(ctxNach) || /kein Schädling/.test(ctxNach)) klagen.push('(f) Lina sieht den eben notierten Schädling nicht: ' + ((ctxNach.match(/Braucht Hilfe[^\n]*/) || [''])[0]).slice(0, 120));
+        // (g) das Tagebuch-Formular ebenso — und ein nie geladener Spiegel bleibt nie geladen
+        const r = await gsDiaryAddEntry({ entry_type: 'pest_observation', title: 'Schnecken', text: 'Pest identified: schnecken' });
+        if (!r || !r.ok || !gsSchaedlingeNotiert().liste.some(x => /schnecken/.test(x.was))) klagen.push('(g) ein Eintrag aus dem Formular fehlt im Spiegel');
+        localStorage.removeItem('gs_garden_diary_cache');
+        await gsPestAddToDiary('mehltau');
+        if (localStorage.getItem('gs_garden_diary_cache') !== null) klagen.push('(g) ein nie geladener Spiegel wurde mit einem einzelnen Eintrag angelegt — aus „nicht bekannt" würde „geprüft"');
+        if (klagen.length) return { ok: false, warum: klagen.slice(0, 8).join(' · ') + (klagen.length > 8 ? ' · (+' + (klagen.length - 8) + ')' : '') };
+        return { ok: true, info: W.length + ' Zusagen warnen, ' + S.length + ' Sätze still · ' + harmlos.length + ' harmlose Lebensmittel still, ' + giftig.length + ' giftige warnen · Orakel: ' + toxNamen.length + ' giftige Namen in zwei Formen (2 benannte Ausnahmen) · gsLinaSend: drei Spitznamen, „Tollkirschen", „nicht giftig … dagegen"; Pflegesatz still · Schädling sofort bei Lina (Scanner und Formular), ein nie geladener Spiegel bleibt es' };
+      } finally {
+        myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.showProfileToast = sichern.pt;
+        if (sichern.on) Object.defineProperty(navigator, 'onLine', sichern.on); else { try { delete navigator.onLine; } catch (_) {} }
+        sichern.ls.forEach(([k, v]) => { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); });
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+      }
+    },
+  },
+  {
     // LINA-9 (24.11.2026). Gemessen am Stand davor: wer während „Lina denkt nach…" auf „＋ Neu" tippte,
     // sah das neue Gespräch mit der Antwort auf eine Frage beginnen, die dort nicht stand — und die
     // nächste Frage ging mit dieser fremden Antwort als Vorgeschichte an die KI. Wer ein früheres

@@ -149,6 +149,14 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    `_gsOrtNameFuerKi`; `gsSchaedlingeNotiert` (eigene Zeile, „kein Schädling" nur mit geladenem Tagebuch);
    `_gsLinaTrefferMitPflanzen` und Arten der Antwort mit ganzem Namen. Den Wortlaut der Datenschutzerklärung
    entscheidet Fernando (FUER-FERNANDO §33).
+11. ✅ v33.79 (`sensor_check` „Lina 11 · Gift-Gegenprobe (kg)", Prüfung von #347, Brett 288f; die erste Fassung
+   v33.76 ist vor dem Merge zurückgenommen) — **Die Gift-Gegenprobe schwieg bei Mehrzahl und warnte bei Pflege.**
+   „Tollkirschen kannst du essen.", „des Gefleckten Schierlings", „Oleanderblätter" kamen ohne Warnung durch; bei drei
+   eigenen Pflanzen in einer Frage prüfte sie nur zwei; Pflegesätze mit „bedenkenlos" und Gegensätze, die selbst warnen,
+   warnten. Jetzt bleibt die Erkennung der Basis, und Neues kommt dazu: deklinierte Namen, alle eigenen Pflanzen,
+   „Lilli auch." nach einer Zusage. Still werden nur Pflegesätze in drei engen Formen und Gegensätze mit eigener anderer
+   Art. Gemessen mit einem Orakel über alle 3'138 Namen in sechs Formen: Was die Basis warnt, warnt weiter, und kein
+   harmloser Name warnt neu. Ein eben notierter Schädling steht sofort bei Lina.
 
 ## Offen — Suche
 

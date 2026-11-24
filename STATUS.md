@@ -12,6 +12,67 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (kg) - v33.79: Lina 11 neu — die Gift-Gegenprobe liest Namen, wie Sätze sie schreiben, und die Basis bleibt das Mass
+
+**Auftrag:** Lina 11 neu nach dem Revert von (kd) (Brett 288f, Koordinator 24.11.2026). Bedingungen: Die Basis `255665c` ist das
+Orakel über ALLE Namen der Artenliste; die Liste „nur die Basis warnt“ ist leer. Jede neue Heuristik wird einzeln gemessen und hat
+eine eigene Gegenprobe. Wo eine Heuristik nicht sicher ist, bleibt die Regel der Basis.
+
+**Gebaut:** `_gsLinaSicherheit` behält die Teile, Stämme und die Erkennung der Basis (`imSatz`) unverändert. Neu kommt dazu:
+**A** — die Arten des Teils zusätzlich aus `_gsLinaGiftGenannt` (deklinierte Namen: Mehrzahl, Fälle, „…blätter/…beeren“, ein
+fehlender Bindestrich) und ALLE eigenen Pflanzen der Frage (`_gsLinaPflanzenInFrage(…, 50)`, vorher zwei). Ein Namensmuster
+sperrt nur ein geprüfter Eintrag mit genau diesem Namen (F1), nie ein Einlese-Rumpf (auch nicht mit Vorlage aus
+`gsAutoFillLookalikes`) und nie ein Klammer-Zusatz; „Birken-Reizker“ und „Birkenreizker“ sind ein Name. Ein Muster in einem
+längeren harmlosen Namen („narzissen“ in „Narzissen-Scheidling“) zählt nicht (Hülle). **B** — ein schwacher Stamm (geniess,
+bedenkenlos, unbedenklich) ist in drei Formen keine Zusage, und nur ohne jedes Ess-Wort IM GANZEN SATZ: „bedenkenlos“ vor einer
+Pflegehandlung; „unbedenklich“ mit einem Pflegemittel als Satzgegenstand (oder „das“, aber nur nach einer Pflegehandlung im
+selben Teil), ohne dass der Teil eine Art nennt; „geniesst“ mit Licht oder Sonne. „Das ist unbedenklich, auch beim Umtopfen.“ auf
+eine Essfrage und „bedenkenlos klein schneiden und roh essen“ warnen (beide vor dem Push in der Gegenprüfung gefunden: die
+Teile werden an „und“ getrennt, und „das“ zeigte sonst auf die Frage). **C** — in einem Gegensatz-Satz zählen die Klauseln einzeln. Eine Art fällt nur aus der Warnung,
+wenn JEDER zustimmende Teil selbst eine andere Art nennt und ein anderer Teil sie giftig nennt; „nicht giftig“ ist keine
+Warnung. **D** — „Lilli auch.“ nach einer Zusage ist eine Zusage, aber nur kurz (bis vier Wörter), ohne eigenes Prädikat und ohne
+Warnwort. Dazu wie in (kd) der Spiegel: Die drei Schreiber ins Cloud-Tagebuch legen ihren Eintrag sofort hinein. Doku:
+CLAUDE.md (Kasten „An der Sicherheitslinie zählt kein Nettogewinn“), `docs/memory/07-lina.md`, `docs/HAUPTFUNKTIONEN.md` Lina 11.
+
+**Gemessen** (Basis `255665c` gegen (kg), im Zustand NACH `gsAutoFillLookalikes`; Werkzeug: das Orakel über 3'138 Namen und ein
+Korpus; die Frage ist „Was kann ich essen?“, wo nichts anderes steht):
+
+| Gruppe | soll | Basis | (kg) | nur Basis |
+|---|---|---|---|---|
+| „Ja, N kannst du essen.“ (3'138 Namen) | warnen bei giftigen | 334 | 349 | 0 |
+| „N ist essbar.“ | warnen bei giftigen | 334 | 349 | 0 |
+| Mehrzahl „Ja, Ne(n) kannst du essen.“ | warnen bei giftigen | 98 | 327 | 0 |
+| Genitiv „Die Beeren der N …“ / „Die Blätter des Ns …“ | warnen bei giftigen | 334 / 35 | 349 / 315 | 0 / 0 |
+| Frage „Kann ich N essen?“ → „Ja, die kannst du essen.“ | warnen bei giftigen | 434 | 435 | 0 |
+| neue Warnung bei einem harmlosen Namen (Art-Stufe < 3) | keine | — | 0 | — |
+| die elf Sätze des Lesers an #350 (dazu „ohne Bedenken verspeisen“) | warnen | 12 von 12 | 12 von 12 | 0 |
+| Zusagen aus (kd), W-Gruppe | warnen | 6 von 11 | 11 von 11 | 0 |
+| giftige / harmlose Lebensmittel | warnen / still | 4 von 8 / 0 von 28 | 8 von 8 / 0 von 28 | 0 |
+| Vorlagen je giftigem Namen (312): naschen · geniess · Gegensatz ohne eigene Art · „unbedenklich“ über die Pflanze · Schnittlauch | warnen | 310 · 296 · 310 · 310 · 310 | 311 · 311 · 312 · 311 · 311 | 0 |
+| „Ja, Basilikum … N auch.“ (312) / Verwechsler-Warnung „Auch N wächst …, und es ist giftig“ (312) | warnen / still | 1 / 1 | 307 / 1 | 0 |
+| Pflegesätze aus (kd) (11) / „Du kannst N bedenkenlos umtopfen.“ (312) | still | 11 / 310 warnten | 1 / 36 | 10 / 275 = B |
+| Gegensatz-Sätze aus (kd) (5) / „Basilikum ist essbar, N hingegen ist sehr giftig.“ (312) | still | 4 / 310 warnten | 0 / 36 | 4 / 274 = C |
+
+„Nur Basis“ gibt es nur in den beiden benannten Ausnahmen B und C, und dort ist jeder Satz einer, den die Antwort selbst widerlegt
+(eine Pflegehandlung; eine andere Art ist essbar, diese giftig). Zwei giftige Namen warnen in der Basis wie in (kg) nicht und stehen
+im Fall mit Grund: „Wüstenrose (kl.)“ (der Punkt der Abkürzung trennt den Satz) und „Rote Rosskastanie“ (eine harmlose Fassung
+desselben Namens geht vor). Kosten: Im Mittel über 18'828 Sätze braucht eine Gegenprobe 17 ms statt 10 ms.
+
+**Prüfstände:** `sensor_check` „Lina 11 · Gift-Gegenprobe (kg)“: 34 Zusagen warnen, 22 Sätze bleiben still, 28 harmlose und 8
+giftige Lebensmittel, das Orakel im Kleinen (312 giftige Namen in zwei Formen), über `gsLinaSend` drei Spitznamen,
+„Tollkirschen“, „nicht giftig … dagegen“ und ein Pflegesatz, dazu der Spiegel (Scanner, Formular, ein nie geladener Spiegel).
+Vierundzwanzig Gegenproben sind einzeln rot: ohne Basis-Erkennung (das Orakel im Kleinen meldet Holunder (Roth),
+Amaryllis (Ritterstern), Birken-Reizker, Marzipanpilz, Grosser Schirmling (Brauner)) · ohne Muster im Teil · Frage ohne Muster
+und Pflanzen · Deckel 2 · Rumpf sperrt · Vorlage zählt als Angabe · Klammer-Zusatz sperrt · ohne Hülle · Bindestrich trennt
+Namen · Pflege nie · Pflege ohne Ess-Wort-Prüfung · Ess-Wort nur im Teil · „das“ ohne vorherige Pflege · Pflege ohne Satzgegenstand · Gegensatz ohne eigene Art · „nicht giftig“ als
+Warnung · Gegensatz ohne Klauseln · Gegensatz nie · „auch“ nie · „auch“ mit Prädikat · „auch“ im Warnsatz · drei Spiegel-Proben.
+Ein Nebenfund aus dem Bau: Der erste Messlauf lief VOR `gsAutoFillLookalikes` und mass einen anderen Zustand als die App; ein
+Rumpf sah danach aus wie ein geprüfter Eintrag. Das Orakel wartet jetzt auf `_lookalike_tpl`.
+
+**Offen:** brett:2026-11-24-5929 (der Ort in der Frage als eigener, kleiner Schritt; der Bau liegt lokal in `a130338`)
+**Nicht geprüft:** echte KI-Antworten (gestellt) und der Hold-out-Satzsatz des Koordinators (folgt vor dem Merge); Umlaut-Mehrzahlen
+(„Aronstäbe“); Namen, die nur in einer anderen Sprache stehen.
+
 ### 2026-11-24 (ke) - v33.78: Scanner 14 — der Pilz-Vergleich zeigt die gefährlichsten Verwechsler, und ein fehlendes Register wird gesagt
 
 **Auftrag:** die Punkte 5 und 6 aus der Prüfung von #347 (Koordinator-Liste vom 24.11.2026), gemessen vor dem Bau.
@@ -69,6 +130,7 @@ brett:2026-11-24-5d5b (unverändert) · Scheiben 4–9 aus `docs/SPEICHER-V2.md`
 stehen weiter von Hand da — der Fall macht eine vergessene Stelle rot, er nimmt sie niemandem ab.
 **Nicht geprüft:** ob `regel: 'ganz'` je Schlüssel stimmt, hält kein Fall (gebunden sind nur die Stempel- und Marken-Liste); ein
 echter Server, ein zweites Gerät; `backup_check` lief lokal ohne Postgres nur teilweise (Exit 2) — die CI hat eines.
+
 
 ### 2026-11-24 (kd) - v33.76: Lina 11 vor dem Merge zurückgenommen, kommt neu als v33.79 (kg) — elf Zusagen, die die Basis warnte, waren still
 
@@ -17508,9 +17570,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.78` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.77) · SW-Cache `gs-v33.78` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.79` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.78) · SW-Cache `gs-v33.79` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **103'485 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.78; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.56).
+- **Frontend:** `index.html` **103'694 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.79; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.56).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **48** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.72: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 48** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (jv). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

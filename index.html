@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.78.20261124">
+<meta name="app-version" content="33.79.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -30159,6 +30159,21 @@ window._gsPflanzungenNachruesten = _gsPflanzungenNachruesten;
 // letzte Stand, mit dem Vermerk „aus der Cloud".
 var _GS_CLOUD_TB_EMOJI = { water:'💧', fertilize:'🌱', harvest:'🌾', pest:'🐛', disease:'🦠', weather:'🌦️', general:'📝', photo:'📸', observation:'👀', planting:'🌱', pruning:'✂️', sowing:'🌱', note:'📝' };
 function gsCloudTagebuchCache() { try { var a = safeGetItem('gs_garden_diary_cache', []); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+function _gsCloudTbSchlank(d) { return { id: d.id, entry_type: d.entry_type || 'general', title: d.title || '', text: d.text || '', species_lat: d.species_lat || '', harvest_kg: d.harvest_kg || null, photo_url: d.photo_url || null, created_at: d.created_at }; }
+// Lina 11 (Prüfung von #347): ein frisch geschriebener Cloud-Eintrag steht SOFORT im Spiegel. Bis hierher kam er erst mit
+// dem nächsten Laden (Start, Tagebuch öffnen): ein eben notierter Schädling erreichte Lina erst nach einem Neustart, und
+// „kein Schädling" stand als geprüft da. Die drei Schreiber, die eine Zeile zurückbekommen (Schädlings-Scanner,
+// Dünge-Coach, Tagebuch-Formular), rufen dies. Nur in einen Spiegel, den es schon gibt — ein einzelner Eintrag in einem nie
+// geladenen Spiegel machte aus „nicht bekannt" (gsSchaedlingeNotiert) ein „geprüft".
+function _gsCloudTagebuchSpiegelNeu(row) {
+  try {
+    if (!row || row.id == null || localStorage.getItem('gs_garden_diary_cache') === null) return false;
+    var c = gsCloudTagebuchCache().filter(function (d) { return d && String(d.id) !== String(row.id); });
+    c.unshift(_gsCloudTbSchlank(row));
+    if (c.length > 500) c = c.slice(0, 500);
+    return localStorage.setItem('gs_garden_diary_cache', JSON.stringify(c)) !== false;
+  } catch (_) { return false; }
+}
 async function gsCloudTagebuchLaden() {
   try {
     if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return null;
@@ -30167,7 +30182,7 @@ async function gsCloudTagebuchLaden() {
     var r = await sbFetch('/rest/v1/garden_diary?user_id=eq.' + encodeURIComponent(uid) + '&select=id,entry_type,title,text,species_lat,harvest_kg,photo_url,created_at&order=created_at.desc&limit=500', { method: 'GET' });
     var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : null);
     if (!rows) return null;
-    var schlank = rows.map(function (d) { return { id: d.id, entry_type: d.entry_type || 'general', title: d.title || '', text: d.text || '', species_lat: d.species_lat || '', harvest_kg: d.harvest_kg || null, photo_url: d.photo_url || null, created_at: d.created_at }; });
+    var schlank = rows.map(_gsCloudTbSchlank);
     if (localStorage.setItem('gs_garden_diary_cache', JSON.stringify(schlank)) === false) return null;   // voller Speicher: der alte Stand bleibt
     return schlank.length;
   } catch (_) { return null; }
@@ -46560,6 +46575,7 @@ async function gsPestAddToDiary(slug) {
       if (typeof showProfileToast === 'function') showProfileToast('Eintrag nicht gespeichert — bitte später nochmal.', 'error');
       return;
     }
+    try { _gsCloudTagebuchSpiegelNeu(_r.data[0]); } catch (_) {}   // Lina 11: sofort im Spiegel, den Lina liest
     if (typeof showProfileToast === 'function') showProfileToast(
       (window.gsI18n ? gsI18n.t('pest_diary_saved', '📓 Im Garten-Tagebuch gespeichert') : '📓 Im Garten-Tagebuch gespeichert'),
       'success');
@@ -48063,6 +48079,7 @@ async function gsFertilizerLogDone(slug, lat, name, phase) {
       if (typeof showProfileToast === 'function') showProfileToast('Eintrag nicht gespeichert — bitte später nochmal.', 'error');
       return;
     }
+    try { _gsCloudTagebuchSpiegelNeu(_r.data[0]); } catch (_) {}   // Lina 11: sofort im Spiegel
     if (typeof showProfileToast === 'function') showProfileToast('✅ Düngung im Tagebuch festgehalten', 'success');
   } catch(_) {
     if (typeof showProfileToast === 'function') showProfileToast('⚠️ Konnte nicht speichern', 'error');
@@ -48202,10 +48219,12 @@ async function gsDiaryAddEntry(opts) {
   try {
     var r = await sbFetch('/rest/v1/garden_diary', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
       body: JSON.stringify(row)
     });
     if (r && r.error) return { ok: false, error: r.error };
+    // Lina 11: die Zeile, die der Server angelegt hat, sofort in den Spiegel (vorher return=minimal — es kam keine zurück)
+    try { if (r && Array.isArray(r.data) && r.data[0]) _gsCloudTagebuchSpiegelNeu(r.data[0]); } catch (_) {}
     return { ok: true };
   } catch(e) {
     return { ok: false, error: String(e && e.message || e) };
@@ -80726,6 +80745,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.79', date: '24.11.2026',
+      headline: 'Lina warnt bei giftigen Pflanzen zuverlässiger — auch in der Mehrzahl und bei all deinen Pflanzen',
+      summary: 'Lina 11 neu. Die Gift-Gegenprobe behält alles, was sie bisher erkannt hat, und liest dazu Namen, wie Sätze sie schreiben: Mehrzahl, Fälle, „…blätter“ und „…beeren“ (zum Beispiel „Tollkirschen kannst du essen.“ oder „Oleanderblätter“). Sie prüft alle eigenen Pflanzen einer Frage, vorher nur zwei, und „Lilli auch.“ nach einer Zusage. Still bleibt sie nur in zwei engen Fällen: bei Pflegesätzen wie „Du kannst Lilli bedenkenlos umtopfen.“ und bei Gegensätzen, in denen eine andere Art essbar und diese giftig genannt wird. Gemessen über alle Namen der Artenliste: Was bisher warnte, warnt weiter. Ein eben notierter Schädling ist sofort bei Lina.',
+      user_summary: 'Lina warnt bei giftigen Pflanzen zuverlässiger — und nicht mehr bei Pflegetipps.',
+      user_items: [
+        {emoji:'🌿', bold:'Lina warnt, wo es zählt:', text:' auch bei „Tollkirschen“ oder „Oleanderblättern“ und bei allen deinen Pflanzen in einer Frage.'},
+        {emoji:'✂️', bold:'Pflegetipps ohne Fehlalarm:', text:' „Du kannst sie bedenkenlos umtopfen“ ist kein Essenstipp mehr.'},
+        {emoji:'🐛', bold:'Schädling notiert:', text:' Lina weiss es sofort, nicht erst nach einem Neustart.'},
+      ]
+  },
+  {
     v: 'v33.78', date: '24.11.2026',
       headline: 'Pilz-Vergleich: die gefährlichsten Doppelgänger zuerst — und wenn Angaben fehlen, steht es da',
       summary: 'Scanner 14. Der Bildvergleich im Pilz-Scanner zeigt die Doppelgänger zuerst nach ihrer Gefahr laut Register (tödlich, giftig, unbekannt), dann nach dem Verwechslungs-Risiko; je Art zählt ihr höchstes Risiko. Vorher fielen bei sechs Paaren beide Knollenblätterpilze heraus, still gekürzt auf drei. Was nicht ins Fenster passt, wird genannt („N weitere Doppelgänger stehen nur in der Warnbox“). Kam zu einem Doppelgänger keine Angabe aus dem Register, sagt die Warnbox es mit Zahl, und im Vergleich steht „Essbarkeit nicht geladen“.',
@@ -81082,34 +81112,6 @@ window.GS_RELEASES = [
         {emoji:'🧯', bold:'Nicht von hier messbar:', text:' ob die Migrationen live dasselbe tun wie im Nachbau, und ob die Edge-Functions in Deno laufen (hier gibt es kein Deno). Beides zeigt erst das Anwenden — Reihenfolge und Handgriffe in docs/FUER-FERNANDO.md §30.'}
       ]
   },
-  {
-    v: 'v33.58', date: '11.11.2026',
-      headline: 'Rezepte und Fruchtfolge zeigen nie mehr auf eine Giftpflanze — und die KI läuft über den 30. November hinaus',
-      summary: 'Sechs Dinge, alle gemessen. (1) Rezept → Art: 524 Einträge geprüft, bei 239 zeigte der Link auf eine andere Art als die Hauptzutat, bei 84 auf eine als giftig geführte, 17 davon mit Giftstufe 3 oder höher (Pfifferling-Rahmsauce → Maiglöckchen, Morchel → Herbstzeitlose). Die Verknüpfung lief über eine Namens-Teilsuche; jetzt trägt jedes Rezept geprüfte Arten-Ids, und eine giftige Art wird aus einem Rezept nie geöffnet. (2) Fruchtfolge: GS_TRACHTEN_IDS führte Knollensellerie zum Grünen Knollenblätterpilz (Giftstufe 5) und Rettich zum Rettichfälbling; alle 37 Kulturen einzeln gegen die Artenliste gehalten. (3) KI-Modelle: Anthropic schaltet claude-sonnet-4-5 am 30.11.2026 ab — der Proxy schrieb JEDES Modell darauf um (37 von 37 Aufrufen), ab dann wäre jeder Scan gescheitert. Und claude-sonnet-4-20250514 ist seit dem 15.06.2026 weg: Pflanzendoktor, Garten-Analyse und „Plan anpassen“ nannten genau dieses eine Modell und waren fünf Monate tot, ohne dass etwas meldete. Jetzt gibt es eine Kette (Sonnet 4.6 → 5.5 → 5), in der App und auf dem Server, mit Rückfall — und jedes Modell bekommt seine Einstellungen: Sonnet 5.5 und 5 denken sonst von sich aus nach, das zählt gegen max_tokens und stellt einen thinking-Block vor den Text. (4) Der geteilte Scan-Cache ist aus: eine Tabelle für alle Konten, ein 64-Bit-Hash aus 9×8 Bildpunkten, der erste Eintrag gewinnt — ein fremder Treffer hätte die Bestimmung ersetzt. (5) Der Scan-Chat geht über callAI wie jede andere KI-Anfrage; eine abgelehnte Anfrage wird gesagt statt als leere Antwort gezeigt. (6) Vier Fehler aus dem Wochenplan KW45: „Keine bekannten Risiken“ stand als Warnung da, der Ersatz-Ort Zürich wurde gespeichert und sperrte danach das GPS, der Zurück-Knopf im Geräte-Dashboard warf einen Fehler, und ohne Website-Speicher startete die App nicht.',
-      user_summary: 'Ein Rezept führt jetzt nur noch zu der Pflanze, die wirklich gemeint ist — und nie zu einer giftigen. Dasselbe gilt für die Fruchtfolge. Die KI läuft über das Monatsende hinaus weiter, und Pflanzendoktor, Garten-Analyse und „Plan anpassen“ antworten wieder.',
-      user_items: [
-        {emoji:'🍄', bold:'Rezepte zeigen auf die richtige Art:', text:' bei 239 Rezepten führte der Link zu einer anderen Pflanze als der Hauptzutat, bei einigen zu einer giftigen. Das ist berichtigt, und eine giftige Art wird aus einem Rezept nie mehr geöffnet.'},
-        {emoji:'🥬', bold:'Fruchtfolge:', text:' „Knollensellerie“ führte zum Grünen Knollenblätterpilz, „Rettich“ zu einem Giftpilz. Alle 37 Kulturen zeigen jetzt auf die richtige Pflanze.'},
-        {emoji:'🤖', bold:'Die KI bleibt erreichbar:', text:' das bisherige KI-Modell wird Ende November abgeschaltet. GreenScan hat jetzt drei Modelle hintereinander — fällt eines weg, übernimmt das nächste.'},
-        {emoji:'🩺', bold:'Pflanzendoktor, Garten-Analyse, „Plan anpassen“:', text:' alle drei antworten wieder. Sie waren seit Juni ausgefallen, ohne dass die App es gemeldet hat.'},
-        {emoji:'🔬', bold:'Jeder Scan wird frisch bestimmt:', text:' ein Zwischenspeicher, den alle Konten teilten, ist abgeschaltet — ein fremdes Ergebnis kann nie an die Stelle deiner Bestimmung treten.'},
-        {emoji:'✅', bold:'Kein falscher Alarm:', text:' „Keine bekannten Risiken“ steht nicht mehr mit Warnzeichen da.'},
-        {emoji:'📍', bold:'Standort:', text:' ohne GPS-Freigabe zeigt die App weiter das Wetter für Zürich, merkt sich diesen Ersatz aber nicht mehr — sobald du den Standort erlaubst, gilt deiner.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen, Rezepte:', text:' rezept_link_check gegen v33.56 meldet 699 Verstösse (17 doppelte Rezept-Ids, 17 Links auf Giftstufe ≥ 3, 68 auf als giftig geführte Arten, 31 nicht essbare Ziele, 12 Ids ohne Art, 25 äusserliche Anwendungen als Lebensmittel); gegen v33.58 keinen.'},
-        {emoji:'🔗', bold:'Verknüpfung nur per Id:', text:' plantIds, plantKw und plantIdsBlocked je Rezept; die Sperre gilt, sobald EIN Eintrag der Art giftig geführt ist; 43 Rezepte haben bewusst keinen Link (34 gesperrt, 9 ohne eindeutige Art). 17 doppelte Rezept-Ids tragen jetzt die Endung _2.'},
-        {emoji:'🧭', bold:'GS_TRACHTEN_IDS:', text:' 37 Kulturen, jede Id gegen data/plants.v1.js gehalten (Name, Binomen, Kategorie, Giftstufe); zwei ohne passende Art bleiben ohne Link.'},
-        {emoji:'⛓️', bold:'Eine Kette, zwei Orte:', text:' window._gsClaudeFallbacks in der App und MODELL_KETTEN in supabase/functions/_shared/modelle.mjs — vorn Sonnet 4.6, der direkte Nachfolger des Modells, auf dem die App gebaut ist (frühestens am 17.02.2027 abgeschaltet), dahinter 5.5 und 5. Kein Modellname steht mehr in einer Edge-Function; ein Secret (GS_MODEL_VISION, GS_MODEL_FAST) stellt ein Modell davor, ohne neuen Quelltext.'},
-        {emoji:'🧠', bold:'Ein Modellname allein ist keine Umstellung:', text:' modellZusatz / _gsModellZusatz geben Sonnet 5.5 thinking between_tools, Sonnet 5 thinking disabled und beiden 35 % mehr Token (neuer Tokenizer); thinking-Blöcke werden aus der Antwort entfernt, damit auch eine ältere App content[0].text lesen kann. Quelle: Anthropic, „Migrating to Claude Sonnet 5.5“, gelesen am 10.11.2026.'},
-        {emoji:'🚪', bold:'ai-proxy:', text:' Stufen basic und premium (fielen auf das Gratis-Limit), Admins 2000, gesperrte Konten 403, der Notschalter global_api_enabled gilt auch hier, Anfragen über 20 MB 413, der Fehler der Entitlements-Abfrage wird gelesen, ai_usage nennt das Modell, das geantwortet hat. Ausgeliefert am 11.11.2026 mit plant-doctor-diagnose, plan-iterate, garden-scan-analyze, pest-identify und mushroom-identify.'},
-        {emoji:'🔐', bold:'Zwei Functions nahmen den öffentlichen Schlüssel an:', text:' pest-identify und mushroom-identify antworteten live auf den anon-Key ohne Konto (gemessen: „missing image_base64“ statt 401) — wer ihn kannte, konnte KI-Aufrufe auslösen. Die Fassung im Repo prüft das Konto und begrenzt auf 30 je Stunde; nach der Auslieferung: 401.'},
-        {emoji:'💬', bold:'Scan-Chat:', text:' ruft callAI statt eine eigene Anfrage zu bauen (kein Modell-Rückfall, kein Kontingent, content[0].text). Eine Ablehnung der KI (stop_reason refusal) wird ein Satz, kein leerer Treffer.'},
-        {emoji:'🗄️', bold:'GS_SCAN_CACHE_GETEILT = false:', text:' scan_check stellt einen fremden Treffer unter den Hash des Fotos — gegen v33.56 stand er als Bestimmung da, und die KI wurde 0× gefragt.'},
-        {emoji:'🧪', bold:'Prüfstände:', text:' neu modell_check (22 Fälle: die Rechnung, der ECHTE Handler von ai-proxy in Node, der Quelltext; 14 Gegenproben einzeln rot) und rezept_link_check; scan_check 76 → 77, schluessel_check 11 → 12 (Direktweg), GS_FRISTEN 6 → 7 (ki_modelle).'},
-        {emoji:'📅', bold:'Nicht messbar von hier:', text:' ob Anthropic die Namen der Kette heute annimmt. Nach dem nächsten echten Scan zeigt es ai_usage — select model, count(*), max(created_at) from ai_usage group by 1.'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81320,7 +81322,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.78';
+var GS_VERSION = 'v33.79';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -92285,7 +92287,6 @@ function _gsLinaSicherheit(antwort, treffer) {
     //     Nebensatz („… ist essbar. Der Doppelgaenger ist NICHT essbar.")
     //     entwertete so die ganze Antwort.
     var roh = String(antwort);
-    var saetze = roh.split(/(?:[.!?;\n]+|\bund\b|\baber\b|\bmais\b|\bma\b|\bbut\b)/i);
 
     // Bejahung: Essbarkeits-Stamm ODER ein Verzehr-Verb mit Zustimmung davor.
     var STAMM = /essbar|geniess|verzehr|speisepilz|speise|bedenkenlos|unbedenklich|comestib|commestib|\bedib/;
@@ -92293,23 +92294,223 @@ function _gsLinaSicherheit(antwort, treffer) {
     var JA_DAVOR = /\bja\b|\bkannst\b|\bkann man\b|\bkoennen\b|\bdarfst\b|\bdarf man\b|\beignet sich\b|\boui\b|\bpouvez\b|\bpeut\b|\bsi\b|\bpuo\b|\byes\b|\bcan\b|\bsafe\b/;
     var NEIN = /nicht|kein|niemals|nie\b|auf keinen fall|ungeniess|unbedingt meiden|finger weg|\bpas\b|\bjamais\b|\bnon\b|\bmai\b|\bnot\b|\bnever\b|\bdon t\b|\bdo not\b|\bavoid\b/;
 
-    for (var i = 0; i < saetze.length; i++) {
-      var sz = _gsLinaNorm(saetze[i]);
-      if (!sz) continue;
-      if (NEIN.test(sz)) continue;                 // dieser Satz warnt selbst
-      var bejaht = STAMM.test(sz) || (VERZEHR.test(sz) && JA_DAVOR.test(sz));
-      if (!bejaht) continue;
-      var _giftig = hoch.length ? hoch : imSatz(saetze[i]);
-      if (!_giftig.length) continue;
-      var namen = _giftig.slice(0, GS_LINA_ARTEN_NENNEN).map(function (x) { return x.name; }).join(', ');
-      var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
-      return _t('lina_sicherheit_gift', '⚠️ Achtung: In unserer Artenliste steht {1} als giftig. Bitte nichts essen, was du nicht sicher bestimmt hast.')
-        .replace('{1}', namen);
+    // (kg) Lina 11 neu (24.11.2026): Die Regeln der Basis (255665c, oben) bleiben, wie sie sind. Was dazukommt, ist einzeln gegen die
+    // Basis gemessen — Orakel über ALLE Namen der Artenliste, sensor_check „Lina 11". Nichts, was die Basis warnt, wird still,
+    // ausser in den zwei engen Ausnahmen B und C (beide nehmen nur eine Warnung weg, die die Antwort SELBST widerlegt):
+    //  A · Die Arten des Teils kommen ZUSÄTZLICH aus _gsLinaGiftGenannt (dekliniert: „Tollkirschen", „Oleanderblätter", „des
+    //      Gefleckten Schierlings"; alle eigenen Pflanzen beim Namen) — und die Arten der Frage und des Teils zählen zusammen.
+    //  B · Pflege: ein SCHWACHER Stamm (geniess, bedenkenlos, unbedenklich) ist in genau drei Formen keine Zusage — „bedenkenlos"
+    //      vor einer Pflegehandlung („Du kannst Lilli bedenkenlos umtopfen."), „unbedenklich" über ein Pflegemittel, wenn der Teil
+    //      keine Art nennt („Ein Dünger alle vier Wochen ist unbedenklich."), „geniesst" mit Licht oder Sonne („Lilli geniesst die
+    //      Morgensonne.") — und nur ohne jedes Wort vom Essen. „Lilli ist unbedenklich, auch nach dem Umtopfen." bleibt eine Zusage
+    //      über die Pflanze und warnt; „bedenkenlos naschen … in der Sonne" ebenso.
+    //  C · Gegensatz (dagegen, hingegen, jedoch, während …): der Satz wird zusätzlich an Kommas gelesen. Eine Art fällt nur aus der
+    //      Warnung, wenn JEDER zustimmende Teil selbst eine ANDERE Art nennt und ein anderer Teil sie giftig nennt („Basilikum ist
+    //      essbar, das Maiglöckchen hingegen ist giftig."). „Die Samen der Eibe sind giftig, das Fruchtfleisch dagegen ist
+    //      essbar." warnt weiter — der zustimmende Teil nennt keine eigene Art.
+    //  D · „Lilli auch." nach einer Zusage ist eine Zusage — nur ein kurzer Teil OHNE eigenes Prädikat („Auch das Maiglöckchen
+    //      wächst an denselben Stellen" ist eine Warnung, keine Zusage).
+    var SCHWACH = /geniess|bedenkenlos|unbedenklich/;
+    var STARK = /essbar|verzehr|speise|comestib|commestib|\bedib/;
+    var PFLEGE_TUN = '(?:umtopf|umgetopft|eintopf|zurückschneid|zurueckschneid|zurückgeschnitten|zurueckgeschnitten|schneid|stutz|gestutzt|auslicht|giess|gegossen|düng|dueng|vermehr|teil|überwinter|ueberwinter|umpflanz|einpflanz|auspflanz|pflanz|umsetz|mulch|repot|prune|water|fertili|rempot|arros|taill|annaff|concim|rinvas|potar)';
+    var PFLEGE_BEDENKENLOS = new RegExp('(?:bedenkenlos|ohne bedenken) (?:\\S+ ){0,3}' + PFLEGE_TUN);
+    var PFLEGE_MITTEL = /\b(?:dünger|duenger|kaffeesatz|wasser|kalk|mulch|kompost|substrat|erde|blumenerde|schnitt|rückschnitt|rueckschnitt|halbschatten|schatten|sonne|morgensonne|licht|giess|düng|dueng|umtopf)/;
+    // ein Pflegemittel als Satzgegenstand — oder „das/dies“, aber nur NACH einer Pflegehandlung im selben Teil („Giess sie …
+    // — das ist für sie unbedenklich“); „Das ist unbedenklich, auch beim Umtopfen.“ auf eine Essfrage bleibt eine Zusage
+    var PFLEGE_SUBJEKT = /\b(?:dünger|duenger|kaffeesatz|wasser|kalk|mulch|kompost|substrat|erde|blumenerde|schnitt|rückschnitt|rueckschnitt|halbschatten|schatten|sonne|morgensonne|licht)\b.*\b(?:ist|sind)\b.*\b(?:unbedenklich|bedenkenlos)|\b(?:giess|gegossen|düng|dueng|umtopf|dünger|duenger|kaffeesatz|wasser|kalk|mulch|kompost|substrat|erde|schnitt|rückschnitt|rueckschnitt|schatten|sonne|licht)\w*\b.*\b(?:das|dies)\b (?:ist|sind)\b.*\b(?:unbedenklich|bedenkenlos)/;
+    var PFLEGE_GENIESST = /geniess\w* (?:\S+ ){0,2}(?:morgensonne|abendsonne|mittagssonne|sonne|halbschatten|schatten|licht|wärme|waerme|feuchtigkeit|regen)\b|\bgiess\w*\b.*\bgeniess/;
+    var ESSWORT = /\bess|\bisst\b|gegessen|\bnasch|verspeis|\bkost|probier|schmeck|lecker|\bkoch|gekocht|\bbrat|\bback|\broh\b|salat|\btee\b|suppe|\bsaft|marmelade|gelee|sirup|würz|wuerz|\bmund|magen|schluck|\bkau|frucht|früchte|fruechte|beere|pilz|samen|knolle|\beat|\bcook|\bmang|cuisin|cucin|\bfood/;
+    var KONTRAST = /\bdagegen\b|\bhingegen\b|\bjedoch\b|\bwährend\b|\bwaehrend\b|\bwohingegen\b|\bpar contre\b|\btandis que\b|\balors que\b|\binvece\b|\bmentre\b|\bwhereas\b|\bwhile\b|\bwhilst\b/;
+    var GIFTWORT = /giftig|tödlich|toedlich|toxisch|gefährlich|gefaehrlich|poison|toxic|deadly|velenos|tossic|mortel|mortal|toxique|vénéneu|veneneu/;
+    var ENTWARNT = /nicht (?:sehr |besonders |so |wirklich )?(?:giftig|gefährlich|gefaehrlich|toxisch)|ungiftig|harmlos|\bnot (?:very |really )?(?:poisonous|toxic|dangerous)\b|non (?:toxique|tossic|velenos)|pas (?:toxique|dangereu)/;
+    var AUCH = /\bauch\b|\bebenfalls\b|\bgenauso\b|\bgleichfalls\b|\baussi\b|\banche\b|\btoo\b|\bas well\b/;
+    var PRAEDIKAT = /\b(?:ist|sind|war|waren|wird|werden|wächst|waechst|wachsen|steht|stehen|kommt|kommen|hat|haben|sieht|sehen|gibt|findet|finden|blüht|blueht|blühen|bluehen|riecht|trägt|traegt|bildet|enthält|enthaelt|kann|kannst|können|koennen|darf|darfst|dürfen|duerfen|soll|sollte|solltest|musst|muss|müssen|muessen|mag|magst|schmeckt|isst|lebt|liegt|est|sont|sono|is|are|grows|has|have)\b/;
+    var bejahtIn = function (n) { return STAMM.test(n) || (VERZEHR.test(n) && JA_DAVOR.test(n)); };
+    var gleich = function (a, b) { return a.name === b.name || (!!a.lat && !!b.lat && _gsLinaNorm(a.lat) === _gsLinaNorm(b.lat)); };
+    var genanntIn = function (teil) { var x = []; try { x = _gsLinaGiftGenannt(teil); } catch (_) {} return imSatz(teil).concat(x); };
+    var nenntArt = function (teil) { try { return genanntIn(teil).length > 0 || _gsArtenTreffer(teil).zahl > 0 || _gsLinaPflanzenInFrage(teil, 1).length > 0; } catch (_) { return false; } };
+    // B: nur ein schwacher Stamm, in einer der drei Pflege-Formen, kein Wort vom Essen
+    var nurPflege = function (n, roh, satzN) {
+      // ein Ess-Wort IRGENDWO im Satz hebt B auf — die Teile werden an „und“ getrennt, „bedenkenlos klein schneiden und roh
+      // essen“ trägt das Essen im zweiten Teil
+      if (STARK.test(n) || (VERZEHR.test(n) && JA_DAVOR.test(n)) || !SCHWACH.test(n) || ESSWORT.test(n) || (satzN && ESSWORT.test(satzN))) return false;
+      if (PFLEGE_BEDENKENLOS.test(n) || PFLEGE_GENIESST.test(n)) return true;
+      // „unbedenklich" nur mit einem Pflegemittel (oder „das") als Satzgegenstand — „Sie ist unbedenklich" meint die Pflanze
+      return PFLEGE_MITTEL.test(n) && PFLEGE_SUBJEKT.test(n) && !nenntArt(roh);
+    };
+    var zugesagt = false;
+    var saetzeR = roh.split(/[.!?\n]+/);
+    for (var i = 0; i < saetzeR.length; i++) {
+      var satzR = saetzeR[i], satzN = _gsLinaNorm(satzR);
+      if (!satzN) continue;
+      var kontrast = KONTRAST.test(_gsLinaNorm(satzR));
+      var klauseln = kontrast ? satzR.split(/(?:[,;]+|\bund\b|\baber\b|\bmais\b|\bma\b|\bbut\b)/i) : [];
+      // dieselben Teile wie die Basis: an . ! ? ; Zeilenumbruch und an und/aber/mais/ma/but
+      var teile = satzR.split(/(?:;+|\bund\b|\baber\b|\bmais\b|\bma\b|\bbut\b)/i);
+      for (var j = 0; j < teile.length; j++) {
+        var sz = _gsLinaNorm(teile[j]);
+        if (!sz) continue;
+        var basisJa = !NEIN.test(sz) && bejahtIn(sz);         // die Regel der Basis für diesen Teil
+        var zustimmend = (basisJa && !nurPflege(sz, teile[j], satzN)) ? [teile[j]] : [];
+        if (kontrast) {
+          // C: im Gegensatz-Satz zählen die Klauseln einzeln — eine mit „nicht" warnt selbst, eine andere kann trotzdem zusagen
+          var ja = teile[j].split(/,+/).filter(function (k) { var kn = _gsLinaNorm(k); return kn && !NEIN.test(kn) && bejahtIn(kn) && !nurPflege(kn, k, satzN); });
+          if (ja.length) zustimmend = ja;
+        }
+        var auch = !zustimmend.length && zugesagt && !NEIN.test(sz) && AUCH.test(sz) && sz.split(' ').length <= 4 && !PRAEDIKAT.test(sz) &&
+          !GIFTWORT.test(sz) && !/vorsicht|achtung|aufpass|verwechsl|gefahr|warn/.test(sz);   // D — ein Warnsatz sagt nichts zu
+        if (!zustimmend.length && !auch) continue;
+        var kand;
+        if (auch) kand = genanntIn(teile[j]);
+        else {
+          zugesagt = true;
+          // die Menge der Basis (hoch, sonst imSatz des Teils) bleibt immer drin; dazu A
+          kand = hoch.concat(basisJa ? imSatz(teile[j]) : []);
+          zustimmend.forEach(function (k) { kand = kand.concat(genanntIn(k)); });
+          if (kontrast && zustimmend.every(nenntArt)) {
+            kand = kand.filter(function (art) {
+              if (zustimmend.some(function (k) { return genanntIn(k).some(function (x) { return gleich(x, art); }); })) return true;
+              return !klauseln.some(function (q) {
+                if (zustimmend.indexOf(q) >= 0) return false;
+                var qn = _gsLinaNorm(q);
+                if (!qn || ENTWARNT.test(qn) || bejahtIn(qn) || !(GIFTWORT.test(qn) || NEIN.test(qn))) return false;
+                return genanntIn(q).some(function (x) { return gleich(x, art); });
+              });
+            });
+          }
+        }
+        var _giftig = [];
+        kand.forEach(function (a) { if (a && (a.tox | 0) >= 3 && !_giftig.some(function (b) { return gleich(a, b); })) _giftig.push(a); });
+        if (!_giftig.length) continue;
+        var namen = _giftig.slice(0, GS_LINA_ARTEN_NENNEN).map(function (x) { return x.name; }).join(', ');
+        var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+        return _t('lina_sicherheit_gift', '⚠️ Achtung: In unserer Artenliste steht {1} als giftig. Bitte nichts essen, was du nicht sicher bestimmt hast.')
+          .replace('{1}', namen);
+      }
     }
     return '';
   } catch (_) { return ''; }
 }
 window._gsLinaSicherheit = _gsLinaSicherheit;
+
+// Lina 11 (Prüfung von #347): die GIFTIGEN Arten der Liste (Stufe ≥ 3 an der Art) als Muster, die Mehrzahl, Fälle und
+// Zusammensetzungen kennen. _gsArtenTreffer sucht ganze Namen — in einer Antwort stehen sie dekliniert: „Tollkirschen
+// kannst du essen", „die Blätter des Gefleckten Schierlings", „Oleanderblätter" kamen ohne Warnung durch (gemessen
+// 24.11.2026: 5 von 13 Zusagen). Regeln: Wörter vor dem letzten verlieren ihre Adjektiv-Endung (-e, -er, -es, -en, -em);
+// das letzte nimmt -n/-en/-e/-s/-es/-ns und einen Pflanzenteil dahinter („…blätter", „…beeren"); ein Bindestrich darf
+// fehlen („Hundspetersilie"). Dazu das Binomen und — nur wenn JEDE Art mit diesem letzten Wort giftig ist — das letzte
+// Wort allein ab zehn Zeichen („Schierling"; „Petersilie" nicht, die Petersilie ist es nicht). Ebenso ein NAME: er zählt
+// nur, wenn jeder Eintrag dieses Namens giftig ist — „Holunder (Roth)" ohne Zusatz heisst „Holunder" wie der Schwarze, und
+// „Ja, Holunderblüten kannst du essen." warnte sonst vor dem Roten Holunder (gemessen an 80 Ess-Sätzen).
+var GS_LINA_TEILWORT = '(?:blätter|blaetter|blatt|blüten|blueten|blüte|bluete|beeren|beere|früchte|fruechte|frucht|samen|wurzeln|wurzel|knollen|knolle|zwiebeln|zwiebel|rinde|stängel|staengel|stengel|triebe|trieb|kerne|schoten|nadeln|tee|saft)';
+var _gsLinaGiftCache = null, _gsLinaGiftCacheN = -1;
+function _gsLinaGiftArten() {
+  var n = (typeof DB !== 'undefined' && DB && DB.length) ? DB.length : 0;
+  if (_gsLinaGiftCache && _gsLinaGiftCacheN === n) return _gsLinaGiftCache;
+  var esc = function (x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+  var nomen = function (w) { return esc(w) + '(?:n|en|e|s|es|ns)?(?:' + GS_LINA_TEILWORT + '(?:n|en|e|s)?)?'; };
+  var adjektiv = function (w) { return (w.length > 4 && /(?:er|es|en|em|e)$/.test(w)) ? esc(w.replace(/(?:er|es|en|em|e)$/, '')) + '(?:e|er|es|en|em)?' : esc(w); };
+  var arten = {}, reihe = [], letzte = {}, namen = {}, eintraege = [], huellen = [];
+  for (var i = 0; i < n; i++) {
+    var sp = DB[i];
+    if (!sp || !sp.name || sp._unverified) continue;
+    var roh = String(sp.name).replace(/\([^)]*\)\s*$/, '').trim();
+    // (kg) F1: nur ein GEPRÜFTER Eintrag mit genau diesem Namen spricht gegen ein Namensmuster — kein Einlese-Rumpf (weder
+    // warning noch lookalike, v32.45) und kein Name mit Klammer-Zusatz („Hahnenfuß (Knolliger)" sperrte „Hahnenfuß").
+    var rumpf = !sp.warning && (!sp.lookalike || sp._lookalike_tpl);   // gsAutoFillLookalikes legt Vorlagen nach — keine Aussage
+    var exakt = roh === String(sp.name).trim();
+    var tokens = roh.split(/\s+/).map(function (t) { return _gsLinaNorm(t).split(' ').filter(Boolean); }).filter(function (t) { return t.length; });
+    if (!tokens.length) continue;
+    var a = (typeof _gsArtAnzeige === 'function') ? (_gsArtAnzeige(sp) || sp) : sp;
+    var giftig = (a.tox | 0) >= 3;
+    var lw = tokens[tokens.length - 1][tokens[tokens.length - 1].length - 1];
+    letzte[lw] = letzte[lw] || { gift: 0, veto: 0, mehrteilig: false };
+    if (giftig) letzte[lw].gift++; else if (!rumpf) letzte[lw].veto++;
+    if (tokens.length > 1 || tokens[0].length > 1) letzte[lw].mehrteilig = true;
+    var nk = _gsLinaNorm(roh).replace(/ /g, '');   // „Birken-Reizker" und „Birkenreizker" sind EIN Name
+    namen[nk] = namen[nk] || { gift: 0, veto: 0 };
+    if (giftig) namen[nk].gift++; else if (!rumpf && exakt) namen[nk].veto++;
+    eintraege.push({ sp: sp, a: a, giftig: giftig, roh: roh, tokens: tokens, lw: lw, nk: nk });
+    // (kg) Hülle: ein harmloser, geprüfter Name aus mehreren Wörtern („Grauer Wulstling", „Narzissen-Scheidling") — ein Giftmuster,
+    // das nur IN ihm steht („wulstling", „narzissen"), meint nicht die giftige Art (die Basis warnt dort nicht)
+    if (!giftig && !rumpf && [].concat.apply([], tokens).length > 1) {
+      var hq = tokens.map(function (t, ti) {
+        var letztesTok = (ti === tokens.length - 1);
+        return t.map(function (w, wi) { return (letztesTok && wi === t.length - 1) ? nomen(w) : (letztesTok ? esc(w) : adjektiv(w)); }).join(' ?');
+      }).join(' ');
+      huellen.push(new RegExp('(?:^| )' + hq + '(?= |$)', 'g'));
+    }
+  }
+  for (var ei = 0; ei < eintraege.length; ei++) {
+    var en = eintraege[ei];
+    if (!en.giftig) continue;
+    sp = en.sp; a = en.a; roh = en.roh; tokens = en.tokens; lw = en.lw;
+    var key = (typeof _gsNormLat === 'function' ? _gsNormLat(sp.lat || '') : '') || ('id:' + sp.id);
+    var art = arten[key];
+    if (!art) { art = arten[key] = { name: sp.name, lat: sp.lat || '', tox: a.tox | 0, key: key, muster: [], quellen: {} }; reihe.push(art); }
+    else if ((a.tox | 0) > art.tox) art.tox = a.tox | 0;
+    var teile = tokens.map(function (t, ti) {
+      var letztesTok = (ti === tokens.length - 1);
+      return t.map(function (w, wi) { return (letztesTok && wi === t.length - 1) ? nomen(w) : (letztesTok ? esc(w) : adjektiv(w)); }).join(' ?');
+    });
+    var quelle = '(?:^| )' + teile.join(' ') + '(?= |$)';
+    var nz = namen[en.nk];
+    if (nz && nz.veto === 0 && !art.quellen[quelle] && roh.length > 3) { art.quellen[quelle] = 1; art.muster.push(new RegExp(quelle)); }
+    var l = _gsLinaNorm(sp.lat || '');
+    if (l.length > 5 && l.indexOf(' ') > 0) { var ql = '(?:^| )' + esc(l) + '(?= |$)'; if (!art.quellen[ql]) { art.quellen[ql] = 1; art.muster.push(new RegExp(ql)); } }
+    (art.letzte = art.letzte || []).push(lw);
+  }
+  reihe.forEach(function (art) {
+    (art.letzte || []).forEach(function (lw) {
+      var z = letzte[lw];
+      if (!z || !z.mehrteilig || lw.length < 10 || z.veto > 0) return;
+      var ql = '(?:^| )' + nomen(lw) + '(?= |$)';
+      if (!art.quellen[ql]) { art.quellen[ql] = 1; art.muster.push(new RegExp(ql)); }
+    });
+  });
+  reihe.huellen = huellen;
+  _gsLinaGiftCache = reihe; _gsLinaGiftCacheN = n;
+  return reihe;
+}
+// Die giftigen Arten, die ein TEXT nennt — mit Namen (dekliniert), Binomen oder als EIGENE Pflanze beim Namen oder Spitznamen.
+// Eine ERGÄNZUNG zur Erkennung der Basis (imSatz in _gsLinaSicherheit), nie ihr Ersatz.
+function _gsLinaGiftGenannt(text) {
+  var out = [], gesehen = {};
+  var dazu = function (a) { var k = a.key || ('n:' + _gsLinaNorm(a.name)); if (gesehen[k]) return; gesehen[k] = 1; out.push(a); };
+  try {
+    var t = _gsLinaNorm(text);
+    if (t.length >= 3) {
+      var alle = _gsLinaGiftArten(), huellen = null;
+      var spannen = function (re) {
+        var g = new RegExp(re.source, 'g'), m, z = [];
+        while ((m = g.exec(t))) { var a0 = m.index + (m[0].charAt(0) === ' ' ? 1 : 0); z.push([a0, m.index + m[0].length]); if (g.lastIndex === m.index) g.lastIndex++; }
+        return z;
+      };
+      alle.forEach(function (a) {
+        var sp = [];
+        a.muster.forEach(function (re) { if (re.test(t)) sp = sp.concat(spannen(re)); });
+        if (!sp.length) return;
+        if (huellen === null) { huellen = []; (alle.huellen || []).forEach(function (h) { huellen = huellen.concat(spannen(h)); }); }
+        var frei = sp.some(function (x) { return !huellen.some(function (h) { return h[0] <= x[0] && x[1] <= h[1] && (h[1] - h[0]) > (x[1] - x[0]); }); });
+        if (frei) dazu(a);
+      });
+    }
+  } catch (_) {}
+  try {
+    _gsLinaPflanzenInFrage(text, 50).forEach(function (x) {
+      var p = x && x.p; if (!p) return;
+      var lat = String(p.latin || p.lat || p.species || '').trim();
+      var tr = lat ? _gsArtenTreffer(lat) : null;
+      if (!tr || !tr.zahl) tr = _gsArtenTreffer(String(p.name || ''));
+      (tr && tr.arten || []).forEach(function (a) {
+        if ((a.tox | 0) < 3) return;
+        dazu({ name: a.name, lat: a.lat || '', tox: a.tox | 0, key: (typeof _gsNormLat === 'function' ? _gsNormLat(a.lat || '') : '') || ('n:' + _gsLinaNorm(a.name)) });
+      });
+    });
+  } catch (_) {}
+  return out;
+}
+window._gsLinaGiftGenannt = _gsLinaGiftGenannt;
 
 // Lina · Einblick ehrlich (Brett 6bbf): die Arten der Frage UND die der eigenen Pflanzen, die die Frage beim
 // Namen oder Spitznamen nennt (_gsLinaPflanzenInFrage — dieselbe Auflösung wie die Detailzeile des Einblicks).
@@ -92331,6 +92532,12 @@ function _gsLinaTrefferMitPflanzen(frage, treffer) {
         });
       });
     }
+  } catch (_) {}
+  try {
+    // (kg) A: dazu ALLE eigenen Pflanzen der Frage und die deklinierten Giftnamen („Kann ich Tollkirschen essen?")
+    _gsLinaGiftGenannt(frage).forEach(function (a) {
+      if (!out.arten.some(function (b) { return b.name === a.name; })) out.arten.push({ name: a.name, lat: a.lat, tox: a.tox, cat: '', essbar: false, nurTeilname: false });
+    });
   } catch (_) {}
   out.zahl = out.arten.length;
   return out;
@@ -92502,14 +92709,16 @@ window.gsSchaedlingeNotiert = gsSchaedlingeNotiert;
 // Welche EIGENEN Pflanzen nennt die Frage? Ganzer Name an Wortgrenzen (mit
 // Mehrzahl-Endung), laengster Name zuerst — „Tomate" trifft „meine Tomaten",
 // aber „Rose" nicht „Rosenkohl".
-function _gsLinaPflanzenInFrage(frage) {
-  var out = [];
+// (kg) `max`: die Gift-Gegenprobe prüft ALLE eigenen Pflanzen einer Frage (50); die Detailzeilen des Einblicks bleiben bei
+// GS_LINA_DETAIL_PFLANZEN — „Kann ich Olli, Hecke und Lilli essen?" prüfte vorher nur zwei der drei.
+function _gsLinaPflanzenInFrage(frage, max) {
+  var out = [], grenze = (typeof max === 'number' && max > 0) ? max : GS_LINA_DETAIL_PFLANZEN;
   try {
     var f = ' ' + String(frage || '').toLowerCase().replace(/[^a-z0-9äöüéèêàâçñß]+/g, ' ') + ' ';
     if (f.trim().length < 3) return out;
     var alle = _gsLinaPflanzenAlle().slice().sort(function (a, b) { return String(b.p.name).length - String(a.p.name).length; });
     alle.forEach(function (x) {
-      if (out.length >= GS_LINA_DETAIL_PFLANZEN) return;
+      if (out.length >= grenze) return;
       var namen = [x.p.name, x.p.nick].filter(Boolean);
       for (var i = 0; i < namen.length; i++) {
         var n = String(namen[i]).toLowerCase().replace(/\s*\(.*?\)\s*/g, ' ').replace(/[^a-z0-9äöüéèêàâçñß]+/g, ' ').trim();
