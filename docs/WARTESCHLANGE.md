@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 18:54 UTC · `main` = `ab9ad0f` (**v33.76**, #350 Suche 11) · #351 Sicherheit v33.77 `a8d5bff` (CI seit ca. 18:31, fertig ca. 19:10; Test-Merge unterscheidet sich nur um Audits sechs Dateien) → Merge-Commit bei grün · Scanner 14 v33.78 (ke) darf jetzt auf `a8d5bff` stapeln und pushen (Signal 18:54) · danach Lina 11 neu v33.79 (kg), Orakel + Hold-out.
+**Stand:** 24.11.2026, 18:57 UTC · `main` = `ab9ad0f` (**v33.76**) · #351 Sicherheit v33.77 `a8d5bff` (CI seit ca. 18:31, fertig ca. 19:10) → Merge-Commit bei grün · #352 Hauptfunktionen v33.78 Scanner 14 `dcfb1d2` (stapelt auf `a8d5bff`, Baum = Test-Merge gegen #351, CI seit 18:57, fertig ca. 19:35) → Merge nach #351 · danach Lina 11 neu v33.79 (kg): Orakel „nur Basis = 0“ über 3'138 Namen × 6 Formen steht lokal, Hold-out des Koordinators + Zahlen je Fehlalarm-Klasse vor dem Push; Push erst nach dem Merge von #352 (Zweig = #352-Kopf).
 
 ## 1 · Warum es schneller wird
 
@@ -46,7 +46,7 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | 4 | Hauptfunktionen · Lina · Einblick ehrlich + Scanner 12 + Pilz-Verwechsler (EIN Kopf) | `claude/happy-thompson-24l4uu` | v33.74 | (jx) · (jy) · (jz) · (ka) | **GEMERGT** als Merge-Commit `52a2b93` (#347; CI auf 5844cf6 grün, Baum identisch; zwei Leserfunde vor dem Merge behoben) |
 | 5 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.75 | (kb) | **GEMERGT** als Merge-Commit `1d1019b` (#349; CI auf 255665c grün, Baum identisch); offene Frage für Fernando: Brett e247 (Offline-Foto live im Speicher?) |
 | 6 | Hauptfunktionen · Suche 11 (kc) — (kd) zurückgenommen | `claude/happy-thompson-24l4uu` | v33.76 | (kc) | **GEMERGT** als Merge-Commit `ab9ad0f` (#350; CI auf `74baeb6` grün; Lina 11 vor dem Merge zurückgenommen: elf Rückschritte, Leserbefund) |
-| 8 | Hauptfunktionen · Scanner 14 (ke) | `claude/happy-thompson-24l4uu` | v33.78 | (ke) | Signal 18:54: stapelt auf `a8d5bff`, Bump von Hand, merge-tree clean, dann Kopf melden → PR; Merge nach #351 |
+| 8 | Hauptfunktionen · Scanner 14 (ke) | `claude/happy-thompson-24l4uu` | v33.78 | (ke) | PR **#352**, Kopf **`dcfb1d2`** (auf `a8d5bff` gestapelt; Baum = Test-Merge gegen #351 `f07892f`; Test-Merge gegen main unterscheidet sich nur um Audits sechs Dateien), CI läuft; Merge nach #351 |
 | 9 | Sicherheit · Scheibe 3 (Register GS_SPEICHER) | `ccr-5e705a36-jveaak` | v33.77 | (kf) | PR **#351**, Kopf **`a8d5bff`** (auf `74baeb6` gestapelt; Baum = Test-Merge `c0053c9`), CI läuft (fertig ca. 19:10); 8 Dateien, nichts Riskantes; Gegenprüfung (14 Funde, 6 bestätigt, eingearbeitet) → Merge-Commit nach #350 |
 | 10 | Hauptfunktionen · Lina 11 neu (kg) | `claude/happy-thompson-24l4uu` | v33.79 | (kg) | Orakel = Basis `255665c` über alle DB-Namen in zwei Satzformen + Mehrzahl/Genitiv, „nur Basis warnt“ leer; die elf Leser-Sätze als Fälle; jede Heuristik einzeln mit Gegenprobe; Hold-out des Koordinators vor dem Merge |
 | 7 | Audit · Prüfstände (kein Bump) | `ccr-dce5a17c-2xzhvi` | – | (jv) Nachtrag | **GEMERGT** als Merge-Commit `577850e` (#348; CI auf `6cb8879` grün, Baum identisch) |
