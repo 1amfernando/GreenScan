@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 18:36 UTC · `main` = `577850e` (v33.75 + Audit-Nachtrag #348, kein Bump) · CI läuft für #350 Hauptfunktionen v33.76 `74baeb6` (nur Suche 11; seit 18:10, fertig ca. 18:49) und #351 Sicherheit v33.77 `a8d5bff` (seit ca. 18:31, fertig ca. 19:10) — beide Test-Merges unterscheiden sich seit #348 genau um Audits sechs Dateien (CLAUDE.md, STATUS.md, docs/AUDIT-2026-11-11.md, field_check/contrast_check/render_check); Kombination lokal gefahren (austausch_check 17/0, field_check 0) → vertretbar · Merge-Reihenfolge #350 → #351 · danach Scanner 14 v33.78 (ke) auf `a8d5bff`, Push erst nach #350 · Lina 11 neu v33.79 (kg).
+**Stand:** 24.11.2026, 18:54 UTC · `main` = `ab9ad0f` (**v33.76**, #350 Suche 11) · #351 Sicherheit v33.77 `a8d5bff` (CI seit ca. 18:31, fertig ca. 19:10; Test-Merge unterscheidet sich nur um Audits sechs Dateien) → Merge-Commit bei grün · Scanner 14 v33.78 (ke) darf jetzt auf `a8d5bff` stapeln und pushen (Signal 18:54) · danach Lina 11 neu v33.79 (kg), Orakel + Hold-out.
 
 ## 1 · Warum es schneller wird
 
@@ -45,8 +45,8 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | **v33.73** | (jw) | **GEMERGT** als Merge-Commit `bbb5b26` (#346; CI auf 24dd782 grün, Baum identisch); der Proxy-Teil gehört Fernando (FUER-FERNANDO §33) |
 | 4 | Hauptfunktionen · Lina · Einblick ehrlich + Scanner 12 + Pilz-Verwechsler (EIN Kopf) | `claude/happy-thompson-24l4uu` | v33.74 | (jx) · (jy) · (jz) · (ka) | **GEMERGT** als Merge-Commit `52a2b93` (#347; CI auf 5844cf6 grün, Baum identisch; zwei Leserfunde vor dem Merge behoben) |
 | 5 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.75 | (kb) | **GEMERGT** als Merge-Commit `1d1019b` (#349; CI auf 255665c grün, Baum identisch); offene Frage für Fernando: Brett e247 (Offline-Foto live im Speicher?) |
-| 6 | Hauptfunktionen · Suche 11 (kc) — (kd) zurückgenommen | `claude/happy-thompson-24l4uu` | v33.76 | (kc) | PR **#350**, Kopf **`74baeb6`** (Revert von `abd1495`; index.html gegenüber `255665c` ohne eine Lina-Zeile, sensor_check byte-gleich; Baum = Test-Merge `0723e27`), CI Lauf 45456673667 läuft (fertig ca. 18:49) → Merge-Commit bei grün |
-| 8 | Hauptfunktionen · Scanner 14 (ke) | `claude/happy-thompson-24l4uu` | v33.78 | (ke) | lokal fertig (PV7); stapelt auf `a8d5bff`; Push erst nach dem Merge von #350 (Zweig = #350-Kopf) |
+| 6 | Hauptfunktionen · Suche 11 (kc) — (kd) zurückgenommen | `claude/happy-thompson-24l4uu` | v33.76 | (kc) | **GEMERGT** als Merge-Commit `ab9ad0f` (#350; CI auf `74baeb6` grün; Lina 11 vor dem Merge zurückgenommen: elf Rückschritte, Leserbefund) |
+| 8 | Hauptfunktionen · Scanner 14 (ke) | `claude/happy-thompson-24l4uu` | v33.78 | (ke) | Signal 18:54: stapelt auf `a8d5bff`, Bump von Hand, merge-tree clean, dann Kopf melden → PR; Merge nach #351 |
 | 9 | Sicherheit · Scheibe 3 (Register GS_SPEICHER) | `ccr-5e705a36-jveaak` | v33.77 | (kf) | PR **#351**, Kopf **`a8d5bff`** (auf `74baeb6` gestapelt; Baum = Test-Merge `c0053c9`), CI läuft (fertig ca. 19:10); 8 Dateien, nichts Riskantes; Gegenprüfung (14 Funde, 6 bestätigt, eingearbeitet) → Merge-Commit nach #350 |
 | 10 | Hauptfunktionen · Lina 11 neu (kg) | `claude/happy-thompson-24l4uu` | v33.79 | (kg) | Orakel = Basis `255665c` über alle DB-Namen in zwei Satzformen + Mehrzahl/Genitiv, „nur Basis warnt“ leer; die elf Leser-Sätze als Fälle; jede Heuristik einzeln mit Gegenprobe; Hold-out des Koordinators vor dem Merge |
 | 7 | Audit · Prüfstände (kein Bump) | `ccr-dce5a17c-2xzhvi` | – | (jv) Nachtrag | **GEMERGT** als Merge-Commit `577850e` (#348; CI auf `6cb8879` grün, Baum identisch) |
@@ -62,6 +62,7 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 
 | main | Version | Was |
 |---|---|---|
+| `ab9ad0f` | v33.76 | #350 Hauptfunktionen — Suche 11: Pflanze anlegen auch mit Tippfehlern, und mit der Giftstufe der Art (MERGE-COMMIT; CI auf 74baeb6 grün; Test-Merge unterschied sich nur um Audits sechs Dateien, Kombination lokal gefahren; Lina 11 vor dem Merge zurückgenommen) |
 | `577850e` | – | #348 Audit — eine Seite für Fernando, und ein rotes Tor sagt in der CI, wo (MERGE-COMMIT; CI auf 6cb8879 grün, Baum identisch; kein Bump) |
 | `1d1019b` | v33.75 | #349 Sicherheit — Track, Pflegeverlauf und das Tagebuch-Foto ohne Empfang (MERGE-COMMIT; CI auf 255665c grün, Baum identisch) |
 | `52a2b93` | v33.74 | #347 Hauptfunktionen — Pilz-Verwechsler beim Namen, Bildvergleich, Lina-Einblick ehrlich, zwei Abmelde-Funde (MERGE-COMMIT; CI auf 5844cf6 grün, Baum identisch; drei unabhängige Leser fanden vor dem Merge zwei echte Mängel — Bindestrich-Slugs im Pilz-Register, falscher „Lina bekommt nur deine Frage“-Satz —, beide behoben) |
