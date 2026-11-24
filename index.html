@@ -79831,19 +79831,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 window.GS_RELEASES = [
   {
     v: 'v33.70', date: '24.11.2026',
-      headline: 'Jede Antwort bleibt bei ihrer Frage — Pilz-Scanner, Lina und der Wissen-Tab',
-      summary: 'Drei Pakete aus den Hauptfunktionen. Pilz-Scanner: ein Ergebnis gehört zu seinem Foto — ein neues Foto, ein neues Öffnen und das Schliessen lösen die laufende Bestimmung ab, auch in fr/it/en/es, wo die Anzeige noch auf Übersetzungen wartet. Lina: eine Antwort gehört dem Gespräch, in dem gefragt wurde — wer während des Wartens ein neues oder ein früheres Gespräch öffnet, findet sie bei ihrer Frage. Wissen-Tab: dieselben Zahlen wie Startseite und Filter, und jede Kachel öffnet ihre Liste.',
-      user_summary: 'Ein Pilz-Ergebnis steht nie mehr unter dem falschen Foto, Linas Antwort landet in dem Gespräch, in dem du gefragt hast, und die Zahlen im Wissen-Tab stimmen mit der Startseite überein.',
+      headline: 'Lina kennt deinen Garten beim Namen',
+      summary: 'Lina · Einblick (Punkt 8). Bis v33.69 sah Lina von den Pflanzen nur die Zahl und die Namen mit einer fälligen Aufgabe — keine Gärten, kein Tagebuch, kein Wetter, keine Fundorte. Jetzt gibt es einen zweiten Kontextblock (gsLinaEinblick) mit eigenem Deckel: wer Hilfe braucht (gerechnet aus überfälligen Aufgaben und notierten Schädlingen), die Pflanze aus der Frage im Detail, das Wetter am gewählten Ort, alle Pflanzen und Beete beim Namen, frühere Scans und Karten-Funde. Keine Fotos, keine Koordinaten; abschaltbar im Lina-Fenster. Beide Datenschutztexte nennen es.',
+      user_summary: 'Lina weiss jetzt, welche Pflanzen und Beete du hast, wie das Wetter an deinem Ort wird und welche Pflanze gerade Hilfe braucht — und antwortet darauf, statt allgemein.',
       user_items: [
-        {emoji:'🍄', bold:'Pilz-Scanner:', text:' wählst du ein neues Foto, öffnest den Scanner neu oder schliesst ihn, gilt die laufende Bestimmung nicht mehr — ihr Ergebnis erscheint nie unter einem anderen Pilz. Schliesst du mitten in der Bestimmung, sagt dir ein Satz, dass es dazu kein Ergebnis gibt.'},
-        {emoji:'💬', bold:'Lina:', text:' tippst du während „Lina denkt nach…“ auf „＋ Neu“ oder öffnest ein früheres Gespräch, landet die Antwort trotzdem bei deiner Frage — und ein Satz sagt dir, wo sie steht.'},
-        {emoji:'📚', bold:'Wissen-Tab:', text:' „Arten“, „Essbar“ und „Giftig“ zeigen dieselben Zahlen wie die Startseite und der Filter, und jede Kachel öffnet die Liste, die sie zählt.'}
+        {emoji:'🪴', bold:'Frag nach einer bestimmten Pflanze:', text:' Lina sieht ihre Aufgaben, die letzten Tagebuch-Einträge und deine Notiz.'},
+        {emoji:'🆘', bold:'Wer braucht Hilfe?', text:' Ist eine Aufgabe zwei oder mehr Tage überfällig oder ein Schädling notiert, steht es beim Öffnen als erster Vorschlag da.'},
+        {emoji:'🌦️', bold:'Wetter und Beete zusammen:', text:' Lina kennt die Vorhersage für deinen gewählten Ort und was in welchem Beet steht.'},
+        {emoji:'🔒', bold:'Du entscheidest:', text:' keine Fotos, keine Koordinaten — und im Lina-Fenster lässt sich der Einblick ausschalten.'}
       ],
       items: [
-        {emoji:'🔢', bold:'Eine Nummer je Pilz-Bestimmung:', text:' _gsPilzNr und gsPilzAbbrechen (neues Foto, neues Öffnen, Schliessen). Die Prüfung gilt fragt Nummer UND Person (das Tor aus v33.68) — vor dem Senden, nach der Antwort, im catch und nach dem Warten auf die Übersetzung (gsMushroomRenderResult wartet in fr/it/en/es). _gsPilzFotoNr gegen zwei sich überholende Foto-Ladevorgänge.'},
-        {emoji:'🧵', bold:'Lina merkt sich, wo gefragt wurde:', text:' _gsLinaGespraechNr zählt jeden Wechsel des gezeigten Gesprächs; gsLinaSend hält Liste und Gesprächs-Id fest — Vorgeschichte, neue Id und Antwort gehören dorthin. Eine zweite Frage während des Wartens bekommt einen Satz statt Stille.'},
-        {emoji:'☠️', bold:'gsIstGiftig:', text:' die Regel des Filters (toxic oder Stufe 2 und höher, an der Art) als EINE Funktion für Filter und Lexikon-Kachel — vorher zählte die Kachel 598, der Filter 675.'},
-        {emoji:'🧪', bold:'Prüfstände:', text:' scan_check PZ5 bis PZ7 und D1g, sensor_check L12, nutzersicht_check E9 Teil 4 — jeder Fall gegen den alten Stand rot, jede Schutzzeile einzeln zurückgebaut am richtigen Fall rot.'}
+        'Ein zweiter Kontextblock für Lina mit eigenem Deckel (1500 Zeichen): Braucht Hilfe · Im Detail · Wetter · Pflanzen · Gärten · Frühere Scans · Funde',
+        'Eine Rechnung für „braucht Hilfe“ — für die Kontextzeile und den ersten Vorschlag',
+        'Schalter im Lina-Fenster (bleibt beim Abmelden), Hinweis im leeren Verlauf',
+        'Datenschutzerklärung (Seite und App): „Fragen an Lina“',
+        'Prüfstand sensor_check: Fall „Lina · Einblick“'
       ]
   },
   {
@@ -80236,7 +80238,7 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'admin_check 6 → 11 Fälle, fünf Gegenproben:', text:' ein Schreibweg am einen Weg vorbei · 0 Zeilen als ok · return=minimal · Rückfrage trotz Sperre · Meldung ohne Blick auf den Zustand — jede einzeln rot, mit dem richtigen Fall und den echten Zahlen.'},
         {emoji:'📵', bold:'Grenze:', text:' der Server ist im Prüfstand gestellt. Geprüft ist, was die App aus einer Antwort MACHT — nicht, ob die RPC antwortet. Und versprechen_check bleibt hier blind, weil ein if (r.error) als Prüfung zählt — eigene Scheibe.'}
       ]
-  },
+  }
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -87714,6 +87716,7 @@ var GS_KEEP_ON_LOGOUT = [
   'gs_prefs',           // Settings-Toggles (Re-Login ueberschreibt via gsPrefsPull)
   'gs_consent',         // revDSG-Consent — Re-Login soll ihn nicht zuruecksetzen
   'gs_auto_collections',// Sammlungen automatisch anlegen (Schalter)
+  'gs_lina_einblick',   // Lina: Einblick in Pflanzen/Garten abgeschaltet ('0') — eine Datenschutz-Wahl, die ein Abmelden nicht zuruecksetzt
   'gs_wstack_still',    // v33.61: Kartenreihe der Startseite angehalten (Geraete-Vorliebe, WCAG 2.2.2)
   'gs_metric_catalog',  // v32.48: oeffentlicher Katalog der Messgroessen — kein Personenbezug
   'gs_metric_catalog_at', // v32.52: Datum der Momentaufnahme des Katalogs
@@ -90815,6 +90818,10 @@ var LINA_SYSTEM =
   '• Einstellungen (Sprache, Dark-Mode, Standort, Cloud-Backup, Meine Sammlungen, Speicher, Verbindung, Daten-Export): „Mehr" → „Einstellungen".\n' +
   '• Lichtmessung für Standorte: Menü (⋯) → „Licht".\n\n' +
   'Pro & Lifetime existieren, aber du bewirbst sie NIE und bringst sie nur zur Sprache, wenn jemand ausdrücklich danach fragt — dann nennst du nüchtern die Fakten und kommst freundlich zur Natur zurück.\n\n' +
+  // Der Einblick (gsLinaEinblick): was die Zeilen bedeuten und was Lina daraus NICHT machen darf.
+  'DEIN EINBLICK IN DEN GARTEN: Im KONTEXT können diese Zeilen stehen — „Braucht Hilfe" (von der App gerechnet: überfällige Aufgaben und notierte Schädlinge), „Im Detail" (eine Pflanze der Person, nach der sie gerade fragt: Ort, Aufgaben, Tagebuch, Fotos), „Wetter" (Vorhersage für ihren Ort), „Pflanzen" (ihre Pflanzen beim Namen), „Gärten" (Beete mit Pflanzungen), „Frühere Scans" und „Funde auf deiner Karte". Nutze sie wie eine Freundin, die den Garten kennt: sprich die Pflanzen beim Namen an und verbinde Wetter, Beet und Pflanze zu EINEM konkreten Rat. Fragt die Person allgemein, wie es ihren Pflanzen geht oder was zu tun ist, nenne zuerst, was unter „Braucht Hilfe" steht. Steht eine Zeile nicht da, liegt dazu nichts vor — sag das und frag nach, statt zu raten.\n' +
+  'GRENZEN DES EINBLICKS: Du siehst KEINE Fotos — nur, dass und von wann es welche gibt. Wie eine Pflanze aussieht oder ob sie krank ist, beurteilst du nie aus dem Kontext; bitte um eine Beschreibung oder schlage einen Scan vor. Die App misst kein Wachstum und keinen Gesundheitswert — nenne keinen. Wetterangaben nur aus der Zeile „Wetter".\n' +
+  'WANDERN UND SAMMELN: Bei Ausflügen hilfst du mit Region, Jahreszeit, Wetter und den eigenen Funden der Person: was um diese Zeit zu finden ist, worauf sie achten soll, welche Verwechslungen gefährlich sind. Erfinde NIE einen genauen Fundplatz, Weg oder eine Entfernung — eigene Fundorte zeigt die Karte. Für Arten kannst du search_species anbieten.\n\n' +
   // v30.69: Lina kann handeln (sicher per Whitelist + Nutzer-Bestätigung). Sie schlägt vor — der Nutzer bestätigt.
   'DU KANNST HANDELN: Wenn die Person dich bittet, etwas IN der App zu tun (irgendwohin navigieren, eine Pflanze hinzufügen, eine Pflege-Erinnerung einrichten, eine Art suchen, ein Formular vorbereiten), dann hänge ANS ENDE deiner Antwort GENAU EINE Zeile an, exakt in diesem Format:\n' +
   '[[GS_ACTION]]{"tool":"<tool>","args":{...}}\n' +
@@ -91225,6 +91232,308 @@ function _gsLinaSicherheit(antwort, treffer) {
 }
 window._gsLinaSicherheit = _gsLinaSicherheit;
 
+// ══ Linas EINBLICK (Paket I, Punkt 8) ═══════════════════════════════════════
+// Bis hierher sah Lina von den Pflanzen nur die ZAHL und die Namen mit einer
+// faelligen Aufgabe (docs/memory/07-lina.md, „Was sie NICHT sieht"): keine
+// Gaerten, keine Pflanzungen, kein Tagebuch, kein Wetter, keine Fundorte.
+// Wer fragte „wie geht es meiner Monstera?", bekam eine Antwort ueber
+// Monsteras im Allgemeinen.
+//
+// Der Einblick ist ein ZWEITER Block neben gsLinaZahlen, mit eigenem Deckel —
+// dieselben Regeln (07-lina.md „Wer Lina etwas Neues gibt"):
+//   · jede Zeile liest aus dem EINEN Eigner (03-daten-eigner.md), keine zweite Rechnung
+//   · jede Aufzaehlung hat einen Deckel UND „+N weitere"
+//   · ohne Daten keine Zeile — und eine Entwarnung nennt, WAS geprueft wurde
+//   · gekuerzt wird an der Wortgrenze, Zeilen fallen ganz (_gsLinaDeckeln)
+//   · nie ein Foto, nie eine Koordinate: nur Namen, Daten und Zaehler
+// Die Person kann den Einblick abschalten (gs_lina_einblick = '0'); dann
+// bleibt Lina beim bisherigen Kontext.
+var GS_LINA_EINBLICK_MAX = 1500;
+var GS_LINA_PFLANZEN_NENNEN = 8;       // Namen in der Zeile „Pflanzen:"
+var GS_LINA_GAERTEN_NENNEN = 3;        // Gaerten in der Zeile „Gärten:"
+var GS_LINA_PFLANZUNGEN_NENNEN = 5;    // Pflanzungen je Garten
+var GS_LINA_DETAIL_PFLANZEN = 2;       // so viele Pflanzen aus der FRAGE bekommen eine Detailzeile
+var GS_LINA_DETAIL_MAX = 420;          // Zeichen je Detailzeile
+var GS_LINA_HILFE_NENNEN = 4;
+var GS_HILFE_UEBERFAELLIG_TAGE = 2;    // ab so vielen Tagen Verzug „braucht Hilfe" (1 Tag ist Alltag)
+var GS_HILFE_SCHAEDLING_TAGE = 14;     // ein notierter Schaedling gilt so lange als offen
+
+function gsLinaEinblickAn() {
+  try { return localStorage.getItem('gs_lina_einblick') !== '0'; } catch (_) { return true; }
+}
+window.gsLinaEinblickAn = gsLinaEinblickAn;
+function gsLinaEinblickSchalten() {
+  try {
+    if (gsLinaEinblickAn()) localStorage.setItem('gs_lina_einblick', '0');
+    else localStorage.removeItem('gs_lina_einblick');
+  } catch (_) {}
+  try { gsLinaRender(false); } catch (_) {}
+}
+window.gsLinaEinblickSchalten = gsLinaEinblickSchalten;
+
+// Eine Zeile, an der Wortgrenze gekuerzt — nie mitten im Wert (02-regeln.md).
+function _gsLinaKurz(t, n) {
+  var s = String(t == null ? '' : t).replace(/\s+/g, ' ').trim();
+  if (s.length <= n) return s;
+  var k = s.slice(0, n), l = k.lastIndexOf(' ');
+  return (l > n * 0.5 ? k.slice(0, l) : k) + '…';
+}
+// Ein Datum als T.M.JJJJ. Ein reiner Tag („2026-05-15") wird NICHT ueber
+// `new Date()` gelesen — das waere Mitternacht UTC und westlich davon der Vortag.
+function _gsLinaTag(roh) {
+  try {
+    if (roh == null || roh === '') return '';
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(roh));
+    if (m && String(roh).length <= 10) return (+m[3]) + '.' + (+m[2]) + '.' + m[1];
+    var d = new Date(roh);
+    if (!isFinite(d.getTime())) return '';
+    return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear();
+  } catch (_) { return ''; }
+}
+function _gsLinaVorTagen(ms) {
+  var t = Math.max(0, Math.round((Date.now() - ms) / 864e5));
+  return t === 0 ? 'heute' : t === 1 ? 'gestern' : 'vor ' + t + ' Tagen';
+}
+
+// Beide Pflanzenlisten mit ihrem Ort — „Meine Pflanzen" und Garten-Pflanzungen.
+function _gsLinaPflanzenAlle() {
+  var out = [];
+  try {
+    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) myPlants.forEach(function (p) {
+      if (!p || !p.name) return;
+      var ort = _gsLinaKurz(p.nick || p.location || p.standort || '', 30);
+      out.push({ p: p, liste: 'myPlants', ort: ort ? 'Meine Pflanzen, ' + ort : 'Meine Pflanzen', seit: p.added || null });
+    });
+  } catch (_) {}
+  try {
+    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) plantings.forEach(function (p) {
+      if (!p || !p.name) return;
+      var g = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens.find(function (x) { return x && x.id === p.gardenId; }) : null;
+      out.push({ p: p, liste: 'plantings', ort: g && g.name ? 'Garten „' + _gsLinaKurz(g.name, 30) + '“' : 'Garten', seit: p.date || p.added || null });
+    });
+  } catch (_) {}
+  return out;
+}
+
+// WER BRAUCHT HILFE? Gerechnet, nicht geraten — zwei Signale, beide aus
+// gespeicherten Daten: eine Aufgabe ist GS_HILFE_UEBERFAELLIG_TAGE oder mehr
+// im Verzug (gsGetDueTasks, die eine Faelligkeitsrechnung), oder im Tagebuch
+// steht in den letzten GS_HILFE_SCHAEDLING_TAGE Tagen ein Schaedling
+// (gsTagebuchAlle). Die App kennt KEINEN Gesundheitswert einer Pflanze — wer
+// hier einen ausgibt, erfindet ihn.
+function gsPflanzenHilfe() {
+  var nach = {}, reihe = [];
+  function merk(p, grund, gewicht) {
+    if (!p || p.id == null) return;
+    var k = String(p.id);
+    if (!nach[k]) { nach[k] = { id: p.id, name: String(p.name || '?'), gruende: [], gewicht: 0 }; reihe.push(nach[k]); }
+    if (nach[k].gruende.indexOf(grund) < 0) nach[k].gruende.push(grund);
+    nach[k].gewicht = Math.max(nach[k].gewicht, gewicht);
+  }
+  try {
+    var due = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks() : [];
+    due.forEach(function (x) {
+      if (!x || !x.plant || !(x.days <= -GS_HILFE_UEBERFAELLIG_TAGE)) return;
+      var verb = (typeof _GS_DP_VERB !== 'undefined' && _GS_DP_VERB[x.key]) || String((x.def && x.def.name) || x.key).toLowerCase();
+      merk(x.plant, verb + ' seit ' + (-x.days) + ' Tagen überfällig', 100 + (-x.days));
+    });
+  } catch (_) {}
+  try {
+    var tb = (typeof gsTagebuchAlle === 'function') ? (gsTagebuchAlle() || []) : [];
+    var grenze = Date.now() - GS_HILFE_SCHAEDLING_TAGE * 864e5;
+    tb.forEach(function (e) {
+      if (!e || e.cat !== 'pest' || !e.pflanze_id || !e.ts) return;
+      var z = new Date(e.ts).getTime();
+      if (!isFinite(z) || z < grenze) return;
+      var f = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(e.pflanze_id) : null;
+      if (f && f.p) merk(f.p, 'Schädling notiert am ' + _gsLinaTag(e.ts), 50);
+    });
+  } catch (_) {}
+  return reihe.sort(function (a, b) { return b.gewicht - a.gewicht; });
+}
+window.gsPflanzenHilfe = gsPflanzenHilfe;
+
+// Welche EIGENEN Pflanzen nennt die Frage? Ganzer Name an Wortgrenzen (mit
+// Mehrzahl-Endung), laengster Name zuerst — „Tomate" trifft „meine Tomaten",
+// aber „Rose" nicht „Rosenkohl".
+function _gsLinaPflanzenInFrage(frage) {
+  var out = [];
+  try {
+    var f = ' ' + String(frage || '').toLowerCase().replace(/[^a-z0-9äöüéèêàâçñß]+/g, ' ') + ' ';
+    if (f.trim().length < 3) return out;
+    var alle = _gsLinaPflanzenAlle().slice().sort(function (a, b) { return String(b.p.name).length - String(a.p.name).length; });
+    alle.forEach(function (x) {
+      if (out.length >= GS_LINA_DETAIL_PFLANZEN) return;
+      var namen = [x.p.name, x.p.nick].filter(Boolean);
+      for (var i = 0; i < namen.length; i++) {
+        var n = String(namen[i]).toLowerCase().replace(/\s*\(.*?\)\s*/g, ' ').replace(/[^a-z0-9äöüéèêàâçñß]+/g, ' ').trim();
+        if (n.length < 3) continue;
+        var re = new RegExp(' ' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:n|en|e|s)? ');
+        if (re.test(f)) { out.push(x); return; }
+      }
+    });
+  } catch (_) {}
+  return out;
+}
+
+function _gsLinaPflanzeDetail(x) {
+  try {
+    var p = x.p, teile = [x.ort];
+    if (p.variety) teile.push('Sorte ' + _gsLinaKurz(p.variety, 30));
+    if (p.count && +p.count > 1) teile.push((+p.count) + ' Stück');
+    var seit = _gsLinaTag(x.seit);
+    if (seit) teile.push((x.liste === 'plantings' ? 'gepflanzt am ' : 'eingetragen am ') + seit);
+    // Aufgaben: Intervall und Stand aus _gsTaskDays — der einen Faelligkeitsrechnung
+    var auf = [], mehrA = 0;
+    Object.keys(p.tasks || {}).forEach(function (k) {
+      var t = p.tasks[k];
+      if (!t || !t.active) return;
+      if (auf.length >= 4) { mehrA++; return; }
+      var verb = (typeof _GS_DP_VERB !== 'undefined' && _GS_DP_VERB[k]) || k;
+      var d = (typeof _gsTaskDays === 'function') ? _gsTaskDays(t) : null;
+      var stand = (typeof d !== 'number' || !isFinite(d)) ? '' : d < 0 ? ', seit ' + (-d) + ' T. fällig' : d === 0 ? ', heute fällig' : ', in ' + d + ' T.';
+      auf.push(verb + ' alle ' + t.intervalDays + ' T.' + stand);
+    });
+    if (auf.length) teile.push('Aufgaben: ' + auf.join(', ') + (mehrA ? ', +' + mehrA + ' weitere' : ''));
+    // Tagebuch und Fotos aus gsTagebuchAlle (Gartentagebuch + p.diary + Cloud-Spiegel)
+    var tb = ((typeof gsTagebuchAlle === 'function') ? (gsTagebuchAlle() || []) : [])
+      .filter(function (e) { return e && e.pflanze_id === p.id && e.ts; })
+      .sort(function (a, b) { return new Date(b.ts) - new Date(a.ts); });
+    if (tb.length) {
+      teile.push('Tagebuch: ' + tb.slice(0, 3).map(function (e) {
+        return _gsLinaTag(e.ts) + ' ' + _gsLinaKurz(e.text, 40) + (e.note ? ' — ' + _gsLinaKurz(e.note, 60) : '');
+      }).join(' / ') + (tb.length > 3 ? ' / +' + (tb.length - 3) + ' weitere' : ''));
+    } else teile.push('Tagebuch: keine Einträge');
+    var fo = tb.filter(function (e) { return !!e.photo; });
+    var nFo = fo.length + (p.photo ? 1 : 0);
+    if (fo.length >= 2) teile.push('Fotos: ' + nFo + ' (im Tagebuch von ' + _gsLinaTag(fo[fo.length - 1].ts) + ' bis ' + _gsLinaTag(fo[0].ts) + ')');
+    else if (fo.length === 1) teile.push('Fotos: ' + nFo + ' (im Tagebuch vom ' + _gsLinaTag(fo[0].ts) + ')');
+    else teile.push(nFo ? 'Fotos: 1' : 'Fotos: keine');
+    if (p.notes) teile.push('Notiz: ' + _gsLinaKurz(p.notes, 80));
+    // Der Deckel nimmt GANZE Angaben von hinten — nie einen halben Wert.
+    var kopf = 'Im Detail — ' + _gsLinaKurz(p.name, 40) + ': ', weg = 0;
+    while (teile.length > 1 && (kopf + teile.join('; ')).length + (weg ? 24 : 0) > GS_LINA_DETAIL_MAX) { teile.pop(); weg++; }
+    return kopf + teile.join('; ') + (weg ? '; +' + weg + ' Angaben ausgelassen' : '') + '.';
+  } catch (_) { return ''; }
+}
+
+var _GS_LINA_LICHT = { shade: 'Schatten', part_sun: 'Halbschatten', full_sun: 'volle Sonne' };
+var _GS_LINA_BODEN = { sand: 'sandig', loam: 'lehmig', clay: 'tonig', humus: 'humusreich' };
+function _gsLinaGaertenZeile() {
+  try {
+    if (typeof gardens === 'undefined' || !Array.isArray(gardens) || !gardens.length) return '';
+    var pl = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings : [];
+    var st = gardens.slice(0, GS_LINA_GAERTEN_NENNEN).map(function (g) {
+      if (!g) return null;
+      var e = [];
+      try { e.push(gsGartenArt(g).label); } catch (_) {}
+      if (g.width && g.length) e.push(g.width + ' × ' + g.length + ' m');
+      if (_GS_LINA_LICHT[g.light]) e.push(_GS_LINA_LICHT[g.light]);
+      if (_GS_LINA_BODEN[g.soil]) e.push(_GS_LINA_BODEN[g.soil]);
+      var drin = pl.filter(function (p) { return p && p.gardenId === g.id && p.name; });
+      var namen = drin.slice(0, GS_LINA_PFLANZUNGEN_NENNEN).map(function (p) {
+        var d = _gsLinaTag(p.date);
+        return _gsLinaKurz(p.name, 30) + (p.count && +p.count > 1 ? ' ×' + (+p.count) : '') + (d ? ' (seit ' + d + ')' : '');
+      });
+      return _gsLinaKurz(g.name || 'Garten', 30) + (e.length ? ' [' + e.join(', ') + ']' : '') + ': ' +
+        (namen.length ? namen.join(', ') + (drin.length > namen.length ? ', +' + (drin.length - namen.length) + ' weitere' : '') : 'noch nichts gepflanzt');
+    }).filter(Boolean);
+    if (!st.length) return '';
+    var mehr = gardens.length - GS_LINA_GAERTEN_NENNEN;
+    return 'Gärten: ' + st.join(' | ') + (mehr > 0 ? ' | +' + mehr + ' weitere' : '') + '.';
+  } catch (_) { return ''; }
+}
+
+// Das WETTER am gewaehlten Ort — aus dem Zwischenspeicher des Wetter-Laders
+// (EIN Schreiber seit v33.34), Rohwerte von Open-Meteo. Die Zeile erscheint
+// nur, wenn (a) die Person einen Ort gewaehlt hat, (b) die Vorhersage fuer
+// DIESEN Ort geladen wurde und (c) der heutige Tag darin vorkommt — eine
+// Vorhersage von vorgestern als „heute" waere eine Erfindung mit Dezimalstelle.
+function _gsLinaWetterZeile() {
+  try {
+    var l = JSON.parse(localStorage.getItem('gs_user_location') || 'null');
+    var c = JSON.parse(localStorage.getItem('gs_weather_cache') || 'null');
+    var d = c && c.data && c.data.daily;
+    if (!l || !l.name || !d || !Array.isArray(d.time)) return '';
+    var lon = (l.lon != null) ? l.lon : l.lng;
+    if (!(Math.abs(Number(c.lat) - Number(l.lat)) < 0.02 && Math.abs(Number(c.lon) - Number(lon)) < 0.02)) return '';
+    var heute = gsHeuteTag(), i0 = -1;
+    for (var i = 0; i < d.time.length; i++) if (String(d.time[i]).slice(0, 10) === heute) { i0 = i; break; }
+    if (i0 < 0) return '';
+    var wort = ['heute', 'morgen', 'übermorgen'], tage = [];
+    function zahl(reihe, i) { if (!Array.isArray(reihe)) return null; var v = reihe[i]; return (v == null || v === '' || !isFinite(Number(v))) ? null : Number(v); }
+    for (var k = 0; k < 3 && i0 + k < d.time.length; k++) {
+      var mn = zahl(d.temperature_2m_min, i0 + k), mx = zahl(d.temperature_2m_max, i0 + k);
+      var mm = zahl(d.precipitation_sum, i0 + k), pp = zahl(d.precipitation_probability_max, i0 + k);
+      var s = [];
+      if (mn != null && mx != null) s.push(mn + ' bis ' + mx + ' °C');
+      if (mm != null) s.push('Regen ' + mm + ' mm' + (pp != null ? ' (' + pp + ' % Wahrscheinlichkeit)' : ''));
+      if (s.length) tage.push(wort[k] + ' ' + s.join(', '));
+    }
+    if (!tage.length) return '';
+    var alter = c.ts ? Math.max(0, Math.round((Date.now() - c.ts) / 3600000)) : null;
+    var z = 'Wetter ' + _gsLinaKurz(l.name, 40) + ' (Vorhersage Open-Meteo' + (alter != null ? ', geladen vor ' + alter + ' h' : '') + '): ' + tage.join('; ') + '.';
+    // Die vier Schwellen (Frost, Hitze, Starkregen, Sturm) aus der EINEN Rechnung
+    var wt = (typeof _gsWetterTage === 'function') ? _gsWetterTage() : null, warn = [], mehrW = 0;
+    (wt || []).forEach(function (t) {
+      if (!t || t.tag < heute) return;
+      (t.treffer || []).forEach(function (x) {
+        if (warn.length >= 3) { mehrW++; return; }
+        warn.push(_gsWetterTitel(x.k, x.wert) + ' am ' + _gsLinaTag(t.tag));
+      });
+    });
+    if (warn.length) z += ' Warnungen (7 Tage): ' + warn.join('; ') + (mehrW ? '; +' + mehrW + ' weitere' : '') + '.';
+    else if (wt) z += ' Warnungen (7 Tage): keine der vier Schwellen (Frost, Hitze, Starkregen, Sturm) überschritten.';
+    return z;
+  } catch (_) { return ''; }
+}
+
+function gsLinaEinblick(frageText) {
+  try {
+    if (!gsLinaEinblickAn()) return '';
+    var teile = [];
+    var alle = _gsLinaPflanzenAlle();
+    // 1 · Wer braucht Hilfe?
+    if (alle.length) {
+      var hilfe = gsPflanzenHilfe();
+      if (hilfe.length) teile.push('Braucht Hilfe: ' + hilfe.slice(0, GS_LINA_HILFE_NENNEN).map(function (h) {
+        return _gsLinaKurz(h.name, 30) + ' (' + h.gruende.slice(0, 2).join(', ') + ')';
+      }).join('; ') + (hilfe.length > GS_LINA_HILFE_NENNEN ? '; +' + (hilfe.length - GS_LINA_HILFE_NENNEN) + ' weitere' : '') + '.');
+      else teile.push('Braucht Hilfe: nach den Daten der App niemand (geprüft: keine Aufgabe ' + GS_HILFE_UEBERFAELLIG_TAGE + ' oder mehr Tage überfällig, kein Schädling in ' + GS_HILFE_SCHAEDLING_TAGE + ' Tagen notiert). Über den Zustand der Pflanzen selbst sagt das nichts.');
+    }
+    // 2 · die Pflanzen aus der FRAGE, je eine Detailzeile
+    _gsLinaPflanzenInFrage(frageText).forEach(function (x) { var z = _gsLinaPflanzeDetail(x); if (z) teile.push(z); });
+    // 3 · das Wetter am Ort
+    var wz = _gsLinaWetterZeile(); if (wz) teile.push(wz);
+    // 4 · alle Pflanzen beim Namen
+    if (alle.length) teile.push('Pflanzen: ' + alle.slice(0, GS_LINA_PFLANZEN_NENNEN).map(function (x) {
+      return _gsLinaKurz(x.p.name, 30) + ' (' + x.ort + ')';
+    }).join('; ') + (alle.length > GS_LINA_PFLANZEN_NENNEN ? '; +' + (alle.length - GS_LINA_PFLANZEN_NENNEN) + ' weitere' : '') + '.');
+    // 5 · Gaerten und Beete
+    var gz = _gsLinaGaertenZeile(); if (gz) teile.push(gz);
+    // 6 · fruehere Scans (der juengste steht schon in „Letzter Scan")
+    try {
+      var hist = JSON.parse(gsStore.get(SCAN_HISTORY_KEY, null) || '[]');
+      var sc = (Array.isArray(hist) ? hist : []).filter(function (h) { return h && h.name && _gsScanZeit(h) != null; })
+        .sort(function (a, b) { return _gsScanZeit(b) - _gsScanZeit(a); }).slice(1);
+      if (sc.length) teile.push('Frühere Scans: ' + sc.slice(0, 3).map(function (h) {
+        return _gsLinaKurz(h.name, 30) + ' (' + _gsLinaVorTagen(_gsScanZeit(h)) + ')';
+      }).join('; ') + (sc.length > 3 ? '; +' + (sc.length - 3) + ' weitere' : '') + '.');
+    } catch (_) {}
+    // 7 · eigene Fundorte der Karte — Name und Tag, NIE die Koordinate
+    try {
+      var mk = JSON.parse(localStorage.getItem('greenscan_markers') || '[]');
+      var fu = (Array.isArray(mk) ? mk : []).filter(function (f) { return f && f.name && _gsFundZeit(f) != null; })
+        .sort(function (a, b) { return _gsFundZeit(b) - _gsFundZeit(a); });
+      if (fu.length) teile.push('Funde auf deiner Karte: ' + fu.slice(0, 4).map(function (f) {
+        return _gsLinaKurz(f.name, 30) + ' (' + _gsLinaTag(_gsFundZeit(f)) + ')';
+      }).join('; ') + (fu.length > 4 ? '; +' + (fu.length - 4) + ' weitere' : '') + '.');
+    } catch (_) {}
+    return _gsLinaDeckeln(teile, GS_LINA_EINBLICK_MAX);
+  } catch (_) { return ''; }
+}
+window.gsLinaEinblick = gsLinaEinblick;
+
 function gsLinaContext(frageText){
   try {
     var ctx = '';
@@ -91243,6 +91552,11 @@ function gsLinaContext(frageText){
     ctx += ' Jahreszeit: ' + ((mon>=3&&mon<=5)?'Frühling':(mon>=6&&mon<=8)?'Sommer':(mon>=9&&mon<=11)?'Herbst':'Winter') + '.';
     var zahlen = gsLinaZahlen();
     if (zahlen) ctx += '\n' + zahlen;
+    // Der Einblick: Pflanzen beim Namen, wer Hilfe braucht, Gaerten, Wetter am Ort, Scans, Fundorte.
+    try {
+      var _eb = (typeof gsLinaEinblick === 'function') ? gsLinaEinblick(frageText || '') : '';
+      if (_eb) ctx += '\n' + _eb;
+    } catch(_){}
     // v33.30: die Arten aus der FRAGE — nur wenn eine erkannt wurde.
     try {
       var _az = (typeof _gsLinaArtenZeile === 'function') ? _gsLinaArtenZeile(frageText || '') : '';
@@ -91388,6 +91702,13 @@ var GS_LINA_SCAN_TAGE = 14;   // ein Scan, der älter ist, ist kein „gerade ge
 function gsLinaVorschlaege() {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
   var out = [], monat = new Date().getMonth();
+  // 0 · wer Hilfe braucht — dieselbe Rechnung wie die Kontextzeile (gsPflanzenHilfe)
+  try {
+    if (typeof gsLinaEinblickAn === 'function' && gsLinaEinblickAn() && typeof gsPflanzenHilfe === 'function') {
+      var _hf = gsPflanzenHilfe();
+      if (_hf.length) out.push(_gsSatz('{1} braucht Hilfe — was soll ich tun?', String(_hf[0].name).trim()));
+    }
+  } catch (_) {}
   // 1 · heute Faelliges — dieselbe Rechnung wie „Heute zu tun" (beide Pflanzenlisten)
   try {
     if (typeof gsGetDueTasks === 'function' && gsGetDueTasks().some(function (t) { return t && t.days <= 0; }))
@@ -91532,6 +91853,12 @@ function gsLinaRender(typing){
         + escHtml(txt) + '</button>';
     });
     body += '</div>';
+    // Was Lina sieht, steht da — und laesst sich abschalten. Kein Fenster, keine Rueckfrage.
+    var _ean = (typeof gsLinaEinblickAn === 'function') ? gsLinaEinblickAn() : true;
+    body += '<div style="text-align:center;padding:2px 10px 8px;font-size:var(--fs-sm);color:var(--muted);line-height:1.5;">'
+      + escHtml(_ean ? _gsSatz('Lina sieht deine Pflanzen, Gärten, Tagebuch-Einträge, das Wetter an deinem Ort, deine Scans und Funde — keine Fotos, keine Koordinaten.') : _gsSatz('Lina sieht deine Pflanzen und Gärten gerade nicht.'))
+      + ' <button data-lina-einblick="' + (_ean ? '1' : '0') + '" onclick="gsLinaEinblickSchalten()" style="background:none;border:none;padding:6px 4px;color:var(--g-dark);font-weight:700;font-size:var(--fs-sm);font-family:inherit;text-decoration:underline;cursor:pointer;">'
+      + escHtml(_ean ? _gsSatz('Ausschalten') : _gsSatz('Einschalten')) + '</button></div>';
   }
   // LINA-2: dahinter die Wartezeit (gsLinaSend zählt sie hoch) — dieselbe Zeile nach 2 und nach 90 s sagte nichts
   if (typing) body += '<div style="display:flex;justify-content:flex-start;margin:8px 0;"><div style="padding:10px 13px;border-radius:var(--r-lg);background:var(--surface2);color:var(--muted);font-size:var(--fs-md);">' + _t('lina_thinking','🌿 Lina denkt nach…') + ' <span id="gs-lina-denkt-zeit" style="font-variant-numeric:tabular-nums;"></span></div></div>';
@@ -96187,6 +96514,8 @@ function showLegalTab(tab) {
       '<strong>Nutzungsdaten:</strong> nur mit deiner Zustimmung (Einstellungen › Datenschutz &amp; Daten, Vorgabe aus) — und dann nur benannte Ereignisse ohne Fotos, Standort oder Pflanzennamen; Fehlerberichte mit Konto-Bezug gehen ebenfalls nur mit Zustimmung. Beides ist pseudonym, nicht anonym: es trägt die Kennung deines Kontos<br>' +
       '<strong>Standortdaten:</strong> GPS nur bei expliziter Freigabe · Zweck: Wetter, Karte, lokale Hinweise, Bestimmung · keine Ortung über die IP-Adresse<br>' +
       '<strong>Pflanzenfotos:</strong> gehen für die Bestimmung an den KI-Dienst (Anthropic, USA), zusammen mit deinem ungefähren Standort (auf rund 100 m gerundet), und werden mit deinem Scan in deinem Konto gespeichert, bis du den Scan löschst. Vor dem Hochladen entfernt die App die Metadaten der Datei (GPS, Gerät, Aufnahmezeit). Mit einem eigenen Anthropic-Schlüssel geht die Anfrage direkt von deinem Gerät an Anthropic, ohne unseren Server<br>' +
+      // Lina · Einblick: derselbe Inhalt wie privacy.html §3, zweiter Absatz.
+      '<strong>Fragen an Lina:</strong> mit deiner Frage gehen die Angaben an den KI-Dienst (Anthropic, USA), die Lina für eine passende Antwort braucht: die Namen deiner Pflanzen, Gärten und Pflanzungen, fällige Aufgaben, die letzten Tagebuch-Einträge der Pflanze, nach der du fragst, die Wettervorhersage für deinen gewählten Ort mit dessen Namen, deine letzten Scans, die Namen deiner Karten-Funde und Messwerte deiner Geräte. Fotos und Koordinaten gehen dabei nicht mit. Den Einblick in Pflanzen, Gärten, Tagebuch, Wetter und Funde kannst du im Lina-Fenster ausschalten<br>' +
       '<strong>Fotos im Speicher:</strong> Scan-, Pflanzen-, Tagebuch- und Fundfotos liegen in einem Ordner deines Kontos, sind aber über ihre Adresse für jeden abrufbar, der die Adresse kennt. Fotos in Community-Beiträgen, Inseraten, Artenbeiträgen und freigegebenen Funden sind für alle sichtbar; ein freigegebener Fund zeigt seinen Ort auf etwa 1 km gerundet<br>' +
       '<strong>Pflanzen, Gärten, Tagebuch, Messwerte (die Einträge):</strong> in deinem Konto, nur für dich lesbar (Zeilenschutz in der Datenbank)<br>' +
       // v33.59: dieselben Empfaenger wie privacy.html §4 — sicherheit_check 97 haelt beide Listen gegeneinander.

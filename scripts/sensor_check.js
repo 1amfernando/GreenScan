@@ -609,7 +609,7 @@ const FAELLE = [
             + ' (Eintrag sagt ' + (roh[0].tox | 0) + ') — die Angabe kommt aus dem EINTRAG, nicht aus der Art' };
         }
       }
-      if (ctx.length > 1650) return { ok: false, warum: 'Kontext ' + ctx.length + ' Zeichen — mit der ARTEN-Zeile zu lang' };
+      if (ctx.length > 1650 + GS_LINA_EINBLICK_MAX) return { ok: false, warum: 'Kontext ' + ctx.length + ' Zeichen — mit der ARTEN-Zeile zu lang' };
       return { ok: true, info: ctx.length + ' Zeichen · Zeile da bei erkannter Art, weg ohne · tox aus _gsArtAnzeige' };
     },
   },
@@ -968,7 +968,7 @@ const FAELLE = [
       // GS_LINA_ZAHLEN_MAX) + die ARTEN-Zeile (Deckel GS_LINA_ARTEN_MAX) + drei feste
       // Zeilen (gemessen 348 Zeichen). Mit dem Kalender-Block waere 1'350 gerissen,
       // ohne dass irgendein Teil zu gross ist.
-      const schranke = GS_LINA_ZAHLEN_MAX + GS_LINA_ARTEN_MAX + 400;
+      const schranke = GS_LINA_ZAHLEN_MAX + GS_LINA_EINBLICK_MAX + GS_LINA_ARTEN_MAX + 400;
       if (ctx.length > schranke) return { ok: false, warum: 'Kontext ' + ctx.length + ' Zeichen (Schranke ' + schranke + ') — das ist ein Datenexport, kein Kontext' };
       const sichern = { g: localStorage.getItem('gs_geraete'), mp: myPlants, pl: plantings };
       try {
@@ -1011,7 +1011,7 @@ const FAELLE = [
             if (!titel.has(t)) klagen.push('„' + t + '" ist kein Ereignis der Kalenderfunktion');
           });
         });
-        const schranke = GS_LINA_ZAHLEN_MAX + GS_LINA_ARTEN_MAX + 400;   // v33.39: gerechnet, nicht geraten
+        const schranke = GS_LINA_ZAHLEN_MAX + GS_LINA_EINBLICK_MAX + GS_LINA_ARTEN_MAX + 400;   // v33.39: gerechnet, nicht geraten
         if (ctx.length > schranke) klagen.push('Kontext ' + ctx.length + ' Zeichen (Schranke ' + schranke + ') — Datenexport statt Kontext');
         // Gegenrichtung: ohne Kulturen und Plaene keine dieser Zeilen — und kein erfundenes „keine"
         window.myPlants = [{ id: 'lk3', name: 'Monstera', tasks: {} }]; localStorage.removeItem('gs_garden_plans');
@@ -2686,6 +2686,90 @@ const FAELLE = [
         try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
         window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
         try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // Linas Einblick (Paket I): Pflanzen beim Namen, wer Hilfe braucht, Gaerten,
+    // Wetter am Ort, Fundorte. Geprueft wird der KONTEXT gegen die Datensaetze:
+    // jede Zahl stammt aus einem, ohne Daten steht keine Zeile, kein Foto und
+    // keine Koordinate verlaesst das Geraet, und der Schalter nimmt alles weg.
+    name: 'Lina · Einblick: Hilfe, Detail, Gärten, Wetter und Funde stehen im Kontext — jede Angabe aus einem Datensatz, kein Foto, keine Koordinate, ohne Daten keine Zeile, abschaltbar',
+    lauf: () => {
+      const jetzt = Date.now(), T = 864e5;
+      const sichern = { mp: myPlants, pl: plantings, ga: gardens, loc: localStorage.getItem('gs_user_location'), wc: localStorage.getItem('gs_weather_cache'),
+        mk: localStorage.getItem('greenscan_markers'), eb: localStorage.getItem('gs_lina_einblick') };
+      const klagen = [];
+      try {
+        localStorage.removeItem('gs_lina_einblick');
+        myPlants = [
+          { id: 'e1', name: 'Monstera', nick: 'Wohnzimmer', added: new Date(jetzt - 200 * T).toISOString(), notes: 'vom Wochenmarkt', photo: 'data:image/jpeg;base64,GEHEIMEINS',
+            tasks: { water: { active: true, intervalDays: 4, lastDone: new Date(jetzt - 9 * T).toISOString() }, repot: { active: false, intervalDays: 365, lastDone: new Date(jetzt).toISOString() } },
+            diary: [ { ts: new Date(jetzt - 3 * T).toISOString(), action: 'pest', title: '🐛 Spinnmilben', note: 'Unterseite der Blätter' },
+                     { ts: new Date(jetzt - 20 * T).toISOString(), action: 'photo', title: '📸 Foto', photo: 'data:image/jpeg;base64,GEHEIMZWEI' } ] },
+          { id: 'e2', name: 'Rosenkohl', tasks: {}, diary: [] },
+        ];
+        gardens = [{ id: 'ge1', name: 'Hochbeet Süd', kind: 'hochbeet', width: 1.2, length: 2, light: 'full_sun', soil: 'loam' }, { id: 'ge2', name: 'Leerbeet', kind: 'freiland' }];
+        plantings = [{ id: 'ep1', gardenId: 'ge1', name: 'Tomate', count: 3, date: '2025-05-15', tasks: {} }];
+        localStorage.setItem('gs_user_location', JSON.stringify({ lat: 47.03, lon: 9.45, name: 'Vilters-Wangs' }));
+        const h = gsHeuteTag(), t1 = _gsKalTagPlus(h, 1), t2 = _gsKalTagPlus(h, 2);
+        const daily = { time: [h, t1, t2], temperature_2m_min: [11.3, 1.4, 9], temperature_2m_max: [22.1, 15, 19], precipitation_sum: [0, 4.2, 0], precipitation_probability_max: [10, 80, 5], windspeed_10m_max: [10, 12, 9] };
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: jetzt - 2 * 3600e3, lat: 47.03, lon: 9.45, data: { daily: daily } }));
+        localStorage.setItem('greenscan_markers', JSON.stringify([{ id: 'f1', name: 'Bärlauch', date: jetzt - 100 * T, lat: 47.123456, lng: 9.412345 }]));
+        const ctx = gsLinaContext('Wie geht es meiner Monstera?');
+        const zeile = (kopf) => (ctx.match(new RegExp('^' + kopf + '[^\\n]*', 'm')) || [''])[0];
+        const zH = zeile('Braucht Hilfe:'), zD = zeile('Im Detail — Monstera:'), zG = zeile('Gärten:'), zW = zeile('Wetter '), zP = zeile('Pflanzen:'), zF = zeile('Funde auf deiner Karte:');
+        if (!/Monstera \(giessen seit 5 Tagen überfällig, Schädling notiert am 29\.8\.2025\)/.test(zH)) klagen.push('Hilfe-Zeile nennt Verzug (9 Tage her, Intervall 4 → 5) oder Schädling nicht: ' + zH);
+        if (/Rosenkohl|Tomate/.test(zH)) klagen.push('eine Pflanze ohne Signal steht unter „Braucht Hilfe": ' + zH);
+        if (!/Meine Pflanzen, Wohnzimmer/.test(zD) || !/giessen alle 4 T\., seit 5 T\. fällig/.test(zD) || !/Tagebuch: 29\.8\.2025 .*Spinnmilben — Unterseite der Blätter/.test(zD) || !/Fotos: 2 \(im Tagebuch vom 12\.8\.2025\)/.test(zD) || !/Notiz: vom Wochenmarkt/.test(zD)) klagen.push('Detailzeile unvollständig: ' + zD);
+        if (/umtopfen/.test(zD)) klagen.push('eine inaktive Aufgabe steht in der Detailzeile');
+        if (zD.length > GS_LINA_DETAIL_MAX) klagen.push('Detailzeile ' + zD.length + ' Zeichen über dem Deckel');
+        if (!/Hochbeet Süd \[Hochbeet, 1\.2 × 2 m, volle Sonne, lehmig\]: Tomate ×3 \(seit 15\.5\.2025\)/.test(zG) || !/Leerbeet \[Freiland-Beet\]: noch nichts gepflanzt/.test(zG)) klagen.push('Gärten-Zeile stimmt nicht: ' + zG);
+        if (!/^Wetter Vilters-Wangs \(Vorhersage Open-Meteo, geladen vor 2 h\): heute 11\.3 bis 22\.1 °C, Regen 0 mm \(10 % Wahrscheinlichkeit\); morgen 1\.4 bis 15 °C, Regen 4\.2 mm \(80 % Wahrscheinlichkeit\)/.test(zW)) klagen.push('Wetter-Zeile stimmt nicht: ' + zW);
+        if (!/Tiefstwert 1\.4 °C am /.test(zW)) klagen.push('die Frost-Schwelle (1.4 °C morgen) fehlt in der Wetter-Zeile: ' + zW);
+        const roh = new Set([].concat(daily.temperature_2m_min, daily.temperature_2m_max, daily.precipitation_sum, daily.precipitation_probability_max).map(String));
+        const zW0 = zW.replace(/geladen vor \d+ h/, '').replace(/am \d+\.\d+\.\d+/g, '').replace(/\(7 Tage\)/, '');
+        const fremd = Array.from(zW0.matchAll(/\d+(?:\.\d+)?/g)).map(m => m[0]).filter(z => !roh.has(z));
+        if (fremd.length) klagen.push('Zahlen in der Wetter-Zeile ohne Datensatz: ' + JSON.stringify(fremd));
+        if (!/Monstera \(Meine Pflanzen, Wohnzimmer\); Rosenkohl \(Meine Pflanzen\); Tomate \(Garten „Hochbeet Süd“\)/.test(zP)) klagen.push('Pflanzen-Zeile stimmt nicht: ' + zP);
+        if (!/Bärlauch \(/.test(zF)) klagen.push('Fund fehlt: ' + zF);
+        if (/GEHEIM|base64|47\.12|9\.41|47\.03|9\.45/.test(ctx)) klagen.push('ein Foto oder eine Koordinate steht im Kontext');
+        // Wortgrenze: „Rose" ist nicht „Rosenkohl"
+        if (/Im Detail — Rosenkohl/.test(gsLinaContext('Was mache ich mit meiner Rose?'))) klagen.push('„Rose" trifft „Rosenkohl" — kein Wortgrenzen-Vergleich');
+        if (!/Im Detail — Tomate: Garten „Hochbeet Süd“; 3 Stück; gepflanzt am 15\.5\.2025/.test(gsLinaContext('Wann kann ich die Tomaten ernten?'))) klagen.push('die Mehrzahl „Tomaten" findet die Pflanzung „Tomate" nicht');
+        // Vorhersage fuer einen ANDEREN Ort: keine Wetter-Zeile
+        localStorage.setItem('gs_user_location', JSON.stringify({ lat: 46.2, lon: 6.14, name: 'Genf' }));
+        if (/^Wetter /m.test(gsLinaContext('Wetter?'))) klagen.push('die Vorhersage eines anderen Orts wird als Wetter von Genf ausgegeben');
+        localStorage.setItem('gs_user_location', JSON.stringify({ lat: 47.03, lon: 9.45, name: 'Vilters-Wangs' }));
+        // Vorhersage ohne den heutigen Tag: keine Zeile
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: jetzt - 80 * 3600e3, lat: 47.03, lon: 9.45, data: { daily: Object.assign({}, daily, { time: [_gsKalTagPlus(h, -3), _gsKalTagPlus(h, -2), _gsKalTagPlus(h, -1)] }) } }));
+        if (/^Wetter /m.test(gsLinaContext('Wetter?'))) klagen.push('eine veraltete Vorhersage (ohne den heutigen Tag) steht als Wetter da');
+        // Der Vorschlag im leeren Verlauf nennt dieselbe Pflanze
+        if (!gsLinaVorschlaege().some(v => /Monstera/.test(v))) klagen.push('kein Vorschlag zu der Pflanze, die Hilfe braucht');
+        // Der Einblick-Deckel
+        const eb = gsLinaEinblick('Wie geht es meiner Monstera?');
+        if (eb.length > GS_LINA_EINBLICK_MAX) klagen.push('Einblick ' + eb.length + ' Zeichen über dem Deckel ' + GS_LINA_EINBLICK_MAX);
+        // Ohne Signal: die Entwarnung nennt, was geprueft wurde
+        myPlants[0].tasks.water.lastDone = new Date(jetzt).toISOString(); myPlants[0].diary = [];
+        const zH2 = (gsLinaContext('').match(/^Braucht Hilfe:[^\n]*/m) || [''])[0];
+        if (!/niemand \(geprüft: keine Aufgabe 2 oder mehr Tage überfällig, kein Schädling in 14 Tagen notiert\)/.test(zH2)) klagen.push('die Entwarnung nennt nicht, was geprüft wurde: ' + zH2);
+        // Abgeschaltet: nichts davon
+        gsLinaEinblickSchalten();
+        const aus = gsLinaContext('Wie geht es meiner Monstera?');
+        if (/^(Braucht Hilfe|Im Detail|Gärten|Wetter |Pflanzen:|Funde auf)/m.test(aus)) klagen.push('abgeschaltet stehen die Zeilen noch da');
+        if (gsLinaVorschlaege().some(v => /braucht Hilfe/.test(v))) klagen.push('abgeschaltet erscheint der Hilfe-Vorschlag noch');
+        gsLinaEinblickSchalten();
+        // Ohne Pflanzen und Gaerten: keine Zeile
+        myPlants = []; plantings = []; gardens = [];
+        const leer = gsLinaContext('');
+        if (/^(Braucht Hilfe|Im Detail|Gärten|Pflanzen:)/m.test(leer)) klagen.push('ohne Pflanzen und Gärten stehen Zeilen da: ' + leer.slice(0, 200));
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Einblick ' + eb.length + ' von ' + GS_LINA_EINBLICK_MAX + ' Zeichen · Hilfe gerechnet · Wetter nur für den gewählten Ort und nur mit dem heutigen Tag · kein Foto, keine Koordinate · Schalter nimmt alles weg' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + e.message + (klagen.length ? ' · ' + klagen.join(' · ') : '') };
+      } finally {
+        myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
+        [['gs_user_location', sichern.loc], ['gs_weather_cache', sichern.wc], ['greenscan_markers', sichern.mk], ['gs_lina_einblick', sichern.eb]].forEach(([k, v]) => { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); });
         try { closeModal('gs-nl-modal'); } catch (_) {}
       }
     },

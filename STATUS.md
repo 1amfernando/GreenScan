@@ -125,6 +125,31 @@ reicht bis zum Zeichnen, auch durch eine aufgerufene Funktion, die selbst wartet
 
 **Offen:** brett:2026-11-19-a24a — der Pilz-Eintrag im Scan-Verlauf (erst nach der Datenseite).
 **Nicht geprüft:** ein echtes Telefon; dieselbe Bauform im Pflanzendoktor und im Schädlings-Check (nicht nachgesehen, Nachtrag 33e0).
+### 2026-11-24 (jr) - v33.70: Lina · Einblick — Pflanzen beim Namen, wer Hilfe braucht, Gärten, Wetter am Ort, Scans und Funde im Kontext
+
+**Auftrag:** Punkt 8 (Lina), Auslöser Linas eigene Wunschliste (Fernando, 19.11.2026). Gebaut auf main v33.65, zweimal nachgezogen (v33.68 #337, dann v33.69 #338 — `1649859`),
+im Code ohne Konflikt; die Nummer ist deshalb v33.70.
+Fernando hat am 24.11.2026 zwei Dinge freigegeben: der Einblick ist standardmässig AN (abschaltbar), und der Wortlaut des neuen
+Datenschutz-Absatzes.
+
+**Gebaut:** `gsLinaEinblick(frage)` — ein zweiter Kontextblock neben `gsLinaZahlen` mit eigenem Deckel (`GS_LINA_EINBLICK_MAX` 1500):
+Braucht Hilfe (`gsPflanzenHilfe`: Aufgabe 2+ Tage überfällig oder Schädling in 14 Tagen im Tagebuch), Im Detail (eigene Pflanzen aus der
+Frage, Wortgrenzen), Wetter (nur für den gewählten Ort und nur mit dem heutigen Tag, Schwellen aus `_gsWetterTage`), Pflanzen, Gärten,
+Frühere Scans, Funde (Name und Tag, nie die Koordinate). Dazu der erste Vorschlag im leeren Verlauf, drei Absätze in `LINA_SYSTEM`,
+der Schalter `gs_lina_einblick` (`GS_KEEP_ON_LOGOUT`), ein Absatz in `privacy.html` §3 und in der Erklärung in der App.
+Tabelle und Regeln: `docs/memory/07-lina.md`.
+
+**Geprüft** (lokal, TZ=UTC): `sensor_check` mit dem neuen Fall „Lina · Einblick" (Kontext gegen die Datensätze, kein Foto, keine
+Koordinate, ohne Daten keine Zeile, Schalter), dazu `storage`, `nutzersicht`, `i18n`, `escape`, `robust`, `wiring`, `touch`, `a11y`,
+`render`, `versprechen`, `austausch`.
+
+**Offen:** nichts
+
+**Nicht geprüft:** eine echte Antwort von Lina mit dem neuen Kontext (kein KI-Aufruf von hier); die übrigen Prüfstände lokal (massgeblich
+ist der Lauf auf GitHub); die Wetter-Zeile sagt „keine der vier Schwellen überschritten" auch dann, wenn ein Tagesfeld im
+Zwischenspeicher fehlt. Nicht gebaut und Entscheidung für Fernando: Fotos an Lina, ein Wachstums- oder Gesundheitswert,
+Push-Meldung „braucht Hilfe", Verbreitungsdaten für Wanderungen.
+
 ### 2026-11-24 (jq) - v33.69: Gelöscht bleibt gelöscht — die Schlussprüfung von v33.68, nachgezogen
 
 **Auftrag:** Fernando, „Bitte schau das auch alles gemergt wird." PR #337 (v33.68) ist seit dem 24.11., 13:05 UTC,
@@ -16682,7 +16707,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.70` (Client, Platzhalter bis zur Spitze der Merge-Reihe) · SW-Cache `gs-v33.70` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.70` (Client) · SW-Cache `gs-v33.70` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
 - **Frontend:** `index.html` **102'013 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **596 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
