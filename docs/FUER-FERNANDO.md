@@ -2188,7 +2188,7 @@ ESLint (über `scripts/package.json` und das eingecheckte Lockfile, `npm ci`).
 Dafür ist nichts zu tun. `npm audit` meldet dazu zwei mittlere Lücken in
 `minimatch`, das ESLint mitbringt — es läuft nur in den Prüfständen, nie in der App.
 
-## 33 · Lina: der Datenschutztext nennt weniger, als mitgeht — dein Wortlaut (Vorschlag, v33.7x)
+## 33 · Lina: der Datenschutztext nennt weniger, als mitgeht — dein Wortlaut (Vorschlag, v33.74)
 
 **Was mitgeht** (gemessen am Kontext, den `gsLinaSend` an die KI schickt, `sensor_check` „Lina · Einblick
 ehrlich“): mit eingeschaltetem Einblick die Namen **und Spitznamen** deiner Pflanzen, Gärten und Pflanzungen

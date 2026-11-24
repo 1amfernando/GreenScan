@@ -53,7 +53,7 @@ Seit dem Paket „Lina · Einblick" (Punkt 8) kennt Lina den Garten beim Namen.
 Ein zweiter Block neben `gsLinaZahlen`, abschaltbar im Lina-Fenster
 (`gs_lina_einblick = '0'`, in `GS_KEEP_ON_LOGOUT`; `gsLinaEinblickAn()`).
 
-**„Aus" heisst aus** (Brett 6bbf, seit v33.7x): ohne Einblick gibt `gsLinaContext` NUR Sprache,
+**„Aus" heisst aus** (Brett 6bbf, seit v33.74): ohne Einblick gibt `gsLinaContext` NUR Sprache,
 Jahreszeit und die ARTEN der Frage weiter — keine Pflanzenzahl, keine Region, nichts aus
 `gsLinaZahlen` —, und die KI erfährt, dass sie die Daten nicht kennt. Der Schalter steht im
 leeren Verlauf UND als Zeile im laufenden Gespräch (`gsLinaEinblickSchalten`). Gelingt das
@@ -109,7 +109,7 @@ alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
    prueft jede Zusage („essbar", „kannst du roh essen", „Speisepilz", fr/it/en)
    gegen `tox ≥ 3` — Satz fuer Satz, am ROHEN Text (`_gsLinaNorm` streicht
    Satzzeichen). Gemessen mit den echten Saetzen, nicht ausgewaehlten.
-   Seit v33.7x sieht sie auch die Art einer eigenen Pflanze, die die Frage beim Namen
+   Seit v33.74 sieht sie auch die Art einer eigenen Pflanze, die die Frage beim Namen
    oder Spitznamen nennt („Lilli" = Maiglöckchen, `_gsLinaTrefferMitPflanzen` — auch bei
    ausgeschaltetem Einblick: die Pruefung laeuft auf dem Geraet), und eine giftige Art, die
    erst in der ANTWORT steht — dort nur mit ganzem Namen oder Binomen im selben Satz

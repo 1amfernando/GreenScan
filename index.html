@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.73.20261124">
+<meta name="app-version" content="33.74.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -80337,6 +80337,29 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.74', date: '24.11.2026',
+      headline: 'Pilz-Verwechsler beim Namen, Vergleichsbilder im Scanner — und Lina hält, was ihr Schalter sagt',
+      summary: 'Drei Pakete aus den Hauptfunktionen. Pilz-Scanner: die gefährlichen Doppelgänger stehen mit ihrem Namen und „TÖDLICH“ da — vorher nur als lateinisches Kürzel —, und „Mit Bildern vergleichen“ legt dein Foto neben die Art und ihre Verwechsler. Pflanzen-Scanner: derselbe Vergleich für die erkannte Art und ihre Alternativen. Lina: schaltest du den Einblick aus, bekommt sie nur noch deine Frage; der Schalter steht auch im laufenden Gespräch, notierte Schädlinge kommen an, und die Gift-Warnung kennt deine Pflanzen beim Spitznamen. Dazu zwei Fehler beim Abmelden.',
+      user_summary: 'Beim Pilz siehst du die gefährlichen Doppelgänger mit Namen und im Bild, im Scanner vergleichst du dein Foto mit Bildern der erkannten Art — und schaltest du Linas Einblick aus, bekommt sie wirklich nur deine Frage.',
+      user_items: [
+        {emoji:'🍄', bold:'Pilz · Doppelgänger:', text:' der gefährliche Verwechsler steht mit seinem Namen und „TÖDLICH“ da, nicht mehr als lateinisches Kürzel. „Mit Bildern vergleichen“ zeigt dein Foto neben der Art und ihren Doppelgängern — ein Bild ersetzt keine Pilzkontrolle, und das steht dabei.'},
+        {emoji:'🔒', bold:'Lina · Einblick aus:', text:' heisst jetzt wirklich aus — Lina bekommt nur deine Frage, die Sprache und die Jahreszeit. Den Schalter findest du auch im laufenden Gespräch.'},
+        {emoji:'⚠️', bold:'Lina · Gift-Warnung:', text:' fragst du „Kann ich Lilli essen?“ und Lilli ist dein Maiglöckchen, warnt die App, wenn Lina zusagt — auch wenn eine giftige Art erst in ihrer Antwort steht.'},
+        {emoji:'🐛', bold:'Lina · Schädlinge:', text:' was du im Garten-Tagebuch als Schädling notierst, kennt Lina jetzt; „kein Schädling“ sagt sie nur, wenn sie dein Tagebuch auch gesehen hat.'},
+        {emoji:'🔍', bold:'Scanner · Mit Bildern vergleichen:', text:' unter dem Ergebnis legst du dein Foto neben Referenzbilder der erkannten Art und der Alternativen — mit Giftigkeits-Marke und Unterscheidungsmerkmal. „Das ist es“ übernimmt die richtige Art.'}
+      ],
+      items: [
+        {emoji:'🧭', bold:'gsLinaContext ohne Einblick:', text:' kehrt früh zurück — nur Sprache, Jahreszeit und die Arten der Frage; vorher gingen gsLinaZahlen, Pflanzenzahl und Region weiter an die KI.'},
+        {emoji:'💾', bold:'Voller Speicher:', text:' gsLinaEinblickSchalten liest die Rückgabe von setItem; gescheitert heisst aus bis zum Neuladen (_gsLinaEinblickSitzung), mit einem Satz.'},
+        {emoji:'📍', bold:'_gsOrtNameFuerKi:', text:' der Rückfall „46.948°N, 7.447°E“ von gsReverseGeocode geht nicht als Ortsname an die KI.'},
+        {emoji:'🧪', bold:'Gegenprobe:', text:' _gsLinaTrefferMitPflanzen (eigene Pflanzen beim Namen oder Spitznamen) und giftige Arten der Antwort nur mit ganzem Namen — ohne diese Einschränkung warnte „Petersilie ist essbar“ vor der Hunds-Petersilie.'},
+        {emoji:'🖼️', bold:'Scanner 12:', text:' _gsWikiBildHolen und _gsCommunityBilderHolen holen das Bild einer Art an EINER Stelle; ein Netzfehler wird nicht mehr als „kein Bild“ gemerkt, Wikipedia-Bilder kommen nur von upload.wikimedia.org und tragen ihren Nachweis.'},
+        {emoji:'🍄', bold:'Scanner 13:', text:' Name, Latein und Essbarkeit der Pilz-Verwechsler aus dem Register (_gsPilzRegister, ein Leser _gsPilzVerwechsler) — mushroom-identify schickt nur Slugs; das Vergleichsfenster ist EINE Funktion für Pflanze und Pilz (_gsVglFenster).'},
+        {emoji:'🚪', bold:'Abmelden:', text:' gsOnLogout zählt das Räumen von Linas Gespräch als Wechsel (eine späte Antwort steht nicht im neuen Gespräch), und „Pilz-Bestimmung abgebrochen“ steht auf dem Anmeldebildschirm statt in einem Toast darunter.'},
+        {emoji:'✅', bold:'Prüfstände:', text:' scan_check PV1 bis PV4 und VG1 bis VG7, sensor_check „Lina · Einblick ehrlich“, speicher_check „Lina · Einblick ausschalten“, sicherheit_check 98_schluss_e (zwei Abmelde-Fälle) — gegen den alten Stand rot, jede Schutzstelle einzeln zurückgebaut am richtigen Fall rot.'}
+      ]
+  },
+  {
     v: 'v33.73', date: '24.11.2026',
     headline: 'Die KI wählt das Modell nach Verwendung: kurze Texte auf dem schnellen Modell, Fotos und Essbarkeitsfragen auf dem genauen',
     summary: 'Eine Modellwahl je Verwendung. Kurze Texte bis 600 Token laufen auf dem schnellen Haiku; Foto-Erkennung, Scan-Chat, Garten-Analyse, Quiz-Erklärung und Sprachfragen bleiben auf Sonnet. Der Proxy-Teil (das Feld rolle) wird gesondert ausgeliefert. Die Quiz-Erklärung verwirft eine Antwort, wenn sich das Konto inzwischen geändert hat.',
@@ -80728,28 +80751,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'escape_check A10b:', text:' rendert die bösen Stile wirklich ins Dokument und zählt die Anfragen des Browsers (0), prüft die Überlagerung und acht gute Stile. Gegen v33.53 rot (6 Anfragen); drei Gegenproben einzeln rot.'}
       ]
   },
-  {
-    v: 'v33.53', date: '09.10.2026',
-      headline: 'Export und Drucken in der Android-App',
-      summary: 'In der Android-App taten die Export-Knöpfe bisher nichts: eine nackte WebView kann eine Datei aus dem Arbeitsspeicher nicht ablegen, und print() tut dort nichts. Das Backup meldete trotzdem „heruntergeladen“, und der Giess-Zettel schrieb sich über die laufende App. Jetzt gehen Backup, GPS-Spur, CSV, Archiv und 3D-Foto an den Android-Dialog „Speichern unter“, Gartenplan und Giess-Zettel an den Druckdialog von Android (mit „Als PDF speichern“). Ohne Brücke in die Android-Schicht: die Datei geht in Teilen an Adressen unter dem eigenen Ursprung, die nur die App-Hülle beantwortet. Und jede Meldung kommt erst, wenn die Datei wirklich da ist.',
-      user_summary: 'In der Android-App kannst du jetzt exportieren und drucken: Backup, GPS-Spuren, Tabellen und Fotos speicherst du über „Speichern unter“ dort, wo du willst; Gartenplan und Giess-Zettel gehen an den Druckdialog, wo du sie auch als PDF speichern kannst. Schliesst du den Dialog, sagt die App „Nicht gespeichert“ — statt so zu tun, als wäre die Datei da.',
-      user_items: [
-        {emoji:'💾', bold:'Exportieren in der App:', text:' Backup, GPS-Spur, Pflanzen, Tagebuch, Messwerte, Archiv und das 3D-Foto speicherst du jetzt über den Android-Dialog „Speichern unter“.'},
-        {emoji:'🖨️', bold:'Drucken und PDF:', text:' Gartenplan und Giess-Zettel öffnen den Druckdialog von Android — dort gibt es „Als PDF speichern“.'},
-        {emoji:'✋', bold:'Abbrechen heisst nicht gespeichert:', text:' die Erfolgsmeldung kommt erst, wenn die Datei wirklich da ist.'},
-        {emoji:'🛡️', bold:'Sicherer Druck im Browser:', text:' Text aus der KI-Antwort steht im Garten-Scan-Druck jetzt als Text da und kann dort nichts mehr ausführen.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen:', text:' acht Export-Stellen bauten je einen eigenen Anker und sagten sofort „heruntergeladen“. In der Hülle passierte nichts; das Backup klickte einen LOSGELÖSTEN Anker, den das alte Tor gar nicht sah. window.open(\'\') liefert in einer WebView den laufenden Rahmen — der Giess-Zettel schrieb sich über die App.'},
-        {emoji:'🔌', bold:'Ein Kanal ohne Brücke:', text:' gsDateiSpeichern und gsDrucken sind die zwei Wege für alle. In der Hülle geht die Datei per fetch in Teilen an /__huelle/datei/… (start → teil → fertig), die Hülle sammelt sie in eine Spool-Datei und öffnet „Speichern unter“ bzw. den Druckdialog. Kein addJavascriptInterface.'},
-        {emoji:'🔑', bold:'Vier Riegel und ein Schlüssel:', text:' nur GET, nie eine Navigation, nur mit eigener Kopfzeile, nur vom eigenen Ursprung — und ein zufälliger Schlüssel, den nur lesen kann, wer start mit fetch gestellt hat. Ein <img> aus fremder Hand kommt nicht über start hinaus.'},
-        {emoji:'🧯', bold:'Was auf einem Telefon schiefgeht:', text:' Spool-Datei statt Arbeitsspeicher (Prozess stirbt bei offenem Dialog), "wt" statt "w" (Ersetzen kürzt), eine leere Datei wird wieder gelöscht, Schreiben im Hintergrund, Dialog nur von vorne, monotone Uhr, keine Ausnahme auf dem Faden von shouldInterceptRequest.'},
-        {emoji:'🖨️', bold:'Eine eigene Druckansicht:', text:' ohne JavaScript, ohne Netz, ohne Navigation, Grundadresse null, einmal drucken. GS_HUELLE_ANDERS hat einen sechsten Eintrag, „drucken“.'},
-        {emoji:'🛡️', bold:'Vorbestehende Lücke geschlossen:', text:' gsGardenScanExportPDF setzte Pflanzennamen, Kalender, Werkzeuge und Warnungen aus der KI-Antwort ROH in ein Dokument mit dem Ursprung der App. Jetzt escaped, im Browser wie in der App.'},
-        {emoji:'🧪', bold:'apk_check 28 → 68 Fälle:', text:' Export.java gegen android.jar 23 übersetzt und mit Grenzfällen ausgeführt; in der App-Hälfte läuft die Hülle unter https://green-scan.ch mit der CSP aus _headers, und der Kanal geht an einen Java-Prozess mit dem ECHTEN Sammler. Alle zehn Exporte über ihre echte Funktion, die Datei auf der Platte gelesen, byte-gleich mit dem Download im Browser. 16 Brüche als Gegenprobe, 18 Fälle rot, jeder mit dem richtigen Grund.'},
-        {emoji:'📵', bold:'Grenze:', text:' hier läuft kein Android. Geprüft sind Rechnung, Rand und Seite — ob ein echtes Telefon den Dialog so zeigt, sagt erst ein Gerät (Android 6, 10 und 14).'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -80960,7 +80961,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.73';
+var GS_VERSION = 'v33.74';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

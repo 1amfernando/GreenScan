@@ -345,7 +345,7 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 | Kalenderwoche | `gsIsoKW(d)` — ISO 8601 (Montag bis Sonntag, KW 1 = die Woche mit dem ersten Donnerstag); `gsGetKW()` ist dieselbe Rechnung fuer heute | nie Sieben-Tage-Bloecke ab dem 1. Januar (2026 lag das Montag bis Mittwoch eine Woche zurueck) |
 | Fakten einer Woche | `_gsWochenFakten(kw)` — die Eintraege der Woche, sonst der Nachbarwoche (zuerst die davor), sonst die ersten zehn | kein eigener Rueckfall je Anzeige (die Liste kennt KW 1–52, die ISO-Woche 53 hat keinen Eintrag) |
 | „Steht der Anmeldebildschirm?" | `_gsAnmeldungSteht()` — `html.gs-preauth` ODER `#gs-onboarding` sichtbar | nie nur eine der beiden Bedingungen; `_gsTeilenBereit()` ist ihre Verneinung |
-| Referenzbild einer ART (seit v33.7x, Scanner 12) | geholt an EINER Stelle: `_gsCommunityBilderHolen(spId)` (freigegebene Fotos aus dem eigenen Speicher, über `_gsFremdBild`) und `_gsWikiBildHolen(lat)` (`{src, seite, datei}` oder `null`; nur `upload.wikimedia.org`; ein Netzfehler wird nicht als „kein Bild" gemerkt). Gezeichnet von der Artenansicht (`gsLoadSpeciesImage` → `gsLoadWikiImage`) und vom Vergleich im Scan-Ergebnis (`gsScanVergleichOeffnen`). Der Pilz-Scanner (Scanner 13) nutzt dasselbe Fenster (`_gsVglFenster`); Name, Latein und Essbarkeit eines Pilzes und seiner Verwechsler kommen dort aus dem REGISTER (`_gsPilzRegister`, `_gsPilzVerwechsler`) — `mushroom-identify` schickt die Verwechsler nur als Slugs | ein Bild von Wikipedia OHNE Antippen holen (die Datenschutzerklärung nennt Wikipedia „wenn du eine Art öffnest" — ein Bild bei jedem Scan wäre ein neuer Anlass); ein Wikipedia-Bild ohne Nachweis (`_gsWikiDateiSeite`: Dateiseite mit Urheber und Lizenz); eine dritte Hol-Funktion daneben |
+| Referenzbild einer ART (seit v33.74, Scanner 12) | geholt an EINER Stelle: `_gsCommunityBilderHolen(spId)` (freigegebene Fotos aus dem eigenen Speicher, über `_gsFremdBild`) und `_gsWikiBildHolen(lat)` (`{src, seite, datei}` oder `null`; nur `upload.wikimedia.org`; ein Netzfehler wird nicht als „kein Bild" gemerkt). Gezeichnet von der Artenansicht (`gsLoadSpeciesImage` → `gsLoadWikiImage`) und vom Vergleich im Scan-Ergebnis (`gsScanVergleichOeffnen`). Der Pilz-Scanner (Scanner 13) nutzt dasselbe Fenster (`_gsVglFenster`); Name, Latein und Essbarkeit eines Pilzes und seiner Verwechsler kommen dort aus dem REGISTER (`_gsPilzRegister`, `_gsPilzVerwechsler`) — `mushroom-identify` schickt die Verwechsler nur als Slugs | ein Bild von Wikipedia OHNE Antippen holen (die Datenschutzerklärung nennt Wikipedia „wenn du eine Art öffnest" — ein Bild bei jedem Scan wäre ein neuer Anlass); ein Wikipedia-Bild ohne Nachweis (`_gsWikiDateiSeite`: Dateiseite mit Urheber und Lizenz); eine dritte Hol-Funktion daneben |
 
 ### 3.4 · KI-Calls
 **IMMER** über `callAI(messages, systemPrompt, maxTokens, opts)` oder
@@ -830,7 +830,7 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   stattdessen einen neutralen Namen setzt, ist eine Entscheidung für Fernando
   (STATUS §2).
 - **Ein Schalter, der Daten von der KI fernhält, sitzt dort, wo der Kontext
-  ENTSTEHT** (v33.7x, Brett 6bbf). Linas „Einblick aus“ nahm bis dahin nur EINEN
+  ENTSTEHT** (v33.74, Brett 6bbf). Linas „Einblick aus“ nahm bis dahin nur EINEN
   Block weg; Pflanzenzahl, Region, fällige Aufgaben mit Namen, Geräte, Messwerte,
   Kalender und der letzte Scan gingen weiter mit, während das Fenster das Gegenteil
   sagte. Jetzt kehrt `gsLinaContext` ohne Einblick früh zurück (nur Sprache,
@@ -2287,7 +2287,7 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > ausgewaehlte** — ein Fall, dessen Satz den Treffer schon enthaelt, prueft
 > die Vorlage und nicht die Ware.
 
-> **Die Gegenprobe kennt, was Lina kennt — und was sie schreibt** (v33.7x, Brett
+> **Die Gegenprobe kennt, was Lina kennt — und was sie schreibt** (v33.74, Brett
 > 6bbf). `_gsLinaSicherheit` sah nur die Arten der FRAGE: „Kann ich Lilli essen?"
 > (Lilli = das eigene Maiglöckchen) und „Die Beeren der Eibe kannst du essen." (die
 > Art steht erst in der Antwort) liefen ohne Warnung durch. `_gsLinaTrefferMitPflanzen`
