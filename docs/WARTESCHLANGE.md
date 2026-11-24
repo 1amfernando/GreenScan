@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 15:55 UTC · `main` = `7ca6a19` (**v33.71**) · #344 Kopf `9ac3f5e` (Baum = `440f9e5`, dessen CI läuft noch, Merge als MERGE-COMMIT sobald grün) · #346 KI-Modelle Kopf `22422eb` offen · danach Hauptfunktionen (v33.74), Sicherheit (v33.75).
+**Stand:** 24.11.2026, 16:00 UTC · `main` = `06daf91` (**v33.72**, #343 + #344 gemergt) · #346 KI-Modelle (Kopf `22422eb`, v33.73) in der CI, Merge als MERGE-COMMIT bei grün · Hauptfunktionen baut v33.74 auf `22422eb` · danach Sicherheit v33.75.
 
 ## 1 · Warum es schneller wird
 
@@ -41,9 +41,9 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | Nr | Sitzung | Branch | Version | STATUS-Kennung | Zustand |
 |---|---|---|---|---|---|
 | 1 | Hauptfunktionen (Pilz · Wissen · Lina 9) | `claude/happy-thompson-24l4uu` | **v33.71** | (js) · (jt) · (ju) | **GEMERGT** als `7ca6a19` (#343) |
-| 2 | Audit | `ccr-dce5a17c-2xzhvi` | **v33.72** | (jv) | PR **#344**, Kopf **`440f9e5`** (enthält `33d2818` und main 8a2f16e), CI läuft; Kopf FROREN, Merge nach #343 |
+| 2 | Audit | `ccr-dce5a17c-2xzhvi` | **v33.72** | (jv) | **GEMERGT** als Merge-Commit `06daf91` (#344; CI auf 440f9e5 grün, Baum identisch) |
 | 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | v33.73 | (jw) | PR **#346**, Kopf **`22422eb`** (auf `440f9e5`), CI läuft; sieben Pins + Prüffall `GS_ROLLE_SCHNELL_BEWUSST`; der Proxy-Teil gehört Fernando (Patch-Text in FUER-FERNANDO §33) |
-| 4 | Hauptfunktionen · Lina · Einblick ehrlich + Scanner 12 (EIN Kopf) | Branch von Nr. 3 aus neu aufgesetzt | v33.74 | (jx) · (jy) | wartet auf den Kopf von Nr. 3 |
+| 4 | Hauptfunktionen · Lina · Einblick ehrlich + Scanner 12 (EIN Kopf) | Branch von Nr. 3 aus neu aufgesetzt | v33.74 | (jx) · (jy) | baut jetzt auf `22422eb` (Kopf von Nr. 3, final) |
 | 5 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.75 | (jz) | Scheibe 1 fertig (`f859bf7`, ohne PR/Bump), stapelt auf Nr. 3 |
 | – | Brett (#341) | `ccr-b63433a4-d1xgyg` | – | – | enthält `.github/workflows/*` und `docs/AGENTEN-NETZ.md` → Fernando; der Werkzeug-Teil kommt als eigener PR |
 
@@ -55,6 +55,7 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 
 | main | Version | Was |
 |---|---|---|
+| `06daf91` | v33.72 | #344 Audit — der grosse Durchgang (MERGE-COMMIT; CI auf 440f9e5 grün, Baum identisch mit dem PR-Kopf 9ac3f5e) |
 | `7ca6a19` | v33.71 | #343 Pilz-Scanner · Wissen-Tab · Lina 9 (Hauptfunktionen) |
 | `8a2f16e` | v33.70 | #340 Lina · Einblick (selbst gemergt von der Cowork-Sitzung „Linas Wünsche“; Nachprüfung als Kommentar auf dem PR) |
 | `1649859` | v33.69 | #338 Gelöscht bleibt gelöscht (Löschmarken, `_gsStateMischen`, `gsXpBootSync`, `_gsProfilNachlesen`) |
