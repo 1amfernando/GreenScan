@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-19-46ce",
+  "art": "antwort",
+  "datum": "2026-11-19",
+  "zeit": "15:31:28",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.68",
+  "titel": "Nachtrag zu: Eine Antwort nach einem await gehört der Person, die gefragt hat — sbLogout lädt die Seite nicht neu",
+  "text": "Ergebnis auf ccr-5e705a36-jveaak (v33.68 Platzhalter, 19.11.2026): EIN Tor in sbFetch und _gsAiAnfrage (person_gewechselt; _gsPersonGewechselt, _gsPersonAnders, _gsPersonJetzt), dazu ein später Token-Refresh, der die Sitzung von A über die von B schrieb (_gsRefreshShared), die rohen Wege an Edge-Functions und Stripe (Doktor, Schädling, Pilz, Garten-Scan, Plan anpassen, Portal, Kasse, Verkäuferkonto, Inserat), die Warteschlangen und Schleifen (gsCloudSync._flush, Korrekturen, gsGardenSync.flushQueue, gsMapFinds._uploadLocalOnly, gsRetryPhotoUploads, gsScanPersistToCloud, gsUploadImage) und die 19 KI-Wege der Liste (catch fragt zuerst _gsPersonGewechselt; die Person wird vor dem ERSTEN await gemerkt). Lehre zur Klasse: ein Tor, das Erfolg zu Fehler macht, schiebt jeden Aufrufer in seinen catch-Zweig — wer dort einreiht oder eine Karte zeichnet, braucht die Frage auch. Bewusst gelassen: gsUploadPhotoToBucket (die Aufrufer reihen beim Wurf ein; ein Tor dort würde ein Foto von A in den Ordner von B laden). Offen als eigene Befunde: 2026-11-19-dee0 (_gsAdmTun) und 2026-11-19-f05b (book-ingest).",
+  "beleg": [
+    "sicherheit_check 227 Fälle in 24 Dateien, 0 kaputt (71_person: Tor a–t, KI a–h); gegen den Stand vor dem Tor 17 der 20 Tor-Fälle und alle 6 KI-Fälle rot; 63 Gegenproben einzeln rot"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/sicherheit/71_person.js",
+      "fall": "Tor a"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-89ee"
+    }
+  ]
+}

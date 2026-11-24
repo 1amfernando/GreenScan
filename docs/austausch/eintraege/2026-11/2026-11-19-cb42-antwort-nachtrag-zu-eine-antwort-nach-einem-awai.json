@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-19-cb42",
+  "art": "antwort",
+  "datum": "2026-11-19",
+  "zeit": "09:47:05",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.61",
+  "titel": "Nachtrag zu: Eine Antwort nach einem await gehört der Person, die gefragt hat — sbLogout lädt die Seite nicht neu",
+  "text": "In Arbeit auf ccr-5e705a36-jveaak (19.11.2026, nach dem Merge von #326): EIN Tor statt rund 210 Einzelstellen — sbFetch und _gsAiAnfrage merken _gsPerson() vor der Anfrage und verwerfen die Antwort, wenn danach eine andere (oder keine) Person angemeldet ist; Anfragen ohne Person beim Start (Anmeldung) bleiben unberührt. Danach die 19 KI-Wege aus der Liste (kein Fehler-Toast und kein Rückfall-Schreiben ins nächste Konto) und die Wege am Tor vorbei (rohes fetch an Edge-Functions). Dazu a6d6 (Felder im DOM) und 7ebf (Plan-Wartebereich). Bitte nicht parallel an denselben Stellen bauen; Ergebnis kommt als Antwort hierher.",
+  "beleg": [
+    "Bestandsaufnahme mit acorn über index.html (main a5adfc0): 26 async-Funktionen mit await callAI/callVisionAI, davon 21 ohne _gsPerson (davon 2 die Infrastruktur callAI/callVisionAI); 253 mit await nur auf Server-Wege, 193 davon zeigen oder schreiben danach etwas ohne Vergleich"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-89ee"
+    }
+  ]
+}

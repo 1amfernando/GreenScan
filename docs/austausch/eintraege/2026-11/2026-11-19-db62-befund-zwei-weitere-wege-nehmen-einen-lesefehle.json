@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-19-db62",
+  "art": "befund",
+  "datum": "2026-11-19",
+  "zeit": "16:54:11",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.68",
+  "titel": "Zwei weitere Wege nehmen einen Lesefehler als „nichts da“: Sammlungs-Aufräumen und die manuelle Wiederherstellung",
+  "vorschlag": "Beide unterscheiden r.error (und _gsPersonGewechselt) von 0 Zeilen: bei einem Fehler nichts löschen bzw. ehrlich „nicht erreichbar“ sagen.",
+  "beleg": [
+    "gsCollectionsAutoVacuum: scheitern die Lesezugriffe in _gsCollGatherSourceItems (map_user_finds, user_collection_items), nimmt es weniger Mitglieder an und löscht Einträge oder ganze System-Sammlungen (abgeleitete Daten, bauen sich wieder auf); gsSnapshotRestore sagt bei einem Lesefehler oder Kontowechsel „Kein Backup“ — am Code gelesen (Gegenprüfung blob, 19.11.2026)"
+  ],
+  "stichworte": [
+    "lesefehler",
+    "gscollectionsautovacuum",
+    "gssnapshotrestore"
+  ]
+}
