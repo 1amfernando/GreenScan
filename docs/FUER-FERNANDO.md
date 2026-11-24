@@ -2064,7 +2064,7 @@ alle sechs laufen seit dem 16.11. mit dem Code von `57a7acf` — `ai-proxy` v4, 
 `garden-scan-analyze` v12, `plant-doctor-diagnose` v7, `pest-identify` v5 stehen jetzt auf „live"
 (das Repo ist dort unverändert), `mushroom-identify` v5 auf „ausliefern" (dieses Paket).
 
-## 32 · Der grosse Durchgang (v33.70) — was du tun musst, und was noch offen ist
+## 32 · Der grosse Durchgang (v33.71) — was du tun musst, und was noch offen ist
 
 **Für die App selbst musst du nichts einspielen.** Keine Migration, keine
 Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.
@@ -2145,15 +2145,15 @@ Pflanzendoktor, Pilz-Check, Tagebuch und Schädlings-Check öffnet in der APK
 die Bildauswahl statt der Kamera.
 
 **Drei Dinge über die Arbeit selbst:** diese Scheibe hiess v33.57, dann v33.59,
-dann v33.70 — jedes Mal hatte `main` die Nummer inzwischen vergeben. Heute
-(24.11.) ist sie auf `main` v33.68 nachgezogen und heisst weiter **v33.70, als
+dann v33.70, jetzt v33.71 — jedes Mal hatte `main` die Nummer inzwischen vergeben. Heute
+(24.11.) ist sie auf `main` v33.68 nachgezogen und heisst weiter **v33.71, als
 Platzhalter**: die endgültige Nummer vergibt, wer am Kopf der Merge-Reihe steht.
 Zusammengeführt mit v33.67 waren es 76 Konfliktstellen in 20 Dateien, mit v33.68
 noch drei. Die Sicherheitsreparatur auf `main` hatte mehrere Funde aus meinem
 Audit parallel behoben (Passwort im Bau-Skript, Datenschutz-Satz, noindex,
 Mikrofon-/Sensor-Freigabe, Garten-Pull); dort gilt jetzt ihre Fassung, was nur
 diese Scheibe hatte, bleibt daneben stehen. Einzeln steht das in STATUS (Eintrag
-„(jr) - v33.70", Absatz „Auf `main` nachgezogen"). Und: einen Pull Request habe
+„(ju) - v33.71", Absatz „Auf `main` nachgezogen"). Und: einen Pull Request habe
 ich NICHT geöffnet (du hast keinen verlangt). Der Stand liegt auf dem Branch
 `ccr-dce5a17c-2xzhvi`; die Prüfung auf GitHub läuft erst mit einem PR. **Wenn du
 ihn willst, sag „öffne den PR"** — dann ziehe ich vorher auf den dann aktuellen

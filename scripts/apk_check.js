@@ -669,7 +669,7 @@ function paket() {
       : { ok: true, info: lizenzen.length + ' Lizenztexte byte-gleich an ihrem Web-Pfad: ' + lizenzen.join(', ') },
   });
 
-  // B7 — v33.70 (Audit „Android-Huelle"). build.sh liess die Ausgabe von javac
+  // B7 — v33.71 (Audit „Android-Huelle"). build.sh liess die Ausgabe von javac
   // durch einen Filter mit `|| true` laufen: ein Uebersetzungsfehler in
   // MainActivity ergab „1 error", javac schrieb trotzdem 17 von 40 Klassen, und
   // das Skript baute und signierte ein Paket OHNE MainActivity mit Exit 0.
@@ -1090,7 +1090,7 @@ function rand() {
     r: r21.length ? { ok: false, warum: r21.join(' · ') } : { ok: true, info: 'Pfade.darfNachDraussen vor startActivity · BROWSABLE · catch RuntimeException → kein_ziel' },
   });
 
-  // R22 — v33.70 (Audit „Android-Huelle", vier bestaetigte Funde).
+  // R22 — v33.71 (Audit „Android-Huelle", vier bestaetigte Funde).
   const r22 = [];
   const wahl = (MAINACT_OHNE.match(/public boolean onShowFileChooser\([\s\S]*?\n      \}/) || [''])[0];
   if (!wahl) r22.push('onShowFileChooser nicht gefunden');

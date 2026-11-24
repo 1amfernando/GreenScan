@@ -224,7 +224,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
   await leser.goto('data:text/html,<title>px</title>');
 
   // v33.60: ein TOR — unterAA zaehlt ueber beide Modi und die gerechneten Paare.
-  // v33.70: dazu dynFehler — Durchgang 3 (Dialoge, die sich selbst an den <body>
+  // v33.71: dazu dynFehler — Durchgang 3 (Dialoge, die sich selbst an den <body>
   // haengen): einer, der nicht aufgeht, oder ein DYN_AUS-Name, den es nicht mehr gibt.
   let unterAA = 0, dynFehler = 0;
   for (const dark of [false, true]) {
@@ -535,7 +535,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
         if (!/2 Fotos/.test(ov.textContent)) throw new Error('teilen-vorschau: Hinweiszeile fehlt — der Fall stellt seinen Zustand nicht her');
         return ov.firstElementChild;
       }],
-      // v33.70: die Rueckfrage. `gsConfirmModal` hat 49 Aufrufstellen und war nie
+      // v33.71: die Rueckfrage. `gsConfirmModal` hat 49 Aufrufstellen und war nie
       // vermessen — sie braucht Parameter, der automatische Durchgang ruft nur
       // Oeffner ohne. Gemessen im Dunkelmodus: Titel, Text und „Abbrechen" mit
       // 1,06:1 (`color:var(--fg,#1a1a1a)`, und `--fg` gab es nie). Jede
@@ -557,7 +557,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
       // diesen Namen gab es nie, im Dunkelmodus stand helle Schrift auf Weiss.
       ['battle-runde', () => {
         // Gestellt nur fuer DIESES Fenster — das Aufraeumen nach der Messung gibt den
-        // echten sbFetch zurueck (v33.70, Gegenlesen: stehen gelassen, sahen alle
+        // echten sbFetch zurueck (v33.71, Gegenlesen: stehen gelassen, sahen alle
         // folgenden Fenster eine erfundene Server-Zeile statt ihrer Fehler- und
         // Leerzustaende, und die wurden nicht mehr vermessen).
         if (!window.__gsSbEcht) window.__gsSbEcht = window.sbFetch;
@@ -604,8 +604,8 @@ async function medianFarben(leser, pngBuffer, punkte) {
       deckel = deckel || 8;
       try {
         const hoch = await p.evaluate(async ([fn, arg]) => {
-          window.__gsBodyVor = [].slice.call(document.body.children);   // v33.70: fuers Aufraeumen danach
-          // v33.70: ein Oeffner darf async sein (Durchgang 3) — gemessen wird, was er AM ENDE zeigt.
+          window.__gsBodyVor = [].slice.call(document.body.children);   // v33.71: fuers Aufraeumen danach
+          // v33.71: ein Oeffner darf async sein (Durchgang 3) — gemessen wird, was er AM ENDE zeigt.
           let res = (new Function('return (' + fn + ')'))()(arg);
           if (res && typeof res.then === 'function') res = await res;
           if (!res || !res.getBoundingClientRect) return -1;      // nichts ging auf (0 heisst: offen, rollt nicht)
@@ -676,7 +676,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
           // stehen gelassen, verdeckte sie jedes weitere Fenster.
           const tv = document.getElementById('gs-teilen-vorschau');
           if (tv && typeof gsDismissOverlay === 'function') { try { gsDismissOverlay(tv); } catch(_){} }
-          // v33.70: Rueckfrage und Eingabe geben ein Promise zurueck — „Abbrechen"
+          // v33.71: Rueckfrage und Eingabe geben ein Promise zurueck — „Abbrechen"
           // loest es sauber auf. Die Battle-Runde schliesst ueber closeModal (das
           // haelt auch ihren Zaehler an, v32.97).
           ['gs-confirm-cancel', 'gs-prompt-cancel'].forEach(id => { const b = document.getElementById(id); if (b) { try { b.click(); } catch(_){} } });
@@ -785,7 +785,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
                 (autoZu.length ? ' · nicht aufgegangen: ' + autoZu.length + ' (' + autoZu.join(', ') + ')' : ''));
     if (gestelltZu.length) { console.log('  !! NICHT PRUEFBAR: gestellte Fenster gingen nicht auf: ' + gestelltZu.join(', ')); process.exitCode = 2; }
 
-    // ── Durchgang 3 (v33.70): Dialoge, die sich SELBST an den <body> haengen ──
+    // ── Durchgang 3 (v33.71): Dialoge, die sich SELBST an den <body> haengen ──
     //
     // Durchgang 2 findet nur Oeffner, deren Rumpf `openModal(` enthaelt. Rund
     // ein Dutzend Dialoge bauen ihr Fenster aber selbst (`document.body

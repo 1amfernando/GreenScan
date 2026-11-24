@@ -169,13 +169,13 @@ Tagebuch in `CLAUDE.md`.
     steht in `scripts/sicherheit/97_empfaenger.js` UND in beiden
     Datenschutztexten. *(§3.7; sicherheit_check 90_datenschutz, 97_empfaenger)*
 
-## Zehn Regeln aus v33.70 (CLAUDE.md §4f)
+## Zehn Regeln aus v33.71 (CLAUDE.md §4f)
 
 - **Ein Pull frischt auch den Arbeitsspeicher auf.** Speicher UND Variable
   gehen zusammen durch `_gsListeEinspielen` (§3.3) — sonst sieht das naechste
   Rendern eine leere Variable, und `initDefaultGarden` legt „Mein Garten" ueber
   das Geholte. Zwei Sitzungen haben das parallel gefunden (v33.59 auf `main`,
-  v33.70 hier); es gilt der Eingang von `main`. *(sync_check)*
+  v33.71 hier); es gilt der Eingang von `main`. *(sync_check)*
 - **Eine Aufbereitung im Arbeitsspeicher haengt nie an einem Schalter im
   Geraetespeicher.** Die Artenliste wird bei jedem Start frisch gebaut; jeder
   Pruefstand beginnt mit leerem Speicher und misst die ERSTE Sitzung.

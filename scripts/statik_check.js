@@ -3,7 +3,7 @@
 //
 //   node scripts/statik_check.js
 //
-// Anlass (v33.70): Fernandos „Checke alle Fehler, unschöne Programmierungen
+// Anlass (v33.71): Fernandos „Checke alle Fehler, unschöne Programmierungen
 // und ähnliches." Die 39 anderen Pruefstaende FAHREN die App oder suchen mit
 // Mustern im Text. Keiner LIEST sie als Programm. Ein Parser sieht in einer
 // Sekunde, was ein Lauf nur zeigt, wenn er zufaellig durch die Zeile kommt:
@@ -376,7 +376,7 @@ async function s5() {
   return { ok: true, info: Z.an.funktionen.length + ' Funktionen gegen den Korpus (' + (dateien.length + 1) + ' Dateien) — keine, deren Nennungen alle im eigenen Rumpf stehen' };
 }
 
-// v33.70 (Gegenlesen): S6 und S8 lasen Kommentare und den Changelog mit — eine
+// v33.71 (Gegenlesen): S6 und S8 lasen Kommentare und den Changelog mit — eine
 // Release-Notiz, die den behobenen Fehler ZITIERT (`calc(a+b)`, `var(--fg,…)`),
 // haette den Fall rot gemacht (CLAUDE.md §4d: Kommentare UND GS_RELEASES heraus).
 // Geleert wird mit Leerzeichen, damit die Zeilennummern stimmen: HTML-Kommentare,
@@ -444,7 +444,7 @@ async function s7() {
 }
 
 // ── S8 · calc(): ein binaeres + oder − braucht Leerraum auf BEIDEN Seiten ──────
-// v33.70 (Audit „CSS/HTML"). `height:calc(var(--st)+var(--top-h))` ist ungueltig:
+// v33.71 (Audit „CSS/HTML"). `height:calc(var(--st)+var(--top-h))` ist ungueltig:
 // CSS verlangt Leerraum um + und −. Weil var() darin steht, faellt die
 // Deklaration erst beim Berechnen weg — die Eigenschaft wird `unset`, ohne
 // Meldung. Gemessen in Chromium: die Kopfleiste war 39 statt 56 px hoch, die
@@ -481,7 +481,7 @@ function calcFehler(rumpf) {
     if (/[0-9]e$/i.test(vor) && /[0-9]/.test(nachZ)) continue;            // 1e-3
     const links = /(?:[0-9.]+[a-z%]*|\)|§)$/i.test(vor), rechts = /[0-9.(§]/.test(nachZ);
     // Bindestrich in einem Namen (min-content) — aber NUR, wenn links kein fertiger
-    // Wert steht. v33.70 (Gegenlesen): mit `!(links && rechts)` galt `100%- 20px`
+    // Wert steht. v33.71 (Gegenlesen): mit `!(links && rechts)` galt `100%- 20px`
     // als Name, weil rechts Leerraum statt einer Ziffer folgt.
     if (c === '-' && !/\s/.test(vorZ) && !links) continue;
     if (/\s/.test(vorZ) && /\s/.test(nachZ)) continue;                     // sauber
@@ -506,7 +506,7 @@ async function s8() {
   // Die Regel selbst, in beide Richtungen (ein Pruefer, der alles durchlaesst, waere auch gruen):
   const gut = ['var(--st) + var(--top-h)', '100% - 20px', '-1 * var(--x)', 'var(--sb) + 20px', '100vh - env(safe-area-inset-top)', '(100% - 2 * var(--pad)) / 3', '50% + -4px', 'min-content', '1e-3 * 2px', '2 * -1px'];
   const schlecht = ['var(--st)+var(--top-h)', 'var(--sb)+20px', '100%-20px', 'var(--a) +var(--b)', '10px+ 5px', 'var(--sb)+var(--tab-h)+14px',
-    '100%- 20px', 'var(--sb)- 20px', 'var(--x)- var(--y)', '100% -20px'];   // v33.70: das Spiegelbild der Plus-Faelle fehlte
+    '100%- 20px', 'var(--sb)- 20px', 'var(--x)- var(--y)', '100% -20px'];   // v33.71: das Spiegelbild der Plus-Faelle fehlte
   const g = gut.filter(x => calcFehler(x).length), b = schlecht.filter(x => !calcFehler(x).length);
   // Und was ZITIERT wird, ist kein Ausdruck: Kommentar, HTML-Kommentar, Changelog.
   const zitat = calcAusdruecke(ohneKommentareUndChangelog('<!-- calc(a+b) -->\n  // calc(c+d)\nwindow.GS_RELEASES = [\n {text:\'calc(e+f)\'}\n];\n<style>.x{width:calc(1px + 2px)}</style>'));
@@ -517,7 +517,7 @@ async function s8() {
 }
 
 // ── S9 · Stapel: jedes statische Tag wird geschlossen ──────────────────────────
-// v33.70 (Audit „CSS/HTML"). `<div id="app">` wurde nie geschlossen — der Browser
+// v33.71 (Audit „CSS/HTML"). `<div id="app">` wurde nie geschlossen — der Browser
 // tut es bei </body>, also sah man nichts. Die Folge war strukturell: rund 70
 // statische Fenster sind damit Nachfahren von #app und verschwinden mit
 // `html.gs-preauth #app{display:none!important}` — daran hingen die Rechtstexte
@@ -525,7 +525,7 @@ async function s8() {
 function stapelPruefung(src) {
   const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
   const ROH = new Set(['script', 'style', 'textarea', 'title']);
-  // v33.70 (Gegenlesen): die Liste der End-Tags, die HTML auslassen DARF, war unvollstaendig.
+  // v33.71 (Gegenlesen): die Liste der End-Tags, die HTML auslassen DARF, war unvollstaendig.
   const OPTIONAL = ['p', 'li', 'option', 'optgroup', 'tr', 'td', 'th', 'tbody', 'thead', 'tfoot', 'caption', 'colgroup', 'dd', 'dt', 'rt', 'rp', 'rb', 'rtc', 'html', 'head', 'body'];
   const SVG_LEER = ['path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse', 'use', 'stop', 'fegaussianblur', 'animate', 'animatetransform', 'feoffset', 'feblend', 'fecolormatrix', 'femergenode'];
   const n = src.length, stapel = [], klagen = [];
@@ -599,7 +599,7 @@ const FAELLE = [
   { name: 'S9 · Stapel: jedes statische Tag wird geschlossen — ein offenes <div> macht alles dahinter zu seinem Nachfahren', lauf: s9 },
 ];
 
-// v33.70 (Gegenlesen): der Audit-Workflow empfiehlt `inlineSkripte`/`zeilentreu` als
+// v33.71 (Gegenlesen): der Audit-Workflow empfiehlt `inlineSkripte`/`zeilentreu` als
 // Hilfen und verbietet zugleich Chromium. Als Modul geladen laeuft hier deshalb NICHTS
 // (kein Browser, keine Ausgabe) — nur die reinen Funktionen kommen heraus.
 module.exports = { inlineSkripte, zeilentreu, calcAusdruecke, calcFehler, stapelPruefung, ohneKommentareUndChangelog };
