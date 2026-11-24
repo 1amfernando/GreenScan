@@ -6,6 +6,21 @@
 > Quelltexts; nichts wurde im Browser oder gegen den Server gemessen. Was ich selbst nachgezählt
 > habe, ist mit ✔ markiert, alles andere ist gelesen und braucht zuerst einen roten Prüfstandsfall.
 
+## 0 · Was Fernando entscheiden muss (nur Entscheidungen, keine Technik)
+
+Du hast am 24.11. geschrieben: „Selber für mich alles erledigen." Das tue ich für alles, was sich im Repo
+erledigen lässt. Unten steht, was ich ohne Antwort tue — und die zwei Dinge, die nur du tun kannst.
+
+| # | Frage | Ohne Antwort mache ich | Was es dich kostet, wenn es liegen bleibt |
+|---|---|---|---|
+| 1 | **Fünf Datenbank-Änderungen warten auf dich** (Sicherheit; Liste und Reihenfolge in `docs/FUER-FERNANDO.md` §30). Ich wende an der Live-Datenbank nichts an — das bleibt deine Hand, oder du sagst es mir ausdrücklich mit Namen der Änderung. | nichts | Die Lücken, die sie schliessen, sind live offen. **Eine hat ein Datum: vor dem 31.12.2026, 23:00 UTC** — dann vergibt die Datenbank das Jahres-Pro an die drei Ersten im Quiz, und ohne die Änderung gewinnt, wer die öffentlich lesbaren Lösungen nachschlägt (`docs/RISIKEN.md` §1). |
+| 2 | **Sollen von Hand eingetragene Messwerte in die Cloud?** Heute liegen sie nur auf dem Gerät und gehen beim Abmelden. | Es bleibt, wie es ist. | Wer das Gerät wechselt, verliert seine Handmessungen. Ein Ja braucht eine sechste Datenbank-Änderung von dir. |
+| 3 | **Soll ein Viertel der App-Grösse eingespart werden,** indem die Erklär-Texte aus der Hauptdatei in die Doku umziehen? | Nein — erst mit deinem Ja. | Jedes Update überträgt rund 490 KB mehr als nötig. Der Eingriff ist gross und berührt jede Sitzung, die parallel arbeitet. |
+| 4 | **Reihenfolge der nächsten Schritte.** | Wie in §3: nach Scheibe 1 und 2 (gebaut) das Register (3), dann der ruhige Abgleich (5, spart Datenvolumen), dann zwei Geräte je Feld (4). | — |
+| 5 | **Tempo oder Kosten.** | Sparsam: eine Scheibe nach der anderen, kleine Gegenprüfung, die volle Prüfung fährt die CI. | Schneller ginge es mit grossen Agenten-Runden — das kostet spürbar mehr. |
+| 6 | **Dein Laptop.** Der Ordner „Greenscan" steht in deiner Remote-Control-Liste, der Rechner bietet ihn Cloud-Sitzungen aber nicht an (Ursache nicht sicher: meist liegt der Ordner in einem versteckten Verzeichnis oder in `~/Library`, oder die Claude-App braucht ein Update). | Ich arbeite weiter in der Cloud. | Nichts für dieses Projekt — alles, was ich brauche, liegt im Repo. |
+
+
 ## 1 · Was die Messung zeigt
 
 | Frage | Zahl |
@@ -123,7 +138,7 @@ Im Repo lässt sich das meiste ohne Server-Änderung bauen (Scheiben 1–9). Dre
 - Die drei Blobs in Supabase in Tabellen je Liste aufteilen — braucht Migrationen und bricht alte App-Stände.
 - Eine Build-Pipeline, um Kommentare beim Ausliefern zu entfernen — widerspricht „kein Build, kein npm".
 
-## 6 · Was du entscheidest
+## 6 · Was du entscheidest (ausführlich; die Kurzfassung mit meinen Vorgaben steht in §0)
 
 1. **Reihenfolge:** einverstanden mit 1 → 2 → 3, oder soll der ruhige Abgleich (5, spart am meisten Datenvolumen) vorgezogen werden?
 2. **Hand-Messwerte:** sie liegen nur auf dem Gerät und gehen beim Abmelden. Sollen sie ein Zuhause in der Cloud bekommen?
