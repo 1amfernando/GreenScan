@@ -2699,10 +2699,13 @@ const FAELLE = [
     lauf: () => {
       const jetzt = Date.now(), T = 864e5;
       const sichern = { mp: myPlants, pl: plantings, ga: gardens, loc: localStorage.getItem('gs_user_location'), wc: localStorage.getItem('gs_weather_cache'),
-        mk: localStorage.getItem('greenscan_markers'), eb: localStorage.getItem('gs_lina_einblick') };
+        mk: localStorage.getItem('greenscan_markers'), eb: localStorage.getItem('gs_lina_einblick'), tc: localStorage.getItem('gs_garden_diary_cache') };
       const klagen = [];
       try {
         localStorage.removeItem('gs_lina_einblick');
+        // Der Schädling an der Pflanze (`p.diary`, action 'pest') schreibt heute KEIN Weg der App — gsPestAddToDiary
+        // und das Tagebuch-Formular legen ihn ohne Pflanze in der Cloud an (Fall „Lina · Einblick ehrlich" (e)).
+        // Hier misst er nur die Darstellung, falls ein Eintrag eine Pflanze trägt.
         myPlants = [
           { id: 'e1', name: 'Monstera', nick: 'Wohnzimmer', added: new Date(jetzt - 200 * T).toISOString(), notes: 'vom Wochenmarkt', photo: 'data:image/jpeg;base64,GEHEIMEINS',
             tasks: { water: { active: true, intervalDays: 4, lastDone: new Date(jetzt - 9 * T).toISOString() }, repot: { active: false, intervalDays: 365, lastDone: new Date(jetzt).toISOString() } },
@@ -2750,10 +2753,15 @@ const FAELLE = [
         // Der Einblick-Deckel
         const eb = gsLinaEinblick('Wie geht es meiner Monstera?');
         if (eb.length > GS_LINA_EINBLICK_MAX) klagen.push('Einblick ' + eb.length + ' Zeichen über dem Deckel ' + GS_LINA_EINBLICK_MAX);
-        // Ohne Signal: die Entwarnung nennt, was geprueft wurde
+        // Ohne Signal: die Entwarnung nennt, was geprueft wurde — „kein Schädling" nur, wenn das Cloud-Tagebuch
+        // geladen ist (dort legen die Schreiber ihre Schädlinge ab); sonst ist „keiner" keine Aussage (Brett 6bbf)
         myPlants[0].tasks.water.lastDone = new Date(jetzt).toISOString(); myPlants[0].diary = [];
+        localStorage.removeItem('gs_garden_diary_cache');
         const zH2 = (gsLinaContext('').match(/^Braucht Hilfe:[^\n]*/m) || [''])[0];
-        if (!/niemand \(geprüft: keine Aufgabe 2 oder mehr Tage überfällig, kein Schädling in 14 Tagen notiert\)/.test(zH2)) klagen.push('die Entwarnung nennt nicht, was geprüft wurde: ' + zH2);
+        if (!/niemand \(geprüft: keine Aufgabe 2 oder mehr Tage überfällig\)/.test(zH2)) klagen.push('die Entwarnung nennt nicht, was geprüft wurde — oder einen Schädlings-Befund ohne geladenes Tagebuch: ' + zH2);
+        localStorage.setItem('gs_garden_diary_cache', '[]');
+        const zH3 = (gsLinaContext('').match(/^Braucht Hilfe:[^\n]*/m) || [''])[0];
+        if (!/niemand \(geprüft: keine Aufgabe 2 oder mehr Tage überfällig, kein Schädling im Tagebuch der letzten 14 Tage\)/.test(zH3)) klagen.push('mit geladenem Tagebuch fehlt der Schädlings-Befund in der Entwarnung: ' + zH3);
         // Abgeschaltet: nichts davon
         gsLinaEinblickSchalten();
         const aus = gsLinaContext('Wie geht es meiner Monstera?');
@@ -2769,7 +2777,212 @@ const FAELLE = [
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + e.message + (klagen.length ? ' · ' + klagen.join(' · ') : '') };
       } finally {
         myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
-        [['gs_user_location', sichern.loc], ['gs_weather_cache', sichern.wc], ['greenscan_markers', sichern.mk], ['gs_lina_einblick', sichern.eb]].forEach(([k, v]) => { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); });
+        [['gs_user_location', sichern.loc], ['gs_weather_cache', sichern.wc], ['greenscan_markers', sichern.mk], ['gs_lina_einblick', sichern.eb], ['gs_garden_diary_cache', sichern.tc]].forEach(([k, v]) => { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); });
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // LINA · EINBLICK EHRLICH (24.11.2026, Brett 6bbf). Gemessen am Stand v33.71 (33d2818), jede Lage über
+    // den Weg, den die App wirklich geht: gsLinaSend mit gestellter KI (gemessen wird, was an die KI GEHT),
+    // der Schalter-Knopf, die zwei Schreiber eines Schädlings (gsPestAddToDiary, gsDiaryAddEntry) mit
+    // gsCloudTagebuchLaden, gsReverseGeocode ohne Netz mit saveUserLocation.
+    //  (a) „Aus" nahm nur den Einblick-Block weg — Pflanzenzahl, Region, fällige Aufgaben mit Pflanzennamen,
+    //      Geräte und Messwerte, Kalender und der letzte Scan gingen weiter an die KI.
+    //  (b) Der Schalter stand nur im LEEREN Verlauf; wer ein Gespräch hatte, fand ihn nicht.
+    //  (c) Bei vollem Speicher blieb der Einblick still an (setItem gibt dann false zurück, CLAUDE.md §3.5).
+    //  (d) Ohne Antwort von Nominatim heisst der Ort „46.948°N, 7.447°E" — er ging als Region und Wetterort mit.
+    //  (e) Ein Schädling aus dem Tagebuch kam nie an (der Filter verlangte `pest` UND eine Pflanze; beide
+    //      Schreiber legen `pest_observation` ohne Pflanze an), und die Entwarnung nannte „kein Schädling"
+    //      trotzdem als geprüft — auch wenn das Cloud-Tagebuch auf dem Gerät nie geladen war.
+    //  (f) Die Essbarkeits-Gegenprobe sah nur die Arten der Frage: nicht das Maiglöckchen hinter „Lilli",
+    //      nicht die Eibe, die erst in der Antwort steht. Gegenrichtung: kein Fehlalarm bei Petersilie
+    //      (die Deklinations-Regel von _gsArtenTreffer trifft dort die Hunds-Petersilie — gemessen).
+    name: 'Lina · Einblick ehrlich: „Aus" heisst aus, der Schalter steht im laufenden Gespräch, voller Speicher wird gesagt, eine Koordinate ist kein Ortsname, ein Schädling aus dem Tagebuch kommt an, und die Gegenprobe sieht Spitznamen und Antwort',
+    lauf: async () => {
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const T = 864e5;
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine, gt: window.gsToast, pt: window.showProfileToast,
+        si: localStorage.setItem, mp: myPlants, pl: plantings, ul: (typeof userLocation !== 'undefined') ? userLocation : null,
+        ls: ['gs_user_location', 'userLocation', 'gs_weather_cache', 'gs_lina_einblick', 'gs_garden_diary_cache'].map(k => [k, localStorage.getItem(k)]) };
+      const klagen = [];
+      let toasts = [], posts = [], cloud = [], gesendet = [], antwort = 'Gerne.';
+      // Was an die KI geht, ohne den festen Auftrag davor (der nennt keine Daten der Person)
+      const ctxTeil = (s) => (typeof LINA_SYSTEM === 'string' && String(s).indexOf(LINA_SYSTEM) === 0) ? String(s).slice(LINA_SYSTEM.length) : String(s);
+      const zeilenDaten = (s) => GS_LINA_ZEILEN_RANG.filter(k => new RegExp('^' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'm').test(s));
+      try {
+        localStorage.removeItem('gs_lina_einblick'); _gsLinaEinblickSitzung = null;
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        window.gsToast = (m) => { toasts.push(String(m)); };
+        window.showProfileToast = (m) => { toasts.push(String(m)); };
+        window.sbFetch = async (pfad, o) => {
+          const m = (o && o.method) || 'GET';
+          if (m === 'POST' && /\/rest\/v1\/garden_diary(\?|$)/.test(pfad)) {
+            const b = JSON.parse(o.body); posts.push(b);
+            const z = Object.assign({ id: 'gd-' + posts.length, created_at: b.ts || new Date().toISOString() }, b); cloud.unshift(z);
+            return { data: [z], error: null };
+          }
+          if (m === 'GET' && /\/rest\/v1\/garden_diary\?/.test(pfad)) return { data: cloud.slice(), error: null };
+          return { data: [{}], error: null };
+        };
+        window.callAI = async (hist, sys) => { gesendet.push(String(sys)); return antwort; };
+        const senden = async (frage, a) => {
+          antwort = a || 'Gerne.';
+          window._gsLinaSending = false; window._gsLinaConvId = 'conv-EH'; window._gsLinaMsgs = [];
+          gsLinaRender(false);
+          const f = document.getElementById('gs-lina-input');
+          if (!f) throw new Error('Lina hat kein Eingabefeld');
+          f.value = frage;
+          const n0 = gesendet.length;
+          await gsLinaSend();
+          const letzte = (window._gsLinaMsgs || []).filter(x => x && x.role === 'assistant').pop();
+          return { sys: gesendet.length > n0 ? ctxTeil(gesendet[gesendet.length - 1]) : '', text: letzte ? String(letzte.content) : '' };
+        };
+
+        // (a)/(b) eingeschaltet: Namen, Datenzeilen und Region gehen mit (sonst misst die Gegenprobe nichts).
+        // Eigene Beispieldaten — im vollen Lauf hinterlassen frühere Fälle die Listen anders als der Seed.
+        myPlants = [
+          { id: 'eh-a1', name: 'Zitronenmelisse', nick: 'Melli', tasks: { water: { active: true, intervalDays: 3, lastDone: new Date(Date.now() - 6 * T).toISOString() } }, diary: [] },
+          { id: 'eh-a2', name: 'Feigenbaum', tasks: {}, diary: [] },
+        ];
+        plantings = [];
+        localStorage.setItem('gs_user_location', JSON.stringify({ lat: 47.03, lon: 9.45, lng: 9.45, name: 'Vilters-Wangs', zip: '7324', canton: 'SG', source: 'gps' }));
+        const namen = ['Zitronenmelisse', 'Melli', 'Feigenbaum'].concat((typeof gsGeraete === 'function' ? gsGeraete() : []).map(g => g && g.name))
+          .filter(n => n && String(n).length >= 4);
+        const an = await senden('Wie geht es meinen Pflanzen? Ist Bärlauch essbar?');
+        const anNamen = namen.filter(n => an.sys.includes(n)), anZeilen = zeilenDaten(an.sys);
+        if (anNamen.length < 2 || !anZeilen.length || !/Region: Vilters-Wangs/.test(an.sys)) klagen.push('(a) eingeschaltet fehlen Namen, Datenzeilen oder die Region — die Gegenprobe misst nichts (' + anNamen.length + ' Namen, ' + anZeilen.length + ' Zeilen, Region ' + /Region: Vilters-Wangs/.test(an.sys) + ')');
+
+        // (b) der Schalter im LAUFENDEN Gespräch
+        let zeile = document.querySelector('[data-lina-einblick-zeile]');
+        const knopf = zeile && zeile.querySelector('[data-lina-einblick]');
+        if (!knopf) klagen.push('(b) im laufenden Gespräch steht kein Schalter');
+        else {
+          if (!/sieht deine Gartendaten/.test(zeile.textContent)) klagen.push('(b) die Zeile sagt nicht, was Lina sieht: ' + zeile.textContent.trim().slice(0, 80));
+          knopf.click();
+          zeile = document.querySelector('[data-lina-einblick-zeile]');
+          if (gsLinaEinblickAn()) klagen.push('(b) der Knopf im laufenden Gespräch schaltet nicht aus');
+          if (!zeile || !/Einblick aus/.test(zeile.textContent)) klagen.push('(b) nach dem Ausschalten sagt die Zeile es nicht');
+          if (!/Wie geht es meinen Pflanzen/.test((document.getElementById('gs-lina-scroll') || {}).textContent || '')) klagen.push('(b) nach dem Umschalten ist das Gespräch weg');
+        }
+
+        // (a) ausgeschaltet: nur Frage, Sprache, Jahreszeit und die Arten der Frage
+        const aus = await senden('Wie geht es meinen Pflanzen? Ist Bärlauch essbar?');
+        if (!aus.sys) klagen.push('(a) ausgeschaltet wurde die KI nicht gefragt — der Fall misst nichts');
+        const ausNamen = namen.filter(n => aus.sys.includes(n)), ausZeilen = zeilenDaten(aus.sys);
+        if (ausNamen.length) klagen.push('(a) ausgeschaltet gehen Namen aus den Daten an die KI: ' + JSON.stringify(ausNamen.slice(0, 4)));
+        if (ausZeilen.length) klagen.push('(a) ausgeschaltet gehen Datenzeilen an die KI: ' + JSON.stringify(ausZeilen));
+        if (/Vilters|Region:|Pflanze\(n\) in GreenScan|^Braucht Hilfe|^Wetter /m.test(aus.sys)) klagen.push('(a) ausgeschaltet gehen Ort, Pflanzenzahl, Hilfe oder Wetter an die KI');
+        if (!/Einblick in ihre Daten ausgeschaltet/.test(aus.sys)) klagen.push('(a) ausgeschaltet erfährt die KI nicht, dass sie die Daten nicht kennt');
+        if (!/SPRACHE:/.test(aus.sys) || !/Jahreszeit:/.test(aus.sys) || !/^ARTEN \(aus der App-Liste/m.test(aus.sys)) klagen.push('(a) ausgeschaltet fehlen Sprache, Jahreszeit oder die Arten der Frage');
+
+        // (b) leerer Verlauf: dort steht der Satz im Verlauf — die Zeile nicht doppelt
+        window._gsLinaMsgs = []; gsLinaRender(false);
+        if (document.querySelector('[data-lina-einblick-zeile]')) klagen.push('(b) im leeren Verlauf steht die Zeile doppelt');
+        const leerKnopf = document.querySelector('#gs-lina-scroll [data-lina-einblick]');
+        if (!leerKnopf || !/Einblick aus — Lina bekommt nur deine Frage/.test(leerKnopf.parentElement.textContent)) klagen.push('(b) im leeren Verlauf fehlt der Schalter oder sein Satz');
+        else leerKnopf.click();
+        if (!gsLinaEinblickAn()) klagen.push('(b) Einschalten im leeren Verlauf geht nicht');
+
+        // (c) voller Speicher: „Aus" gilt bis zum Neuladen, und ein Satz sagt es
+        const echt = localStorage.setItem;
+        toasts = [];
+        localStorage.setItem = function (k, v) { if (k === 'gs_lina_einblick') return false; return echt.call(localStorage, k, v); };
+        try { gsLinaEinblickSchalten(); } finally { localStorage.setItem = echt; }
+        if (localStorage.getItem('gs_lina_einblick') === '0') klagen.push('(c) der Fall hat den vollen Speicher nicht hergestellt');
+        if (gsLinaEinblickAn()) klagen.push('(c) bei vollem Speicher bleibt der Einblick an');
+        if (!toasts.some(t => /Speicher/.test(t) && /neu lädt/.test(t))) klagen.push('(c) kein Satz zum vollen Speicher: ' + JSON.stringify(toasts.slice(0, 3)));
+        const voll = await senden('Wie geht es meinen Pflanzen?');
+        if (namen.some(n => voll.sys.includes(n)) || /Region:/.test(voll.sys)) klagen.push('(c) bei vollem Speicher gehen die Daten trotzdem an die KI');
+        gsLinaEinblickSchalten();
+        if (!gsLinaEinblickAn()) klagen.push('(c) wieder einschalten geht nicht');
+        toasts = []; gsLinaEinblickSchalten(); gsLinaEinblickSchalten();
+        if (toasts.some(t => /Speicher/.test(t))) klagen.push('(c) der Speicher-Satz erscheint auch mit Platz');
+        if (!gsLinaEinblickAn()) klagen.push('(c) nach Aus und Ein mit Platz ist der Einblick nicht an');
+
+        // (d) eine Koordinate ist kein Ortsname — der Rückfall von gsReverseGeocode, gespeichert wie auf dem GPS-Weg
+        let ort = null;
+        gsReverseGeocode(46.9481, 7.4474, (o) => { ort = o; });
+        for (let i = 0; i < 60 && !ort; i++) await warte(50);
+        if (!ort || !/°N/.test(String(ort.name || ''))) klagen.push('(d) der Rückfall von gsReverseGeocode kam nicht oder ohne Koordinaten-Namen — der Fall misst nichts: ' + JSON.stringify(ort));
+        else {
+          if (!ort.source) ort.source = 'gps';
+          saveUserLocation(ort);
+          if (!/°N/.test((JSON.parse(localStorage.getItem('gs_user_location') || '{}') || {}).name || '')) klagen.push('(d) der Koordinaten-Name wurde nicht gespeichert — der Fall misst nichts');
+          const h = gsHeuteTag();
+          const daily = { time: [h, _gsKalTagPlus(h, 1)], temperature_2m_min: [8, 9], temperature_2m_max: [18, 19], precipitation_sum: [0, 1.5], precipitation_probability_max: [5, 40], windspeed_10m_max: [8, 9] };
+          localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now() - 3600e3, lat: ort.lat, lon: ort.lon, data: { daily: daily } }));
+          const k1 = (await senden('Wird es morgen regnen?')).sys;
+          if (/°N|°E|46\.948|7\.447/.test(k1)) klagen.push('(d) die Koordinate geht als Ortsname an die KI');
+          if (!/^Wetter am gewählten Ort \(Vorhersage Open-Meteo/m.test(k1)) klagen.push('(d) ohne Ortsnamen fehlt die Wetter-Zeile');
+          if (/Region:/.test(k1)) klagen.push('(d) „Region:" steht trotzdem da');
+          // Gegenrichtung: ein echter Name geht mit
+          saveUserLocation(Object.assign({}, ort, { name: 'Bern', zip: '3011', canton: 'BE' }));   // räumt den Wetter-Zwischenspeicher (neuer Ort)
+          localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now() - 3600e3, lat: ort.lat, lon: ort.lon, data: { daily: daily } }));
+          const k2 = (await senden('Wird es morgen regnen?')).sys;
+          if (!/^Wetter Bern \(/m.test(k2) || !/Region: Bern\./.test(k2)) klagen.push('(d) ein echter Ortsname fehlt (Wetter oder Region)');
+        }
+
+        // (e) Schädlinge aus dem Tagebuch — über die zwei Schreiber und gsCloudTagebuchLaden
+        myPlants = [{ id: 'eh1', name: 'Monstera', tasks: { water: { active: true, intervalDays: 7, lastDone: new Date().toISOString() } }, diary: [] }];
+        plantings = [];
+        const entw = (s) => (s.match(/^Braucht Hilfe:[^\n]*/m) || [''])[0];
+        const schZ = (s) => (s.match(/^Schädlinge im Tagebuch[^\n]*/m) || [''])[0];
+        localStorage.removeItem('gs_garden_diary_cache');
+        let c0 = gsLinaContext('Wie geht es meinen Pflanzen?');
+        if (!/niemand/.test(entw(c0)) || /Schädling/.test(entw(c0))) klagen.push('(e) ohne geladenes Cloud-Tagebuch nennt die Entwarnung einen Schädlings-Befund: ' + entw(c0));
+        cloud = [{ id: 'gd-k', entry_type: 'general', title: 'Kompost umgesetzt', text: '', created_at: new Date(Date.now() - 2 * T).toISOString() }];
+        if (await gsCloudTagebuchLaden() !== 1) klagen.push('(e) das Cloud-Tagebuch wurde nicht geladen — der Fall misst nichts');
+        c0 = gsLinaContext('Wie geht es meinen Pflanzen?');
+        if (!/kein Schädling im Tagebuch der letzten 14 Tage/.test(entw(c0))) klagen.push('(e) mit geladenem Tagebuch ohne Schädling fehlt dieser Befund: ' + entw(c0));
+        await gsPestAddToDiary('blattlaus');
+        if (!posts.some(b => b.entry_type === 'pest_observation' && /blattlaus/.test(b.text || ''))) klagen.push('(e) gsPestAddToDiary hat nichts geschrieben — der Fall misst nichts');
+        await gsDiaryAddEntry({ entry_type: 'pest_observation', title: 'Schnecken am Salat', text: 'nachts' });
+        await gsCloudTagebuchLaden();
+        const mitSch = (await senden('Wie geht es meinen Pflanzen?')).sys;
+        if (!/blattlaus \(/.test(schZ(mitSch)) || !/Schnecken am Salat \(/.test(schZ(mitSch))) klagen.push('(e) die Schädlinge aus dem Tagebuch gehen nicht an die KI: ' + (schZ(mitSch) || '(keine Zeile)'));
+        if (/kein Schädling/.test(mitSch)) klagen.push('(e) mit Schädling im Tagebuch steht „kein Schädling" da');
+        // ein Schädling von vor 20 Tagen ist keiner mehr
+        cloud = [{ id: 'gd-alt', entry_type: 'pest_observation', title: 'Schädling erkannt', text: 'Pest identified: blattlaus', created_at: new Date(Date.now() - 20 * T).toISOString() }];
+        await gsCloudTagebuchLaden();
+        c0 = gsLinaContext('Wie geht es meinen Pflanzen?');
+        if (schZ(c0) || !/kein Schädling im Tagebuch der letzten 14 Tage/.test(entw(c0))) klagen.push('(e) ein Schädling von vor 20 Tagen zählt noch: ' + (schZ(c0) || entw(c0)));
+
+        // (f) die Gegenprobe sieht den Spitznamen und die Antwort
+        myPlants = [{ id: 'eh-l', name: 'Maiglöckchen', nick: 'Lilli', latin: 'Convallaria majalis', tasks: {}, diary: [] }];
+        const WARN_M = /In unserer Artenliste steht [^.]*Maiglöckchen[^.]* als giftig/;
+        let r = await senden('Kann ich Lilli essen?', 'Ja, die kannst du essen.');
+        if (!WARN_M.test(r.text)) klagen.push('(f) „Lilli" (das Maiglöckchen) bekommt keine Warnung: ' + r.text.slice(0, 120));
+        gsLinaEinblickSchalten();
+        r = await senden('Kann ich Lilli essen?', 'Ja, die kannst du essen.');
+        if (!WARN_M.test(r.text)) klagen.push('(f) ausgeschaltet warnt die Gegenprobe nicht — sie läuft auf dem Gerät und schickt nichts');
+        if (/Maiglöckchen|Convallaria/.test(r.sys)) klagen.push('(f) ausgeschaltet geht die Art der Pflanze an die KI');
+        gsLinaEinblickSchalten();
+        r = await senden('Was kann ich im Garten naschen?', 'Die Beeren der Eibe kannst du essen.');
+        if (!/In unserer Artenliste steht [^.]*Eibe[^.]* als giftig/.test(r.text)) klagen.push('(f) eine giftige Art, die erst in der Antwort steht, bekommt keine Warnung: ' + r.text.slice(0, 120));
+        // Gegenrichtung: kein Fehlalarm
+        for (const [fr, a] of [['Was kann ich ernten?', 'Basilikum kannst du essen. Das Maiglöckchen daneben ist giftig.'],
+                                ['Welche Kräuter kann ich essen?', 'Ja, Petersilie ist essbar.'],
+                                ['Was koche ich heute?', 'Kartoffeln kannst du jetzt ernten und kochen.']]) {
+          r = await senden(fr, a);
+          if (!r.text) klagen.push('(f) keine Antwort auf „' + fr + '" — der Fall misst nichts');
+          if (/In unserer Artenliste steht/.test(r.text)) klagen.push('(f) Fehlalarm bei „' + a + '": ' + r.text.slice(0, 100));
+        }
+
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'aus: ' + namen.length + ' Namen und ' + anZeilen.length + ' Datenzeilen bleiben weg, Arten der Frage bleiben · Schalter im Gespräch · voller Speicher → aus bis Neuladen + Satz · Koordinate → „am gewählten Ort" · 2 Schädlinge aus der Cloud, „kein Schädling" nur mit geladenem Tagebuch · Lilli → Maiglöckchen-Warnung (auch aus) · Eibe in der Antwort → Warnung · 3× kein Fehlalarm' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + e.message + (klagen.length ? ' · ' + klagen.join(' · ') : '') };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt; window.showProfileToast = sichern.pt;
+        localStorage.setItem = sichern.si;
+        try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        myPlants = sichern.mp; plantings = sichern.pl;
+        try { userLocation = sichern.ul; } catch (_) {}
+        sichern.ls.forEach(([k, v]) => { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); });
+        _gsLinaEinblickSitzung = null;
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
         try { closeModal('gs-nl-modal'); } catch (_) {}
       }
     },

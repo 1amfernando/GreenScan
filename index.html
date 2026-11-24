@@ -91144,9 +91144,29 @@ window._gsLinaArtenZeile = _gsLinaArtenZeile;
  */
 function _gsLinaSicherheit(antwort, treffer) {
   try {
-    if (!antwort || !treffer || !treffer.zahl) return '';
-    var hoch = treffer.arten.filter(function (a) { return a.tox >= 3; });
-    if (!hoch.length) return '';
+    if (!antwort) return '';
+    var hoch = (treffer && treffer.zahl) ? treffer.arten.filter(function (a) { return a.tox >= 3; }) : [];
+    // Lina · Einblick ehrlich (24.11.2026, Brett 6bbf): Arten, die nur über den Einblick zum Modell kamen
+    // (eine eigene Pflanze, die die Frage beim Spitznamen nennt) oder die erst in der ANTWORT stehen, liefen
+    // hier vorbei — die Gegenprobe sah nur _gsArtenTreffer(Frage). Eine Art aus der Antwort zählt nur in
+    // einem Satz, der sie SELBST nennt (sonst warnte „Basilikum kannst du essen. Das Maiglöckchen daneben
+    // ist giftig." vor dem Basilikum) — und nur mit ihrem GANZEN Namen oder Binomen (Mehrzahl-Endung
+    // erlaubt). Gemessen: über die Deklinations-Regel und den Familien-Zug von _gsArtenTreffer warnte
+    // „Ja, Petersilie ist essbar." vor der Hunds-Petersilie — ein Fehlalarm, den man zu überlesen lernt.
+    var imSatz = function (satzRoh) {
+      try {
+        if (typeof _gsArtenTreffer !== 'function') return [];
+        var t = _gsArtenTreffer(satzRoh);
+        if (!t || !t.zahl) return [];
+        var satz = ' ' + _gsLinaNorm(satzRoh) + ' ';
+        var genannt = function (n) {
+          var k = _gsLinaNorm(n || '');
+          if (k.length < 3) return false;
+          return new RegExp(' ' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:n|en|e|s)? ').test(satz);
+        };
+        return t.arten.filter(function (a) { return a.tox >= 3 && (genannt(a.name) || genannt(a.lat)); });
+      } catch (_) { return []; }
+    };
 
     // v33.32: Diese Pruefung ist die EINZIGE Rechnung, die eine falsche
     // Essbarkeits-Zusage ueber eine giftige Art noch abfangen kann. Die
@@ -91184,7 +91204,9 @@ function _gsLinaSicherheit(antwort, treffer) {
       if (NEIN.test(sz)) continue;                 // dieser Satz warnt selbst
       var bejaht = STAMM.test(sz) || (VERZEHR.test(sz) && JA_DAVOR.test(sz));
       if (!bejaht) continue;
-      var namen = hoch.slice(0, GS_LINA_ARTEN_NENNEN).map(function (x) { return x.name; }).join(', ');
+      var _giftig = hoch.length ? hoch : imSatz(saetze[i]);
+      if (!_giftig.length) continue;
+      var namen = _giftig.slice(0, GS_LINA_ARTEN_NENNEN).map(function (x) { return x.name; }).join(', ');
       var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
       return _t('lina_sicherheit_gift', '⚠️ Achtung: In unserer Artenliste steht {1} als giftig. Bitte nichts essen, was du nicht sicher bestimmt hast.')
         .replace('{1}', namen);
@@ -91193,6 +91215,31 @@ function _gsLinaSicherheit(antwort, treffer) {
   } catch (_) { return ''; }
 }
 window._gsLinaSicherheit = _gsLinaSicherheit;
+
+// Lina · Einblick ehrlich (Brett 6bbf): die Arten der Frage UND die der eigenen Pflanzen, die die Frage beim
+// Namen oder Spitznamen nennt (_gsLinaPflanzenInFrage — dieselbe Auflösung wie die Detailzeile des Einblicks).
+// „Kann ich Lilli essen?" — Lilli ist das Maiglöckchen auf dem Balkon; die Frage selbst nennt keine Art.
+// Auch bei ausgeschaltetem Einblick: diese Prüfung läuft auf dem Gerät und schickt nichts — und ein
+// „Ja, die kannst du essen." kann das Modell auch dann schreiben, wenn es nicht weiss, wer Lilli ist.
+function _gsLinaTrefferMitPflanzen(frage, treffer) {
+  var out = { arten: (treffer && treffer.arten) ? treffer.arten.slice() : [], zahl: 0 };
+  try {
+    if (typeof _gsLinaPflanzenInFrage === 'function') {
+      _gsLinaPflanzenInFrage(frage).forEach(function (x) {
+        var p = x && x.p; if (!p) return;
+        // Mit Binomen genau diese Art; ohne (oder ohne Treffer) der Name — als hätte die Frage ihn genannt.
+        var lat = String(p.latin || p.lat || p.species || '').trim();
+        var t = lat ? _gsArtenTreffer(lat) : null;
+        if (!t || !t.zahl) t = _gsArtenTreffer(String(p.name || ''));
+        (t && t.arten || []).forEach(function (a) {
+          if (!out.arten.some(function (b) { return b.name === a.name; })) out.arten.push(a);
+        });
+      });
+    }
+  } catch (_) {}
+  out.zahl = out.arten.length;
+  return out;
+}
 
 // ══ Linas EINBLICK (Paket I, Punkt 8) ═══════════════════════════════════════
 // Bis hierher sah Lina von den Pflanzen nur die ZAHL und die Namen mit einer
@@ -91220,18 +91267,41 @@ var GS_LINA_HILFE_NENNEN = 4;
 var GS_HILFE_UEBERFAELLIG_TAGE = 2;    // ab so vielen Tagen Verzug „braucht Hilfe" (1 Tag ist Alltag)
 var GS_HILFE_SCHAEDLING_TAGE = 14;     // ein notierter Schaedling gilt so lange als offen
 
+// Lina · Einblick ehrlich (24.11.2026, Brett 6bbf): `localStorage.setItem` wirft hier nie, es gibt bei
+// vollem Speicher `false` zurück (CLAUDE.md §3.5). Bis hierher las niemand die Rückgabe — das Abschalten
+// scheiterte still, und der Einblick blieb AN. Jetzt gilt die Wahl dann für diese Sitzung, und ein Satz
+// sagt, dass sie nach dem Neuladen weg ist.
+var _gsLinaEinblickSitzung = null;   // null: der Speicher entscheidet · true/false: diese Sitzung
 function gsLinaEinblickAn() {
+  if (_gsLinaEinblickSitzung !== null) return _gsLinaEinblickSitzung;
   try { return localStorage.getItem('gs_lina_einblick') !== '0'; } catch (_) { return true; }
 }
 window.gsLinaEinblickAn = gsLinaEinblickAn;
 function gsLinaEinblickSchalten() {
+  var warAn = gsLinaEinblickAn(), gespeichert = true;
   try {
-    if (gsLinaEinblickAn()) localStorage.setItem('gs_lina_einblick', '0');
+    if (warAn) gespeichert = (localStorage.setItem('gs_lina_einblick', '0') !== false);
     else localStorage.removeItem('gs_lina_einblick');
-  } catch (_) {}
+  } catch (_) { gespeichert = false; }
+  if (gespeichert) _gsLinaEinblickSitzung = null;
+  else {
+    _gsLinaEinblickSitzung = !warAn;
+    try { gsToast(_gsSatz('Ausgeschaltet — der Speicher des Geräts ist voll, deshalb gilt das nur, bis die App neu lädt.'), 'warning', 6000); } catch (_) {}
+  }
   try { gsLinaRender(false); } catch (_) {}
 }
 window.gsLinaEinblickSchalten = gsLinaEinblickSchalten;
+
+// Lina · Einblick ehrlich (Brett 6bbf): ein Ortsname, der eine KOORDINATE ist, geht nicht an die KI. Ohne
+// Antwort von Nominatim setzt gsReverseGeocode den Namen auf „47.371°N, 8.542°E" — die Zusage „keine
+// Koordinaten" gilt auch dann. Rückgabe: der Name oder ''.
+function _gsOrtNameFuerKi(name) {
+  var s = String(name == null ? '' : name).trim();
+  if (!s) return '';
+  if (/\d\s*°/.test(s)) return '';
+  if (/^[-+]?\d{1,3}[.,]\d+\s*[,;\/ ]\s*[-+]?\d{1,3}[.,]\d+$/.test(s)) return '';
+  return s;
+}
 
 // Eine Zeile, an der Wortgrenze gekuerzt — nie mitten im Wert (02-regeln.md).
 function _gsLinaKurz(t, n) {
@@ -91301,19 +91371,38 @@ function gsPflanzenHilfe() {
     });
   } catch (_) {}
   try {
-    var tb = (typeof gsTagebuchAlle === 'function') ? (gsTagebuchAlle() || []) : [];
-    var grenze = Date.now() - GS_HILFE_SCHAEDLING_TAGE * 864e5;
-    tb.forEach(function (e) {
-      if (!e || e.cat !== 'pest' || !e.pflanze_id || !e.ts) return;
-      var z = new Date(e.ts).getTime();
-      if (!isFinite(z) || z < grenze) return;
-      var f = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(e.pflanze_id) : null;
-      if (f && f.p) merk(f.p, 'Schädling notiert am ' + _gsLinaTag(e.ts), 50);
+    gsSchaedlingeNotiert().liste.forEach(function (sch) {
+      if (!sch.pflanze_id) return;   // ohne Pflanze: eine eigene Zeile im Einblick
+      var f = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(sch.pflanze_id) : null;
+      if (f && f.p) merk(f.p, 'Schädling notiert am ' + _gsLinaTag(sch.ts), 50);
     });
   } catch (_) {}
   return reihe.sort(function (a, b) { return b.gewicht - a.gewicht; });
 }
 window.gsPflanzenHilfe = gsPflanzenHilfe;
+
+// Lina · Einblick ehrlich (24.11.2026, Brett 6bbf): die Schädlinge im Tagebuch — über gsTagebuchAlle (alle
+// drei Quellen). Der einzige Schreiber (gsPestAddToDiary) legt `pest_observation` in der Cloud an, OHNE
+// Pflanze; der Filter verlangte `pest` UND eine Pflanze und schlug nie an — die Entwarnung nannte
+// trotzdem „kein Schädling" als geprüft. Rückgabe {bekannt, liste:[{was, ts, pflanze_id}]}; `bekannt` ist
+// false, solange das Cloud-Tagebuch auf diesem Gerät nie geladen wurde — dann ist „keiner" keine Aussage.
+function gsSchaedlingeNotiert(tage) {
+  var grenze = Date.now() - (tage || GS_HILFE_SCHAEDLING_TAGE) * 864e5, liste = [], bekannt = false;
+  try { bekannt = localStorage.getItem('gs_garden_diary_cache') !== null; } catch (_) {}
+  try {
+    var tb = (typeof gsTagebuchAlle === 'function') ? (gsTagebuchAlle() || []) : [];
+    tb.forEach(function (e) {
+      if (!e || (e.cat !== 'pest' && e.cat !== 'pest_observation') || !e.ts) return;
+      var z = new Date(e.ts).getTime();
+      if (!isFinite(z) || z < grenze) return;
+      var m = /Pest identified:\s*([^\n]+)/i.exec(String(e.note || '') + '\n' + String(e.text || ''));
+      var was = (m ? m[1] : String(e.text || '')).trim();
+      liste.push({ was: was || 'Schädling', ts: e.ts, pflanze_id: e.pflanze_id || null });
+    });
+  } catch (_) {}
+  return { bekannt: bekannt, liste: liste };
+}
+window.gsSchaedlingeNotiert = gsSchaedlingeNotiert;
 
 // Welche EIGENEN Pflanzen nennt die Frage? Ganzer Name an Wortgrenzen (mit
 // Mehrzahl-Endung), laengster Name zuerst — „Tomate" trifft „meine Tomaten",
@@ -91416,7 +91505,8 @@ function _gsLinaWetterZeile() {
     var l = JSON.parse(localStorage.getItem('gs_user_location') || 'null');
     var c = JSON.parse(localStorage.getItem('gs_weather_cache') || 'null');
     var d = c && c.data && c.data.daily;
-    if (!l || !l.name || !d || !Array.isArray(d.time)) return '';
+    if (!l || !d || !Array.isArray(d.time)) return '';
+    var ortName = _gsOrtNameFuerKi(l.name);   // eine Koordinate als Name geht nicht mit
     var lon = (l.lon != null) ? l.lon : l.lng;
     if (!(Math.abs(Number(c.lat) - Number(l.lat)) < 0.02 && Math.abs(Number(c.lon) - Number(lon)) < 0.02)) return '';
     var heute = gsHeuteTag(), i0 = -1;
@@ -91434,7 +91524,7 @@ function _gsLinaWetterZeile() {
     }
     if (!tage.length) return '';
     var alter = c.ts ? Math.max(0, Math.round((Date.now() - c.ts) / 3600000)) : null;
-    var z = 'Wetter ' + _gsLinaKurz(l.name, 40) + ' (Vorhersage Open-Meteo' + (alter != null ? ', geladen vor ' + alter + ' h' : '') + '): ' + tage.join('; ') + '.';
+    var z = 'Wetter ' + (ortName ? _gsLinaKurz(ortName, 40) : 'am gewählten Ort') + ' (Vorhersage Open-Meteo' + (alter != null ? ', geladen vor ' + alter + ' h' : '') + '): ' + tage.join('; ') + '.';
     // Die vier Schwellen (Frost, Hitze, Starkregen, Sturm) aus der EINEN Rechnung
     var wt = (typeof _gsWetterTage === 'function') ? _gsWetterTage() : null, warn = [], mehrW = 0;
     (wt || []).forEach(function (t) {
@@ -91458,10 +91548,15 @@ function gsLinaEinblick(frageText) {
     // 1 · Wer braucht Hilfe?
     if (alle.length) {
       var hilfe = gsPflanzenHilfe();
+      var _sch = gsSchaedlingeNotiert(), _schOhne = _sch.liste.filter(function (x) { return !x.pflanze_id; });
       if (hilfe.length) teile.push('Braucht Hilfe: ' + hilfe.slice(0, GS_LINA_HILFE_NENNEN).map(function (h) {
         return _gsLinaKurz(h.name, 30) + ' (' + h.gruende.slice(0, 2).join(', ') + ')';
       }).join('; ') + (hilfe.length > GS_LINA_HILFE_NENNEN ? '; +' + (hilfe.length - GS_LINA_HILFE_NENNEN) + ' weitere' : '') + '.');
-      else teile.push('Braucht Hilfe: nach den Daten der App niemand (geprüft: keine Aufgabe ' + GS_HILFE_UEBERFAELLIG_TAGE + ' oder mehr Tage überfällig, kein Schädling in ' + GS_HILFE_SCHAEDLING_TAGE + ' Tagen notiert). Über den Zustand der Pflanzen selbst sagt das nichts.');
+      else teile.push('Braucht Hilfe: nach den Daten der App niemand (geprüft: keine Aufgabe ' + GS_HILFE_UEBERFAELLIG_TAGE + ' oder mehr Tage überfällig'
+        + (_sch.bekannt && !_schOhne.length ? ', kein Schädling im Tagebuch der letzten ' + GS_HILFE_SCHAEDLING_TAGE + ' Tage' : '') + '). Über den Zustand der Pflanzen selbst sagt das nichts.');
+      if (_schOhne.length) teile.push('Schädlinge im Tagebuch (' + GS_HILFE_SCHAEDLING_TAGE + ' Tage, keiner Pflanze zugeordnet): ' + _schOhne.slice(0, 3).map(function (x) {
+        return _gsLinaKurz(x.was, 30) + ' (' + _gsLinaTag(x.ts) + ')';
+      }).join('; ') + (_schOhne.length > 3 ? '; +' + (_schOhne.length - 3) + ' weitere' : '') + '.');
     }
     // 2 · die Pflanzen aus der FRAGE, je eine Detailzeile
     _gsLinaPflanzenInFrage(frageText).forEach(function (x) { var z = _gsLinaPflanzeDetail(x); if (z) teile.push(z); });
@@ -91503,13 +91598,26 @@ function gsLinaContext(frageText){
     // Die Sprache steht hier, nicht im festen Prompt, weil sie sich ändern kann.
     // v33.61: die Zuordnung steht in _gsKiSprache — der Scan-Chat fragt dieselbe.
     try { ctx += '\n\nSPRACHE: Antworte auf ' + _gsKiSprache() + '.'; } catch(_){}
+    // Lina · Einblick ehrlich (24.11.2026, Brett 6bbf): „Aus" heisst aus. Bis hierher schaltete der Schalter
+    // nur den Block gsLinaEinblick ab — Pflanzenzahl, Ortsname und gsLinaZahlen (Pflanzennamen mit fälligen
+    // Aufgaben, Geräte und Messwerte, Kalender, letzter Scan) gingen weiter, während im Lina-Fenster „Lina
+    // sieht deine Pflanzen und Gärten gerade nicht" stand. Ohne Einblick bekommt Lina nur die Frage, die
+    // Sprache, die Jahreszeit und die Arten, die in der Frage selbst stehen.
+    if (typeof gsLinaEinblickAn === 'function' && !gsLinaEinblickAn()) {
+      var _m0 = new Date().getMonth() + 1;
+      ctx += '\n\nKONTEXT: Die Person hat den Einblick in ihre Daten ausgeschaltet — du kennst ihre Pflanzen, Gärten, Scans, Geräte und ihren Ort nicht. Beziehe dich nicht darauf; frag nach, wenn du etwas brauchst.'
+        + ' Jahreszeit: ' + ((_m0>=3&&_m0<=5)?'Frühling':(_m0>=6&&_m0<=8)?'Sommer':(_m0>=9&&_m0<=11)?'Herbst':'Winter') + '.';
+      try { var _az0 = (typeof _gsLinaArtenZeile === 'function') ? _gsLinaArtenZeile(frageText || '') : ''; if (_az0) ctx += '\n' + _az0; } catch(_){}
+      ctx += '\nREGEL: Zahlen, Daten und Gerätenamen nur aus diesem KONTEXT zitieren. Fehlt ein Wert, sag, dass keiner vorliegt — nichts schätzen, nichts interpolieren.';
+      return ctx;
+    }
     // v33.33: die Zahl aus gsPflanzenZahl() (CLAUDE.md §3.3, v33.06) — beide
     // Listen, eine Rechnung. Vorher rechnete der Kontext selbst.
     var plants = (typeof gsPflanzenZahl === 'function') ? gsPflanzenZahl() : 0;
     if (plants) ctx += '\n\nKONTEXT (nur nutzen, falls für die Frage hilfreich): Die Person hat ' + plants + ' Pflanze(n) in GreenScan (Wohnung und Garten zusammen).';
     else ctx += '\n\nKONTEXT (nur nutzen, falls für die Frage hilfreich):';
     var loc = localStorage.getItem('gs_user_location');
-    if (loc) { try { var l = JSON.parse(loc); if (l && l.name) ctx += ' Region: ' + l.name + '.'; } catch(_){} }
+    if (loc) { try { var l = JSON.parse(loc); var _on = l ? _gsOrtNameFuerKi(l.name) : ''; if (_on) ctx += ' Region: ' + _on + '.'; } catch(_){} }
     var mon = new Date().getMonth() + 1;
     ctx += ' Jahreszeit: ' + ((mon>=3&&mon<=5)?'Frühling':(mon>=6&&mon<=8)?'Sommer':(mon>=9&&mon<=11)?'Herbst':'Winter') + '.';
     var zahlen = gsLinaZahlen();
@@ -91818,7 +91926,7 @@ function gsLinaRender(typing){
     // Was Lina sieht, steht da — und laesst sich abschalten. Kein Fenster, keine Rueckfrage.
     var _ean = (typeof gsLinaEinblickAn === 'function') ? gsLinaEinblickAn() : true;
     body += '<div style="text-align:center;padding:2px 10px 8px;font-size:var(--fs-sm);color:var(--muted);line-height:1.5;">'
-      + escHtml(_ean ? _gsSatz('Lina sieht deine Pflanzen, Gärten, Tagebuch-Einträge, das Wetter an deinem Ort, deine Scans und Funde — keine Fotos, keine Koordinaten.') : _gsSatz('Lina sieht deine Pflanzen und Gärten gerade nicht.'))
+      + escHtml(_ean ? _gsSatz('Lina sieht deine Pflanzen, Gärten, Tagebuch-Einträge, das Wetter an deinem Ort, deine Scans und Funde — keine Fotos, keine Koordinaten.') : _gsSatz('Einblick aus — Lina bekommt nur deine Frage, nichts aus deinen Pflanzen, Gärten, Scans, Geräten oder deinem Ort.'))
       + ' <button data-lina-einblick="' + (_ean ? '1' : '0') + '" onclick="gsLinaEinblickSchalten()" style="background:none;border:none;padding:6px 4px;color:var(--g-dark);font-weight:700;font-size:var(--fs-sm);font-family:inherit;text-decoration:underline;cursor:pointer;">'
       + escHtml(_ean ? _gsSatz('Ausschalten') : _gsSatz('Einschalten')) + '</button></div>';
   }
@@ -91831,6 +91939,15 @@ function gsLinaRender(typing){
       + '<button data-lina-verlauf="1" onclick="gsLinaGespraeche()" style="margin-left:auto;padding:6px 10px;background:var(--surface2);color:var(--text);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">' + escHtml(_t('lina_verlauf','🕘 Verlauf')) + '</button>'
       + '<button onclick="gsLinaNew()" style="padding:6px 10px;background:var(--surface2);color:var(--text);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">' + _t('lina_new','＋ Neu') + '</button>'
     + '</div>'
+    // Lina · Einblick ehrlich (Brett 6bbf): der Schalter steht auch im LAUFENDEN Gespräch — bis hierher nur
+    // im leeren Verlauf, wer schon ein Gespräch hatte, fand ihn nach dem Öffnen nicht.
+    + (msgs.length ? (function () {
+        var _an = (typeof gsLinaEinblickAn === 'function') ? gsLinaEinblickAn() : true;
+        return '<div data-lina-einblick-zeile="1" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 6px;padding:4px 12px;border-bottom:1px solid var(--border);font-size:var(--fs-xs);color:var(--muted);line-height:1.4;text-align:center;">'
+          + escHtml(_an ? _gsSatz('Lina sieht deine Gartendaten — keine Fotos, keine Koordinaten.') : _gsSatz('Einblick aus — Lina bekommt nur deine Frage.'))
+          + '<button data-lina-einblick="' + (_an ? '1' : '0') + '" onclick="gsLinaEinblickSchalten()" style="background:none;border:none;padding:4px 6px;min-height:24px;color:var(--g-dark);font-weight:700;font-size:var(--fs-xs);font-family:inherit;text-decoration:underline;cursor:pointer;">'
+          + escHtml(_an ? _gsSatz('Ausschalten') : _gsSatz('Einschalten')) + '</button></div>';
+      })() : '')
     + '<div id="gs-lina-scroll" style="flex:1;overflow-y:auto;padding:12px 16px;">' + body + '</div>'
     + '<div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);">'
       + '<input id="gs-lina-input" placeholder="' + _t('lina_input_ph','Frag Lina etwas…') + '" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();gsLinaSend();}" style="flex:1;padding:11px 14px;border:1px solid var(--border);border-radius:var(--r-xl);font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;">'
@@ -92157,7 +92274,7 @@ async function gsLinaSend(){
     // Antwort wird nicht verschluckt. Dazu die ruhige Notfall-Zeile, wenn die
     // Frage einen blossen Verzehr nennt.
     try {
-      var _warn = (typeof _gsLinaSicherheit === 'function') ? _gsLinaSicherheit(reply, _treffer) : '';
+      var _warn = (typeof _gsLinaSicherheit === 'function') ? _gsLinaSicherheit(reply, _gsLinaTrefferMitPflanzen(text, _treffer)) : '';
       if (_warn) reply = _warn + '\n\n' + reply;
       if (window._gsLinaNotfallHinweis) {
         var _th = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };

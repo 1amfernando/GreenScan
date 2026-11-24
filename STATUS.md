@@ -12,6 +12,45 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (Kennung folgt) - v33.7x: Lina · Einblick — „Aus" heisst aus, und die Gegenprobe sieht, was Lina sieht
+
+**Auftrag:** Hauptfunktionen, Lina (Fernando: „Die Agenten müssen die App auf ein next höheres Niveau bringen"). Anlass: die
+Nachprüfung von v33.70 (#340, Lina · Einblick) durch den Koordinator; nachgemessen und als Brett 2026-11-24-6bbf eingetragen.
+Gebaut auf v33.71 (`33d2818`).
+
+**Gemessen** (am Kontext, den `gsLinaSend` wirklich an die KI schickt — KI gestellt): (1) „Aus" nahm nur den Einblick-Block weg;
+Pflanzenzahl, „Region:", fällige Aufgaben mit Pflanzennamen, Geräte und Messwerte, Kalender und der letzte Scan gingen weiter mit
+(gemessen mit eigenen Beispieldaten: 3 Pflanzennamen und 1 Gerätename, 6 Datenzeilen), während das Fenster „Lina sieht deine Pflanzen und Gärten gerade nicht" sagte. (2) Der Schalter
+stand nur im LEEREN Verlauf. (3) Bei vollem Speicher blieb der Einblick still an (die Rückgabe von `setItem` las niemand). (4) Ohne
+Antwort von Nominatim heisst der Ort „46.948°N, 7.447°E" — er ging als Region und Wetterort mit („keine Koordinaten"). (5) Der
+Schädlings-Filter verlangte `cat === 'pest'` UND eine Pflanze; beide Schreiber (`gsPestAddToDiary`, das Tagebuch-Formular über
+`gsDiaryAddEntry`) legen `pest_observation` OHNE Pflanze in der Cloud an — er schlug nie an, und die Entwarnung nannte „kein
+Schädling in 14 Tagen" trotzdem als geprüft, auch ohne je geladenes Cloud-Tagebuch. (6) Die Essbarkeits-Gegenprobe sah nur die Arten
+der Frage: „Kann ich Lilli essen?" (Lilli = das eigene Maiglöckchen) → „Ja, die kannst du essen." ohne Warnung; ebenso eine giftige
+Art, die erst in der Antwort steht. (7) `privacy.html` und der Text in der App nennen weniger, als mitgeht (Spitzname, Sorte,
+Notiz, Gartenmasse, Termine, Gerätenamen) — Entscheidung Fernando.
+
+**Behoben:** `gsLinaContext` kehrt ohne Einblick früh zurück — nur Sprache, Jahreszeit und die Arten der Frage, dazu ein Satz an die
+KI, dass sie die Daten nicht kennt. Der Schalter steht auch als Zeile im laufenden Gespräch. `gsLinaEinblickSchalten` liest die
+Rückgabe: gescheitert → aus bis zum Neuladen (`_gsLinaEinblickSitzung`) mit Satz. `_gsOrtNameFuerKi` lässt eine Koordinate als Namen
+nicht durch („Wetter am gewählten Ort"). `gsSchaedlingeNotiert` liest `pest` und `pest_observation`; ohne Pflanze eine eigene Zeile
+„Schädlinge im Tagebuch", und „kein Schädling" steht nur da, wenn das Cloud-Tagebuch geladen ist. `_gsLinaTrefferMitPflanzen`
+gibt der Gegenprobe die Arten eigener Pflanzen, die die Frage beim Namen oder Spitznamen nennt (Binomen zuerst; auch bei
+ausgeschaltetem Einblick — die Prüfung schickt nichts); eine giftige Art aus der ANTWORT zählt nur mit ganzem Namen oder Binomen im
+bejahenden Satz. Gemessen an 22 Sätzen: ohne diese Einschränkung warnte „Ja, Petersilie ist essbar." vor der Hunds-Petersilie; mit ihr
+0 Fehlalarme bei 18 harmlosen Sätzen, Eibe · Maiglöckchen · Herbstzeitlose · Fingerhut gewarnt. Den Wortlaut der Datenschutztexte
+legt FUER-FERNANDO §33 vor; `privacy.html` und der Text in der App bleiben bis zu seinem Ja. Doku: CLAUDE.md §3.7 und §7.1,
+`docs/memory/07-lina.md`, `docs/HAUPTFUNKTIONEN.md` Lina 10.
+
+**Prüfstände:** `sensor_check` „Lina · Einblick ehrlich" (neu, sechs Lagen über die echten Wege: `gsLinaSend` mit gestellter KI, der
+Schalter-Knopf, `gsPestAddToDiary` und `gsDiaryAddEntry` mit `gsCloudTagebuchLaden`, `gsReverseGeocode` ohne Netz mit
+`saveUserLocation`) — gegen v33.71 rot; elf Gegenproben einzeln rot, je an der richtigen Lage. „Lina · Einblick" verlangt die
+Entwarnung jetzt in beiden Lagen (ohne und mit geladenem Tagebuch); sein Schädling an der Pflanze (`p.diary`, action `pest`) ist als
+das bezeichnet, was er ist: heute schreibt ihn kein Weg der App.
+
+**Offen:** nichts — brett:2026-11-24-6bbf ist mit diesem Paket geschlossen; der Wortlaut der Datenschutztexte wartet auf Fernando (FUER-FERNANDO §33).
+**Nicht geprüft:** ein echtes Telefon; eine echte KI-Antwort (gestellt); ob das Cloud-Tagebuch live `pest_observation`-Zeilen so liefert wie gestellt (nur die Spalten, die `gsCloudTagebuchLaden` holt).
+
 ### 2026-11-24 (jv) - v33.72: Ein grosser Durchgang — 18 Agenten in drei Läufen, zwei neue Prüfstände, und der Garten überlebt das neue Gerät
 
 Fernandos Auftrag: „Checke alle Fehler, unschöne Programmierungen und

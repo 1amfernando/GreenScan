@@ -106,6 +106,19 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    zweite Frage verschluckte der Riegel wortlos. Jetzt zählt jeder Wechsel (`_gsLinaGespraechNr`),
    Vorgeschichte, Id und Antwort bleiben beim gefragten Gespräch (Cloud), ein Satz sagt, wo die Antwort
    ist, und die zweite Frage bekommt einen Satz statt Stille.
+10. ✅ v33.7x (`sensor_check` „Lina · Einblick ehrlich", Brett 2026-11-24-6bbf, gefunden 24.11. beim Nachprüfen
+   von v33.70) — **Der Einblick hält nicht, was er sagt.** „Aus" nahm nur den Einblick-Block weg: Pflanzenzahl,
+   Ort, fällige Aufgaben mit Pflanzennamen, Geräte, Messwerte, Kalender und der letzte Scan gingen weiter an die
+   KI, während das Fenster „Lina sieht deine Pflanzen und Gärten gerade nicht" sagte. Der Schalter stand nur im
+   leeren Verlauf, bei vollem Speicher blieb er still an, und ein Ort ohne Namen ging als „46.948°N, 7.447°E"
+   mit („keine Koordinaten"). Der Schädlings-Filter konnte nie anschlagen (die Schreiber legen
+   `pest_observation` ohne Pflanze an), und die Entwarnung nannte „kein Schädling" trotzdem als geprüft. Die
+   Essbarkeits-Gegenprobe sah weder die eigene Pflanze hinter einem Spitznamen („Lilli" = Maiglöckchen) noch
+   eine giftige Art, die erst in der Antwort steht. Jetzt: ohne Einblick nur Frage, Sprache, Jahreszeit und die
+   Arten der Frage; der Schalter auch im laufenden Gespräch; voller Speicher → aus bis zum Neuladen, mit Satz;
+   `_gsOrtNameFuerKi`; `gsSchaedlingeNotiert` (eigene Zeile, „kein Schädling" nur mit geladenem Tagebuch);
+   `_gsLinaTrefferMitPflanzen` und Arten der Antwort mit ganzem Namen. Den Wortlaut der Datenschutzerklärung
+   entscheidet Fernando (FUER-FERNANDO §33).
 
 ## Offen — Suche
 

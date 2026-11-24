@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-7bd9",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "15:28:07",
+  "von": "sitzung/lokal/lina-einblick",
+  "stand": "v33.71",
+  "titel": "erledigt: Lina · Einblick (v33.70): der Schalter, der Ortsname, das Schädling-Signal und die Gegenprobe halten nicht, was sie sagen",
+  "ergebnis": "erledigt",
+  "wohin": "Paket „Lina · Einblick ehrlich“ (nach v33.71, Branch claude/happy-thompson-24l4uu) — sensor_check „Lina · Einblick ehrlich“, gegen v33.71 rot, elf Gegenproben einzeln rot; Wortlaut der Datenschutztexte: FUER-FERNANDO §33",
+  "geschwister": "gesucht: (1) ein Ortsname an eine KI — grep auf .name des Standorts in Kontexten: 3 Stellen; Lina Region und Wetter behoben, der Scan-Kontext schickt den Ort ohnehin mit den in privacy.html genannten ~100-m-Koordinaten, der Scan-Verlauf bleibt lokal. (2) ein Schalter, der Daten von der KI fernhält: nur gs_lina_einblick. (3) ein Leser von Schädlings-Einträgen mit cat pest: nur gsSchaedlingeNotiert (die Garten-Statistik zählt entry_type pest_observation richtig).",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-24-6bbf"
+    }
+  ]
+}
