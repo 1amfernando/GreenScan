@@ -3847,6 +3847,18 @@ App eine reine Bilderkennung schlagen kann: **nicht im Sehen, im Pruefen.**
 > umgestellt: die Plakette „Giftig" auf der Karte (ab Stufe 3 — das Wort der
 > TOX-Skala) und die Sammlung „☠️ Giftige" (ab Stufe 4); sie benennen eine
 > STUFE, keine Liste.
+>
+> **Und die Marke in den Pflanzen-Vorschlägen („Pflanze hinzufügen") fragt seit
+> Suche 11 dasselbe** (`gsIstGiftig`) und nennt dazu das Wort der Skala
+> (`toxInfo`) — vorher las sie das Feld des einen Eintrags: 58 Einträge giftiger
+> Arten standen ohne Warnung da. **Ein Namensfeld schlägt nur NAMEN vor:** die
+> Artensuche hängt Treffer aus dem Fliesstext an, und dort nennen sich
+> Verwechsler gegenseitig — 1:1 übernommen hätte „maigl" den Bärlauch
+> vorgeschlagen und „giersch" die Herbstzeitlose. `_gsSucheRang` sagt dafür in
+> `info.vorschlaege`, wie viele Treffer über Name, Binomen, Familie, Synonym oder
+> einen Vertipper kamen (`scan_check` SU9). **Eine Warnung steht neben dem
+> Namen, nie in ihm:** im gekürzten Namen war sie bei „Echter Monstera Thai
+> Constellation" abgeschnitten.
 
 **Seit v32.43 haelt `scan_check` auch die DUBLETTEN-REGEL fest.** Die
 Artenliste fuehrt 657 Arten mehrfach (gleiches Binomen nach `_gsNormLat`),

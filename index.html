@@ -40132,6 +40132,10 @@ function _gsSucheRang(text, pass, info){
   // Wie viele Treffer über Name, Binomen oder Familie (ohne Vertipper und Fliesstext) — sie stehen,
   // nach Relevanz geordnet, vorn. Die Menü-Suche zeigt nur sie, wenn Menüeinträge passen.
   if (info) info.namensTreffer = scored.filter(function (x) { return !x.tipp && x.sc >= 150; }).length;
+  // Suche 11: wie viele Treffer ein NAMENSFELD vorschlagen darf — über Name, Binomen, Familie, Synonym oder einen
+  // Vertipper; nicht die, die nur im Fliesstext stehen. Nach der Sortierung stehen sie vorn (Namen ab 150, Vertipper
+  // 110–130, Fliesstext höchstens 100).
+  if (info) info.vorschlaege = scored.filter(function (x) { return x.tipp || x.sc >= 150; }).length;
   // v31.91: Bei GLEICHER Relevanz kommt der geprüfte Eintrag zuerst.
   //
   // „Ampfer" trifft 28 Einträge mit demselben Trivialnamen, „Brennnessel"
@@ -41345,6 +41349,7 @@ window.gsPlantSuggest = function(inputEl) {
 // v26.88: shared Render einer Arten-Liste (lokal ODER online-gemergt) ins Dropdown.
 // list = Array von Arten-Objekten {name, lat, emoji, cat, toxic, [_remote], [_sid], ...}
 function _gsRenderSugList(list, q, dropdown){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
   if (!list || !list.length) {
     dropdown.style.display = 'block';
     dropdown.innerHTML = '<div style="padding:14px 14px;color:var(--muted);font-size:var(--fs-sm);text-align:center;">Keine Vorschläge zu „' + escHtml(q) + '". Tippe trotzdem weiter und klick „Speichern" für eigenen Eintrag.</div>';
@@ -41357,8 +41362,25 @@ function _gsRenderSugList(list, q, dropdown){
     var lat = s.lat || '';
     var cat = (s.cat || '').toLowerCase();
     var tag = _GS_SUG_CATLABEL[cat] || '';
-    var tox = s.toxic ? '<span style="color:var(--c-danger);font-size:var(--fs-sm);font-weight:700;margin-left:6px;" title="Giftig">⚠️ giftig</span>' : '';
-    var cloud = s._remote ? '<span style="font-size:var(--fs-sm);margin-left:5px;opacity:.6;" title="Online-Treffer (tippfehler-tolerant)">☁️</span>' : '';
+    // Suche 11: „giftig“ fragt dasselbe wie der Filter „☠️ Giftig“ (gsIstGiftig, an der ART über _gsArtAnzeige), und
+    // das Wort kommt aus der Giftskala der App (toxInfo, wie im Artendetail) — als feste Farbpaarung, damit es in beiden
+    // Modi lesbar bleibt. Ein Online-Treffer ist kein Eintrag der Liste: er geht über gsMatchScanToDb zu seiner Art;
+    // sagt der Server „giftig“, gilt das auch ohne Art. Vorher zählte das Feld `toxic` des einen Eintrags: 58 Einträge
+    // giftiger Arten standen ohne Warnung da (gemessen 24.11.2026: 675 statt 617 markiert, keiner verliert seine), und ein
+    // langer Name schnitt die Warnung ab („Echter Monstera Thai Constellation“: sie stand im gekürzten Namen). Jetzt
+    // steht sie neben dem Namen — gekürzt wird der Name, nie die Warnung.
+    var _gift = !!(s._remote && s.toxic), _stufe = 0;
+    try {
+      var _db = s._remote ? ((typeof gsMatchScanToDb === 'function') ? gsMatchScanToDb(s.name, s.lat) : null) : s;
+      if (_db) {
+        var _a = (typeof _gsArtAnzeige === 'function') ? (_gsArtAnzeige(_db) || _db) : _db;
+        _stufe = Math.max(0, Math.min(5, Math.round(Number(_a.tox) || 0)));
+        _gift = _gift || ((typeof gsIstGiftig === 'function') ? gsIstGiftig(_db) : !!(_a.toxic || _stufe >= 2));
+      }
+    } catch (_) { _gift = _gift || !!s.toxic; }
+    var _ti = (_gift && typeof toxInfo === 'function') ? toxInfo(_stufe >= 1 ? _stufe : 3) : null;
+    var tox = _ti ? '<span class="gs-sug-gift" style="flex:0 0 auto;white-space:nowrap;padding:1px 7px;border-radius:var(--r-sm);font-size:var(--fs-xs);font-weight:700;background:' + _ti.bg + ';color:' + _ti.color + ';">' + escHtml((_stufe >= 1 ? _ti.sym + ' ' + _ti.label : '⚠️ ' + _t('badge_giftig', 'Giftig'))) + '</span>' : '';
+    var cloud = s._remote ? '<span style="flex:0 0 auto;font-size:var(--fs-sm);opacity:.6;" title="Online-Treffer (tippfehler-tolerant)">☁️</span>' : '';
     return '<div role="option" tabindex="0" data-sug-idx="' + idx + '"' +
       ' onmousedown="event.preventDefault(); _gsApplyPlantSuggestion(' + idx + ')"' +
       ' onkeydown="if(event.key===\'Enter\'){_gsApplyPlantSuggestion(' + idx + ');}"' +
@@ -41367,7 +41389,9 @@ function _gsRenderSugList(list, q, dropdown){
       ' onmouseout="this.style.background=\'transparent\'">' +
       '<div style="font-size:var(--fs-2xl);width:30px;text-align:center;">' + emoji + '</div>' +
       '<div style="flex:1;min-width:0;">' +
-        '<div style="font-size:var(--fs-md);font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(name) + tox + cloud + '</div>' +
+        '<div style="display:flex;align-items:center;gap:6px;min-width:0;">' +
+          '<div style="font-size:var(--fs-md);font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escHtml(name) + '</div>' + tox + cloud +
+        '</div>' +
         (lat ? '<div style="font-size:var(--fs-sm);font-style:italic;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(lat) + '</div>' : '') +
       '</div>' +
       (tag ? '<span style="font-size:var(--fs-xs);font-weight:700;padding:3px 7px;border-radius:var(--r-sm);background:var(--surface2);color:var(--text2);white-space:nowrap;">' + tag + '</span>' : '') +
@@ -41385,30 +41409,18 @@ function _gsRenderSuggestions(q, dropdown, seq){
   if (typeof DB === 'undefined' || !Array.isArray(DB) || !DB.length) {
     dropdown.style.display = 'none'; return;
   }
-  var qLow = q.toLowerCase();
-  // Score: 100 = exakter Name-Prefix, 80 = Name-Contains, 60 = Latein-Prefix, 40 = Latein-Contains, 20 = Common-Name-Translation
-  var scored = [];
-  for (var i = 0; i < DB.length; i++) {
-    var s = DB[i]; if (!s) continue;
-    var nm = (s.name || '').toLowerCase();
-    var lt = (s.lat || '').toLowerCase();
-    var en = (s.common_name_en || s.cn_en || '').toLowerCase();
-    var es = (s.common_name_es || s.cn_es || '').toLowerCase();
-    var score = 0;
-    if (nm === qLow) score = 110;
-    else if (nm.indexOf(qLow) === 0) score = 100;
-    else if (nm.indexOf(qLow) > -1) score = 80;
-    else if (lt.indexOf(qLow) === 0) score = 60;
-    else if (lt.indexOf(qLow) > -1) score = 40;
-    else if (en.indexOf(qLow) > -1 || es.indexOf(qLow) > -1) score = 20;
-    if (score > 0) {
-      // Bonus für kürzere Namen (relevantere Treffer)
-      score -= Math.min(20, (s.name || '').length / 4);
-      scored.push({ s: s, score: score });
-    }
-  }
-  scored.sort(function(a,b){ return b.score - a.score; });
-  scored = scored.slice(0, 8);
+  // Suche 11 (Brett 66d7): dieselbe Rechnung wie die Artensuche und die Menü-Suche (_gsSucheRang) — Umlaute,
+  // Vertipper, Synonyme, mehrere Wörter, „geprüft vor ungeprüft“. Vorher toLowerCase + indexOf: „barlauch“,
+  // „brennessel“, „lowenzahn“ fanden ohne Netz nichts, die Artensuche alle drei. (Der Zweig für englische und
+  // spanische Namen war tot: kein Eintrag trägt einen — gemessen 24.11.2026, 0 von 4'342 in data/plants.v1.js.)
+  var _liste = [], _info = {};
+  try { _liste = (typeof _gsSucheRang === 'function') ? (_gsSucheRang(String(q || '').trim(), null, _info) || []) : []; } catch (_) { _liste = []; }
+  // Ein Namensfeld schlägt NAMEN vor — Treffer über Name, Binomen, Familie, Synonym oder einen Vertipper, in der
+  // Reihenfolge der Suche. Die Suche hängt danach Treffer aus dem Fliesstext an, und dort nennen sich Verwechsler
+  // gegenseitig: „maigl“ hätte auf Platz 3 den Bärlauch vorgeschlagen, „bärlauch“ auf Platz 8 das Maiglöckchen
+  // (gemessen 24.11.2026). Wer eine Pflanze anlegt, bekommt keinen Namen vorgeschlagen, der nur in einem Text steht.
+  var _n = (typeof _info.vorschlaege === 'number') ? _info.vorschlaege : _liste.length;
+  var scored = _liste.slice(0, Math.min(8, _n)).map(function (sp) { return { s: sp }; });
   // 1) lokale Treffer sofort rendern (instant, offline-fähig)
   _gsRenderSugList(scored.map(function(x){ return x.s; }), q, dropdown);
   // 2) v26.88: online Fuzzy-Boost (tippfehler-tolerant via pg_trgm Edge-Fn) — Vorrang vor lokal

@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-24-a313",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "16:39:52",
+  "von": "sitzung/lokal/suche-vorschlag",
+  "stand": "v33.74",
+  "titel": "erledigt: „Pflanze hinzufügen“: die Vorschlagsliste findet ohne Netz weder Umlaut-lose Eingaben noch Vertipper — die Artensuche kann beides",
+  "text": "Gebaut wie vorgeschlagen über _gsSucheRang — aber NICHT 1:1: die Suche hängt Treffer aus dem Fliesstext an, und dort nennen sich Verwechsler gegenseitig (gemessen: „maigl\" → Bärlauch auf Platz 3, „giersch\" → Herbstzeitlose, „bärlauch\" → Maiglöckchen). Das Namensfeld nimmt nur Treffer über Name, Binomen, Familie, Synonym oder Vertipper (info.vorschlaege). Dazu: „giftig\" fragt wie der Filter (gsIstGiftig, 58 Einträge mehr gewarnt, keiner weniger), mit dem Wort der Skala, neben dem Namen statt im gekürzten Namen; Online-Treffer über gsMatchScanToDb zur Art.",
+  "ergebnis": "erledigt",
+  "wohin": "v33.76 · Suche 11 (scan_check SU9), lokal auf lokal/suche-vorschlag",
+  "geschwister": "gesucht: eigene Namenssuchen über DB (grep DB.filter/find mit toLowerCase().indexOf, Funktionen *Vorschlag*/*Suggest*) → 2 Stellen: _gsKorrekturTreffer faltet Umlaute schon, kennt keine Vertipper, eigener Auswähler je Binomen — bewusst nicht umgestellt; gsFindSpeciesByName ist ein Nachschlag (Wasser, Latein, Familie), keine Suche",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-24-66d7"
+    }
+  ]
+}

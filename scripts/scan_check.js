@@ -3231,6 +3231,134 @@ const FAELLE = [
     },
   },
   {
+    name: 'SU9 · Pflanze anlegen: die Vorschläge suchen wie die Suche (Umlaute, Vertipper, dieselbe Reihenfolge), schlagen aber nur NAMEN vor — „giftig" fragt wie der Filter an der ART und nennt die Stufe der Skala, auch bei einem Online-Treffer, und ein langer Name schneidet die Warnung nicht ab',
+    lauf: async () => {
+      if (typeof gsPlantSuggest !== 'function' || typeof openAddPlant !== 'function') return { ok: false, warum: 'gsPlantSuggest oder openAddPlant gibt es nicht' };
+      const inp = document.getElementById('mp-name'), box = document.getElementById('mp-name-sug');
+      if (!inp || !box) return { ok: false, warum: 'Namensfeld oder Vorschlagsliste fehlt — der Fall misst nichts' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const f = [];
+      // Der echte Weg: tippen löst `oninput` aus (gsPlantSuggest + Mischkultur), die Liste kommt nach 150 ms.
+      const tippe = async (w) => { inp.value = w; inp.dispatchEvent(new Event('input', { bubbles: true })); await warte(300); };
+      const zeilen = () => [].slice.call(box.querySelectorAll('[data-sug-idx]'));
+      const eintrag = (z) => (z ? (window._gsLastSuggestions || [])[Number(z.getAttribute('data-sug-idx'))] : undefined);
+      // Die Marke unabhängig von ihrer Bauform: ein <span> mit eigenem Text „giftig" (alt: „⚠️ giftig" im Namen).
+      const marke = (z) => [].slice.call(z.querySelectorAll('span')).find((sp) => !sp.querySelector('span') && /giftig/i.test(sp.textContent || '')) || null;
+      // Der eigene Massstab: die Regel des Filters „☠️ Giftig" (toxic ODER Stufe ≥ 2), an der ART.
+      const art = (s) => (_gsArtAnzeige(s) || s);
+      const sollGift = (s) => { const a = art(s); return !!(a.toxic || (Number(a.tox) || 0) >= 2); };
+      const sollWort = (s) => { const n = Math.round(Number(art(s).tox) || 0); return n >= 1 ? toxInfo(n).sym + ' ' + toxInfo(n).label : null; };
+      const echtRemote = _gsRemoteSearch;
+      let remote = null, remoteRufe = 0;
+      _gsRemoteSearch = async function () { remoteRufe++; return remote; };
+      const online = (ja) => Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => ja });
+      const vorF = currentFilter, vorS = searchText, vorP = (typeof currentProp !== 'undefined') ? currentProp : '';
+      let geprueft = 0, neuGewarnt = 0, leicht = 0, stilleStufe = 0, lang = null, wolke = '';
+      try {
+        openAddPlant();
+        await warte(250);
+        online(false);
+        // 1 · ohne Netz: Umlaute und Vertipper — vorher fand „barlauch" gar nichts, die Artensuche den Bärlauch
+        for (const p of [['barlauch', /Bärlauch/], ['brennessel', /Brennnessel/], ['lowenzahn', /Löwenzahn/]]) {
+          await tippe(p[0]);
+          const oben = zeilen().map((z) => (eintrag(z) || {}).name || '');
+          if (!oben.length) f.push('„' + p[0] + '" findet ohne Netz keine Art');
+          else if (!p[1].test(oben[0])) f.push('„' + p[0] + '": oben steht „' + oben[0] + '"');
+        }
+        // 2 · die Reihenfolge der Artensuche (ohne Filter) — aber nur NAMEN: die Vorschläge sind der Anfang der
+        //     Suchliste, und ein Name, der nur im TEXT eines anderen Eintrags steht, wird nicht vorgeschlagen. Dort nennen
+        //     sich Verwechsler gegenseitig: die Suche zeigt bei „giersch" die Herbstzeitlose, bei „maigl" den Bärlauch.
+        for (const [w, fremd] of [['giersch', 'Herbstzeitlose'], ['tomate', 'Basilikum'], ['maigl', 'Bärlauch'], ['bärlauch', 'Maiglöckchen'], ['rose', null]]) {
+          await tippe(w);
+          currentFilter = ''; searchText = w; if (typeof currentProp !== 'undefined') currentProp = '';
+          const suche = getFiltered();
+          const vor = zeilen().map((z) => eintrag(z) || {});
+          if (!vor.length) { f.push('„' + w + '": keine Vorschläge'); continue; }
+          for (let i = 0; i < vor.length; i++) if (!suche[i] || vor[i].id !== suche[i].id) { f.push('„' + w + '": Platz ' + (i + 1) + ' Vorschlag ' + (vor[i].name || '–') + ', Suche ' + ((suche[i] || {}).name || '–')); break; }
+          if (fremd) {
+            if (!suche.slice(0, 8).some((x) => (x.name || '').indexOf(fremd) >= 0)) f.push('„' + w + '": die Suche zeigt „' + fremd + '" nicht unter den ersten acht — der Fall misst die Namensregel nicht');
+            const da = vor.find((x) => (x.name || '').indexOf(fremd) >= 0);
+            if (da) f.push('„' + w + '" schlägt „' + da.name + '" vor — ein Name, der nur im Text eines anderen steht');
+          }
+        }
+        // 3 · „giftig" in beide Richtungen, mit dem Wort der Skala — darunter ein Eintrag, der selbst kein
+        //     `toxic` trägt, dessen Art aber giftig ist (die alte Regel las das Feld des Eintrags)
+        const kandidat = DB.find((s) => s && s.id && s.name && s.lat && / /.test(s.lat) && !s.toxic && !s._unverified && art(s).toxic && (Number(art(s).tox) || 0) >= 2);
+        if (!kandidat) f.push('kein Eintrag ohne „toxic", dessen Art giftig ist — der Fall misst die Art-Regel nicht');
+        for (const w of ['barlauch', 'giersch', 'tomate', 'schierling', 'holunder', 'maigl', 'johanniskraut', 'beifuss', 'thymian'].concat(kandidat ? [kandidat.name] : [])) {
+          await tippe(w);
+          zeilen().forEach((z) => {
+            const s = eintrag(z); if (!s || s._remote) return;
+            geprueft++;
+            const soll = sollGift(s), m = marke(z), ist = !!m;
+            if (soll !== ist) { f.push('„' + s.name + '" (' + s.id + ', Art Stufe ' + (art(s).tox || 0) + ') ' + (soll ? 'ohne' : 'mit') + ' „giftig"'); return; }
+            if (soll && !s.toxic) neuGewarnt++;
+            const st = Math.round(Number(art(s).tox) || 0);
+            if (soll && st === 1) leicht++;
+            if (!soll && st >= 1) stilleStufe++;
+            const wort = soll ? sollWort(s) : null;
+            if (wort && m.textContent.trim() !== wort) f.push('„' + s.name + '": „' + m.textContent.trim() + '" statt „' + wort + '"');
+          });
+        }
+        if (kandidat && !zeilen().some((z) => (eintrag(z) || {}).id === kandidat.id)) f.push('„' + kandidat.name + '" steht nicht in den Vorschlägen — der Fall misst die Art-Regel nicht');
+        if (!leicht) f.push('keine Zeile der Stufe 1 mit Warnung — der Fall misst das Wort „Leicht giftig" nicht');
+        if (!stilleStufe) f.push('keine Zeile mit Stufe ≥ 1 OHNE Warnung — der Fall misst die Gegenrichtung nicht');
+        // 4 · ein langer Name kürzt sich, nie die Warnung (gemessen im geöffneten Fenster, 412 px)
+        const lange = DB.filter((s) => s && s.id && s.name && !s._unverified && sollGift(s) && s.name.length <= 60).sort((a, b) => b.name.length - a.name.length);
+        for (const s of lange.slice(0, 6)) {
+          await tippe(s.name);
+          const z = zeilen().find((x) => (eintrag(x) || {}).id === s.id);
+          if (!z) continue;
+          const m = marke(z);
+          if (!m) { f.push('„' + s.name + '" (lang) ohne „giftig"'); break; }
+          const b = m.getBoundingClientRect();
+          let gekappt = b.width < 1 ? 'keine Breite' : '';
+          for (let el = m.parentElement; el && !gekappt && el !== box; el = el.parentElement) {
+            const cs = getComputedStyle(el);
+            if (cs.overflowX === 'visible' && cs.overflow === 'visible') continue;
+            const r = el.getBoundingClientRect();
+            if (b.right > r.right + 0.5 || b.left < r.left - 0.5) gekappt = 'abgeschnitten (' + Math.round(b.left) + '–' + Math.round(b.right) + ' px, sichtbar bis ' + Math.round(r.right) + ' px)';
+          }
+          const nameEl = [].slice.call(z.querySelectorAll('div')).find((d) => !d.querySelector('div') && (d.textContent || '').indexOf(s.name.slice(0, 12)) === 0);
+          lang = s.name + (nameEl && nameEl.scrollWidth > nameEl.clientWidth + 1 ? ' (Name gekürzt)' : ' (Name passt)');
+          if (gekappt) f.push('bei „' + s.name + '" ist die Warnung ' + gekappt);
+          break;
+        }
+        if (!lang) f.push('kein langer giftiger Name in den Vorschlägen — der Fall misst das Abschneiden nicht');
+        // 5 · online: ein Treffer des Servers geht zu seiner ART (gsMatchScanToDb) — sagt der Server nichts, warnt
+        //     die Art; sagt er „giftig", gilt das; ein Name, den die Liste nicht kennt, bekommt keine erfundene Warnung
+        if (kandidat) {
+          online(true);
+          remote = [{ name: kandidat.name, lat: kandidat.lat, toxic: false, edible: false, emoji: '🌿', cat: kandidat.cat || '' },
+                    { name: 'Prüfpflanze Zzz', lat: '', toxic: false, edible: false, emoji: '🌿', cat: '' },
+                    { name: 'Prüfpflanze Yyy', lat: '', toxic: true, edible: false, emoji: '🌿', cat: '' }];
+          const vorRufe = remoteRufe;
+          await tippe(kandidat.name); await warte(80);
+          if (remoteRufe === vorRufe) f.push('online wurde der Server nicht gefragt — der Fall misst den Online-Weg nicht');
+          const w = zeilen().filter((z) => (eintrag(z) || {})._remote);
+          const bei = (n) => w.find((z) => eintrag(z).name === n);
+          if (w.length !== 3 || !bei(kandidat.name) || !bei('Prüfpflanze Zzz') || !bei('Prüfpflanze Yyy')) f.push('die Online-Treffer stehen nicht in den Vorschlägen (' + w.length + ' von 3)');
+          else {
+            const mk = marke(bei(kandidat.name));
+            if (!mk) f.push('Online-Treffer „' + kandidat.name + '" ohne „giftig", obwohl seine Art giftig ist (Server sagte nein)');
+            else if (mk.textContent.trim() !== sollWort(kandidat)) f.push('Online-Treffer „' + kandidat.name + '": „' + mk.textContent.trim() + '" statt „' + sollWort(kandidat) + '"');
+            if (marke(bei('Prüfpflanze Zzz'))) f.push('ein Online-Treffer, den die Liste nicht kennt, trägt eine erfundene Warnung');
+            if (!marke(bei('Prüfpflanze Yyy'))) f.push('ein Online-Treffer, den der Server giftig nennt, steht ohne Warnung da');
+            wolke = 'Art ' + (mk ? '„' + mk.textContent.trim() + '"' : '–') + ' · unbekannt still · Server „giftig" bleibt';
+          }
+        }
+      } finally {
+        _gsRemoteSearch = echtRemote;
+        try { delete navigator.onLine; } catch (_) {}
+        currentFilter = vorF; searchText = vorS; if (typeof currentProp !== 'undefined') currentProp = vorP;
+        inp.value = ''; box.style.display = 'none'; box.innerHTML = '';
+        try { closeModal('modal-addplant'); } catch (_) {}
+      }
+      if (f.length) return { ok: false, warum: f.slice(0, 6).join(' · ') + (f.length > 6 ? ' · (+' + (f.length - 6) + ')' : '') };
+      return { ok: true, info: 'barlauch/brennessel/lowenzahn ohne Netz oben richtig · der Anfang der Suchliste, nur Namen (giersch ohne Herbstzeitlose, maigl ohne Bärlauch, bärlauch ohne Maiglöckchen, tomate ohne Basilikum) · ' + geprueft + ' Zeilen gegen die Filter-Regel (' + neuGewarnt + ' ohne eigenes „toxic", ' + leicht + '× „Leicht giftig", ' + stilleStufe + ' mit Stufe ≥ 1 still) · langer Name: ' + lang + ' · online: ' + wolke };
+    },
+  },
+  {
     name: 'SC1 · Der Scan-Chat hat Linas Schutz: Notfallnummer sofort, Warnzeile ueber einer Essbar-Zusage zu einer Giftart',
     lauf: async () => {
       var gift = DB.find(function (s) { return s.tox >= 5 && s.lat && _gsArtenTreffer(s.name + ' ' + s.lat).zahl; });

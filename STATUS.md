@@ -12,6 +12,45 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (kc) - v33.76: Suche 11 — „Pflanze hinzufügen": die Vorschläge suchen wie die Suche, schlagen nur Namen vor und warnen nach der Art
+
+**Auftrag:** Hauptfunktionen, Suche (Brett 66d7, gemessen 24.11.2026 — Fernando: „Die Agenten müssen die App auf ein next höheres
+Niveau bringen").
+
+**Gemessen:** Die Vorschlagsliste unter „Art / Name" (`_gsRenderSuggestions`) hatte eine eigene Suche (`toLowerCase` + `indexOf` auf
+Name und Latein): „barlauch", „brennessel", „lowenzahn" fanden ohne Netz nichts, die Artensuche alle drei. Der Zweig für englische
+und spanische Namen war tot (0 von 4'342 Einträgen in `data/plants.v1.js` tragen einen). Die Marke „⚠️ giftig" las das Feld `toxic`
+des EINEN Eintrags: 58 Einträge, deren Art giftig ist, standen ohne Warnung da — nach der Regel des Filters „☠️ Giftig" sind es 675
+statt 617, und keiner verliert seine (darunter Holunder, Art Stufe 2–3). Und sie stand IM gekürzten Namen: bei „Echter Monstera Thai
+Constellation" war sie abgeschnitten (312–403 px, sichtbar bis 318 px).
+
+**Gebaut:** Die Liste rechnet über `_gsSucheRang` (Umlaute, Vertipper, Synonyme, mehrere Wörter, „geprüft vor ungeprüft"), in der
+Reihenfolge der Artensuche — aber nur Treffer über Name, Binomen, Familie, Synonym oder einen Vertipper (`info.vorschlaege`, neu in
+`_gsSucheRang`, ändert an der Suche nichts). Der Vorschlag auf dem Brett war, die Suche 1:1 zu nehmen; gemessen hätte das die
+Treffer aus dem FLIESSTEXT mitgebracht, und dort nennen sich Verwechsler gegenseitig: „maigl" → Bärlauch auf Platz 3, „giersch" →
+Herbstzeitlose, „bärlauch" → Maiglöckchen, „tomate" → Basilikum. Ein Namensfeld schlägt keinen Namen vor, der nur in einem Text
+steht. „Giftig" fragt wie der Filter (`gsIstGiftig`, an der Art) und nennt das Wort der Skala (`toxInfo`: „🟡 Leicht giftig" bis
+„☠️ Tödlich giftig", feste Farbpaare aus `TOX`, in beiden Modi lesbar) — NEBEN dem Namen, gekürzt wird der Name. Online-Treffer
+(`species-search`) gehen über `gsMatchScanToDb` zu ihrer Art; sagt der Server „giftig", gilt das auch ohne Art. Doku: CLAUDE.md
+(Kasten zu `gsIstGiftig`), `docs/memory/05-fallen.md`, `docs/HAUPTFUNKTIONEN.md` Suche 11.
+
+**Prüfstände:** `scan_check` SU9, über das echte Eingabefeld (`oninput`) im geöffneten Fenster: ohne Netz stehen Bärlauch,
+Brennnessel, Löwenzahn oben · die Vorschläge sind der Anfang der Suchliste, ohne die Verwechsler aus dem Text · 50 Zeilen gegen die
+Filter-Regel in beiden Richtungen (9 ohne eigenes `toxic`, 6× „Leicht giftig", 3 mit Stufe ≥ 1 ohne Marke) mit dem Wort der Skala ·
+ein langer Name kappt die Warnung nicht · online: die Art warnt, ein unbekannter Name bleibt still, das „giftig" des Servers bleibt.
+Gegen 9e0cc7a rot; elf Gegenproben einzeln rot, je mit ihrem Grund (alte Rangfolge · Fliesstext vorschlagen · Feld des Eintrags ·
+nur `toxic` der Art · jede Stufe ab 1 warnt · ein Wort für alle Stufen · Warnung im gekürzten Namen · Online-Treffer ohne Art ·
+Server-„giftig" überhört · jeder Online-Treffer giftig · Stufe aus dem Eintrag).
+
+**Geschwister (gesucht):** `grep` nach eigenen Namenssuchen über `DB` — `_gsKorrekturTreffer` (Korrektur eines Scans) faltet Umlaute
+schon und sucht nur in Namen und Latein, kennt aber keine Vertipper („brennessel" findet dort nichts); ein eigener Auswähler mit
+einer Zeile je Binomen, bewusst nicht umgestellt. `gsFindSpeciesByName` ist ein Nachschlag (Wasserbedarf, Latein, Familie), keine
+Suche und keine Sicherheitsangabe — nicht angefasst.
+
+**Offen:** nichts — brett:2026-11-24-66d7 ist mit diesem Paket geschlossen.
+**Nicht geprüft:** ein echtes Telefon; die echte `species-search` (gestellt). Gemessen, aber nicht im Prüfstand (eine Sonde): bei
+320 und 412 px stehen die Marken der zwölf längsten giftigen Namen ganz im Kasten, ohne die Kategorie zu überdecken.
+
 ### 2026-11-24 (ka) - v33.74: Scanner 13 — Pilz: die Verwechsler beim Namen und im Bild
 
 **Auftrag:** Hauptfunktionen, Scanner (Fernando: „Die Agenten müssen die App auf ein next höheres Niveau bringen"). Beim Pilz ist die
