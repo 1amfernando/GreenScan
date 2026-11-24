@@ -41487,6 +41487,10 @@ function openPlantDiary(plantId) {
   if (!Array.isArray(p.diary)) p.diary = [];
   var existing = document.getElementById('plant-diary-modal');
   if (existing) existing.remove();
+  // Scheibe 2 (Gegenpruefung): ein frisch gebautes Formular zeigt keine Vorschau — also haengt auch kein Foto
+  // an. Die Variable ueberlebte das Schliessen des Fensters und das Abmelden: das Foto von A landete im
+  // naechsten Eintrag, auch in dem des naechsten Kontos.
+  window._gsDiaryPhotoB64 = null;
   // v32.53: `ts` ist seit v26.51 ein ISO-String (gsQuickDone) — die Differenz zweier Strings ist NaN, die Liste war unsortiert.
   var entries = p.diary.slice().sort(function(a,b){ return (new Date(b.ts||0).getTime()||0) - (new Date(a.ts||0).getTime()||0); });
 
@@ -41615,10 +41619,13 @@ async function gsAddDiaryEntry(plantId) {
     if (_tbOnline && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof window.gsUploadPhotoToBucket === 'function') {
       try { photo = await window.gsUploadPhotoToBucket('garden-diary-photos', _tbB64); } catch(_){}
     }
-    if (!photo && typeof window.gsQueuePhoto === 'function') {
-      try { photo = await window.gsQueuePhoto('garden-diary-photos', _tbB64, { kind: 'diary', ref: plantId + '|' + _tbTs }); } catch(_){}
+    // Die Person hat waehrend des Uploads gewechselt (bis zu 60 s): NICHT einreihen — der Korb stempelte das
+    // Foto sonst mit dem naechsten Konto, und dessen Flush lueden es in den fremden Ordner.
+    if (typeof _gsPersonAnders === 'function' && _gsPersonAnders(_tbWer)) return;
+    if (!photo && _tbWer && typeof window.gsQueuePhoto === 'function') {
+      try { photo = await window.gsQueuePhoto('garden-diary-photos', _tbB64, { kind: 'diary', ref: plantId + '|' + _tbTs }, _tbWer); } catch(_){}
     }
-    // Die Person hat waehrend des Uploads gewechselt: der Eintrag gehoert nicht in die Liste, die jetzt geladen ist.
+    // …und noch einmal: auch das Einreihen ist ein await.
     if (typeof _gsPersonAnders === 'function' && _gsPersonAnders(_tbWer)) return;
     if (!photo) photo = 'data:image/jpeg;base64,' + _tbB64;
     // Die Liste kann waehrend des Wartens ersetzt worden sein (Abgleich) — die Pflanze neu suchen.
@@ -59101,7 +59108,9 @@ function _gsStempeln(schluessel, liste) {
   liste.forEach(function (e) {
     if (!e || typeof e !== 'object' || e.id == null) return;
     var k = String(e.id); neu[k] = true;
-    if (alt[k] !== _gsEintragJson(e)) e.geaendert = jetzt;
+    // Scheibe 2: ein HINTERGRUND-Schreiber (Foto-Adresse nachtragen) ist kein Wille der Person — er hebt den
+    // Stempel nicht, sonst schluege er im Zwei-Geraete-Abgleich die Arbeit, die ein anderes Geraet offline tat.
+    if (alt[k] !== _gsEintragJson(e) && !(window._gsStempelLeise && window._gsStempelLeise.liste === schluessel && window._gsStempelLeise.id === k)) e.geaendert = jetzt;
   });
   var g = _gsGeloeschtLesen(), tk = g[schluessel] || {}, geaendert = false;
   // Kein Massen-Loeschen im Start-Rennen: eine leere Liste vor dem ersten Abgleich ist kein Wille der Person.
@@ -59184,18 +59193,52 @@ function _gsBackupEinspielen(data) {
   return { ok: !nicht.length, nicht_gesichert: nicht };
 }
 window._gsBackupEinspielen = _gsBackupEinspielen;
+// Scheibe 2 (Gegenpruefung): ein Foto, das noch im Ausgangskorb wartet, steht in der Liste nur als
+// Platzhalter `gsphoto://<n>`. In der Backup-DATEI steht stattdessen das Bild selbst (data:image) — sonst
+// fehlte es nach dem Einspielen auf einem anderen Geraet. Laesst es sich nicht lesen, steht dort nichts.
+// Kopiert wird nur, was einen Platzhalter traegt; die Listen im Arbeitsspeicher bleiben unberuehrt.
+async function _gsBackupFotosEinbetten(data) {
+  var istRef = function (v) { return typeof v === 'string' && v.indexOf('gsphoto://') === 0; };
+  var hol = async function (v) {
+    try { var b = (typeof window.gsPhotoRefB64 === 'function') ? await window.gsPhotoRefB64(v) : null; return b ? 'data:image/jpeg;base64,' + b : null; }
+    catch (_) { return null; }
+  };
+  var out = Object.assign({}, data);
+  var namen = ['myPlants', 'deadPlants'];
+  for (var n = 0; n < namen.length; n++) {
+    var quelle = data[namen[n]];
+    if (!Array.isArray(quelle)) continue;
+    var liste = [];
+    for (var i = 0; i < quelle.length; i++) {
+      var p = quelle[i];
+      var hat = p && typeof p === 'object' && (istRef(p.photo) || istRef(p.photoUrl) || (Array.isArray(p.diary) && p.diary.some(function (e) { return e && istRef(e.photo); })));
+      if (!hat) { liste.push(p); continue; }
+      var c = Object.assign({}, p);
+      if (istRef(c.photo)) c.photo = await hol(c.photo);
+      if (istRef(c.photoUrl)) c.photoUrl = await hol(c.photoUrl);
+      if (Array.isArray(c.diary)) {
+        var d2 = [];
+        for (var j = 0; j < c.diary.length; j++) { var e = c.diary[j]; d2.push((e && istRef(e.photo)) ? Object.assign({}, e, { photo: await hol(e.photo) }) : e); }
+        c.diary = d2;
+      }
+      liste.push(c);
+    }
+    out[namen[n]] = liste;
+  }
+  return out;
+}
 function exportUserData() {
-  const data = _gsBackupDaten();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  // v33.53: durch den EINEN Weg (gsDateiSpeichern) — bis v33.52 ein
-  // LOSGELOESTER Anker, den in der Android-App nichts sah, und danach stand
-  // trotzdem „heruntergeladen". Die Meldung kommt jetzt erst mit dem Zustand.
-  return gsDateiSpeichern(blob, 'GreenScan-Backup-' + new Date().toISOString().slice(0,10) + '.json', 'application/json')
-    .then(function (r) {
-      if (_gsDateiAngekommen(r)) showMarketNotif(r.state === 'gespeichert' ? 'Backup gespeichert!' : 'Backup erstellt und heruntergeladen!', '📤', '#2e7d32');
-      else _gsDateiNichtGespeichert(r);
-      return r;
-    });
+  return _gsBackupFotosEinbetten(_gsBackupDaten()).then(function (data) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    // v33.53: durch den EINEN Weg (gsDateiSpeichern) — bis v33.52 ein
+    // LOSGELOESTER Anker, den in der Android-App nichts sah, und danach stand
+    // trotzdem „heruntergeladen". Die Meldung kommt jetzt erst mit dem Zustand.
+    return gsDateiSpeichern(blob, 'GreenScan-Backup-' + new Date().toISOString().slice(0,10) + '.json', 'application/json');
+  }).then(function (r) {
+    if (_gsDateiAngekommen(r)) showMarketNotif(r.state === 'gespeichert' ? 'Backup gespeichert!' : 'Backup erstellt und heruntergeladen!', '📤', '#2e7d32');
+    else _gsDateiNichtGespeichert(r);
+    return r;
+  });
 }
 
 function importUserData() {
@@ -66061,7 +66104,17 @@ async function _gsBildOhneMeta(x, opts) {
 // Speicherplatz kosten. Mit stableKey ist der Pfad deterministisch und
 // `x-upsert: true` (steht ohnehin schon unten) schreibt dieselbe Datei erneut —
 // aus zwei Dateien wird eine. Aufrufer ohne Schluessel verhalten sich unveraendert.
-window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext, stableKey) {
+// Scheibe 2 (Gegenpruefung): fuenfter Parameter `opts.ohneUpsert` — laedt mit `x-upsert: false`. Ein Upsert
+// verlangt im Storage zusaetzlich Lese- und Aenderungsrecht auf dem Objekt; laut den Migrationen im Repo hat
+// `garden-diary-photos` keine SELECT-Policy (v29_29, v29_40 — live nicht nachgemessen). Mit stabilem
+// Schluessel UND ohne Upsert meldet ein zweiter Anlauf „gibt es schon“ — und genau das ist dann der Erfolg:
+// der erste Anlauf kam durch, nur seine Antwort nicht. NUR fuer Schluessel, die EIN Bild meinen (ein
+// Tagebuch-Eintrag); `plant:<id>` meint „das aktuelle Foto“ und braucht das Ueberschreiben.
+// `window._gsUploadGrund` sagt nach einem `null`, WARUM: 'netz' (kein Empfang, Zeitueberschreitung) ·
+// 'server' (abgelehnt) · 'bild' (nicht lesbar) · '' (nicht angemeldet, Person gewechselt). Der Foto-Flush
+// zaehlt nur 'server' und 'bild' als Versuch — ein Funkloch ist kein Grund, ein Foto aufzugeben.
+window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext, stableKey, opts) {
+  try { window._gsUploadGrund = ''; } catch (_) {}
   ext = ext || 'jpg';
   bucket = bucket || 'post-images';
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
@@ -66071,7 +66124,7 @@ window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext, 
     // v33.59: kein Foto mit EXIF/GPS in einen (ueber die Adresse oeffentlichen)
     // Bucket; laesst es sich nicht neu kodieren, wird NICHT roh hochgeladen.
     var _rein = await _gsBildOhneMeta(b64);
-    if (!_rein) { console.warn('[gsUploadImage] Bild nicht lesbar — nicht hochgeladen'); return null; }
+    if (!_rein) { console.warn('[gsUploadImage] Bild nicht lesbar — nicht hochgeladen'); window._gsUploadGrund = 'bild'; return null; }
     // Tor (19.11.2026, Brett 89ee): dieser Weg geht am Tor in sbFetch vorbei (rohes fetch an
     // den Storage). Der Pfad traegt `uid` — wechselt die Person, ginge das Foto von A sonst mit
     // dem Token von B hinaus, bzw. kaeme eine Adresse in A's Ordner bei B an. `null` heisst fuer
@@ -66108,20 +66161,25 @@ window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext, 
         'Authorization': 'Bearer ' + token,
         'apikey': apikey,
         'Content-Type': 'image/' + (ext === 'jpg' ? 'jpeg' : ext),
-        'x-upsert': 'true'
+        'x-upsert': (opts && opts.ohneUpsert) ? 'false' : 'true'
       },
       body: u8
     }, 60000);
     if (_gsPersonAnders(uid)) return null;   // Tor: die Adresse in A's Ordner gehoert nicht zu B
+    var _oeffentlich = (window.SB_URL || window.SB_URL_DEFAULT) + '/storage/v1/object/public/' + bucket + '/' + fileName;
     if (!resp.ok) {
       var err = await resp.text().catch(function(){return '';});
+      // ohneUpsert + stabiler Schluessel: „gibt es schon“ heisst, ein frueherer Anlauf kam durch.
+      if (opts && opts.ohneUpsert && stableKey && (resp.status === 409 || /"statusCode"\s*:\s*"?409|Duplicate|already exists/i.test(err))) return _oeffentlich;
       console.error('[gsUploadImage]', resp.status, err);
+      window._gsUploadGrund = 'server';
       return null;
     }
     // Public-URL bauen
-    return (window.SB_URL || window.SB_URL_DEFAULT) + '/storage/v1/object/public/' + bucket + '/' + fileName;
+    return _oeffentlich;
   } catch(e) {
     console.error('[gsUploadImage] exception', e);
+    try { window._gsUploadGrund = 'netz'; } catch (_) {}
     return null;
   }
 };
@@ -83322,7 +83380,7 @@ function gsRegisterServiceWorker() {
       for (var i = 0; i < items.length; i++) {
         st.add({ src: key, item: items[i], dropped_at: Date.now(), uid: _gsUid() });
       }
-      await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; });
+      await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; tx.onabort = function(){ j(tx.error || new Error('abort')); }; });
       // Aeltestes abraeumen, wenn das Archiv selbst zu gross wird.
       try {
         var tx2 = db.transaction('dropped_entries', 'readwrite');
@@ -83402,21 +83460,28 @@ function gsRegisterServiceWorker() {
   // true/false. Damit kann der Aufrufer das Bild sofort als Platzhalter
   // hinterlegen — der Auflooeser weiter unten macht daraus beim Rendern eine
   // anzeigbare Object-URL. Vorher war ein Foto im Korb bis zum Upload unsichtbar.
-  window.gsQueuePhoto = async function(bucket, b64, target){
+  // Scheibe 2: vierter Parameter `uid` — wer VOR einem await gefragt hat, wem das Foto gehoert, gibt es mit.
+  // Ohne ihn stempelt der Korb mit dem Konto, das beim Einreihen angemeldet ist; nach einem langen Upload
+  // kann das schon das naechste sein. Und `onabort`: bricht IndexedDB die Transaktion ab (Geraet voll),
+  // feuert kein `error` — ohne den dritten Zuhoerer kehrte das Warten nie zurueck.
+  window.gsQueuePhoto = async function(bucket, b64, target, uid){
     if (!b64 || !bucket || !target || !target.kind || !target.ref) return null;
     try {
       var db = await _open();
       var tx = db.transaction('pending_photos', 'readwrite');
+      var _txEnde = new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; tx.onabort = function(){ j(tx.error || new Error('abort')); }; });
+      _txEnde.catch(function(){});
       var rq = tx.objectStore('pending_photos').add({
         bucket: bucket, b64: b64, target: target,
         key: target.kind + ':' + target.ref,
-        queued_at: Date.now(), tries: 0, uid: _gsUid()
+        queued_at: Date.now(), tries: 0, uid: (uid != null ? uid : _gsUid())
       });
       var newId = await new Promise(function(r,j){
         rq.onsuccess = function(){ r(rq.result); };
         rq.onerror   = function(){ j(rq.error); };
+        _txEnde.catch(function(e){ j(e); });
       });
-      await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; });
+      await _txEnde;
       console.log('[gsQueuePhoto] eingereiht fuer', target.kind, target.ref, '-> #' + newId);
       return GS_PHOTO_REF + newId;
     } catch(e){ console.warn('[gsQueuePhoto]', e); return null; }
@@ -83454,6 +83519,25 @@ function gsRegisterServiceWorker() {
     } catch(e){ console.warn('[gsResolvePhotoRef]', e); return null; }
   };
 
+  // Scheibe 2 (Gegenpruefung): die Bytes eines EIGENEN wartenden Fotos — fuer die Backup-Datei. Ein
+  // Platzhalter in einer Datei zeigt auf den Korb DIESES Geraets; auf einem anderen ist er leer oder,
+  // schlimmer, die Nummer eines fremden Fotos.
+  window.gsPhotoRefB64 = async function(ref){
+    if (!ref || String(ref).indexOf(GS_PHOTO_REF) !== 0) return null;
+    var id = parseInt(String(ref).slice(GS_PHOTO_REF.length), 10);
+    if (!isFinite(id)) return null;
+    try {
+      var db = await _open();
+      var tx = db.transaction('pending_photos', 'readonly');
+      var rec = await new Promise(function(r,j){
+        var rq = tx.objectStore('pending_photos').get(id);
+        rq.onsuccess = function(){ r(rq.result); };
+        rq.onerror   = function(){ j(rq.error); };
+      });
+      return (rec && rec.b64 && _gsGehoertMir(rec)) ? rec.b64 : null;
+    } catch(e){ return null; }
+  };
+
   window.gsResolvePhotosIn = async function(root){
     try {
       var scope = root || document;
@@ -83489,6 +83573,26 @@ function gsRegisterServiceWorker() {
 
   // Traegt die fertige URL im Ziel nach. Pro Ziel-Art eine kleine, klar
   // benannte Zustaendigkeit — kein generisches Herumraten an fremden Strukturen.
+  // Rueckgabe (Scheibe 2, Gegenpruefung): true = eingetragen UND gespeichert · false = das Ziel gibt es nicht
+  // mehr (Foto verwerfen) · 'voll' = das Ziel ist da, aber der Speicher sagte Nein — dann bleibt das Foto im
+  // Korb. Bis hierher fielen die letzten zwei zusammen, und der Flush warf bei vollem Speicher die einzige
+  // Kopie weg.
+  function _gsLeiseSpeichern(pid){
+    window._gsStempelLeise = { liste: 'ps_myplants', id: String(pid) };
+    try { return (typeof savePlantsToStorage === 'function') ? savePlantsToStorage() : false; }
+    finally { window._gsStempelLeise = null; }
+  }
+  function _gsTotePflanze(id){
+    try { return (typeof deadPlants !== 'undefined' && Array.isArray(deadPlants)) ? (deadPlants.find(function(x){ return x && String(x.id) === String(id); }) || null) : null; }
+    catch(_){ return null; }
+  }
+  function _gsFriedhofSpeichern(){
+    try {
+      if (gsStore.set('gs_dead_plants', JSON.stringify(deadPlants)) === false) return false;
+      try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('plants'); } catch(_){}
+      return true;
+    } catch(_){ return false; }
+  }
   function _gsApplyPhotoUrl(target, url){
     try {
       if (target.kind === 'marker') {
@@ -83498,16 +83602,25 @@ function gsRegisterServiceWorker() {
         var hit = arr.find(function(m){ return m && String(m.id) === String(target.ref); });
         if (!hit) return false;               // Fund geloescht -> Foto verwerfen
         hit.photo_url = url;
-        if (localStorage.setItem('greenscan_markers', JSON.stringify(arr)) === false) return false;
+        if (localStorage.setItem('greenscan_markers', JSON.stringify(arr)) === false) return 'voll';
         try { if (typeof gsLoadMarkers === 'function') gsLoadMarkers(); } catch(_){}
         return true;
       }
       if (target.kind === 'plant') {
         if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return false;
         var pl = myPlants.find(function(x){ return x && String(x.id) === String(target.ref); });
-        if (!pl) return false;
+        if (!pl) {
+          // im Pflanzenfriedhof? Dort zaehlt das Foto weiter — „Wiederherstellen“ ist jederzeit zugesagt.
+          var plTot = _gsTotePflanze(target.ref);
+          if (!plTot) return false;
+          var _tv = { a: plTot.photo, b: plTot.photoUrl };
+          plTot.photo = url; plTot.photoUrl = url;
+          if (!_gsFriedhofSpeichern()) { plTot.photo = _tv.a; plTot.photoUrl = _tv.b; return 'voll'; }
+          return true;
+        }
+        var _pv = { a: pl.photo, b: pl.photoUrl };
         pl.photo = url; pl.photoUrl = url;
-        if (typeof savePlantsToStorage === 'function' && savePlantsToStorage() === false) return false;
+        if (_gsLeiseSpeichern(pl.id) === false) { pl.photo = _pv.a; pl.photoUrl = _pv.b; return 'voll'; }
         try { if (typeof renderMyPlants === 'function') renderMyPlants(); } catch(_){}
         return true;
       }
@@ -83519,12 +83632,14 @@ function gsRegisterServiceWorker() {
         var _dr = String(target.ref), _dt = _dr.indexOf('|');
         if (_dt < 1) return false;
         var _dp = myPlants.find(function(x){ return x && String(x.id) === _dr.slice(0, _dt); });
+        var _dTot = false;
+        if (!_dp) { _dp = _gsTotePflanze(_dr.slice(0, _dt)); _dTot = !!_dp; }   // im Pflanzenfriedhof
         if (!_dp || !Array.isArray(_dp.diary)) return false;
         var _de = _dp.diary.find(function(e){ return e && String(e.ts) === _dr.slice(_dt + 1); });
         if (!_de) return false;               // Eintrag geloescht -> Foto verwerfen
         var _dvor = _de.photo;
         _de.photo = url;
-        if (typeof savePlantsToStorage === 'function' && savePlantsToStorage() === false) { _de.photo = _dvor; return false; }
+        if ((_dTot ? _gsFriedhofSpeichern() : _gsLeiseSpeichern(_dp.id)) === false) { _de.photo = _dvor; return 'voll'; }
         return true;
       }
     } catch(e){ console.warn('[_gsApplyPhotoUrl]', e); }
@@ -83551,9 +83666,16 @@ function gsRegisterServiceWorker() {
         var it = items[i];
         // v32.22: fremdes Foto nicht in den eigenen Bucket laden.
         if (!_gsGehoertMir(it)) continue;
+        // Scheibe 2: Pflanzen- und Tagebuch-Fotos erst NACH dem ersten Abgleich nachtragen — vorher steht in
+        // myPlants ein Stand, den der Abgleich gleich ersetzen kann; die Adresse ginge mit ihm verloren.
+        var _art = it.target && it.target.kind;
+        if ((_art === 'diary' || _art === 'plant') && window._gsInitialSyncDone !== true) continue;
         var drop = false;
         try {
-          var url = await gsUploadImage(it.b64, it.bucket, 'jpg', it.key);
+          try { window._gsUploadGrund = ''; } catch(_){}
+          var url = await gsUploadImage(it.b64, it.bucket, 'jpg', it.key, _art === 'diary' ? { ohneUpsert: true } : undefined);
+          // Die Person hat waehrend des Uploads gewechselt: weder zaehlen noch archivieren noch eintragen.
+          if (!_gsGehoertMir(it)) continue;
           if (url) {
             // v31.07: Object-URL freigeben — sonst haelt der Browser die Bytes
             // fuer die ganze Sitzung fest, obwohl das Bild jetzt aus der Cloud kommt.
@@ -83561,8 +83683,13 @@ function gsRegisterServiceWorker() {
             var applied = _gsApplyPhotoUrl(it.target, url);
             // Auch wenn das Ziel verschwunden ist (Fund geloescht): Eintrag darf
             // weg — sonst wandert er ewig mit. Das Bild liegt dann im Bucket.
-            drop = true;
-            if (applied) done++;
+            // NICHT bei 'voll': das Ziel ist da, nur der Speicher sagte Nein — das Foto bleibt im Korb
+            // (ohne Versuch zu zaehlen; der stabile Schluessel macht den naechsten Upload zur selben Datei).
+            drop = (applied !== 'voll');
+            if (applied === true) done++;
+          } else if (window._gsUploadGrund !== 'server' && window._gsUploadGrund !== 'bild') {
+            // Kein Empfang, Zeitueberschreitung, Sitzung weg: kein VERSUCH. Nur eine Ablehnung des Servers
+            // oder ein unlesbares Bild zaehlt gegen die acht Anlaeufe — ein Funkloch im Wald nicht.
           } else {
             // v31.06: Nach 8 vergeblichen Anlaeufen aufgeben statt endlos zu
             // wiederholen. Ohne Deckel laeuft die Warteschlange bei einem
@@ -83574,10 +83701,17 @@ function gsRegisterServiceWorker() {
               // nirgends mehr — der Korb war seine einzige Kopie. Im Archiv (Einstellungen → Speicher →
               // Archiv sichern) laesst es sich als Datei holen. Nur wenn das Archiv es angenommen hat,
               // verlaesst es den Korb; sonst bleibt es liegen und der naechste Flush gibt erneut auf.
-              var _arch = 0;
-              try { _arch = await window.gsArchiveDropped('pending_photos', [{ bucket: it.bucket, key: it.key, target: it.target, queued_at: it.queued_at, b64: it.b64 }]); } catch(_){}
-              drop = _arch > 0;
-              if (!drop) { it.tries = 8; try { db.transaction('pending_photos', 'readwrite').objectStore('pending_photos').put(it); } catch(_){} }
+              // Ein Tagebuch-Foto geht zuerst ZURUECK in seinen Eintrag (als data:image, der alte Notnagel):
+              // dort bleibt es sichtbar, und gsDiaryFotosNachziehen versucht es spaeter direkt. Gibt es den
+              // Eintrag nicht mehr, will niemand das Foto. Nur wenn der Speicher Nein sagt, geht es ins Archiv.
+              var _zurueck = (_art === 'diary') ? _gsApplyPhotoUrl(it.target, 'data:image/jpeg;base64,' + it.b64) : 'voll';
+              if (_zurueck === true || _zurueck === false) drop = true;
+              else {
+                var _arch = 0;
+                try { _arch = await window.gsArchiveDropped('pending_photos', [{ bucket: it.bucket, key: it.key, target: it.target, queued_at: it.queued_at, b64: it.b64 }]); } catch(_){}
+                drop = _arch > 0;
+                if (!drop) { it.tries = 8; try { db.transaction('pending_photos', 'readwrite').objectStore('pending_photos').put(it); } catch(_){} }
+              }
             } else {
               var utx = db.transaction('pending_photos', 'readwrite');
               utx.objectStore('pending_photos').put(it);
@@ -83611,6 +83745,8 @@ function gsRegisterServiceWorker() {
     if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return 0;
     if (typeof window.gsUploadPhotoToBucket !== 'function') return 0;
     if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return 0;
+    // Erst NACH dem ersten Abgleich: vorher steht in myPlants ein Stand, den der Abgleich gleich ersetzt.
+    if (window._gsInitialSyncDone !== true) return 0;
     if (window._gsDiaryNachzugLaeuft) return 0;
     window._gsDiaryNachzugLaeuft = true;
     var n = 0;
@@ -83637,7 +83773,8 @@ function gsRegisterServiceWorker() {
         var ein = finde(offen[i]);               // nach dem await neu suchen — die Liste kann ersetzt worden sein
         if (!ein) continue;
         ein.photo = url;
-        if (typeof savePlantsToStorage === 'function' && savePlantsToStorage() === false) { ein.photo = offen[i].foto; break; }
+        // leise: der Nachzug ist kein Wille der Person und hebt den Stempel der Pflanze nicht (_gsStempeln)
+        if (_gsLeiseSpeichern(offen[i].pid) === false) { ein.photo = offen[i].foto; break; }
         n++;
       }
       if (n) console.log('[gsDiaryFotosNachziehen] ' + n + ' Tagebuch-Foto(s) aus dem Pflanzen-Speicher in den Bucket gezogen.');
@@ -87738,6 +87875,7 @@ function gsOnLogout() {
   // Linas Gespräch im Arbeitsspeicher geht mit (der Spiegel gs_lina_verlauf geht über GS_USER_KEYS),
   // und ein offenes Lina-/Doktor-Fenster schliesst — sein Inhalt gehört der Person, die geht.
   try { window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaInhaltZeit = null; } catch(_){}
+  try { window._gsDiaryPhotoB64 = null; } catch(_){}   // Scheibe 2: ein im Tagebuch gewaehltes, nicht gespeichertes Foto
   // Gegenpruefung Scheibe 1 (vorbestehend): der XP-Puffer lebt nur im Arbeitsspeicher und ueberlebte das
   // Abmelden — ein nicht gebuchter Betrag von A ging mit dem ersten Gewinn von B auf dessen Konto.
   try { window._gsXpPending = 0; if (window._gsXpFlushTimer) { clearTimeout(window._gsXpFlushTimer); window._gsXpFlushTimer = null; } } catch(_){}
@@ -88993,7 +89131,7 @@ window.gsCloudSync = (function(){
     try { data.plants = _gsStripPhotoRefs(JSON.parse(gsStore.get('ps_myplants', null)||'[]')); } catch(_){ data.plants = []; }
     try { data.diary  = JSON.parse(localStorage.getItem('gs_gartentagebuch')||'[]'); } catch(_){ data.diary = []; }
     // v24.24: zusätzliche pflanzenbezogene lokale Keys mitsyncen
-    try { data.dead_plants = JSON.parse(gsStore.get('gs_dead_plants', null)||'[]'); } catch(_){}
+    try { data.dead_plants = _gsStripPhotoRefs(JSON.parse(gsStore.get('gs_dead_plants', null)||'[]')); } catch(_){}
     try { data.seed_inventory = JSON.parse(gsStore.get('gs_seed_inventory', null)||'[]'); } catch(_){}
     return data;
   }
@@ -89491,7 +89629,7 @@ function gsSnapshotBuildState(){
     geraete:             _j('gs_geraete','[]'),          // v32.48: Geraete-Register (klein); Messwerte NICHT — dafuer ist die Tabelle da
     geraete_regeln:      _j('gs_geraete_regeln','[]'),
     ernte:               _j('gs_ernte_log','[]'),
-    dead_plants:         _j('gs_dead_plants','[]'),
+    dead_plants:         _gsStripSnapPhotoRefs(_j('gs_dead_plants','[]')),
     seed_inventory:      _j('gs_seed_inventory','[]'),
     garden_plans:        _j('gs_garden_plans','[]'),
     garden_plan_current: _j('gs_garden_plan_current','null'),
