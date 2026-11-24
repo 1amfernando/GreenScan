@@ -45,6 +45,13 @@ Tagebuch in `CLAUDE.md`.
    `=== false` nimmt den Eintrag zurück und sagt einen Satz.
    *(sync_check „Zwei Geräte", speicher_check, save_check)*
 
+5a′. **Ein Blob geht erst hoch, wenn er gelesen wurde** (v33.68). `_flush` schiebt
+   nur, was `_gsBlobGelesen[scope]` für diese Person trägt; ein Lesefehler ist nie
+   „leer“ (`_gsGartenBlobLesen`). Pläne und Tracks: je Eintrag, mit Löschmarke
+   (`_gsLoeschmarke`); state auf einem nie abgeglichenen Gerät: je Schlüssel
+   gemischt (`_gsStateMischen`); ein ungelesenes Profil (`_ungelesen`) ist kein
+   Cloud-Stand. *(CLAUDE.md §3.3; sync_check H8–H12)*
+
 5b. **Eine Antwort nach einem `await` gehört der Person, die gefragt hat.**
    `sbLogout` lädt nicht neu. Wer nach einem `await` zeichnet oder schreibt, merkt
    sich vorher `_gsPerson()` und prüft danach, ob es noch dieselbe ist; was nur im

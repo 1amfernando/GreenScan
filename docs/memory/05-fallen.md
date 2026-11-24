@@ -380,3 +380,12 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **19.11.2026 (Prüfstand)** Ein Fall, dessen Grün davon abhing, dass NICHTS geschah
   (der Deckel-Teil in 98_schluss_b: „0 ≤ 20“, weil gar nicht geparkt wurde), bleibt
   grün, wenn die Regel umgestellt wird. Wer eine Regel ändert, sucht diese Fälle.
+- **24.11.2026 (Abgleich)** Wer eine Liste von „lokal gewinnt ganz“ auf „je Eintrag
+  zusammenführen“ umstellt, holt ohne Löschmarke alles zurück, was offline gelöscht
+  wurde — die Reparatur gegen Datenverlust wurde zur Wiederauferstehung (`sync_check`
+  H10). Regel: jede Zusammenführung je Eintrag braucht eine Antwort auf „wie überlebt
+  ein Löschen?“ (`_gsLoeschmarke`, `GS_GELOESCHT_LISTEN`).
+- **24.11.2026 (Abgleich)** Eine Sperre „erst lesen, dann schreiben“ hilft nichts,
+  wenn beim Lesen nichts zusammengeführt wird: der Verlust wandert nur hinter das
+  Lesen (`sync_check` H11). Und ein Ersatzwert ist kein Messwert: xp 0 aus dem
+  ungelesenen Profil galt als Cloud-Stand, die lokale XP wurde doppelt gebucht (H12).
