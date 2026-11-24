@@ -256,6 +256,280 @@ const SERVER_WEGE = [
     },
   },
   {
+    // Gegenpruefung blob (19.11.2026), Geschwister in `garden_plans.what_if_runs` (jsonb-Liste): der
+    // Was-Wenn-Lauf las die Liste, nahm bei einem Lesefehler [] an und schrieb [neuer Lauf] als GANZE
+    // Spalte zurueck — die bis zu 20 frueheren Laeufe waren weg. Nur ueber eine gelesene Liste schreiben.
+    name: 'Was-Wenn-Lauf merken, Liste nicht lesbar (gsGardenScanWhatIfRun → garden_plans.what_if_runs PATCH)',
+    lauf: async () => {
+      const echt = { fetch: window.sbFetch, scan: window.gsRunGardenScan, render: window._gsRenderYearsTab, gs: window._gsGardenScan, toast: window.gsToast };
+      const patches = [];
+      let antwortGet = null;
+      window.gsRunGardenScan = async () => ({ ok: true, analysis: { yield_kg: 3 } });
+      window._gsRenderYearsTab = () => {}; window.gsToast = () => {};
+      window.sbFetch = async (path, opts) => {
+        const m = (opts && opts.method) || 'GET';
+        if (/garden_plans\?id=eq\./.test(path)) {
+          if (m === 'GET') return antwortGet;
+          if (m === 'PATCH') { let b = {}; try { b = JSON.parse(opts.body); } catch (_) {} patches.push(b); return { data: null, error: null }; }
+        }
+        return { data: [], error: null };
+      };
+      const ALT = [{ ts: 1, climate_scenario: 'baseline' }, { ts: 2, climate_scenario: 'hot' }, { ts: 3, climate_scenario: 'dry' }];
+      const lauf = async (a) => {
+        patches.length = 0; antwortGet = a;
+        window._gsGardenScan = { photos: [{ b64: 'AAAA' }], plan_id: 'plan-wi-1', metadata: {}, constraints: {} };
+        await gsGardenScanWhatIfRun();
+        return patches.slice();
+      };
+      try {
+        for (const [n, a] of [['Netz', { data: null, error: { message: 'Failed to fetch', status: 0 } }], ['503', { data: null, error: { message: 'Service Unavailable', status: 503 } }], ['keine Liste', { data: null, error: null }], ['Kontowechsel', { data: null, error: { message: 'person_gewechselt', code: 'person_gewechselt', status: 0 } }], ['Plan weg (0 Zeilen)', { data: [], error: null }]]) {
+          const p = await lauf(a);
+          if (p.length) return { ok: false, warum: n + ': what_if_runs ueber eine UNGELESENE Liste geschrieben — ' + JSON.stringify(p[0]).slice(0, 160) + ' (vorher 3 Laeufe)' };
+        }
+        let p = await lauf({ data: [{ what_if_runs: JSON.parse(JSON.stringify(ALT)) }], error: null });
+        if (p.length !== 1 || !Array.isArray(p[0].what_if_runs) || p[0].what_if_runs.length !== 4 || p[0].what_if_runs[0].ts !== 1) return { ok: false, warum: 'gelesene Liste (3): ' + JSON.stringify(p).slice(0, 200) };
+        p = await lauf({ data: [{ what_if_runs: null }], error: null });
+        if (p.length !== 1 || (p[0].what_if_runs || []).length !== 1) return { ok: false, warum: 'Plan ohne Laeufe (null): ' + JSON.stringify(p).slice(0, 200) };
+        return { ok: true, info: 'Netz · 503 · keine Liste · Kontowechsel · Plan weg → kein PATCH · gelesene Liste → angehaengt (4) · null → erster Lauf' };
+      } finally { window.sbFetch = echt.fetch; window.gsRunGardenScan = echt.scan; window._gsRenderYearsTab = echt.render; window._gsGardenScan = echt.gs; window.gsToast = echt.toast; }
+    },
+  },
+  {
+    // Gegenpruefung blob (19.11.2026), Geschwister in `profiles`: sbLoadProfile nahm bei JEDEM Lesefehler
+    // (Netz, 5xx, keine Liste) das Ersatzprofil eines NEUEN Kontos an (login_streak 0, keine stats, keine
+    // milestones). Danach schrieben checkAndUpdateStreak (login_streak 1, longest_streak 1, total_logins 1),
+    // profileTrackScan/-Fav (stats = {scans:1}) und checkMilestones (milestones = [...neu]) diese Werte als
+    // GANZE Spalten zurueck — Streak, Bestwert, Statistik und Meilensteine der Cloud waren weg. 0 Zeilen
+    // (wirklich neues Konto) duerfen anlegen; eine echte Zeile wird weitergezaehlt.
+    name: 'Profil nicht lesbar (sbLoadProfile → profiles): Streak, Statistik und Meilensteine nur über einen GELESENEN Stand',
+    lauf: async () => {
+      const UID = '00000000-0000-0000-0000-000000000001';
+      const echt = { fetch: window.sbFetch, get: gsStore.get, login: window.sbIsLoggedIn, toast: window.showProfileToast, xp: window.gsAddXP, prof: window._sbProfile };
+      const posts = [];
+      let antwortGet = null, server = {};
+      window.sbIsLoggedIn = () => true; window.showProfileToast = () => {}; window.gsAddXP = () => {};
+      gsStore.get = (k, d) => (k === 'gs_sb_uid' ? UID : echt.get.call(gsStore, k, d));
+      window.sbFetch = async (path, opts) => {
+        const m = (opts && opts.method) || 'GET';
+        if (/\/rest\/v1\/profiles/.test(path)) {
+          if (m === 'GET') return antwortGet;
+          let b = {}; try { b = JSON.parse(opts.body); } catch (_) {}
+          posts.push(b); Object.assign(server, b);   // ein Upsert setzt nur die gesendeten Spalten — und gibt die ganze Zeile zurueck
+          return { data: [JSON.parse(JSON.stringify(server))], error: null };
+        }
+        return { data: [], error: null };
+      };
+      const ECHT = { id: UID, login_streak: 12, longest_streak: 40, total_logins: 300, last_login_date: '2020-01-01',
+                     stats: { scans: 120, pilz_scans: 10, favs: 50, quiz_correct: 7 }, milestones: ['scan10', 'scan50', 'fav25', 'streak7'] };
+      const lauf = async (a, zeile) => {
+        posts.length = 0; antwortGet = a; server = JSON.parse(JSON.stringify(zeile || { id: UID })); window._sbProfile = null;
+        await sbLoadProfile();
+        profileTrackScan('pilz');            // zuerst die Statistik: sonst frischt die Antwort auf den Streak-Upsert _sbProfile auf
+        profileTrackFav(3);
+        await new Promise(r => setTimeout(r, 30));
+        await checkAndUpdateStreak();
+        await new Promise(r => setTimeout(r, 30));
+        return posts.slice();
+      };
+      try {
+        for (const [n, a] of [['Netz', { data: null, error: { message: 'Failed to fetch', status: 0 } }], ['503', { data: null, error: { message: 'Service Unavailable', status: 503 } }], ['keine Liste', { data: null, error: null }]]) {
+          const p = await lauf(a, ECHT);
+          const schlimm = p.filter(b => b && ('login_streak' in b || 'longest_streak' in b || 'total_logins' in b || 'stats' in b || 'milestones' in b));
+          if (schlimm.length) return { ok: false, warum: n + ': ' + schlimm.length + '× ueber ein UNGELESENES Profil geschrieben — die Cloud hat danach ' + JSON.stringify({ longest_streak: server.longest_streak, total_logins: server.total_logins, stats: server.stats, milestones: server.milestones }).slice(0, 200) + ' (vorher longest 40, logins 300, scans 120, 4 Meilensteine)' };
+        }
+        let p = await lauf({ data: [], error: null });
+        if (!p.some(b => b.login_streak === 1) || !p.some(b => b.stats && b.stats.scans === 1)) return { ok: false, warum: '0 Zeilen (neues Konto): erwartet Streak 1 und scans 1 — ' + JSON.stringify(p).slice(0, 200) };
+        p = await lauf({ data: [JSON.parse(JSON.stringify(ECHT))], error: null }, ECHT);
+        const st = server.stats || {};
+        if (st.scans !== 121 || st.pilz_scans !== 11 || st.quiz_correct !== 7 || st.favs !== 3 || server.longest_streak !== 40 || server.total_logins !== 301 || (server.milestones || []).length !== 4) return { ok: false, warum: 'echte Zeile: ' + JSON.stringify(server).slice(0, 240) };
+        return { ok: true, info: 'Netz · 503 · keine Liste → kein Schreiben von Streak/Statistik/Meilensteinen · 0 Zeilen → neues Profil ab 1 · echte Zeile → weitergezaehlt (scans 121, longest 40, logins 301)' };
+      } finally { window.sbFetch = echt.fetch; gsStore.get = echt.get; window.sbIsLoggedIn = echt.login; window.showProfileToast = echt.toast; window.gsAddXP = echt.xp; window._sbProfile = echt.prof; }
+    },
+  },
+  {
+    // Gegenpruefung der Gruppe tor (19.11.2026): gsPPsavePlan las user_gardens.data und nahm bei
+    // JEDEM Fehler des Lesens (Netz, 5xx, 401, person_gewechselt) einen LEEREN Blob an — der POST
+    // mit merge-duplicates ersetzte danach den ganzen Blob durch {plans:[…]}: Gaerten, Pflanzungen
+    // und current der Cloud waren weg. Ein gescheitertes Lesen schreibt jetzt NICHTS; der Plan bleibt
+    // lokal und vorgemerkt (markDirty — sonst ersetzt der naechste Pull die lokale Planliste durch die
+    // der Cloud), die Meldung sagt es. Nach einem Kontowechsel: still. 0 Zeilen = noch kein Blob.
+    name: 'Plan speichern, Cloud-Blob nicht lesbar (gsPPsavePlan → user_gardens: POST nur über einen GELESENEN Blob)',
+    lauf: async () => {
+      const UID = '00000000-0000-0000-0000-000000000001';
+      const erg = { meldungen: [], rufe: [], dirty: [], texte: [] };
+      const echt = { toast: window.showProfileToast, login: window.sbIsLoggedIn, fetch: window.sbFetch, get: gsStore.get, agent: window.gsAgentScheduleNotifications, md: gsCloudSync.markDirty };
+      window.showProfileToast = m => { erg.meldungen.push(typeof m === 'string' ? m : ((m && m.title) + ' ' + (m && m.body))); if (m && typeof m === 'object') erg.texte.push(m.title, m.body); };
+      window.sbIsLoggedIn = () => true; window.gsAgentScheduleNotifications = async () => {};
+      gsStore.get = (k, d) => (k === 'gs_sb_uid' ? UID : echt.get.call(gsStore, k, d));
+      gsCloudSync.markDirty = s => { erg.dirty.push(s); };
+      const G = [{ id: 'g-cloud', name: 'Cloud-Garten' }], P = [{ id: 'pl-cloud', gardenId: 'g-cloud', name: 'Cloud-Tomate' }];
+      const C = { plan: { summary: 'aktuell' } }, ALT = { id: 'plan-alt', title: 'Alter Plan' };
+      const lauf = async (antwortGet, antwortPost) => {
+        erg.meldungen.length = 0; erg.rufe.length = 0; erg.dirty.length = 0;
+        localStorage.removeItem('gs_garden_plans');
+        window.sbFetch = async (path, opts) => {
+          const m = (opts && opts.method) || 'GET'; erg.rufe.push({ m, path, body: opts && opts.body });
+          if (m === 'GET' && /user_gardens\?user_id/.test(path)) return antwortGet;
+          if (m === 'POST' && /user_gardens\?on_conflict/.test(path)) return antwortPost || { data: null, error: null };
+          return { data: [], error: null };
+        };
+        window._gsPP = window._gsPP || {};
+        _gsPP.plan = { summary: 'Blob-Prüfplan', bed: { width_m: 2, length_m: 2 }, plants: [{ name: 'Prüfart', count: 1 }] }; _gsPP.data = { area: 4 };
+        await gsPPsavePlan();
+        const posts = erg.rufe.filter(r => r.m === 'POST' && /user_gardens/.test(r.path)).map(r => { try { return JSON.parse(r.body).data; } catch (_) { return r.body; } });
+        const lokal = (JSON.parse(localStorage.getItem('gs_garden_plans') || '[]') || []).some(x => x && x.plan && x.plan.summary === 'Blob-Prüfplan');
+        return { posts, lokal, meldungen: erg.meldungen.slice(), dirty: erg.dirty.slice() };
+      };
+      try {
+        const fehler = [
+          ['Netz', { data: null, error: { message: 'Failed to fetch', status: 0 } }],
+          ['503', { data: null, error: { message: 'Service Unavailable', status: 503 } }],
+          ['401', { data: null, error: { message: 'JWT expired', status: 401 } }],
+          ['keine Liste', { data: null, error: null }],
+        ];
+        for (const [n, a] of fehler) {
+          const r = await lauf(a);
+          if (r.posts.length) return { ok: false, warum: n + ': POST an user_gardens trotz Lesefehler — ersetzt den Cloud-Blob durch ' + JSON.stringify(r.posts[0]).slice(0, 120) };
+          if (!r.lokal) return { ok: false, warum: n + ': Plan nicht lokal gesichert' };
+          if (r.meldungen.some(m => /✅/.test(m)) || !r.meldungen.some(m => /noch nicht in der Cloud/.test(m))) return { ok: false, warum: n + ': Meldung ' + JSON.stringify(r.meldungen) };
+          if (r.dirty.indexOf('garden') < 0) return { ok: false, warum: n + ': nicht vorgemerkt — der naechste Pull ersetzt die lokale Planliste durch die der Cloud' };
+        }
+        let r = await lauf({ data: null, error: { message: 'person_gewechselt', code: 'person_gewechselt', status: 0 } });
+        if (r.posts.length || r.meldungen.length || r.dirty.length) return { ok: false, warum: 'Kontowechsel (gehoert dem vorigen Konto, still): ' + JSON.stringify({ posts: r.posts.length, meldungen: r.meldungen, dirty: r.dirty }) };
+        r = await lauf({ data: [], error: null });
+        if (r.posts.length !== 1 || JSON.stringify(Object.keys(r.posts[0] || {})) !== '["plans"]' || r.posts[0].plans.length !== 1 || r.posts[0].plans[0].plan.summary !== 'Blob-Prüfplan') return { ok: false, warum: '0 Zeilen (noch kein Blob) → {plans:[eintrag]} erwartet: ' + JSON.stringify(r.posts).slice(0, 200) };
+        if (!r.meldungen.some(m => /✅ Plan gespeichert/.test(m) && /Cloud/.test(m))) return { ok: false, warum: '0 Zeilen, Meldung: ' + JSON.stringify(r.meldungen) };
+        r = await lauf({ data: [{ data: { gardens: G, plantings: P, current: C, gpx_tracks: [{ id: 't1' }], plans: [ALT] } }], error: null });
+        const d = r.posts[0] || {};
+        if (r.posts.length !== 1 || JSON.stringify(d.gardens) !== JSON.stringify(G) || JSON.stringify(d.plantings) !== JSON.stringify(P) || JSON.stringify(d.current) !== JSON.stringify(C)
+            || !Array.isArray(d.gpx_tracks) || d.gpx_tracks.length !== 1 || !Array.isArray(d.plans) || d.plans.length !== 2 || d.plans[0].plan.summary !== 'Blob-Prüfplan' || d.plans[1].id !== 'plan-alt') return { ok: false, warum: 'Blob mit Gaerten: ' + JSON.stringify(d).slice(0, 240) };
+        r = await lauf({ data: [], error: null }, { data: null, error: { message: 'permission denied', status: 403 } });
+        if (r.meldungen.some(m => /✅/.test(m)) || !r.meldungen.some(m => /noch nicht in der Cloud/.test(m)) || r.dirty.indexOf('garden') < 0) return { ok: false, warum: 'POST abgelehnt: ' + JSON.stringify({ meldungen: r.meldungen, dirty: r.dirty }) };
+        // Der Satz muss beim Uebersetzer ankommen — gsI18nMeldungenAusQuelltext nimmt nur Literale unter 120 Zeichen.
+        const gesammelt = Object.values(gsI18nMeldungenAusQuelltext(Array.from(document.scripts).map(x => x.textContent).join('\n')));
+        const fremd = erg.texte.filter(t => t && gesammelt.indexOf(t) < 0);
+        if (fremd.length) return { ok: false, warum: 'kommt beim Uebersetzer nicht an (fr/it/en/es deutsch): ' + fremd.map(t => '„' + t.slice(0, 50) + '…" (' + t.length + ' Zeichen)').join(' · ') };
+        return { ok: true, info: 'Netz · 503 · 401 · keine Liste → kein POST, lokal, vorgemerkt, gesagt · Kontowechsel → still · 0 Zeilen → {plans:[1]} · Blob → Gaerten/Pflanzungen/current/Tracks unveraendert · POST abgelehnt → vorgemerkt, gesagt' };
+      } finally { localStorage.removeItem('gs_garden_plans'); window.showProfileToast = echt.toast; window.sbIsLoggedIn = echt.login; window.sbFetch = echt.fetch; gsStore.get = echt.get; window.gsAgentScheduleNotifications = echt.agent; gsCloudSync.markDirty = echt.md; }
+    },
+  },
+  {
+    // Geschwister (19.11.2026): gsPPduplicatePlan, Zweig (b) — dieselbe Bauform wie gsPPsavePlan
+    // (Lesefehler → leerer Blob → POST {plans:[…]}), dazu ein POST ohne Blick auf die Antwort und
+    // „🔁 Plan dupliziert" in jedem Fall. Nach einem Kontowechsel legte er die Kopie eines Plans von
+    // A in den Speicher, der jetzt B gehoert.
+    name: 'Plan duplizieren, Cloud-Blob nicht lesbar (gsPPduplicatePlan Zweig b → user_gardens: POST nur über einen GELESENEN Blob)',
+    lauf: async () => {
+      const UID = '00000000-0000-0000-0000-000000000001';
+      const erg = { meldungen: [], rufe: [], dirty: [], offen: 0, texte: [] };
+      const echt = { toast: window.showProfileToast, login: window.sbIsLoggedIn, fetch: window.sbFetch, get: gsStore.get, open: window.gsPPopenSavedPlans, vac: window.gsCollectionsAutoVacuumDebounced, md: gsCloudSync.markDirty };
+      window.showProfileToast = m => { erg.meldungen.push(typeof m === 'string' ? m : ((m && m.title) + ' ' + (m && m.body))); if (m && typeof m === 'object') erg.texte.push(m.title, m.body); };
+      window.sbIsLoggedIn = () => true; window.gsPPopenSavedPlans = () => { erg.offen++; }; window.gsCollectionsAutoVacuumDebounced = () => {};
+      gsStore.get = (k, d) => (k === 'gs_sb_uid' ? UID : echt.get.call(gsStore, k, d));
+      gsCloudSync.markDirty = s => { erg.dirty.push(s); };
+      const QUELLE = { id: 'plan_quelle', title: 'Prüfplan', created: '2026-05-01T00:00:00.000Z', plan: { summary: 'Quelle', plants: [] }, source: 'local' };
+      const G = [{ id: 'g-cloud', name: 'Cloud-Garten' }], P = [{ id: 'pl-cloud', gardenId: 'g-cloud', name: 'Cloud-Tomate' }], C = { plan: { summary: 'aktuell' } };
+      const lauf = async (antwortGet, antwortPost) => {
+        erg.meldungen.length = 0; erg.rufe.length = 0; erg.dirty.length = 0; erg.offen = 0;
+        localStorage.setItem('gs_garden_plans', JSON.stringify([QUELLE]));
+        window.sbFetch = async (path, opts) => {
+          const m = (opts && opts.method) || 'GET'; erg.rufe.push({ m, path, body: opts && opts.body });
+          if (m === 'GET' && /user_gardens\?user_id/.test(path)) return antwortGet;
+          if (m === 'POST' && /user_gardens\?on_conflict/.test(path)) return antwortPost || { data: [{ user_id: UID }], error: null };
+          return { data: [], error: null };
+        };
+        await gsPPduplicatePlan('plan_quelle');
+        const posts = erg.rufe.filter(r => r.m === 'POST' && /user_gardens/.test(r.path)).map(r => { try { return JSON.parse(r.body).data; } catch (_) { return r.body; } });
+        const L = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]') || [];
+        return { posts, n: L.length, kopie: L.some(x => x && x.title === 'Prüfplan (Kopie)'), meldungen: erg.meldungen.slice(), dirty: erg.dirty.slice(), offen: erg.offen };
+      };
+      try {
+        const fehler = [
+          ['Netz', { data: null, error: { message: 'Failed to fetch', status: 0 } }],
+          ['503', { data: null, error: { message: 'Service Unavailable', status: 503 } }],
+          ['401', { data: null, error: { message: 'JWT expired', status: 401 } }],
+          ['keine Liste', { data: null, error: null }],
+        ];
+        for (const [n, a] of fehler) {
+          const r = await lauf(a);
+          if (r.posts.length) return { ok: false, warum: n + ': POST an user_gardens trotz Lesefehler — ersetzt den Cloud-Blob durch ' + JSON.stringify(r.posts[0]).slice(0, 120) };
+          if (!r.kopie) return { ok: false, warum: n + ': Kopie nicht lokal gesichert' };
+          if (!r.meldungen.some(m => /noch nicht in der Cloud/.test(m)) || r.meldungen.some(m => /^🔁 Plan dupliziert$/.test(m))) return { ok: false, warum: n + ': Meldung ' + JSON.stringify(r.meldungen) };
+          if (r.dirty.indexOf('garden') < 0) return { ok: false, warum: n + ': nicht vorgemerkt — der naechste Pull ersetzt die lokale Planliste durch die der Cloud' };
+        }
+        let r = await lauf({ data: null, error: { message: 'person_gewechselt', code: 'person_gewechselt', status: 0 } });
+        if (r.posts.length || r.n !== 1 || r.meldungen.length || r.dirty.length || r.offen) return { ok: false, warum: 'Kontowechsel (die Kopie gehoert dem vorigen Konto): ' + JSON.stringify({ posts: r.posts.length, imSpeicher: r.n, meldungen: r.meldungen, dirty: r.dirty, fenster: r.offen }) };
+        r = await lauf({ data: [], error: null });
+        if (r.posts.length !== 1 || JSON.stringify(Object.keys(r.posts[0] || {})) !== '["plans"]' || r.posts[0].plans.length !== 1 || r.posts[0].plans[0].title !== 'Prüfplan (Kopie)') return { ok: false, warum: '0 Zeilen (noch kein Blob) → {plans:[kopie]} erwartet: ' + JSON.stringify(r.posts).slice(0, 200) };
+        if (!r.kopie || !r.meldungen.some(m => /^🔁 Plan dupliziert$/.test(m))) return { ok: false, warum: '0 Zeilen: ' + JSON.stringify({ kopie: r.kopie, meldungen: r.meldungen }) };
+        r = await lauf({ data: [{ data: { gardens: G, plantings: P, current: C, plans: [QUELLE] } }], error: null });
+        const d = r.posts[0] || {};
+        if (r.posts.length !== 1 || JSON.stringify(d.gardens) !== JSON.stringify(G) || JSON.stringify(d.plantings) !== JSON.stringify(P) || JSON.stringify(d.current) !== JSON.stringify(C)
+            || !Array.isArray(d.plans) || d.plans.length !== 2 || d.plans[0].title !== 'Prüfplan (Kopie)' || d.plans[1].id !== 'plan_quelle') return { ok: false, warum: 'Blob mit Gaerten: ' + JSON.stringify(d).slice(0, 240) };
+        r = await lauf({ data: [], error: null }, { data: null, error: { message: 'permission denied', status: 403 } });
+        if (!r.kopie || !r.meldungen.some(m => /noch nicht in der Cloud/.test(m)) || r.dirty.indexOf('garden') < 0) return { ok: false, warum: 'POST abgelehnt: ' + JSON.stringify({ kopie: r.kopie, meldungen: r.meldungen, dirty: r.dirty }) };
+        const gesammelt = Object.values(gsI18nMeldungenAusQuelltext(Array.from(document.scripts).map(x => x.textContent).join('\n')));
+        const fremd = erg.texte.filter(t => t && gesammelt.indexOf(t) < 0);
+        if (fremd.length) return { ok: false, warum: 'kommt beim Uebersetzer nicht an (fr/it/en/es deutsch): ' + fremd.map(t => '„' + t.slice(0, 50) + '…" (' + t.length + ' Zeichen)').join(' · ') };
+        return { ok: true, info: 'Netz · 503 · 401 · keine Liste → kein POST, Kopie lokal, vorgemerkt, gesagt · Kontowechsel → keine Kopie im Speicher von B, still · 0 Zeilen → {plans:[1]} · Blob → Gaerten/Pflanzungen/current unveraendert · POST abgelehnt → gesagt' };
+      } finally { localStorage.removeItem('gs_garden_plans'); window.showProfileToast = echt.toast; window.sbIsLoggedIn = echt.login; window.sbFetch = echt.fetch; gsStore.get = echt.get; window.gsPPopenSavedPlans = echt.open; window.gsCollectionsAutoVacuumDebounced = echt.vac; gsCloudSync.markDirty = echt.md; }
+    },
+  },
+  {
+    // Geschwister (19.11.2026): gsPPopenSavedPlans liest die lokale Liste VOR dem ersten await und
+    // schrieb das Gemisch danach zurueck — auch wenn das Konto inzwischen gewechselt hat. Die Plaene
+    // von A landeten so im Speicher von B, und das Fenster zeigte sie. Gegenrichtung: ein Netzfehler
+    // ohne Wechsel zeigt die lokale Liste weiter. Dazu Loeschen und Umbenennen: nach einem Wechsel
+    // keine Meldung und kein Fenster fuer die naechste Person, kein POST.
+    name: 'Meine Pläne nach einem Kontowechsel (gsPPopenSavedPlans, gsPPdeletePlan, gsPPrenamePlan) — nichts von A bei B',
+    lauf: async () => {
+      const UID = '00000000-0000-0000-0000-000000000001';
+      const erg = { meldungen: [], rufe: [], offen: 0 };
+      const echt = { toast: window.showProfileToast, login: window.sbIsLoggedIn, fetch: window.sbFetch, get: gsStore.get, confirm: window.gsConfirmModal, prompt: window.gsPromptModal, vac: window.gsCollectionsAutoVacuumDebounced };
+      window.showProfileToast = m => erg.meldungen.push(typeof m === 'string' ? m : ((m && m.title) + ' ' + (m && m.body)));
+      window.sbIsLoggedIn = () => true; window.gsConfirmModal = async () => true; window.gsPromptModal = async () => 'Neuer Name'; window.gsCollectionsAutoVacuumDebounced = () => {};
+      gsStore.get = (k, d) => (k === 'gs_sb_uid' ? UID : echt.get.call(gsStore, k, d));
+      const PA = { id: 'plan_a', title: 'Plan von A', created: '2026-05-01T00:00:00.000Z', plan: { summary: 'A', plants: [], bed: { width_m: 1, length_m: 1 } } };
+      const GEWECHSELT = { data: null, error: { message: 'person_gewechselt', code: 'person_gewechselt', status: 0 } };
+      const stellen = (wechsel) => {
+        erg.meldungen.length = 0; erg.rufe.length = 0;
+        window.sbFetch = async (path, opts) => {
+          const m = (opts && opts.method) || 'GET'; erg.rufe.push(m + ' ' + path);
+          if (m === 'GET' && /user_gardens\?user_id/.test(path)) {
+            if (wechsel) { localStorage.removeItem('gs_garden_plans'); return GEWECHSELT; }   // das Abmelden raeumt den Speicher von A
+            return { data: null, error: { message: 'Failed to fetch', status: 0 } };
+          }
+          return { data: [], error: null };
+        };
+      };
+      const fenster = () => { const m = document.getElementById('modal-saved-plans'); return m ? (m.textContent || '') : null; };
+      const weg = () => { const m = document.getElementById('modal-saved-plans'); if (m) m.remove(); };
+      try {
+        weg(); localStorage.setItem('gs_garden_plans', JSON.stringify([PA])); stellen(true);
+        await gsPPopenSavedPlans();
+        const L = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]') || [];
+        const f = fenster(); weg();
+        if (L.some(x => x && x.id === 'plan_a')) return { ok: false, warum: 'Oeffnen: der Plan von A steht nach dem Wechsel im Speicher (von B)' };
+        if (f !== null && /Plan von A/.test(f)) return { ok: false, warum: 'Oeffnen: das Fenster zeigt der naechsten Person den Plan von A' };
+        // Gegenrichtung: Netzfehler ohne Wechsel → die lokale Liste bleibt und wird gezeigt
+        localStorage.setItem('gs_garden_plans', JSON.stringify([PA])); stellen(false);
+        await gsPPopenSavedPlans();
+        const L2 = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]') || [];
+        const f2 = fenster(); weg();
+        if (!L2.some(x => x && x.id === 'plan_a') || f2 === null || !/Plan von A/.test(f2)) return { ok: false, warum: 'Gegenrichtung (Netzfehler, kein Wechsel): ' + JSON.stringify({ lokal: L2.length, fenster: f2 === null ? null : f2.slice(0, 60) }) };
+        // Loeschen und Umbenennen nach einem Wechsel
+        for (const [n, tun] of [['Loeschen', () => gsPPdeletePlan('plan_a')], ['Umbenennen', () => gsPPrenamePlan('plan_a')]]) {
+          weg(); localStorage.setItem('gs_garden_plans', JSON.stringify([PA])); stellen(true);
+          await tun();
+          const f3 = fenster(); weg();
+          const posts = erg.rufe.filter(x => /^POST .*user_gardens/.test(x));
+          if (posts.length || erg.meldungen.length || f3 !== null) return { ok: false, warum: n + ' nach dem Wechsel: ' + JSON.stringify({ posts: posts.length, meldungen: erg.meldungen, fenster: f3 === null ? null : f3.slice(0, 60) }) };
+        }
+        return { ok: true, info: 'Oeffnen nach Wechsel → nichts von A im Speicher, kein Fenster · Netzfehler ohne Wechsel → lokale Liste gezeigt · Loeschen/Umbenennen nach Wechsel → kein POST, keine Meldung, kein Fenster' };
+      } finally { weg(); localStorage.removeItem('gs_garden_plans'); window.showProfileToast = echt.toast; window.sbIsLoggedIn = echt.login; window.sbFetch = echt.fetch; gsStore.get = echt.get; window.gsConfirmModal = echt.confirm; window.gsPromptModal = echt.prompt; window.gsCollectionsAutoVacuumDebounced = echt.vac; }
+    },
+  },
+  {
     // v32.64: Pausieren — der Zustand liegt beim Server; 0 Zeilen sind kein Pausieren.
     name: 'Gerät pausieren (gsGeraetPausieren → devices PATCH)',
     lauf: async () => {

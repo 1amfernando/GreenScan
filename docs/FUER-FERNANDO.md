@@ -1697,6 +1697,24 @@ nachgebessert hat):
 Zwei neue Fragen an dich: brett:2026-11-16-adb3 (Lifetime-Kauf für ein gelöschtes Konto)
 und brett:2026-11-16-cfcd (Budget von `plan-iterate`).
 
+**Nachtrag vom 19.11.2026: was seit dem 16.11. live ist** (nur lesend nachgemessen, Brett
+`2026-11-19-c3f3`). Angewandt ist **eine** der sechs Migrationen —
+`20261110_sicherheit_ki_kontingent.sql` (16.11., 11:28 UTC). Danach, 11:29–11:32 UTC, sind die
+24 Functions ausgeliefert worden, die `AUSLIEFERUNG.json` damals als `ausliefern` bzw. `erst_nach`
+dieser Migration führte — in der richtigen Reihenfolge. **Noch nicht angewandt** sind die fünf
+anderen (`…_funktionen`, `…_quiz_punkte`, `…_community_markt`, `…_konto_speicher`,
+`feedback_stimmen_zaehlen`); was ihre Köpfe beschreiben, ist live weiter offen. Die vier
+Stripe-Functions hat #331 (v33.63) danach noch einmal geändert — live läuft die Fassung vom 16.11.
+(§30i, Modus-Prüfung). In den Logs der letzten Tage kam kein einziger Aufruf an die sechs
+KI-Functions an — weder ein Erfolg noch ein Fehler; **ein Scan oder eine Frage an Lina mit deinem
+Konto** zeigt, ob das Tor live richtig zählt (`feature_usage` bekommt dann eine Zeile `ki:…`).
+
+**Und v33.68 (Platzhalter) ist reine App-Arbeit — nichts für den Server:** eine Antwort, die nach
+dem Abmelden ankommt, landet nie mehr im Konto der nächsten Person (ein Tor in `sbFetch` und in der
+KI, dazu die Wege daneben), Abmelden leert auch den Bildschirm, und ein gescheitertes Lesen beim
+Plan-Speichern ersetzt den Garten-Blob in der Cloud nicht mehr. Für dich wichtig, wenn ihr ein
+Gerät teilt: nach dem Abmelden bleibt nichts vom vorigen Konto stehen.
+
 **Drei Fragen an dich stehen auf dem Brett** (jede bündelt die Zeilen aus 30f):
 brett:2026-11-11-a814 (Quiz: Antwortschlüssel, Battles, Deckel, das Jahr Pro am 31.12.),
 brett:2026-11-11-293d (Plan- und Bezahl-Versprechen: KI-Grenzen gegen „unbegrenzt",

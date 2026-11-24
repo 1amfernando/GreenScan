@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-19-d999",
+  "art": "befund",
+  "datum": "2026-11-19",
+  "zeit": "15:30:31",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.68",
+  "titel": "Nach dem Abmelden entsteht gs_last_sync_ts für niemanden, und der Toast „Erfolgreich abgemeldet“ ist nie sichtbar",
+  "vorschlag": "Den Stempel nur setzen, wenn die Person noch dieselbe ist (Tor-Muster); die Abmelde-Meldung über _gsAbmeldenSagen ins Meldefeld.",
+  "beleg": [
+    "der Flush aus sbLogout läuft als 2,5-s-Rennen weiter und stempelt 1,5–3 s nach dem Abmelden (gemessen gegen 5f93e2d, vorbestehend); der Toast liegt unter dem Anmeldebildschirm (z-index 9999 gegen 9999999) — Gegenprüfung dom-plaene 19.11.2026"
+  ],
+  "stichworte": [
+    "abmelden",
+    "gscloudsync",
+    "toast"
+  ]
+}
