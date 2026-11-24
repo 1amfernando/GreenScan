@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 17:51 UTC · `main` = `1d1019b` (**v33.75**, #349) · #350 Hauptfunktionen v33.76 (kc Suche 11 + kd Lina 11; Kopf `b43d70a`, Baum gegen das neue main identisch `714d6b3`, CI seit 17:35, fertig ca. 18:15; Leser läuft; ein Fix-Commit gegen einen Ort-Fehlalarm in Lina 11 folgt, dann CI neu) · danach v33.77 (ke Scanner 14) · danach v33.78 (kf Sicherheit Scheibe 3, Register) · #348 Audit zuletzt.
+**Stand:** 24.11.2026, 17:53 UTC · `main` = `1d1019b` (**v33.75**) · **#350 (v33.76) darf NICHT gemergt werden, wie er steht:** der unabhängige Leser fand elf Zusagen, die die Basis warnt und Lina 11 (kd) nicht mehr (Namens-Veto durch Buch-Import-Rümpfe, Kontrast-Filter, engere Stämme, `auch`-Regel, Ort); Hauptfunktionen baut EINEN Folge-Commit (F1–F5, Basis als Orakel) oder revertiert (kd) · danach v33.77 (ke Scanner 14) · v33.78 (kf Sicherheit Scheibe 3) · #348 Audit zuletzt.
 
 ## 1 · Warum es schneller wird
 
@@ -45,7 +45,7 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | **v33.73** | (jw) | **GEMERGT** als Merge-Commit `bbb5b26` (#346; CI auf 24dd782 grün, Baum identisch); der Proxy-Teil gehört Fernando (FUER-FERNANDO §33) |
 | 4 | Hauptfunktionen · Lina · Einblick ehrlich + Scanner 12 + Pilz-Verwechsler (EIN Kopf) | `claude/happy-thompson-24l4uu` | v33.74 | (jx) · (jy) · (jz) · (ka) | **GEMERGT** als Merge-Commit `52a2b93` (#347; CI auf 5844cf6 grün, Baum identisch; zwei Leserfunde vor dem Merge behoben) |
 | 5 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.75 | (kb) | **GEMERGT** als Merge-Commit `1d1019b` (#349; CI auf 255665c grün, Baum identisch); offene Frage für Fernando: Brett e247 (Offline-Foto live im Speicher?) |
-| 6 | Hauptfunktionen · Suche 11 (kc) + Lina 11 (kd), gebündelt | `claude/happy-thompson-24l4uu` | v33.76 | (kc) · (kd) | PR **#350**, Kopf **`b43d70a`** (enthält `255665c`; Baum = Test-Merge `714d6b3`), CI läuft; Leser (Workflow wf_a830bd81-fb7) misst: falsch-negativ darf nicht zunehmen; danach Scanner 14 (ke) als v33.77 |
+| 6 | Hauptfunktionen · Suche 11 (kc) + Lina 11 (kd), gebündelt | `claude/happy-thompson-24l4uu` | v33.76 | (kc) · (kd) | PR **#350**, Kopf `b43d70a` (CI seit 17:35 läuft als Basislinie, wird durch den Folge-Commit ersetzt). **Leserbefund (17:58): (kd) hat elf Rückschritte an der Sicherheitslinie** (Aronstab, Narzisse, Liguster, Hahnenfuß, Besenginster, Kuhschelle, Kreuzdorn, Eibe-Aril, Tollkirsche-Teilsatz, „Geniess“, „verspeisen“) — Fix F1–F5 in EINEM Commit mit Differenzprobe gegen die Basis `255665c`, oder (kd) revertieren und als v33.77 nachliefern; erst dann Merge |
 | 8 | Hauptfunktionen · Scanner 14 (ke) | `claude/happy-thompson-24l4uu` | v33.77 | (ke) | lokal fertig (PV7); Push erst nach dem Merge von #350 |
 | 9 | Sicherheit · Scheibe 3 (Register: Deklaration + Prüfung) | `ccr-5e705a36-jveaak` | v33.78 | (kf) | baut lokal auf frischem main; Push erst auf Signal mit der SHA des Vorgängers |
 | 7 | Audit · Prüfstände (kein Bump) | `ccr-dce5a17c-2xzhvi` | – | (jv) Nachtrag | PR **#348**, Kopf `b199b6d` (docs + `!!`-Ausgabe), CI läuft; wird als LETZTER gemergt (dann main einziehen, CI neu) |
