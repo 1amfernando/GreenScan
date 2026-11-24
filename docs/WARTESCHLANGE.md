@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 21:36 UTC · `main` = `caca20b` (**v33.80**, #354 Suche 12 + Prototypkette) · nächster Kopf: Hauptfunktionen Lina 12 (kj) = **v33.81** (lokal `311e5c1` auf `8ddb0ca`; Schlusslauf + Orakel laufen, dann Push und Kopfmeldung) · Sicherheit Scheibe 5 (ki) **blockiert**: ihre Sitzung hat das Fable-Monatslimit erreicht (Antwort „Switch to another model", Reset 1. Dezember) — Fernando muss die Sitzung auf ein anderes Modell stellen; bis dahin stapelt nichts auf v33.82 · Brett-Branch (kh).
+**Stand:** 24.11.2026, 21:46 UTC · `main` = `caca20b` (**v33.80**, #354 Suche 12 + Prototypkette) · offen: **#355** Lina 12 (kj) = v33.81, kein Konflikt, CI-Lauf 45494200367 auf `c79bc80` gestartet 21:45 UTC (Ende ~22:25) · mein Hold-out: Regressionen 0, Klasse 2 = 10 (kg 11), Klasse 3 = 1, 3 neue Fehlalarme gegenüber Basis (2 × Pflege-Satz durch F, 1 × Efeu-Geranie), Orakel läuft · Sicherheit Scheibe 5 (ki) blockiert (Fable-Monatslimit, Fernando muss das Modell wechseln) · Hauptfunktionen baut brett:5929 lokal als v33.82, Push erst nach Merge von #355 · Brett-Branch (kh).
 
 ## 1 · Warum es schneller wird
 
@@ -51,7 +51,7 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | 10 | Hauptfunktionen · Lina 11 neu (kg) | `claude/happy-thompson-24l4uu` | v33.79 | (kg) | **GEMERGT** als Merge-Commit `6bcfee9` (#353; CI auf `ceea353` grün; Hold-out des Koordinators + Orakel über 3'138 Namen × 5 Formen bestanden) |
 | 10b | Hauptfunktionen · Suche 12 (kk) + Prototypkette (kl) | `claude/happy-thompson-24l4uu` | v33.80 | (kk) · (kl) | **GEMERGT** als Merge-Commit `caca20b` (#354; CI auf `8ddb0ca` grün; Tipp-Simulation: 0 von 5'147 verloren; 266 Giftarten-Vorschläge angesehen) |
 | 11 | Sicherheit · Scheibe 5 (ruhiger Pull) | `ccr-5e705a36-jveaak` | v33.82 (oder später) | (ki) | **blockiert:** Sitzung „Projekt-Verbesserung und Sicherheit" meldet seit 21:18 UTC nur „monthly spend limit · Fable limit resets Dec 1" (API 429) — kein Modellwechsel von mir möglich, Entscheidung bei Fernando. Zwischenstand `3b5e0a9` (ohne Bump) ist keine Meldung |
-| 12 | Hauptfunktionen · Lina 12 (kj) | `claude/happy-thompson-24l4uu` | v33.81 | (kj) | lokal auf `ceea353`; sechs Regeln (F „aber“-Lücke, K Aufzählung, E „Verzehr vermeiden“, G „Geniess den Garten“, C2 Gegensatz ohne Wort, N `nie\b`) + Orakel; Push sobald Schlusslauf + Orakel grün (direkt auf main `caca20b` baubar); Hold-out des Koordinators vor dem Merge |
+| 12 | Hauptfunktionen · Lina 12 (kj) | `claude/happy-thompson-24l4uu` | v33.81 | (kj) | **PR #355 offen**, Kopf `c79bc80` (94d174d + Bump), `merge-tree` sauber; Hold-out: Regressionen 0 · Klasse 2 = 10 · Klasse 3 = 1 · gewonnen +33; Orakel läuft; CI gestartet 21:45 UTC; Merge als Merge-Commit bei grünem CI auf `c79bc80` und unverändertem `main` |
 | 7 | Audit · Prüfstände (kein Bump) | `ccr-dce5a17c-2xzhvi` | – | (jv) Nachtrag | **GEMERGT** als Merge-Commit `577850e` (#348; CI auf `6cb8879` grün, Baum identisch) |
 | – | Brett (#341) | `ccr-b63433a4-d1xgyg` | – | **(kh)** (nicht (ke): die ist Scanner 14) | enthält `.github/workflows/*` und `docs/AGENTEN-NETZ.md` → Fernando; der Werkzeug-Teil kommt als eigener PR; Kennung vor dem Merge neu rechnen |
 
