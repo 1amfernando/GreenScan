@@ -78,6 +78,30 @@ const FAELLE = [
     },
   },
   {
+    // Brett 2026-11-24-6bbf: gsLinaEinblickSchalten las die Rückgabe von setItem nicht — bei vollem Speicher blieb
+    // der Einblick still AN, und Linas Kontext trug weiter Pflanzen, Ort und Geräte zur KI. Jetzt gilt „aus" bis
+    // zum Neuladen (_gsLinaEinblickSitzung), und ein Satz sagt es.
+    name: 'Lina · Einblick ausschalten · gilt bis zum Neuladen, und ein Satz sagt es',
+    lauf: () => {
+      if (typeof gsLinaEinblickSchalten !== 'function') return { ok: false, warum: 'gsLinaEinblickSchalten fehlt' };
+      try { localStorage.removeItem('gs_lina_einblick'); } catch (_) {}
+      _gsLinaEinblickSitzung = null;
+      try {
+        if (!gsLinaEinblickAn()) return { ok: false, warum: 'der Einblick war schon aus — Fall nicht hergestellt' };
+        __voll(true); gsLinaEinblickSchalten(); __voll(false);
+        if (!__VOLL_LOG.some(k => k === 'gs_lina_einblick')) return { ok: false, warum: 'kein Schreibversuch auf gs_lina_einblick — Fall nicht hergestellt' };
+        if (gsLinaEinblickAn()) return { ok: false, warum: 'der Einblick bleibt an — das Ausschalten scheiterte still' };
+        if (!__TOASTS.some(t => /Speicher/.test(t) && /neu lädt/.test(t))) return { ok: false, warum: 'keine Meldung an die Person: ' + JSON.stringify(__TOASTS.slice(0, 2)) };
+        if (/^Braucht Hilfe|Region:|Pflanze\(n\) in GreenScan/m.test(gsLinaContext('Wie geht es meinen Pflanzen?'))) return { ok: false, warum: 'die Daten gehen trotzdem an die KI' };
+        return { ok: true, info: 'aus bis zum Neuladen · Meldung da · nichts aus den Daten an die KI' };
+      } finally {
+        __voll(false); _gsLinaEinblickSitzung = null;
+        try { localStorage.removeItem('gs_lina_einblick'); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
     name: 'Arten-Korrektur-Warteschlange · false, kein stilles „eingereiht"',
     lauf: () => {
       if (typeof _gsKorrekturEinreihen !== 'function') return { ok: false, warum: '_gsKorrekturEinreihen fehlt' };

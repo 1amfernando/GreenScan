@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-ffa7",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "16:08:13",
+  "von": "sitzung/lokal/pilz-region",
+  "stand": "v33.72",
+  "titel": "erledigt: Regionaler Pilz-Hinweis (gsAttachMushroomLookalikeWarn): die Doppelgänger stehen als Slug da — „amanita phalloides vs. russula virescens“, ohne deuts…",
+  "ergebnis": "erledigt",
+  "wohin": "Paket Scanner 13 (nach v33.72, Branch claude/happy-thompson-24l4uu): _gsPilzNameBekannt im regionalen Hinweis und in der Galerie; scan_check PV5, gegen den alten Stand rot, zwei Gegenproben rot",
+  "geschwister": "gesucht: alle Leser von mushroom_lookalikes (3) — Pilz-Ergebnis (Scanner 13), Steckbrief (löst die Namen schon über das Register auf), regionaler Hinweis mit Galerie (dieser Abschluss); kein weiterer Leser",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-24-bc4f"
+    }
+  ]
+}

@@ -77,6 +77,29 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     Bestimmung schliesst (ein Tipp auf den dunklen Rand genügt), bekommt einen Satz statt Stille, und „⏳ Identifiziere…"
     geht durch die Sprachschicht.
 
+12. ✅ v33.74 (`scan_check` VG1–VG7, gebaut 24.11.) — **Die Bestimmung lässt sich nicht am Bild prüfen.** Referenzbilder
+    gab es nur in der Artenansicht und im Scan-Verlauf; auf der Ergebniskarte, wo man die Bestimmung liest, keines —
+    und keines für die Alternativen. Jetzt „🔍 Mit Bildern vergleichen" unter der KI-Sicherheit: dein Foto steht fest
+    oben, darunter die erkannte Art und bis zu drei Alternativen, je mit Referenzbild (freigegebenes Community-Foto aus
+    dem eigenen Speicher, sonst Wikipedia), der Marke aus dem Streifen (`_gsAltMarke`, EINE Rechnung) und dem
+    Unterscheidungsmerkmal; „Das ist es" wählt wie ein Tipp auf die Alternative. **Geladen wird erst auf Antippen** — die
+    Datenschutzerklärung nennt Wikipedia „wenn du eine Art öffnest". Das Bild einer Art holen jetzt zwei Funktionen an
+    EINER Stelle (`_gsWikiBildHolen`, `_gsCommunityBilderHolen`); die Artenansicht zeichnet sie wie bisher. Dabei
+    behoben: ein Netzfehler galt als „kein Bild" (bis zum Neuladen blieb die Art ohne Bild), und ein Bild aus der
+    Wikipedia-Antwort wurde von jedem Host genommen (jetzt nur `upload.wikimedia.org`). Jedes Wikipedia-Bild trägt
+    seinen Nachweis (Dateiseite auf Commons: Urheber und Lizenz).
+13. ✅ v33.74 (`scan_check` PV1–PV4, gebaut 24.11.) — **Pilz: die Verwechsler hatten keinen Namen und kein Bild.**
+    `mushroom-identify` schickt die Verwechsler als Paare von Slugs (ohne Namen); die Warnbox zeigte „Amanita
+    Phalloides" statt „Grüner Knollenblätterpilz", in jeder Sprache — genau dort, wo „☠️ LEBENSGEFAHR" steht. Der Fall
+    dazu (PZ1) stellte einen Namen, den die Function nie schickt. Jetzt kommen Name (in der Sprache der App), Latein und
+    Essbarkeit aus dem REGISTER (`_gsPilzRegister`, ein Leser `_gsPilzVerwechsler`, höchstens 2,5 s, ein Fehler wird
+    nicht gemerkt), und „☠️ TÖDLICH" steht beim Verwechsler. Dazu „🔍 Mit Bildern vergleichen" im Pilz-Ergebnis: dein Foto,
+    die Art und bis zu drei Verwechsler (die gefährlichsten zuerst, jeder einmal), je mit Referenzbild, Essbarkeit aus dem
+    Register, Risiko und sichtbarem Unterschied — bewusst ohne „Das ist es" (bei Pilzen entscheidet die Kontrolle, und das
+    steht im Fenster). Dasselbe Fenster wie Scanner 12 (`_gsVglFenster`), dieselben drei Regeln; der Vergleich gilt nur,
+    solange die Bestimmung gilt (`_gsPilzNr`). Dazu (Brett bc4f) der regionale Pilz-Hinweis und die Verwechsler-Galerie:
+    dieselben Namen aus dem Register statt kleingeschriebenem Latein (`_gsPilzNameBekannt`, `scan_check` PV5).
+
 ## Offen — Lina
 
 1. ✅ v33.61 — **KI fällt aus, Gerät ist online:** nur „versuch es nochmal". `getSmartAnswer` greift nur
@@ -106,6 +129,19 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    zweite Frage verschluckte der Riegel wortlos. Jetzt zählt jeder Wechsel (`_gsLinaGespraechNr`),
    Vorgeschichte, Id und Antwort bleiben beim gefragten Gespräch (Cloud), ein Satz sagt, wo die Antwort
    ist, und die zweite Frage bekommt einen Satz statt Stille.
+10. ✅ v33.74 (`sensor_check` „Lina · Einblick ehrlich", Brett 2026-11-24-6bbf, gefunden 24.11. beim Nachprüfen
+   von v33.70) — **Der Einblick hält nicht, was er sagt.** „Aus" nahm nur den Einblick-Block weg: Pflanzenzahl,
+   Ort, fällige Aufgaben mit Pflanzennamen, Geräte, Messwerte, Kalender und der letzte Scan gingen weiter an die
+   KI, während das Fenster „Lina sieht deine Pflanzen und Gärten gerade nicht" sagte. Der Schalter stand nur im
+   leeren Verlauf, bei vollem Speicher blieb er still an, und ein Ort ohne Namen ging als „46.948°N, 7.447°E"
+   mit („keine Koordinaten"). Der Schädlings-Filter konnte nie anschlagen (die Schreiber legen
+   `pest_observation` ohne Pflanze an), und die Entwarnung nannte „kein Schädling" trotzdem als geprüft. Die
+   Essbarkeits-Gegenprobe sah weder die eigene Pflanze hinter einem Spitznamen („Lilli" = Maiglöckchen) noch
+   eine giftige Art, die erst in der Antwort steht. Jetzt: ohne Einblick nur Frage, Sprache, Jahreszeit und die
+   Arten der Frage; der Schalter auch im laufenden Gespräch; voller Speicher → aus bis zum Neuladen, mit Satz;
+   `_gsOrtNameFuerKi`; `gsSchaedlingeNotiert` (eigene Zeile, „kein Schädling" nur mit geladenem Tagebuch);
+   `_gsLinaTrefferMitPflanzen` und Arten der Antwort mit ganzem Namen. Den Wortlaut der Datenschutzerklärung
+   entscheidet Fernando (FUER-FERNANDO §33).
 
 ## Offen — Suche
 

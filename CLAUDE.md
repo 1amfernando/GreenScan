@@ -345,6 +345,7 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 | Kalenderwoche | `gsIsoKW(d)` — ISO 8601 (Montag bis Sonntag, KW 1 = die Woche mit dem ersten Donnerstag); `gsGetKW()` ist dieselbe Rechnung fuer heute | nie Sieben-Tage-Bloecke ab dem 1. Januar (2026 lag das Montag bis Mittwoch eine Woche zurueck) |
 | Fakten einer Woche | `_gsWochenFakten(kw)` — die Eintraege der Woche, sonst der Nachbarwoche (zuerst die davor), sonst die ersten zehn | kein eigener Rueckfall je Anzeige (die Liste kennt KW 1–52, die ISO-Woche 53 hat keinen Eintrag) |
 | „Steht der Anmeldebildschirm?" | `_gsAnmeldungSteht()` — `html.gs-preauth` ODER `#gs-onboarding` sichtbar | nie nur eine der beiden Bedingungen; `_gsTeilenBereit()` ist ihre Verneinung |
+| Referenzbild einer ART (seit v33.74, Scanner 12) | geholt an EINER Stelle: `_gsCommunityBilderHolen(spId)` (freigegebene Fotos aus dem eigenen Speicher, über `_gsFremdBild`) und `_gsWikiBildHolen(lat)` (`{src, seite, datei}` oder `null`; nur `upload.wikimedia.org`; ein Netzfehler wird nicht als „kein Bild" gemerkt). Gezeichnet von der Artenansicht (`gsLoadSpeciesImage` → `gsLoadWikiImage`) und vom Vergleich im Scan-Ergebnis (`gsScanVergleichOeffnen`). Der Pilz-Scanner (Scanner 13) nutzt dasselbe Fenster (`_gsVglFenster`); Name, Latein und Essbarkeit eines Pilzes und seiner Verwechsler kommen dort aus dem REGISTER (`_gsPilzRegister`, `_gsPilzVerwechsler`) — `mushroom-identify` schickt die Verwechsler nur als Slugs | ein Bild von Wikipedia OHNE Antippen holen (die Datenschutzerklärung nennt Wikipedia „wenn du eine Art öffnest" — ein Bild bei jedem Scan wäre ein neuer Anlass); ein Wikipedia-Bild ohne Nachweis (`_gsWikiDateiSeite`: Dateiseite mit Urheber und Lizenz); eine dritte Hol-Funktion daneben |
 
 ### 3.4 · KI-Calls
 **IMMER** über `callAI(messages, systemPrompt, maxTokens, opts)` oder
@@ -828,6 +829,21 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   `display_name` — live und auch in der Fassung der Migration; ob der Signup
   stattdessen einen neutralen Namen setzt, ist eine Entscheidung für Fernando
   (STATUS §2).
+- **Ein Schalter, der Daten von der KI fernhält, sitzt dort, wo der Kontext
+  ENTSTEHT** (v33.74, Brett 6bbf). Linas „Einblick aus“ nahm bis dahin nur EINEN
+  Block weg; Pflanzenzahl, Region, fällige Aufgaben mit Namen, Geräte, Messwerte,
+  Kalender und der letzte Scan gingen weiter mit, während das Fenster das Gegenteil
+  sagte. Jetzt kehrt `gsLinaContext` ohne Einblick früh zurück (nur Sprache,
+  Jahreszeit, die Arten der Frage); das bisherige Gespräch geht weiter mit, und
+  die Sätze sagen das (die erste Fassung schrieb „nur deine Frage" — Prüfung von
+  #347: ein Datenschutz-Satz sagt nichts zu, was nicht stimmt). `sensor_check` „Lina · Einblick ehrlich“
+  misst, was an die KI GEHT — mit `GS_LINA_ZEILEN_RANG` als Liste der Datenzeilen,
+  damit eine neue Zeile mitgemessen wird. **Ein Ortsname kann eine Koordinate sein**
+  (der Rückfall von `gsReverseGeocode`): an die KI nur über `_gsOrtNameFuerKi`.
+  **Und eine Wahl, die nicht gespeichert werden konnte, gilt trotzdem** — bis zum
+  Neuladen, mit einem Satz (`_gsLinaEinblickSitzung`); ein Schutz, der bei vollem
+  Speicher still wieder angeht, ist keiner. Den Wortlaut der Datenschutztexte
+  entscheidet Fernando (FUER-FERNANDO §33).
 - **Wer einen neuen externen Host einbaut**, trägt ihn in
   `scripts/sicherheit/97_empfaenger.js` (`HOSTS`) ein und nennt ihn in BEIDEN
   Datenschutztexten: `privacy.html` §4 und die Erklärung in der App. Der Fall
@@ -2272,6 +2288,18 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > Naehe einer Zustimmung. **Und der Fall traegt die GEMESSENEN Saetze, nicht
 > ausgewaehlte** — ein Fall, dessen Satz den Treffer schon enthaelt, prueft
 > die Vorlage und nicht die Ware.
+
+> **Die Gegenprobe kennt, was Lina kennt — und was sie schreibt** (v33.74, Brett
+> 6bbf). `_gsLinaSicherheit` sah nur die Arten der FRAGE: „Kann ich Lilli essen?"
+> (Lilli = das eigene Maiglöckchen) und „Die Beeren der Eibe kannst du essen." (die
+> Art steht erst in der Antwort) liefen ohne Warnung durch. `_gsLinaTrefferMitPflanzen`
+> nimmt die Arten eigener Pflanzen dazu, die die Frage beim Namen oder Spitznamen
+> nennt — auch bei ausgeschaltetem Einblick, denn die Pruefung laeuft auf dem Geraet.
+> Eine Art aus der ANTWORT zaehlt nur mit ganzem Namen oder Binomen im bejahenden
+> Satz: ueber die Deklinations-Regel und den Familien-Zug von `_gsArtenTreffer`
+> warnte „Ja, Petersilie ist essbar." vor der Hunds-Petersilie (gemessen an 22
+> Saetzen, Brett 6bbf). **Wer eine Warnung erweitert, misst sie zuerst an harmlosen
+> Saetzen.**
 
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen

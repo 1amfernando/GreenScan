@@ -996,4 +996,122 @@ module.exports = [
       return { ok: true, info: 'Tagesquiz offen · nach dem Abmelden und 1,5 s spaeter kein Nutzerschluessel' + (r.spaeter.length ? ' (ausgenommen mit Grund: ' + r.spaeter.join(', ') + ')' : '') };
     },
   },
+  {
+    // Brett 2026-11-24-f834: Lina 9 (v33.71) zählt jeden Wechsel des gezeigten Gesprächs — das Abmelden nicht. Meldete
+    // sich dasselbe Konto während „Lina denkt nach…" ab und wieder an (gsOnLogout räumt das Gespräch, die Person
+    // bleibt), stand die Antwort allein im neuen Gespräch und ging als Vorgeschichte mit der nächsten Frage an die KI.
+    name: 'Abmelden · Lina: kommt die Antwort nach dem Abmelden und Wiederanmelden DESSELBEN Kontos, steht sie nicht im neuen Gespräch und geht nicht mit der nächsten Frage — in der Cloud steht sie beim gefragten',
+    lauf: async (seite, h) => {
+      const r = await seite.evaluate(async () => {
+        const warte = (ms) => new Promise(res => setTimeout(res, ms));
+        const alt = { ai: window.callAI, sf: window.sbFetch, li: window.sbIsLoggedIn };
+        const ki = [], schreib = [];
+        let wurf = null, nach = null, hist2 = null, uidVor = null, uidNach = null;
+        try {
+          window.sbIsLoggedIn = () => true;
+          window.sbFetch = async (pfad, o) => {
+            const m = (o && o.method) || 'GET';
+            if (m === 'POST' && /coach_messages/.test(pfad)) { const b = JSON.parse(o.body); schreib.push({ conv: b.conversation_id, role: b.role, content: String(b.content) }); return { data: [b], error: null }; }
+            if (m === 'POST' && /coach_conversations/.test(pfad)) return { data: [{ id: 'conv-NEU' }], error: null };
+            return { data: [], error: null };
+          };
+          window.callAI = (hist) => new Promise((res) => { ki.push({ res, hist: hist.map(x => x.role + ':' + x.content) }); });
+          window._gsLinaSending = false; window._gsLinaConvId = 'conv-X';
+          window._gsLinaMsgs = [{ role: 'user', content: 'X-FRAGE-ALT' }, { role: 'assistant', content: 'X-ANTWORT-ALT' }];
+          gsLinaRender(false);
+          const f = document.getElementById('gs-lina-input');
+          if (!f) return { fehler: 'Lina hat kein Eingabefeld' };
+          f.value = 'FRAGE-A';
+          uidVor = _gsPerson();
+          const lauf = gsLinaSend(); await warte(150);
+          if (!ki[0]) return { fehler: 'die KI wurde nicht gefragt — der Fall misst nichts' };
+          gsOnLogout();
+          uidNach = _gsPerson();
+          ki[0].res('ANTWORT-A'); await lauf; await warte(150);
+          nach = (window._gsLinaMsgs || []).map(x => x.role + ':' + x.content);
+          gsLinaRender(false);
+          const f2 = document.getElementById('gs-lina-input');
+          if (f2) f2.value = 'FRAGE-B';
+          const lauf2 = gsLinaSend(); await warte(150);
+          hist2 = ki[1] ? ki[1].hist : null;
+          if (ki[1]) ki[1].res('ANTWORT-B');
+          await lauf2;
+        } catch (e) { wurf = String(e && e.message); }
+        finally { window.callAI = alt.ai; window.sbFetch = alt.sf; window.sbIsLoggedIn = alt.li; window._gsLinaSending = false; }
+        return { nach, hist2, schreib, wurf, uidVor, uidNach };
+      });
+      await h.frisch();
+      if (r.fehler) return { ok: false, warum: r.fehler };
+      if (r.wurf) return { ok: false, warum: 'Ausnahme im Ablauf: ' + r.wurf };
+      if (!r.uidVor || r.uidVor !== r.uidNach) return { ok: false, warum: 'Fall nicht hergestellt: die Person wechselte (' + r.uidVor + ' → ' + r.uidNach + ') — gemessen werden soll dasselbe Konto' };
+      const f = [];
+      if ((r.nach || []).some(x => /ANTWORT-A/.test(x))) f.push('die Antwort steht im neuen Gespräch: ' + JSON.stringify(r.nach));
+      if (!r.hist2) f.push('die zweite Frage ging nicht an die KI — der Fall misst die Vorgeschichte nicht');
+      else if (r.hist2.some(x => /ANTWORT-A/.test(x))) f.push('die nächste Frage ging mit der fremden Antwort als Vorgeschichte: ' + JSON.stringify(r.hist2));
+      if (!r.schreib.some(s => s.conv === 'conv-X' && s.role === 'assistant' && s.content === 'ANTWORT-A')) f.push('die Antwort fehlt in der Cloud beim gefragten Gespräch');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'dasselbe Konto · Antwort nicht im neuen Gespräch · nächste Frage ohne sie · in der Cloud bei conv-X' };
+    },
+  },
+  {
+    // Brett 2026-11-24-8999: wer während einer Pilz-Bestimmung abgemeldet wird, bekam „Pilz-Bestimmung abgebrochen …"
+    // als Toast — unter dem Anmeldebildschirm, nie sichtbar; „der Versuch kann für heute zählen" ging verloren.
+    name: 'Abmelden · Pilz-Scanner: „Pilz-Bestimmung abgebrochen" steht im Meldefeld des Anmeldebildschirms, nicht in einem Toast darunter',
+    lauf: async (seite, h) => {
+      const r = await seite.evaluate(async () => {
+        const warte = (ms) => new Promise(res => setTimeout(res, ms));
+        const alt = { sf: window.sbFetch, gf: window._gsFetch, tok: window._gsFreshToken, ohne: window._gsFotoOhneMeta, pt: window.showProfileToast, gt: window.gsToast };
+        const toasts = [];
+        let wurf = null, feld = '', lief = false;
+        try {
+          window.showProfileToast = (t) => toasts.push(String(t));
+          window.gsToast = (t) => toasts.push(String(t));
+          window._gsFreshToken = async () => 'tok';
+          window._gsFotoOhneMeta = async () => 'data:image/jpeg;base64,PILZ';
+          window._gsFetch = (url, o, t) => (/mushroom-identify/.test(String(url)) ? new Promise(() => {}) : alt.gf(url, o, t));
+          window.sbFetch = async () => ({ data: [], error: null });
+          openMushroomModal();
+          await gsMushroomLoadPhoto({ files: [new File([new Uint8Array([255, 216, 255, 1])], 'p.jpg', { type: 'image/jpeg' })] });
+          gsMushroomRunScan(); await warte(150);
+          lief = !!(window._gsPilzLauf || (typeof _gsPilzLauf !== 'undefined' && _gsPilzLauf)) && (typeof _gsPilzLauf !== 'undefined' && _gsPilzLauf && _gsPilzLauf.gesendet);
+          if (!lief) return { fehler: 'die Bestimmung ist nicht unterwegs — der Fall misst nichts' };
+          await sbLogout();
+          await warte(300);
+          const el = document.getElementById('onb-login-err');
+          feld = el ? (el.textContent || '').replace(/\s+/g, ' ') : '(kein Meldefeld)';
+        } catch (e) { wurf = String(e && e.message); }
+        finally { window.sbFetch = alt.sf; window._gsFetch = alt.gf; window._gsFreshToken = alt.tok; window._gsFotoOhneMeta = alt.ohne; window.showProfileToast = alt.pt; window.gsToast = alt.gt; }
+        return { feld, toasts, wurf };
+      });
+      await h.frisch();
+      if (r.fehler) return { ok: false, warum: r.fehler };
+      if (r.wurf) return { ok: false, warum: 'Ausnahme im Ablauf: ' + r.wurf };
+      const f = [];
+      if (!/Pilz-Bestimmung abgebrochen/.test(r.feld) || !/für heute zählen/.test(r.feld)) f.push('der Satz steht nicht im Meldefeld des Anmeldebildschirms: ' + JSON.stringify(r.feld.slice(0, 200)));
+      if (r.toasts.some(t => /Pilz-Bestimmung abgebrochen/.test(t))) f.push('der Satz ging als Toast unter den Anmeldebildschirm');
+      if (f.length) return { ok: false, warum: f.join(' · ') };
+      return { ok: true, info: 'Meldefeld: ' + JSON.stringify(r.feld.slice(0, 90)) + ' · kein Toast' };
+    },
+  },
+  {
+    name: 'Abmelden · Bildvergleich (Scanner 12/13): das Foto der Person, das der Vergleich im Speicher hält, geht beim Abmelden mit — Pflanze und Pilz',
+    lauf: async (seite, h) => {
+      const r = await seite.evaluate(() => {
+        let wurf = null, vor = null, nach = null;
+        try {
+          _gsVglStand = { scanId: 'S-1', foto: 'data:image/jpeg;base64,FOTO-A', haupt: { name: 'Bärlauch' }, alts: [] };
+          _gsPilzVglStand = { pilzNr: _gsPilzNr, foto: 'data:image/jpeg;base64,PILZ-A', haupt: { name: 'Steinpilz' }, verwechsler: [] };
+          vor = JSON.stringify([_gsVglStand, _gsPilzVglStand]);
+          gsOnLogout();
+          nach = JSON.stringify([typeof _gsVglStand === 'undefined' ? null : _gsVglStand, typeof _gsPilzVglStand === 'undefined' ? null : _gsPilzVglStand]);
+        } catch (e) { wurf = String(e && e.message); }
+        return { vor, nach, wurf };
+      });
+      await h.frisch();
+      if (r.wurf) return { ok: false, warum: 'Ausnahme: ' + r.wurf };
+      if (!/FOTO-A/.test(r.vor || '') || !/PILZ-A/.test(r.vor || '')) return { ok: false, warum: 'der Fall hat die Vergleiche nicht hergestellt — er misst nichts' };
+      if (/FOTO-A|PILZ-A|data:image/.test(r.nach || '')) return { ok: false, warum: 'nach dem Abmelden hält der Vergleich noch ein Foto: ' + String(r.nach).slice(0, 160) };
+      return { ok: true, info: 'vorher zwei Fotos (Pflanze, Pilz) · nach gsOnLogout keines' };
+    },
+  },
 ];
