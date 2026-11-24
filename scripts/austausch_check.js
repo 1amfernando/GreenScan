@@ -6732,7 +6732,14 @@ const FAELLE = [
     if (nur && !nur.some(k => f.name.indexOf(k + ' ') === 0)) continue;
     gefahren++;
     let r;
+    // Die C-Faelle bauen ihre Welt in Wegwerf-Repos, oft als Teilabruf (`clone --filter=…`, danach `checkout`) — und der braucht
+    // das Nachladen. Die CI setzt GIT_NO_LAZY_FETCH=1 fuer den ganzen Schritt „Prüfstände" (gemeint ist das ECHTE Repo, C18);
+    // geerbt liess es am 24.11.2026 sechs Faelle (C23 C24 C26 C30 C35 C36) schon beim Aufbau scheitern, lokal ohne die Variable
+    // gruen. Ein Fall, der die Variable braucht, setzt sie selbst (C18, C22) — hier gilt fuer C-Faelle die Umgebung von lokal.
+    const ciNl = process.env.GIT_NO_LAZY_FETCH, ohneNl = /^C\d/.test(f.name) && ciNl !== undefined;
+    if (ohneNl) delete process.env.GIT_NO_LAZY_FETCH;
     try { r = await f.lauf(); } catch (e) { r = { ok: false, warum: 'Ausnahme: ' + (e && e.message ? e.message.split('\n')[0] : e) }; }
+    finally { if (ohneNl) process.env.GIT_NO_LAZY_FETCH = ciNl; }
     if (r && r.offen) { offen++; sag('  --   ' + f.name + '\n         → nicht pruefbar: ' + ((r && r.warum) || 'unbekannt')); }
     else if (r && r.ok) sag('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
     else { kaputt++; sag('  !!   ' + f.name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }

@@ -34,6 +34,16 @@ Installation — ein roter Prüfstand nimmt dem nächsten Lauf den Speicher nich
 > einer dauerte 27 s für 25 Dateien, so 1,5 s). Die Browser haben keine solche Liste: ihnen wird
 > vertraut, soweit dem Bereich des Speichers — ein PR sieht nur seinen eigenen und den von `main`.
 
+> **Und der erste CI-Lauf am PR war rot — an einem Fall, den lokal niemand sehen konnte.** `austausch_check`
+> 6 von 49 rot (C23 C24 C26 C30 C35 C36), alle schon beim AUFBAU: ein Teilabruf (`clone --filter=…`) im Wegwerf-Repo
+> scheiterte mit „lazy fetching disabled". Die CI setzt `GIT_NO_LAZY_FETCH=1` für den ganzen Schritt „Prüfstände"
+> (gemeint ist das echte Repo, C18) — die Fälle erbten es, lokal fehlt es. Nachgestellt mit der Variable (6 von 6 rot,
+> dieselben Befehle), repariert an der einen Stelle, durch die alle C-Fälle laufen (der Läufer nimmt die Variable für
+> C-Fälle heraus; wer sie braucht, setzt sie selbst — C18, C22), danach mit der Variable 49/49. **Ein Prüfstand, der
+> eine Umgebungsvariable der CI erbt, misst in der CI eine andere Welt als lokal** — dieselbe Klasse wie v33.53 („wer
+> einen Prüfstand mit zwei Fahrten baut, gibt beiden DIESELBE Netzlage"). Die Installation lief in diesem Lauf ohne
+> Speicher in rund 50 s (schneller Spiegel-Tag); was der Speicher spart, zeigt erst ein Lauf an einem langsamen Tag.
+
 **Offen:** brett:2026-11-18-cf93 (schliesst sich erst mit zwei gemessenen CI-Läufen am PR: einer ohne, einer mit Speicher), brett:2026-11-18-70cd (Punkt 2: die Branch-Regel für `zz-sicherung` kann nur Fernando in den Einstellungen setzen)
 **Nicht geprüft:** ob `actions/cache` in der CI trifft und wie viel Zeit es spart (erst der Lauf am PR); ein Fork-PR; die Unversehrtheit der Browser im Speicher (keine signierte Liste); der Wächter auf `main` (läuft erst nach dem Merge)
 
