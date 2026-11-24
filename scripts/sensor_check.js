@@ -2774,6 +2774,145 @@ const FAELLE = [
       }
     },
   },
+  {
+    // LINA-9 (24.11.2026). Gemessen am Stand davor: wer während „Lina denkt nach…" auf „＋ Neu" tippte,
+    // sah das neue Gespräch mit der Antwort auf eine Frage beginnen, die dort nicht stand — und die
+    // nächste Frage ging mit dieser fremden Antwort als Vorgeschichte an die KI. Wer ein früheres
+    // Gespräch öffnete, bekam die Antwort dort angehängt UND unter dessen Id in der Cloud gespeichert;
+    // im Gespräch, in dem gefragt wurde, fehlte sie. Eine zweite Frage verschluckte der Riegel wortlos.
+    // Sieben Lagen, je mit gestellter KI (die Antwort kommt, wann der Fall es sagt) und gestellter Cloud.
+    name: 'Lina L12 · eine Antwort gehört dem Gespräch, in dem gefragt wurde: „＋ Neu", ein früheres Gespräch oder ein leeres Neu-Öffnen während des Wartens — die Antwort steht nicht dort, sondern in der Cloud beim richtigen Gespräch, ein Satz sagt wo; zurück im selben Gespräch steht sie da; eine zweite Frage bekommt einen Satz statt Stille',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine, gt: window.gsToast };
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const text = () => ((document.getElementById('gs-lina-scroll') || {}).textContent || '');
+      const klagen = [];
+      let schreib = [], toasts = [], ki = [], cloudGespraeche = [], convFreigabe = null, convNr = 0;
+      const nachrichten = (conv, rolle) => schreib.filter(s => s.conv === conv && (!rolle || s.role === rolle));
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        window.gsToast = (m) => { toasts.push(String(m)); };
+        window.sbFetch = async (pfad, o) => {
+          const m = (o && o.method) || 'GET';
+          if (m === 'GET' && /coach_conversations/.test(pfad)) return { data: cloudGespraeche.slice(), error: null };
+          if (m === 'POST' && /coach_conversations/.test(pfad)) { if (convFreigabe) await convFreigabe; return { data: [{ id: 'conv-NEU-' + (++convNr) }], error: null }; }
+          if (m === 'POST' && /coach_messages/.test(pfad)) { const b = JSON.parse(o.body); schreib.push({ conv: b.conversation_id, role: b.role, content: String(b.content) }); return { data: [b], error: null }; }
+          if (m === 'GET' && /coach_messages\?conversation_id=eq\.conv-Y/.test(pfad)) return { data: [{ role: 'assistant', content: 'Y-ANTWORT-ALT' }, { role: 'user', content: 'Y-FRAGE-ALT' }], error: null };
+          if (m === 'GET' && /coach_messages\?conversation_id=eq\.conv-X/.test(pfad)) return { data: schreib.filter(s => s.conv === 'conv-X').map(s => ({ role: s.role, content: s.content })).reverse(), error: null };
+          return { data: [{}], error: null };
+        };
+        window.callAI = (hist) => new Promise((res, rej) => { ki.push({ res, rej, hist: hist.map(h => h.role + ':' + h.content) }); });
+        const start = async (konv, msgs, frage) => {
+          schreib = []; toasts = []; ki = []; cloudGespraeche = []; convFreigabe = null;
+          window._gsLinaSending = false; window._gsLinaConvId = konv; window._gsLinaMsgs = msgs;
+          try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+          gsLinaRender(false);
+          const f = document.getElementById('gs-lina-input');
+          if (!f) throw new Error('Lina hat kein Eingabefeld');
+          f.value = frage;
+          // In einer async-Funktion würde `return lauf` auf das Senden WARTEN — und das wartet auf die
+          // Antwort, die der Fall erst danach gibt. Deshalb in einem Behälter.
+          const lauf = gsLinaSend(); await warte(120);
+          return { lauf };
+        };
+        const X0 = () => [{ role: 'user', content: 'X-FRAGE-ALT' }, { role: 'assistant', content: 'X-ANTWORT-ALT' }];
+        const dort = (t) => toasts.some(x => /vorigen Gespräch|nicht mehr offen/.test(x));
+
+        // (a) „＋ Neu" während des Wartens
+        let { lauf } = await start('conv-X', X0(), 'FRAGE-A');
+        if (!ki[0]) return { ok: false, warum: '(a) die KI wurde nicht gefragt — der Fall misst nichts' };
+        gsLinaNew(); await warte(80);
+        ki[0].res('ANTWORT-A'); await lauf; await warte(120);
+        if (/ANTWORT-A/.test(text()) || JSON.stringify(window._gsLinaMsgs).includes('ANTWORT-A')) klagen.push('(a) „＋ Neu": die Antwort auf A steht im neuen Gespräch');
+        if (!nachrichten('conv-X', 'assistant').some(s => s.content === 'ANTWORT-A')) klagen.push('(a) die Antwort auf A ist nicht im Gespräch X der Cloud gespeichert');
+        if (!dort()) klagen.push('(a) kein Satz, wo die Antwort hin ist');
+        const f2 = document.getElementById('gs-lina-input'); f2.value = 'FRAGE-B';
+        const laufB = gsLinaSend(); await warte(120);
+        if (!ki[1]) klagen.push('(a) die nächste Frage im neuen Gespräch ging nicht an die KI');
+        else if (ki[1].hist.some(h => /ANTWORT-A/.test(h)) || ki[1].hist[0] !== 'user:FRAGE-B') klagen.push('(a) die nächste Frage geht mit fremder Vorgeschichte an die KI: ' + ki[1].hist.join(' | '));
+        if (ki[1]) ki[1].res('ANTWORT-B'); await laufB; await warte(80);
+
+        // (b) ein früheres Gespräch Y öffnen; dort eine zweite Frage senden, während A noch läuft
+        ({ lauf } = await start('conv-X', X0(), 'FRAGE-C'));
+        await gsLinaGespraechOeffnen('conv-Y'); await warte(80);
+        if (!/Y-FRAGE-ALT/.test(text())) return { ok: false, warum: '(b) Gespräch Y ging nicht auf — der Fall misst nichts' };
+        const fy = document.getElementById('gs-lina-input'); fy.value = 'FRAGE-D-in-Y';
+        const vorD = ki.length; await gsLinaSend(); await warte(80);
+        if (ki.length !== vorD) klagen.push('(b) während C läuft, ging eine zweite Anfrage an die KI');
+        if (!toasts.some(x => /noch auf deine vorige Frage/.test(x))) klagen.push('(b) die zweite Frage wird wortlos verschluckt');
+        if (((document.getElementById('gs-lina-input') || {}).value || '') !== 'FRAGE-D-in-Y') klagen.push('(b) die zweite Frage ist aus dem Feld verschwunden');
+        ki[0].res('ANTWORT-C'); await lauf; await warte(120);
+        if (/ANTWORT-C/.test(text())) klagen.push('(b) die Antwort auf C steht in Gespräch Y');
+        if (nachrichten('conv-Y').length) klagen.push('(b) in der Cloud wurde unter Gespräch Y geschrieben: ' + nachrichten('conv-Y').map(s => s.content).join(' | '));
+        if (!nachrichten('conv-X', 'assistant').some(s => s.content === 'ANTWORT-C')) klagen.push('(b) die Antwort auf C fehlt im Gespräch X der Cloud');
+        if (!dort()) klagen.push('(b) kein Satz, wo die Antwort hin ist');
+
+        // (c) Lina zu und wieder auf — dasselbe Gespräch X kommt aus der Cloud: die Antwort steht DA
+        ({ lauf } = await start('conv-X', X0(), 'FRAGE-E'));
+        cloudGespraeche = [{ id: 'conv-X', updated_at: new Date().toISOString() }];
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        await gsOpenLina(); await warte(120);
+        ki[0].res('ANTWORT-E'); await lauf; await warte(120);
+        if (!/ANTWORT-E/.test(text())) klagen.push('(c) zurück im selben Gespräch steht die Antwort nicht da');
+        if (dort()) klagen.push('(c) im selben Gespräch kommt trotzdem der Satz „im vorigen Gespräch"');
+        if (!nachrichten('conv-X', 'assistant').some(s => s.content === 'ANTWORT-E')) klagen.push('(c) die Antwort fehlt in der Cloud');
+
+        // (d) ohne Wechsel: wie immer (Gegenrichtung — ein Fall, der nur das Verschieben kennt, wäre auch grün, wenn nichts mehr dastünde)
+        ({ lauf } = await start('conv-X', X0(), 'FRAGE-F'));
+        ki[0].res('ANTWORT-F'); await lauf; await warte(120);
+        if (!/ANTWORT-F/.test(text())) klagen.push('(d) ohne Wechsel steht die Antwort nicht da');
+        if (toasts.length) klagen.push('(d) ohne Wechsel kommt ein Satz: ' + toasts.join(' | '));
+
+        // (e) neues Gespräch: „＋ Neu", während es in der Cloud angelegt wird — die neue Id bleibt beim
+        // Gespräch, in dem gefragt wurde, und die KI bekommt DESSEN Vorgeschichte
+        schreib = []; toasts = []; ki = []; cloudGespraeche = [];
+        let freigeben; convFreigabe = new Promise(r => { freigeben = r; });
+        window._gsLinaSending = false; window._gsLinaConvId = null; window._gsLinaMsgs = [];
+        gsLinaRender(false);
+        document.getElementById('gs-lina-input').value = 'FRAGE-G';
+        lauf = gsLinaSend(); await warte(80);
+        gsLinaNew(); await warte(50);
+        freigeben(); await warte(120);
+        if (window._gsLinaConvId) klagen.push('(e) das neue, leere Gespräch hat die Id des gefragten bekommen (' + window._gsLinaConvId + ')');
+        if (!ki[0]) klagen.push('(e) die KI wurde nicht gefragt');
+        else {
+          if (!ki[0].hist.some(h => h === 'user:FRAGE-G')) klagen.push('(e) die KI bekam die Vorgeschichte des NEUEN Gesprächs, ohne die Frage: ' + (ki[0].hist.join(' | ') || '(leer)'));
+          ki[0].res('ANTWORT-G'); await lauf; await warte(120);
+          const idG = (schreib.find(s => s.content === 'FRAGE-G') || {}).conv;
+          if (!idG || !nachrichten(idG, 'assistant').some(s => s.content === 'ANTWORT-G')) klagen.push('(e) Frage und Antwort G liegen nicht im selben Gespräch der Cloud');
+          if (/ANTWORT-G/.test(text())) klagen.push('(e) die Antwort G steht im neuen Gespräch');
+        }
+
+        // (f) ein Ausfall nach „＋ Neu": keine Zeile „Erneut senden" im neuen Gespräch, ein Satz statt dessen
+        ({ lauf } = await start('conv-X', X0(), 'FRAGE-H'));
+        gsLinaNew(); await warte(60);
+        ki[0].rej(new Error('Zeitüberschreitung')); await lauf; await warte(120);
+        if (document.querySelector('[data-lina-nochmal]') || /FRAGE-H|nicht geklappt|App-Liste/.test(text())) klagen.push('(f) der Ausfall landet im neuen Gespräch');
+        if (!toasts.some(x => /vorige Frage/.test(x))) klagen.push('(f) kein Satz zum Ausfall der vorigen Frage');
+
+        // (g) Lina zu und wieder auf, und die Cloud kennt KEIN Gespräch (leeres Neu-Öffnen): die Antwort
+        // gehört nicht in das leere Fenster
+        ({ lauf } = await start('conv-X', X0(), 'FRAGE-I'));
+        cloudGespraeche = [];
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        await gsOpenLina(); await warte(120);
+        ki[0].res('ANTWORT-I'); await lauf; await warte(120);
+        if (/ANTWORT-I/.test(text())) klagen.push('(g) die Antwort steht allein im leer geöffneten Fenster');
+        if (!nachrichten('conv-X', 'assistant').some(s => s.content === 'ANTWORT-I')) klagen.push('(g) die Antwort fehlt im Gespräch X der Cloud');
+
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '„＋ Neu", früheres Gespräch, leeres Neu-Öffnen: Antwort beim gefragten Gespräch in der Cloud, ein Satz dazu · zurück im selben Gespräch steht sie da · neue Gesprächs-Id und Vorgeschichte bleiben beim gefragten · Ausfall nicht im falschen Gespräch · zweite Frage: Satz statt Stille, Feld bleibt' };
+      } finally {
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt;
+        try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
 ];
 
 (async () => {

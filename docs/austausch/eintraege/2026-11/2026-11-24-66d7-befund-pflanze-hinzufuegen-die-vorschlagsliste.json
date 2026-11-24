@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-24-66d7",
+  "art": "befund",
+  "datum": "2026-11-24",
+  "zeit": "13:59:49",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.68",
+  "titel": "„Pflanze hinzufügen“: die Vorschlagsliste findet ohne Netz weder Umlaut-lose Eingaben noch Vertipper — die Artensuche kann beides",
+  "vorschlag": "Die Vorschlagsliste über _gsSucheRang(q) rechnen (Top 8, Kategorie-Tag bleibt) — dieselbe Rechnung wie Artensuche und Menü-Suche (Suche 8), der Online-Zuschlag bleibt obendrauf. Fall: barlauch/brennessel/kamile ohne Netz finden je die Art; holunder unverändert.",
+  "beleg": [
+    "Gemessen 24.11.2026 gegen data/plants.v1.js (4342 Einträge), Rechnung von _gsRenderSuggestions nachgestellt (toLowerCase + indexOf auf name/lat): barlauch 0 · brennessel 0 · lowenzahn 0 · gansebluemchen 0 · kamile 0 · steinpiltz 0 · spitzwegrich 0 · holunder 18. Mit der Umlaut-Faltung von _gsSearchNorm: barlauch 4, lowenzahn 7; mit Vertippern (Levenshtein ≤ 2 wie _gsLeven): brennessel 9, kamile 13, steinpiltz 12, spitzwegrich 3, gansebluemchen 1. Online hilft species-search (pg_trgm), ohne Netz nichts. Die Artensuche (_gsSucheRang) und seit Suche 8 die Menü-Suche rechnen mit EINER Rangfolge; die Vorschlagsliste hat eine zweite."
+  ],
+  "stichworte": [
+    "meine-pflanzen",
+    "suche",
+    "vorschlagsliste",
+    "tippfehler",
+    "offline"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "function _gsRenderSuggestions(q, dropdown, seq){"
+    }
+  ]
+}

@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-11-24 · **Branch**: `main` · **Version**: `v33.70` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
+**Stand**: 2026-11-24 · **Branch**: `main` · **Version**: `v33.71` · **Release**: ✅ live seit v26.0 (Stripe „Live-Mode seit v26.40“: **nicht belegt, Prüfung durch Fernando offen** — STATUS (jk), FUER-FERNANDO §30i)
 
 ---
 
@@ -12,6 +12,123 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (ju) - v33.71: Lina — eine Antwort gehört dem Gespräch, in dem gefragt wurde
+
+**Auftrag:** Hauptfunktionen, Lina (Fernando: „Entscheide selber", „weiter"). Gefunden beim Nachlesen von `gsLinaSend`
+(`docs/HAUPTFUNKTIONEN.md`, Lina 9). Gebaut auf diesem Branch über (jt), main v33.67 (`0485b2d`); #337 (Sicherheit) fasst
+Linas Sende- und Gesprächsfunktionen nicht an (nachgesehen).
+
+**Gemessen** (die geladene App, gestellte KI und Cloud): wer während „Lina denkt nach…" auf **„＋ Neu"** tippte, sah das neue
+Gespräch mit der Antwort auf eine Frage beginnen, die dort nicht stand; im gefragten Gespräch fehlte sie (Cloud: nur die
+Frage), und die nächste Frage ging mit dieser fremden Antwort als Vorgeschichte an die KI (`assistant:ANTWORT-A | user:FRAGE-B`).
+Wer ein **früheres Gespräch** öffnete, bekam die Antwort dort angehängt UND unter dessen Id in der Cloud gespeichert. Wurde
+gewechselt, während ein neues Gespräch angelegt wurde, bekam das andere dessen Id und die KI eine leere Vorgeschichte. Eine
+zweite Frage während des Wartens verschluckte der Riegel wortlos (Feld gefüllt, nichts geschah).
+
+**Behoben:** `_gsLinaGespraechNr` zählt jeden Wechsel des gezeigten Gesprächs (`gsLinaNew`, `_gsLinaLadeGespraech`,
+`gsOpenLina`); `gsLinaSend` hält beim Senden fest, wo gefragt wurde (Liste, Id): Vorgeschichte, neue Gesprächs-Id und Antwort
+gehören dorthin. Wird es noch gezeigt (oder wieder — Lina neu geöffnet, im Verlauf angetippt), steht die Antwort da; sonst liegt
+sie in der Cloud bei IHREM Gespräch, und ein Satz sagt „unter 🕘 Verlauf". Ein Ausfall landet nicht als „Erneut senden" im
+falschen Gespräch, sondern als Satz; eine Schreibaktion fragt nicht in einem Gespräch nach, das nicht offen ist; die zweite
+Frage bekommt einen Satz, das Feld bleibt. Doku: CLAUDE.md §3.6, `docs/memory/02-regeln.md` 5b, `docs/HAUPTFUNKTIONEN.md` Lina 9.
+
+**Prüfstände:** `sensor_check` L12 — sieben Lagen („＋ Neu" · früheres Gespräch mit zweiter Frage · zurück im selben Gespräch ·
+ohne Wechsel · Wechsel beim Anlegen · Ausfall · leeres Neu-Öffnen), gegen den alten Stand rot; zehn Gegenproben einzeln rot, je an
+der richtigen Lage. Beim Bau selbst gelernt: ein `return lauf` aus einer async-Hilfe WARTET auf das Senden — der Fall hing elf
+Minuten, bis das Versprechen in einem Behälter zurückkam. Die volle Suite steht im Nachtrag.
+
+**Zusammengeführt mit v33.70 (#340, Lina · Einblick, `8a2f16e`):** die Lina-Funktionen liessen sich ohne Konflikt
+zusammenführen; L12 und „Lina · Einblick“ stehen beide in `sensor_check` und sind am eingespielten Stand grün (67/0). Die
+Befunde der Nachprüfung zu #340 (Schalter, Datenschutztext, Schädling-Signal, Gegenprobe) nimmt ein eigenes Paket auf.
+
+**Offen:** nichts.
+**Nicht geprüft:** ein echtes Telefon; dass die Cloud die Antwort beim gefragten Gespräch wirklich annimmt (gestellt, nicht live).
+
+### 2026-11-19 (jt) - v33.71: Wissen-Tab — dieselben Zahlen wie Startseite und Filter, und jede Kachel öffnet ihre Liste
+
+**Auftrag:** Hauptfunktionen, Home 3 (`docs/HAUPTFUNKTIONEN.md`; eigener Befund `2026-11-16-4d79` vom 16.11.) — Fernando,
+„Entscheide selber". Gebaut auf diesem Branch über (js), main v33.67 (`0485b2d`). Kommt mit dem Pilz-Paket und Lina 9 in EINE Auslieferung (`v33.71`).
+
+**Gemessen** (die geladene App, 16.11. und nachgemessen 19.11.): der Kopf des Wissen-Tabs („🌿 4'337 Arten") und die
+Lexikon-Kachel „Arten" zeigten `DB.length` — das sind die Einträge, die Startseite sagt 3'136 Arten. „Essbar" 1'130, Startkachel
+und Filter 1'062: die 68 ungeprüften Einträge zählten mit. „Giftig" 598, der Filter „☠️ Giftig" 675: es fehlten die 77 Einträge
+der Stufe 1, die `toxic` tragen — Spitzmorchel („roh giftig"), Stinktäubling, Gelbe Teichrose, Huflattich, Johanniskraut,
+Schwefelporling „alt giftig". „Heilkraft" 967 stimmte. Die Kacheln öffneten nichts.
+
+**Behoben:** `gsIstGiftig(sp)` neben `gsIstEssbar` — die Regel des Filters (`toxic` ODER Stufe ≥ 2, an der Art), jetzt EINE
+Funktion für den Filter (`_gsPassCat`) und die Kachel. Die Kacheln zählen über `gsArtenZahlen` / `gsIstEssbar` /
+`gsIstGiftig` / die Regel des Heilpflanzen-Filters, und jede öffnet die Liste, die sie zählt (`gsZeigeEigenschaft`; „Arten" die
+ganze Liste) — Tastatur über `gsTastaturNachruesten`, keine eigene Rolle (sonst löst Enter nicht aus). Der Kopf-Chip nimmt
+`gsArtenZahlen` und `_t('unit_species')`. **Bewusst nicht umgestellt:** die Plakette „Giftig" auf der Karte (ab Stufe 3, das
+Wort der TOX-Skala), die Sammlung „☠️ Giftige" (ab Stufe 4) und der Wissens-Hub der Bibliothek (zählt `tox > 0` über die
+Buch-Zeilen des Servers — eine andere Liste, von hier ohne Netz nicht messbar). Doku: CLAUDE.md (Kasten „essbar" in §7.1),
+`docs/memory/03-daten-eigner.md`, `docs/HAUPTFUNKTIONEN.md` (Home 3, Nebenfund).
+
+**Prüfstände:** `nutzersicht_check` E9 Teil 4 — öffnet das Lexikon über seinen Knopf, liest Chip und Kacheln, tippt jede an und
+vergleicht ihre Zahl mit den Treffern der Liste danach und mit der Startkachel. Gegen den alten Stand rot; sechs Gegenproben
+einzeln rot, je mit der richtigen Meldung (Chip · Kachel „Arten" · Essbar · Giftig · Kacheln ohne Ziel · Filter mit eigener
+Regel). **Dabei gefunden:** E9 war nur grün, weil andere Fälle vor ihm Zeit verbrauchten — allein gefahren las er die Startkachel
+mitten in ihrer Hochzähl-Animation (3'129 … 3'134 statt 3'136). Er liest jetzt, wenn die Zahl steht.
+**Und ein zweiter Fall mit der alten Regel:** `scan_check` D1g (v32.96) verlangte für dieselbe Kachel noch „nur Stufe ≥ 2“ (598) — während E9 die Zahl des Filters verlangt: zwei Fälle, zwei Regeln für eine Kachel (die Klasse aus E3/E9, v33.08). D1g rechnet jetzt mit eigenem Massstab die Regel des Filters nach und prüft weiter Stufe 4 und 5; Gegenprobe mit der alten Lexikon-Regel rot („das ist ‚nur Stufe ≥ 2‘: die 77 Einträge darunter mit Giftangabe fehlen“).
+Auf diesem Stand (main v33.67 + Pilz-Paket + dieses Paket): scan 133/0 · nutzersicht 12/0 · austausch 17/0 · robust 33/0 · contrast 0 unter AA (hell und dunkel) · render 0 verdächtig · i18n · a11y · touch · wiring · data grün.
+
+**Nachtrag 24.11. (gegnerische Prüfung):** Zähler und Listen stimmen (1'062 · 675 · 967 = Treffer), Tastatur und Kopf-Chip
+auch. Ein Rand: die Kachel „Arten" (3'136) öffnet die ganze Liste, deren Kopf „4337 Einträge" sagt — dieselbe Menge, anders
+gezählt, und der Kopf nennt seine Einheit (E9 Teil 3). Wie die Startkachel „Arten"; so gelassen.
+
+**Offen:** nichts — brett:2026-11-16-4d79 ist mit diesem Paket geschlossen.
+**Nicht geprüft:** ein echtes Telefon; die Kacheln in einer anderen App-Sprache (Wörter über `_t`, Zahlen über `gsLocale` — nicht gefahren).
+
+### 2026-11-19 (js) - v33.71: Pilz-Scanner — ein Ergebnis gehört zu seinem Foto
+
+**Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"); Nachtrag zu Scanner 11
+(`docs/HAUPTFUNKTIONEN.md`). Gebaut auf main v33.66 (`bf9e843`), zusammengeführt mit v33.67 (`0485b2d`, Scanner 4, (jo)) — beide berühren
+verschiedene Stellen, nur STATUS §0 traf sich. Ausgeliefert mit Wissen und Lina 9 als `v33.71`
+(Nummer und Kennung vergibt der Koordinator am Kopf der Reihe).
+
+**Gemessen** (lokal, `gsMushroomRunScan` mit gestelltem Server, Stand v33.66):
+
+- **Ein neues Foto liess das Urteil des vorigen stehen** — „✅ Speisepilz · 92 %" unter einem anderen Pilz, bis
+  jemand neu bestimmte (`gsMushroomLoadPhoto` leerte das Ergebnis nicht).
+- **Schliessen, neu öffnen, neues Foto:** der Knopf stand weiter auf „⏳ Identifiziere…" (gesperrt) — für ein Foto,
+  zu dem nichts lief —, und die Antwort zum ALTEN Foto erschien unter dem neuen; bei einem Giftpilz samt
+  Vollbild-Warnung „TÖDLICH". Umgekehrt (altes Foto essbar) stünde „✅ Speisepilz" unter dem neuen Pilz.
+- **Schliessen ohne neues Foto:** die Vollbild-Warnung legte sich später über die App, ohne Fenster dazu.
+- Nebenbei: nach jeder Bestimmung stand auf dem Knopf fest „🔍 Pilz identifizieren", in jeder Sprache.
+
+**Behoben:** eine Nummer je Bestimmung (`_gsPilzNr`, dieselbe Regel wie `analyzeImage`, CLAUDE.md §3.6): ein neues
+Foto (`gsMushroomLoadPhoto` — leert dazu das alte Ergebnis), ein neues Öffnen (`openMushroomModal`) und das
+Schliessen (Haken in `closeModal`, wie `gsBattleClose`) lösen die laufende ab (`gsPilzAbbrechen`); nach jedem
+`await` — auch vor dem Absenden — gilt nur die laufende; nur sie gibt den Knopf frei (`_gsPilzKnopf`), und der
+Knopf trägt danach seine eigene Beschriftung. Bewusst: eine verworfene tödliche Antwort zeigt KEINE Vollbild-Warnung
+— die Person hat das Foto verlassen; ein Urteil ohne sein Foto wäre die Verwechslung, die hier behoben wird.
+Doku: CLAUDE.md §3.3 (Pilz-Zeile), `docs/memory/03-daten-eigner.md`, `docs/HAUPTFUNKTIONEN.md` (Scanner 11, Nachtrag).
+
+**Prüfstände:** `scan_check` PZ5 (sieben Lagen: fertiges Ergebnis + neues Foto · läuft + neues Foto · schliessen,
+öffnen, neues Foto, alte Antwort während der neuen Bestimmung · neu öffnen ohne Schliessen · schliessen ohne neues
+Foto · schliessen vor dem Absenden · Gegenprobe: die neue Bestimmung kommt an) und PZ6 (Beschriftung) — gegen main
+beide rot, mit genau den gemessenen Sätzen. Gegenproben je Schutzzeile, jede am richtigen Teil rot: neues Foto →
+1, 2 · Öffnen → 3b · Schliessen → 4, 5 · Prüfung nach der Antwort → 2, 3, 3b, 4 · Knopf nur für die laufende → 3 ·
+Prüfung vor dem Absenden → 5 · Beschriftung → PZ6. **Die erste Fassung von 3b war mit ausgebautem Schutz am Öffnen
+grün:** sie wählte danach ein neues Foto, und dessen Schutz deckte den Fall mit — ein Fall, dessen zwei Wege dasselbe
+Ergebnis liefern, prüft keinen. Brett: Nachtrag `2026-11-19-33e0` zur Klasse 89ee. Auf diesem Stand (main v33.66 + dieses Paket): scan 129/0 · robust 33/0 · i18n · nutzersicht 12/0 · wiring · escape 11/0 · versprechen · austausch 17/0 · sicherheit (Gruppe scan) grün.
+
+**Nachtrag 24.11.2026 — gegnerische Prüfung dieses Pakets** (ein Prüfer ohne meine Schlüsse, mit Playwright gegen den
+committeten Stand). **Ein schwerer Fund:** in fr/it/en/es wartet `gsMushroomRenderResult` auf bis zu zwei Übersetzungs-Abfragen,
+NACH der Prüfung in `gsMushroomRunScan`, und RunScan wartete nicht auf die Anzeige — unter einem neuen Foto erschien „✅ Speisepilz"
+des alten, und ein älteres „Speisepilz" überschrieb ein neueres „TÖDLICH" (fr, nachgestellt). Auf Deutsch zeichnet die Anzeige
+ohne Warten, und PZ5 lief nur auf Deutsch. **Behoben:** RunScan wartet auf die Anzeige und reicht `gilt` hinein; sie fragt nach dem
+Warten noch einmal. Dazu drei kleinere: zwei sich überholende Foto-Ladevorgänge (ein später kodiertes älteres Foto verdrängte das
+neuere samt dessen Ergebnis — `_gsPilzFotoNr`), der catch-Zweig einer abgelösten Bestimmung (richtig, aber von keinem Fall
+gemessen), und das stille Schliessen (ein Tipp auf den dunklen Rand über dem Formular brach ab, ohne dass etwas es sagte — jetzt
+ein Satz, mit „der Versuch kann zählen", wenn das Foto schon unterwegs war). „⏳ Identifiziere…" geht durch die Sprachschicht.
+**Bewusst nicht** geändert (Befund 5 des Prüfers als Frage): nach dem Schliessen kommt auch ein tödliches Urteil nicht mehr als
+Vollbild — die Person hat das Fenster verlassen; der Satz sagt ihr, dass es kein Ergebnis gibt. `scan_check` PZ7 (sechs Lagen),
+gegen den Stand davor rot; neun Gegenproben einzeln rot, je an der richtigen Lage. Die Klasse in CLAUDE.md §3.6: die Prüfung
+reicht bis zum Zeichnen, auch durch eine aufgerufene Funktion, die selbst wartet.
+
+**Offen:** brett:2026-11-19-a24a — der Pilz-Eintrag im Scan-Verlauf (erst nach der Datenseite).
+**Nicht geprüft:** ein echtes Telefon; dieselbe Bauform im Pflanzendoktor und im Schädlings-Check (nicht nachgesehen, Nachtrag 33e0).
 ### 2026-11-24 (jr) - v33.70: Lina · Einblick — Pflanzen beim Namen, wer Hilfe braucht, Gärten, Wetter am Ort, Scans und Funde im Kontext
 
 **Auftrag:** Punkt 8 (Lina), Auslöser Linas eigene Wunschliste (Fernando, 19.11.2026). Gebaut auf main v33.65, zweimal nachgezogen (v33.68 #337, dann v33.69 #338 — `1649859`),
@@ -16594,9 +16711,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.70` (Client) · SW-Cache `gs-v33.70` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.71` (Client) · SW-Cache `gs-v33.71` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **101'865 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **596 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
+- **Frontend:** `index.html` **102'339 Zeilen / rund 6,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **596 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **46** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 46** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (je). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

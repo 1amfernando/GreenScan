@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.70.20261124">
+<meta name="app-version" content="33.71.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -16626,6 +16626,10 @@ window.GS_I18N_JS_STRINGS = {
   'pest_natural_enemies':      'Natürliche Feinde:',
   'pest_alternatives':         'Alternative Kandidaten:',
   // ── v28.53: Pilz-Scanner — Diagnose (gsMushroomRenderResult + VapkoBox) ─
+  // Pilz-Scanner, Nachtrag 24.11.2026: der Knopf während der Bestimmung und der Satz nach dem Schliessen
+  'mush_identifiziere':        '⏳ Identifiziere…',
+  'mush_abgebrochen':          'Pilz-Bestimmung abgebrochen — es wird kein Ergebnis gezeigt.',
+  'mush_abgebrochen_gesendet': 'Pilz-Bestimmung abgebrochen — es wird kein Ergebnis gezeigt. Das Foto war schon unterwegs; der Versuch kann für heute zählen.',
   'mush_possible_candidate':   'Möglicher Kandidat:',
   'mush_uncertain_id':         'UNSICHERE Identifikation',
   'mush_ai_unsure':            'KI ist sich nicht sicher.',
@@ -16775,6 +16779,11 @@ window.GS_I18N_JS_STRINGS = {
   'lina_verlauf_offen':        'offen',
   'lina_zurueck':              '← Zurück',
   'lina_aktion_kaputt':        '(Die Aktion zu dieser Antwort ist nicht angekommen.)',
+  // ── v33.71: Lina 9 — eine Antwort gehoert dem Gespraech, in dem gefragt wurde ──
+  'lina_noch_dran':            'Lina antwortet noch auf deine vorige Frage — gleich bin ich wieder frei.',
+  'lina_antwort_dort':         'Lina hat im vorigen Gespräch geantwortet — du findest es unter 🕘 Verlauf.',
+  'lina_antwort_weg':          'Lina hat auf deine vorige Frage geantwortet — dieses Gespräch ist nicht mehr offen.',
+  'lina_vorige_fehler':        'Lina konnte deine vorige Frage gerade nicht beantworten.',
   // v33.61 (Lina 7): Linas feste Vorschlaege (GS_LINA_VORSCHLAEGE) — bis hier ohne Eintrag
   'ai_sug_1':                  'Was ist der giftigste Pilz der Schweiz?',
   'ai_sug_3':                  'Bärlauch richtig bestimmen',
@@ -18112,6 +18121,19 @@ function gsIstEssbar(sp) {
   return !!a.edible;
 }
 window.gsIstEssbar = gsIstEssbar;
+// Home 3 / Brett 4d79 (19.11.2026) — „Giftig" als EINE Frage, wie „Essbar" oben. Die Regel ist die
+// des Filters „☠️ Giftig" (seit v33.13, an der ART seit v33.61): `toxic` ODER Stufe 2 und mehr. Der
+// Zaehler im Lexikon fragte nur die Stufe und liess 77 Eintraege der Stufe 1 aus, die `toxic` tragen
+// (Spitzmorchel „roh giftig", Stinktaeubling, Gelbe Teichrose) — 598 auf der Kachel, 675 im Filter.
+// Ein ungepruefter Eintrag bleibt drin: eine Giftangabe ist eine Warnung, keine Zusage.
+// Nicht dieselbe Frage: die Plakette „Giftig" auf der Karte (ab Stufe 3, das Wort der TOX-Skala) und
+// die Sammlung „☠️ Giftige" (ab Stufe 4) — sie benennen eine STUFE, keine Liste.
+function gsIstGiftig(sp) {
+  if (!sp) return false;
+  var a = (typeof _gsArtAnzeige === 'function') ? (_gsArtAnzeige(sp) || sp) : sp;
+  return !!(a.toxic || a.tox >= 2);
+}
+window.gsIstGiftig = gsIstGiftig;
 
 // v32.92 — Die Sicherheitsangaben, die eine ANZEIGE zeigen darf.
 //
@@ -27512,6 +27534,11 @@ function closeModal(id){
   // Schliesswege muessen (X, Klick daneben, Escape), statt drei Pflaster.
   if (id === 'gs-nl-modal' && window._gsBattle && typeof gsBattleClose === 'function') {
     try { gsBattleClose(); } catch(_){}
+  }
+  // Pilz-Scanner (19.11.2026): wer das Pilz-Fenster schliesst, hat die Bestimmung verlassen —
+  // eine Antwort, die danach ankommt, legt keine Vollbild-Warnung mehr über die App.
+  if (id === 'modal-mushroom' && typeof gsPilzAbbrechen === 'function') {
+    try { gsPilzAbbrechen('zu'); } catch(_){}   // lief eine Bestimmung, sagt ein Satz, dass sie abgebrochen ist
   }
   const m = document.getElementById(id);
   if(!m){
@@ -39637,7 +39664,7 @@ function _gsPassCat(sp){
   if(t==='essbar'||t==='giftig'||t==='ungiftig'){
     var a=(typeof _gsArtAnzeige==='function')?(_gsArtAnzeige(sp)||sp):sp;
     if(t==='essbar'   && !gsIstEssbar(sp)) return false;
-    if(t==='giftig'   && !(a.toxic||a.tox>=2)) return false;
+    if(t==='giftig'   && !gsIstGiftig(sp)) return false;   // dieselbe Regel wie der Zaehler im Lexikon (4d79)
     if(t==='ungiftig' && (sp._unverified||a.toxic||a.tox>0)) return false;
   }
   if(t==='geschuetzt' && !sp.protected) return false;
@@ -46081,7 +46108,54 @@ function _gsPilzFehlerSatz(j, status) {
 }
 window._gsPilzFehlerSatz = _gsPilzFehlerSatz;
 
+// ── Hauptfunktionen · Pilz-Scanner: ein Ergebnis gehört zu seinem Foto ─────
+//
+// Gemessen am 19.11.2026 (v33.66, gestellter Server): (1) Ein neues Foto liess das
+// Ergebnis des vorigen stehen — „✅ Speisepilz · 92 %" unter einem anderen Pilz, bis
+// jemand neu bestimmte. (2) Wer während der Bestimmung das Fenster schloss und mit
+// einem neuen Foto wieder öffnete, sah den Knopf weiter auf „⏳ Identifiziere…", und
+// die Antwort zum ALTEN Foto erschien unter dem neuen — bei einem Giftpilz samt
+// Vollbild-Warnung. (3) Nach dem Schliessen ohne neues Foto legte sich die
+// Vollbild-Warnung später über die App. Jede Bestimmung trägt jetzt eine Nummer
+// (dieselbe Regel wie analyzeImage, CLAUDE.md §3.6): ein neues Foto, ein neues
+// Öffnen und das Schliessen lösen die laufende ab; ihre Antwort wird verworfen.
+var _gsPilzNr = 0;
+// Nachtrag (gegnerische Prüfung, 24.11.2026): die laufende Bestimmung — {nr, gesendet} oder null —, damit
+// das Schliessen sagen kann, dass es eine abgebrochen hat; und die Nummer des Foto-Ladens: ein früher
+// gewähltes, langsamer kodiertes Foto legte sich sonst über ein später gewähltes, samt dessen Ergebnis.
+var _gsPilzLauf = null, _gsPilzFotoNr = 0;
+function _gsPilzKnopf(laeuft) {
+  var btn = document.getElementById('mushroom-submit-btn');
+  if (!btn) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  // Die Beschriftung, wie die Sprachschicht sie gesetzt hat, kommt zurück — vorher
+  // stand nach jeder Bestimmung fest „🔍 Pilz identifizieren", in jeder Sprache.
+  if (laeuft && !btn.disabled) btn.setAttribute('data-gs-text', btn.textContent);
+  btn.disabled = !!laeuft;
+  btn.style.opacity = laeuft ? '.6' : '1';
+  btn.textContent = laeuft ? _t('mush_identifiziere', '⏳ Identifiziere…') : (btn.getAttribute('data-gs-text') || btn.textContent);
+}
+// grund 'zu': das Fenster wurde geschlossen. Lief dabei eine Bestimmung, kommt EIN Satz — ein Tipp auf
+// den dunklen Rand über dem Formular schliesst es, und das sah aus wie „nichts passiert". Ein Ergebnis
+// zeigt es danach nicht: ein Urteil ohne sein Fenster wäre die Verwechslung, die die Nummer verhindert.
+function gsPilzAbbrechen(grund) {
+  var lauf = _gsPilzLauf;
+  _gsPilzLauf = null;
+  _gsPilzNr++;
+  _gsPilzKnopf(false);
+  if (lauf && grund === 'zu') {
+    var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+    var satz = lauf.gesendet
+      ? _t('mush_abgebrochen_gesendet', 'Pilz-Bestimmung abgebrochen — es wird kein Ergebnis gezeigt. Das Foto war schon unterwegs; der Versuch kann für heute zählen.')
+      : _t('mush_abgebrochen', 'Pilz-Bestimmung abgebrochen — es wird kein Ergebnis gezeigt.');
+    try { if (typeof showProfileToast === 'function') showProfileToast(satz, 'info'); else if (typeof gsToast === 'function') gsToast(satz, 'info', 5000); } catch (_) {}
+  }
+}
+window.gsPilzAbbrechen = gsPilzAbbrechen;
+
 function openMushroomModal() {
+  gsPilzAbbrechen();   // ein frisches Fenster: was noch für ein früheres Foto läuft, gilt nicht mehr
+  _gsPilzFotoNr++;     // auch ein Foto, das noch für das vorige Fenster kodiert wird
   window._gsMushroomPhotoB64 = null;
   var preview = document.getElementById('mushroom-photo-preview');
   if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
@@ -46098,11 +46172,17 @@ async function gsMushroomLoadPhoto(input) {
     if (typeof showProfileToast === 'function') showProfileToast('Bild zu gross (max 8 MB)', 'error');
     return;
   }
+  // Pilz-Scanner (19.11.2026): ein neues Foto — das Ergebnis des vorigen gehört nicht darunter,
+  // und eine Bestimmung, die noch für das vorige läuft, wird verworfen.
+  gsPilzAbbrechen();
+  var _ladeNr = ++_gsPilzFotoNr;   // Nachtrag 24.11.: nur das zuletzt gewählte Foto kommt an
+  var _altErg = document.getElementById('mushroom-result'); if (_altErg) _altErg.innerHTML = '';
   try {
     // v33.59: das Foto geht verkleinert, neu kodiert und OHNE EXIF (GPS) hinaus — derselbe
     // Weg wie die Community-Fotos (_gsFotoOhneMeta). Unlesbar: ein Satz, nichts Rohes.
     window._gsMushroomPhotoB64 = null;
     var b64 = await _gsFotoOhneMeta(file);
+    if (_ladeNr !== _gsPilzFotoNr) return;   // inzwischen ein anderes Foto gewählt oder ein neues Fenster
     if (!b64) { var _pv = document.getElementById('mushroom-photo-preview'); if (_pv) { _pv.innerHTML = ''; _pv.style.display = 'none'; } return; }
     window._gsMushroomPhotoB64 = b64;
     var preview = document.getElementById('mushroom-photo-preview');
@@ -46111,6 +46191,7 @@ async function gsMushroomLoadPhoto(input) {
       preview.style.display = 'block';
     }
   } catch(_) {
+    if (_ladeNr !== _gsPilzFotoNr) return;
     if (typeof showProfileToast === 'function') showProfileToast('Upload fehlgeschlagen', 'error');
   }
 }
@@ -46130,43 +46211,59 @@ async function gsMushroomRunScan() {
   var regionSlug = null;
   try { regionSlug = localStorage.getItem('gs_region') || null; } catch(_){}
 
-  var btn = document.getElementById('mushroom-submit-btn');
-  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Identifiziere…'; }
+  // Pilz-Scanner (19.11.2026): die Nummer dieser Bestimmung — ein neues Foto, ein neues Öffnen
+  // und das Schliessen zählen eins weiter (gsPilzAbbrechen), dann gilt ihre Antwort nicht mehr.
+  var nr = ++_gsPilzNr;
+  _gsPilzLauf = { nr: nr, gesendet: false };
+  _gsPilzKnopf(true);
 
   if (typeof showProfileToast === 'function') showProfileToast('🔬 KI analysiert (Sicherheit vor Präzision)…', 'info');
 
   // v33.64: eine Antwort gehoert der Person, die gefragt hat (CLAUDE.md §3.6) — wer sich waehrend
   // der Bestimmung abmeldet oder das Konto wechselt, bekommt sie nicht auf den Bildschirm. Tor
   // (19.11.2026): gefragt wird auch nach dem Token-Refresh, also VOR dem Senden (71_person „Tor r").
+  // Pilz-Scanner (19.11.2026): dazu die NUMMER dieser Bestimmung — ein neues Foto, ein neues Öffnen
+  // und das Schliessen lösen sie ab. `gilt` fragt beides und geht bis ins Zeichnen mit.
   var _wer = _gsPersonJetzt();
+  var gilt = function () { return nr === _gsPilzNr && !_gsPersonAnders(_wer); };
   try {
     // v29.01 WIRE-1: frischen Token holen (Auto-Refresh) — stale 1h-JWT führte zu 401 bis Reload.
     var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : ((window.gsStore && typeof gsStore.get === 'function') ? (gsStore.get('gs_sb_token', null) || '') : '');
-    if (_gsPersonAnders(_wer)) return;
+    if (!gilt()) return;   // abgebrochen oder eine andere Person, bevor die Anfrage hinausging — dann geht sie nicht hinaus
     var fetchFn = window._gsFetch || fetch;
     var photoB64 = String(window._gsMushroomPhotoB64).replace(/^data:image\/\w+;base64,/, '');
+    if (_gsPilzLauf && _gsPilzLauf.nr === nr) _gsPilzLauf.gesendet = true;
     var resp = await fetchFn(SB_URL + '/functions/v1/mushroom-identify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ image_base64: photoB64, media_type: 'image/jpeg', habitat_hint: habitat, region_slug: regionSlug })
     }, 60000);
     var j = await resp.json().catch(function(){ return null; });
-    if (_gsPersonAnders(_wer)) return;
+    if (!gilt()) return;   // eine andere Person, ein neues Foto oder das Fenster ist zu
     if (!resp.ok || !j || j.error) {
       if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + _gsPilzFehlerSatz(j, resp.status), 'error');
       return;
     }
-    gsMushroomRenderResult(j);
+    // Nachtrag (gegnerische Prüfung, 24.11.2026): die Anzeige wartet in fr/it/en/es noch auf die
+    // Übersetzung (bis zu zwei Abfragen) — NACH dieser Prüfung. Ohne await und ohne `gilt` darin
+    // erschien „✅ Speisepilz" eines alten Fotos unter einem neuen, sogar über einem neueren „TÖDLICH".
+    await gsMushroomRenderResult(j, gilt);
   } catch(e) {
-    if (_gsPersonAnders(_wer)) return;
+    if (!gilt()) return;
     if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + ((typeof _gsFehlerText === 'function') ? _gsFehlerText(e) : 'Keine Verbindung zum Server — bitte erneut versuchen.'), 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🔍 Pilz identifizieren'; }
+    // Nur die laufende Bestimmung gibt den Knopf frei — eine abgelöste darf ihn einer neuen nicht entsperren.
+    if (nr === _gsPilzNr) _gsPilzKnopf(false);
+    if (_gsPilzLauf && _gsPilzLauf.nr === nr) _gsPilzLauf = null;
   }
 }
 window.gsMushroomRunScan = gsMushroomRunScan;
 
-async function gsMushroomRenderResult(j) {
+// `gilt` (optional): gilt die Bestimmung noch? Gefragt vor dem ersten Zeichnen UND nach dem Warten auf
+// die Übersetzung — dazwischen kann ein neues Foto, ein neues Öffnen oder das Schliessen liegen.
+async function gsMushroomRenderResult(j, gilt) {
+  var _giltNoch = function () { return typeof gilt !== 'function' || gilt(); };
+  if (!_giltNoch()) return;
   var box = document.getElementById('mushroom-result');
   if (!box) return;
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
@@ -46212,6 +46309,8 @@ async function gsMushroomRenderResult(j) {
       }
     }
   } catch(_){}
+  // Nachtrag 24.11.: nach dem Warten — gehört das Ergebnis noch zum gezeigten Foto?
+  if (!_giltNoch()) return;
 
   // ============= Match-Card =============
   // safety_color aus v_mushroom_safety: red/orange/yellow/green
@@ -55982,8 +56081,10 @@ function gsRenderWissenHero() {
       moonStr = moon.phase;
     }
   } catch(e){}
-  // DB-Stats für den Hero
-  var dbTotal = (typeof DB !== 'undefined' && Array.isArray(DB)) ? DB.length : 0;
+  // DB-Stats für den Hero — Home 3 / Brett 4d79: neben „Arten" steht die Artenzahl (gsArtenZahlen,
+  // CLAUDE.md §1), nicht DB.length (4'337 Einträge); das Wort geht durch die Sprachschicht.
+  var dbTotal = (typeof gsArtenZahlen === 'function') ? gsArtenZahlen().arten : 0;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
   // Progress-Ring via conic-gradient
   var ringCol = pct >= 100 ? '#2e7d32' : pct >= 50 ? '#43a047' : 'var(--g-main)';
   var ringBg = 'conic-gradient(' + ringCol + ' 0deg ' + (pct*3.6) + 'deg, rgba(46,125,50,.12) ' + (pct*3.6) + 'deg 360deg)';
@@ -56005,7 +56106,7 @@ function gsRenderWissenHero() {
              Zeile. Die Chips selbst bleiben einzeilig (nowrap, unten). */
             + '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">'+season.ico+' '+season.n+'</span>'
             + (moonStr ? '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">🌙 '+moonStr+'</span>' : '')
-            + (dbTotal ? '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">🌿 '+dbTotal.toLocaleString(gsLocale())+' Arten</span>' : '')
+            + (dbTotal ? '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">🌿 '+dbTotal.toLocaleString(gsLocale())+' '+_t('unit_species','Arten')+'</span>' : '')
           + '</div>'
         + '</div>'
         // Progress ring
@@ -56087,21 +56188,30 @@ function gsWissenSearch(q) {
 function renderLexikon() {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   // DB-Live-Stats als Intro-Bar
-  var dbTotal = (typeof DB !== 'undefined' && Array.isArray(DB)) ? DB.length : 0;
-  // v32.96: der Zaehler „Giftig" fragte `tox === 2 || tox === 3` und liess damit
-  // die 131 Eintraege mit Stufe 4 und 5 aus — genau die stark giftigen und die
-  // toedlichen. Die Untergrenze war Absicht („gering" zaehlt nicht mit), die
-  // Obergrenze war keine. Und beide Zahlen gehen durch _gsArtAnzeige, damit der
-  // Zaehler dasselbe sagt wie die Karte, die Liste und die Sammlung (v32.91-95).
-  var _art = function (s) { return (typeof _gsArtAnzeige === 'function') ? _gsArtAnzeige(s) : s; };
-  var edibleCount = gsWissenDBCount(function(s){ return s && _art(s).edible === true; });
-  var toxicCount  = gsWissenDBCount(function(s){ return s && (_art(s).tox|0) >= 2; });
-  var medCount    = gsWissenDBCount(function(s){ return s && s.medicinal === true; });
+  // v32.96: der Zaehler „Giftig" fragte `tox === 2 || tox === 3` und liess damit die 131 Eintraege
+  // mit Stufe 4 und 5 aus. Seither gehen die Zahlen durch die Art (_gsArtAnzeige, v32.91-95).
+  // Home 3 / Brett 4d79 (19.11.2026): und jetzt durch DIESELBEN Fragen wie die Startseite und die
+  // Suchfilter. Gemessen standen hier 4'337 „Arten" (DB.length — das sind die Eintraege; die
+  // Startseite sagt 3'136), 1'130 „Essbar" (die 68 ungeprueften Eintraege zaehlten mit; Startkachel
+  // und Filter: 1'062) und 598 „Giftig" (die 77 Eintraege der Stufe 1 mit `toxic` fehlten; der Filter:
+  // 675). Jede Kachel oeffnet die Liste, die sie zaehlt — die Zahl auf der Kachel ist die Zahl der
+  // Treffer danach (nutzersicht_check E9). Keine eigene Rolle, kein tabindex: das setzt
+  // gsTastaturNachruesten, und nur dann loest Enter aus (data-tast="auf").
+  var _zahl = function (x) { return Number(x || 0).toLocaleString(gsLocale()); };
+  var artenCount  = (typeof gsArtenZahlen === 'function') ? gsArtenZahlen().arten : 0;
+  var edibleCount = gsWissenDBCount(gsIstEssbar);
+  var toxicCount  = gsWissenDBCount(gsIstGiftig);
+  var medCount    = gsWissenDBCount(function (s) { return !!(s && s.medicinal); });   // wie der Filter „Heilpflanze"
+  var _kachel = function (zahl, wort, rand, farbe, ziel) {
+    return '<div onclick="' + ziel + '" style="cursor:pointer;background:var(--card);border-radius:var(--r-md);padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid ' + rand + ';">'
+      + '<div style="font-size:var(--fs-xl);font-weight:800;color:' + farbe + ';">' + _zahl(zahl) + '</div>'
+      + '<div style="font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + wort + '</div></div>';
+  };
   var lexStats = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;">'
-    + '<div style="background:var(--card);border-radius:var(--r-md);padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid var(--g-main);"><div style="font-size:var(--fs-xl);font-weight:800;color:var(--g-dark);">'+dbTotal+'</div><div style="font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + _t('unit_species','Arten') + '</div></div>'
-    + '<div style="background:var(--card);border-radius:var(--r-md);padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid #43a047;"><div style="font-size:var(--fs-xl);font-weight:800;color:var(--c-success);">'+edibleCount+'</div><div style="font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + _t('tag_edible','Essbar') + '</div></div>'
-    + '<div style="background:var(--card);border-radius:var(--r-md);padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid #c62828;"><div style="font-size:var(--fs-xl);font-weight:800;color:var(--c-danger);">'+toxicCount+'</div><div style="font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + _t('badge_giftig','Giftig') + '</div></div>'
-    + '<div style="background:var(--card);border-radius:var(--r-md);padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid #8e24aa;"><div style="font-size:var(--fs-xl);font-weight:800;color:#6a1b9a;">'+medCount+'</div><div style="font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + _t('lexikon_med','Heilkraft') + '</div></div>'
+    + _kachel(artenCount,  _t('unit_species','Arten'),  'var(--g-main)', 'var(--g-dark)',    "gsSucheMitFilter('')")
+    + _kachel(edibleCount, _t('tag_edible','Essbar'),   '#43a047',       'var(--c-success)', "gsZeigeEigenschaft('essbar')")
+    + _kachel(toxicCount,  _t('badge_giftig','Giftig'), '#c62828',       'var(--c-danger)',  "gsZeigeEigenschaft('giftig')")
+    + _kachel(medCount,    _t('lexikon_med','Heilkraft'), '#8e24aa',     '#6a1b9a',          "gsZeigeEigenschaft('heilpflanze')")
     + '</div>';
   var terms = [
     {t:'pH-Wert',     d:'Sauer-Basen-Skala 0-14. 7 = neutral. Die meisten Pflanzen lieben 6-7 (leicht sauer bis neutral). Heidelbeeren: 4-5. Rhabarber: 6-7.'},
@@ -79720,6 +79830,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.71', date: '24.11.2026',
+      headline: 'Jede Antwort bleibt bei ihrer Frage — Pilz-Scanner, Lina und der Wissen-Tab',
+      summary: 'Drei Pakete aus den Hauptfunktionen. Pilz-Scanner: ein Ergebnis gehört zu seinem Foto — ein neues Foto, ein neues Öffnen und das Schliessen lösen die laufende Bestimmung ab, auch in fr/it/en/es, wo die Anzeige noch auf Übersetzungen wartet. Lina: eine Antwort gehört dem Gespräch, in dem gefragt wurde — wer während des Wartens ein neues oder ein früheres Gespräch öffnet, findet sie bei ihrer Frage. Wissen-Tab: dieselben Zahlen wie Startseite und Filter, und jede Kachel öffnet ihre Liste.',
+      user_summary: 'Ein Pilz-Ergebnis steht nie mehr unter dem falschen Foto, Linas Antwort landet in dem Gespräch, in dem du gefragt hast, und die Zahlen im Wissen-Tab stimmen mit der Startseite überein.',
+      user_items: [
+        {emoji:'🍄', bold:'Pilz-Scanner:', text:' wählst du ein neues Foto, öffnest den Scanner neu oder schliesst ihn, gilt die laufende Bestimmung nicht mehr — ihr Ergebnis erscheint nie unter einem anderen Pilz. Schliesst du mitten in der Bestimmung, sagt dir ein Satz, dass es dazu kein Ergebnis gibt.'},
+        {emoji:'💬', bold:'Lina:', text:' tippst du während „Lina denkt nach…“ auf „＋ Neu“ oder öffnest ein früheres Gespräch, landet die Antwort trotzdem bei deiner Frage — und ein Satz sagt dir, wo sie steht.'},
+        {emoji:'📚', bold:'Wissen-Tab:', text:' „Arten“, „Essbar“ und „Giftig“ zeigen dieselben Zahlen wie die Startseite und der Filter, und jede Kachel öffnet die Liste, die sie zählt.'}
+      ],
+      items: [
+        {emoji:'🔢', bold:'Eine Nummer je Pilz-Bestimmung:', text:' _gsPilzNr und gsPilzAbbrechen (neues Foto, neues Öffnen, Schliessen). Die Prüfung gilt fragt Nummer UND Person (das Tor aus v33.68) — vor dem Senden, nach der Antwort, im catch und nach dem Warten auf die Übersetzung (gsMushroomRenderResult wartet in fr/it/en/es). _gsPilzFotoNr gegen zwei sich überholende Foto-Ladevorgänge.'},
+        {emoji:'🧵', bold:'Lina merkt sich, wo gefragt wurde:', text:' _gsLinaGespraechNr zählt jeden Wechsel des gezeigten Gesprächs; gsLinaSend hält Liste und Gesprächs-Id fest — Vorgeschichte, neue Id und Antwort gehören dorthin. Eine zweite Frage während des Wartens bekommt einen Satz statt Stille.'},
+        {emoji:'☠️', bold:'gsIstGiftig:', text:' die Regel des Filters (toxic oder Stufe 2 und höher, an der Art) als EINE Funktion für Filter und Lexikon-Kachel — vorher zählte die Kachel 598, der Filter 675.'},
+        {emoji:'🧪', bold:'Prüfstände:', text:' scan_check PZ5 bis PZ7 und D1g, sensor_check L12, nutzersicht_check E9 Teil 4 — jeder Fall gegen den alten Stand rot, jede Schutzzeile einzeln zurückgebaut am richtigen Fall rot.'}
+      ]
+  },
+  {
     v: 'v33.70', date: '24.11.2026',
       headline: 'Lina kennt deinen Garten beim Namen',
       summary: 'Lina · Einblick (Punkt 8). Bis v33.69 sah Lina von den Pflanzen nur die Zahl und die Namen mit einer fälligen Aufgabe — keine Gärten, kein Tagebuch, kein Wetter, keine Fundorte. Jetzt gibt es einen zweiten Kontextblock (gsLinaEinblick) mit eigenem Deckel: wer Hilfe braucht (gerechnet aus überfälligen Aufgaben und notierten Schädlingen), die Pflanze aus der Frage im Detail, das Wetter am gewählten Ort, alle Pflanzen und Beete beim Namen, frühere Scans und Karten-Funde. Keine Fotos, keine Koordinaten; abschaltbar im Lina-Fenster. Beide Datenschutztexte nennen es.',
@@ -80109,26 +80236,6 @@ window.GS_RELEASES = [
         {emoji:'📵', bold:'Grenze:', text:' die SQL-Hälfte rechnet mit gestelltem auth.uid() und is_admin_user(). Ob die Migration LIVE angewandt ist, sagt nur Fernando — und die App erst, wenn sie eine Spur gesehen hat.'}
       ]
   },
-  {
-    v: 'v33.50', date: '24.09.2026',
-      headline: 'Das Admin-Panel sagt, was der Server wirklich getan hat',
-      summary: 'Fünfzehn Admin-Schreibwege (Sperren, Plan setzen, Gutscheine, Wissen, Meldungen, Broadcast) prüften nur „kein Fehler“ — und PostgREST meldet bei einer abgewiesenen Zeile KEINEN Fehler. Gemessen an der Live-Datenbank: zwei Knöpfe („Nutzer sperren“, „Globalen KI-Schlüssel setzen“) dürfen Admins gar nicht ausführen, und die App stellte trotzdem die Rückfrage „wirkt sofort“. Jetzt geht jeder Schreibweg durch EINE Funktion mit sechs Zuständen und Grund.',
-      user_summary: 'Für Admins: jede Aktion im Admin-Panel sagt jetzt, ob sie wirklich ausgeführt wurde — und wenn nicht, warum. Ein Knopf, der noch nicht freigeschaltet ist, sagt das, statt eine Rückfrage zu stellen und danach zu scheitern.',
-      user_items: [
-        {emoji:'✅', bold:'Bestätigung erst nach der Antwort:', text:' „Als erledigt markiert“ steht nur da, wenn der Server eine Zeile geändert hat.'},
-        {emoji:'🔒', bold:'Ein gesperrter Knopf nennt den Grund:', text:' „Noch nicht freigeschaltet — Migration … anwenden“ statt einer Rückfrage ins Leere.'},
-        {emoji:'📋', bold:'Der Überblick oben zählt es:', text:' welche Aktionen der Server noch nicht freigegeben hat, steht als Zeile über den Sektionen.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen an der Live-DB (nur lesend):', text:' 12 von 13 Schreib-RPCs sind SECURITY DEFINER mit is_admin_user(), die RLS auf user_reports ist dicht. Aber fn_assign_role und fn_set_global_api_key tragen die ACL {postgres, service_role} — authenticated darf sie nicht ausführen. Zwei frühere Re-Grants (v29_20, v30_57) stehen im Repo und sind live nicht in Kraft; 20260924_admin_grants.sql (nicht angewandt) liefert sie nach.'},
-        {emoji:'🗂️', bold:'GS_ADM_AKTIONEN — die Liste ist die Prüfung:', text:' 15 Aktionen, jede mit GENAU einem Ziel (rpc · pfad+method · fn) und optional der Migration, die sie freischaltet. _gsAdmTun ist der eine Weg; GS_ADM_LESE_RPC nennt die zwei POST-Abfragen, die nur lesen.'},
-        {emoji:'🚦', bold:'Sechs Zustände mit Grund:', text:' ok · abgelehnt (RLS, 401/403, {ok:false}, 0 Zeilen am Tabellenweg) · nicht_freigeschaltet („permission denied for function“ — die Sitzung merkt es sich) · nicht_verfuegbar (404/PGRST202: eine nicht angewandte Migration, kein Fehler des Admins) · fehler (Netz) · kein_zugriff (ohne Server-Ja geht keine Anfrage hinaus).'},
-        {emoji:'👁️', bold:'return=representation ist Pflicht am Tabellenweg:', text:' gsAdminReviewReport schickte return=minimal — die Ablehnung war damit unsichtbar, und „✅ Als erledigt markiert.“ stand für nichts da.'},
-        {emoji:'🔕', bold:'gsAdminToggleVoucher las die Antwort gar nicht:', text:' ein Gutschein, der nicht umgeschaltet wurde, sah nach dem Neuladen genauso aus wie vorher, ohne Satz.'},
-        {emoji:'🧪', bold:'admin_check 6 → 11 Fälle, fünf Gegenproben:', text:' ein Schreibweg am einen Weg vorbei · 0 Zeilen als ok · return=minimal · Rückfrage trotz Sperre · Meldung ohne Blick auf den Zustand — jede einzeln rot, mit dem richtigen Fall und den echten Zahlen.'},
-        {emoji:'📵', bold:'Grenze:', text:' der Server ist im Prüfstand gestellt. Geprüft ist, was die App aus einer Antwort MACHT — nicht, ob die RPC antwortet. Und versprechen_check bleibt hier blind, weil ein if (r.error) als Prüfung zählt — eigene Scheibe.'}
-      ]
-  }
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -80339,7 +80446,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.70';
+var GS_VERSION = 'v33.71';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -91464,6 +91571,7 @@ async function gsOpenLina(){
     return;
   }
   _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">🌿 Lina kommt…</div>');
+  _gsLinaGespraechWechsel();   // LINA-9: das gezeigte Gespräch wird neu geladen
   window._gsLinaMsgs = []; window._gsLinaConvId = null;
   var _wer = _gsPerson();
   // LINA-4 (Rest): der Spiegel des zuletzt gezeigten Gesprächs. Bis hier leerte jedes Öffnen den
@@ -91774,7 +91882,16 @@ function gsLinaRender(typing){
 }
 window.gsLinaRender = gsLinaRender;
 
-function gsLinaNew(){ window._gsLinaConvId = null; window._gsLinaMsgs = []; gsLinaRender(false); }
+// LINA-9 (24.11.2026): eine Antwort gehört dem GESPRÄCH, in dem gefragt wurde — dieselbe Regel wie
+// Scanner 4 und der Pilz-Scanner (CLAUDE.md §3.6). Gemessen: wer während „Lina denkt nach…" auf
+// „＋ Neu" tippte, sah das neue Gespräch mit der Antwort auf eine Frage beginnen, die dort nicht stand,
+// und die nächste Frage ging mit dieser fremden Antwort als Vorgeschichte an die KI; wer ein früheres
+// Gespräch öffnete, bekam die Antwort dort angehängt UND unter dessen Id in der Cloud gespeichert — im
+// Gespräch, in dem gefragt wurde, fehlte sie. Jeder Wechsel des gezeigten Gesprächs zählt hier hoch;
+// gsLinaSend hält beim Senden fest, wo gefragt wurde, und schreibt die Antwort dorthin.
+var _gsLinaGespraechNr = 0;
+function _gsLinaGespraechWechsel() { _gsLinaGespraechNr = (_gsLinaGespraechNr || 0) + 1; }
+function gsLinaNew(){ _gsLinaGespraechWechsel(); window._gsLinaConvId = null; window._gsLinaMsgs = []; gsLinaRender(false); }
 window.gsLinaNew = gsLinaNew;
 
 // ══ LINA-4 (16.11.2026): fruehere Gespraeche ═════════════════════════════════════════════
@@ -91788,6 +91905,7 @@ async function _gsLinaLadeGespraech(id) {
   if (!id || typeof sbFetch !== 'function') return false;
   var rm = await sbFetch('/rest/v1/coach_messages?conversation_id=eq.' + encodeURIComponent(id) + '&select=role,content&order=created_at.desc&limit=100', { method: 'GET' });
   if (!rm || rm.error || !Array.isArray(rm.data)) return false;
+  _gsLinaGespraechWechsel();   // LINA-9: die gezeigte Liste wird ersetzt
   window._gsLinaConvId = id;
   window._gsLinaMsgs = rm.data.map(function (m) { return { role: m.role, content: m.content }; }).reverse();
   return true;
@@ -91950,8 +92068,13 @@ async function gsLinaSend(){
       if (window._gsLinaSending) return;
     }
   } catch(_){}
-  if (window._gsLinaSending) return; // v29.48: Doppel-Send-Guard — sonst 2 parallele callAI → doppelter Quota-Abzug
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  if (window._gsLinaSending) { // v29.48: Doppel-Send-Guard — sonst 2 parallele callAI → doppelter Quota-Abzug
+    // LINA-9: der Riegel verschluckte eine zweite Frage wortlos — das Feld blieb gefüllt, und nichts
+    // geschah. Wer inzwischen ein anderes Gespräch geöffnet hat, sieht nicht einmal mehr „denkt nach".
+    try { if (typeof gsToast === 'function') gsToast(_t('lina_noch_dran', 'Lina antwortet noch auf deine vorige Frage — gleich bin ich wieder frei.'), 'info', 3000); } catch(_){}
+    return;
+  }
   var inp = document.getElementById('gs-lina-input');
   var text = inp ? (inp.value||'').trim() : '';
   if (!text) return;
@@ -91996,6 +92119,11 @@ async function gsLinaSend(){
   if (inp) inp.value = '';
   window._gsLinaMsgs = window._gsLinaMsgs || [];
   if (!_schonGefuehrt) window._gsLinaMsgs.push({ role:'user', content:text });
+  // LINA-9: das Gespräch, in dem gefragt wird — seine Liste, seine Id und die Nummer des Wechsels. Gilt
+  // es noch, wenn die Antwort kommt? Ja, solange nichts gewechselt hat — oder wieder dasselbe Gespräch
+  // gezeigt wird (Lina geschlossen und neu geöffnet, im Verlauf wieder dieses angetippt).
+  var _gefragtIn = window._gsLinaMsgs, _gnr = _gsLinaGespraechNr, _konv = window._gsLinaConvId || null;
+  var _hier = function () { return _gnr === _gsLinaGespraechNr || (!!_konv && window._gsLinaConvId === _konv); };
   gsLinaRender(true);
   // LINA-2: die Wartezeit. Die einzige ehrliche Aussage über einen laufenden Aufruf ist, seit wann er
   // läuft (v31.79 — der Scanner zählt so seit v32.08); ab 3 s steht sie da. performance.now, nicht
@@ -92015,19 +92143,25 @@ async function gsLinaSend(){
   // mehr ins Fenster, in den Spiegel oder in die Cloud — sie gehört der Person, die gefragt hat.
   var _wer = _gsPerson();
   try {
-    if (!window._gsLinaConvId) {
+    if (!_konv) {
       var rc = await sbFetch('/rest/v1/coach_conversations', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify({ user_id: uid, title: text.slice(0,40) })});
       if (_gsPerson() !== _wer) return;
       var conv = (rc && rc.data && rc.data[0]) || null;
-      if (conv) window._gsLinaConvId = conv.id;
+      if (conv) {
+        _konv = conv.id;
+        // LINA-9: die neue Id gehört dem Gespräch, in dem gefragt wurde — nicht dem, das inzwischen
+        // gezeigt wird („＋ Neu" oder ein früheres aus dem Verlauf schrieben sonst in dieses).
+        if (_gnr === _gsLinaGespraechNr && !window._gsLinaConvId) window._gsLinaConvId = _konv;
+      }
       else if (typeof gsToast === 'function') gsToast(_t('lina_local_only','Verlauf wird gerade nur lokal geführt (Cloud nicht erreichbar).'), 'info', 3500); // v29.48: Conv-Anlage fehlgeschlagen → Nutzer dezent informieren
     }
     // Bei „Erneut senden" liegt die Frage schon in coach_messages.
     var _wdh = window._gsLinaWdh === true; window._gsLinaWdh = false;
-    if (window._gsLinaConvId && !_wdh) {
-      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'user', content:text })}).then(_gsLinaSpeicherPruefen);
+    if (_konv && !_wdh) {
+      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: _konv, user_id: uid, role:'user', content:text })}).then(_gsLinaSpeicherPruefen);
     }
-    var hist = window._gsLinaMsgs.slice(-16).map(function(m){ return { role:m.role, content:m.content }; });
+    // Die Vorgeschichte ist die des Gesprächs, in dem gefragt wurde (LINA-9) — nicht die eines anderen.
+    var hist = _gefragtIn.slice(-16).map(function(m){ return { role:m.role, content:m.content }; });
     var _treffer = (typeof _gsArtenTreffer === 'function') ? _gsArtenTreffer(text) : null;
     var reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(text), 900, { quotaFeature:'lina', timeout:45000 });
     if (_gsPerson() !== _wer) return;
@@ -92074,14 +92208,29 @@ async function gsLinaSend(){
       if (_gsLinaAktionLabel(_linaAct)) _msgA.aktion = _linaAct;
       _linaAct = null;
     }
-    window._gsLinaMsgs.push(_msgA);
-    gsLinaRender(false);
-    if (window._gsLinaConvId) {
-      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'assistant', content:reply })}).then(_gsLinaSpeicherPruefen);
-      sbFetch('/rest/v1/coach_conversations?id=eq.'+window._gsLinaConvId, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ updated_at: new Date().toISOString() })});
+    // LINA-9: die Antwort geht in das Gespräch, in dem gefragt wurde. Wird es noch gezeigt, steht sie da;
+    // sonst liegt sie in der Cloud bei ihm (zu finden unter „🕘 Verlauf"), und EIN Satz sagt, wo sie ist.
+    if (_hier()) {
+      (window._gsLinaMsgs || _gefragtIn).push(_msgA);
+      gsLinaRender(false);
+    } else {
+      _gefragtIn.push(_msgA);
+      _linaAct = null;   // eine Aktion fragt nicht in einem Gespräch nach, das gar nicht offen ist
+      try { if (typeof gsToast === 'function') gsToast(_konv ? _t('lina_antwort_dort', 'Lina hat im vorigen Gespräch geantwortet — du findest es unter 🕘 Verlauf.') : _t('lina_antwort_weg', 'Lina hat auf deine vorige Frage geantwortet — dieses Gespräch ist nicht mehr offen.'), 'info', 4500); } catch(_){}
+    }
+    if (_konv) {
+      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: _konv, user_id: uid, role:'assistant', content:reply })}).then(_gsLinaSpeicherPruefen);
+      sbFetch('/rest/v1/coach_conversations?id=eq.'+_konv, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ updated_at: new Date().toISOString() })});
     }
   } catch(err){
     if (_gsPerson() !== _wer) return;
+    // LINA-9: ein Ausfall gehört wie eine Antwort zum Gespräch, in dem gefragt wurde. Eine Zeile mit
+    // „Erneut senden" in einem ANDEREN Gespräch wiederholte dort eine Frage, die es nicht gibt.
+    if (typeof _hier === 'function' && !_hier()) {
+      _linaAct = null; window._gsLinaNotfallHinweis = false;
+      try { if (typeof gsToast === 'function') gsToast(_t('lina_vorige_fehler', 'Lina konnte deine vorige Frage gerade nicht beantworten.'), 'warning', 4000); } catch(_){}
+      return;
+    }
     if (err && err.code === 'free_quota_reached') {
       // Mission: Lina bleibt gratis — KEIN Verkaufspitch, nur warme Info.
       window._gsLinaMsgs.push({ role:'assistant', content:_t('lina_quota','🌿 Wir haben heute schon richtig viel geplaudert — wie schön! Mein Tageskontingent für den geteilten KI-Schlüssel ist gerade erschöpft. Morgen bin ich wieder voll für dich da. (Wer mag, kann mit einem eigenen Anthropic-Key unbegrenzt mit mir chatten — aber das musst du absolut nicht.)') });
