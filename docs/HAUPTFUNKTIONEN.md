@@ -99,6 +99,13 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     steht im Fenster). Dasselbe Fenster wie Scanner 12 (`_gsVglFenster`), dieselben drei Regeln; der Vergleich gilt nur,
     solange die Bestimmung gilt (`_gsPilzNr`). Dazu (Brett bc4f) der regionale Pilz-Hinweis und die Verwechsler-Galerie:
     dieselben Namen aus dem Register statt kleingeschriebenem Latein (`_gsPilzNameBekannt`, `scan_check` PV5).
+14. ✅ v33.78 (`scan_check` PV7, Prüfung von #347, gebaut 24.11.) — **Der Pilz-Vergleich liess die gefährlichsten
+    Verwechsler weg.** Er sortierte nur nach dem Paar-Risiko, und die erste Nennung einer Art gewann: gemessen fielen bei
+    sechs Paaren BEIDE Knollenblätterpilze heraus (einmal „gering" zuerst genannt, einmal „mittel"), stehen blieben
+    zwei Speisepilze — still gekürzt auf drei. Antwortete das Register nicht, standen Latein-Slugs ohne jeden Hinweis da.
+    Jetzt zuerst nach der Gefahr laut Register (tödlich vor giftig vor unbekannt), je Art ihr höchstes Paar-Risiko,
+    „N weitere Doppelgänger stehen nur in der Warnbox“; fehlt die Register-Angabe, sagt die Warnbox es (mit Zahl), und
+    am Verwechsler steht „❓ Essbarkeit nicht geladen“.
 
 ## Offen — Lina
 

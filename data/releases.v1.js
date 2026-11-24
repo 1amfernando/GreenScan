@@ -30,6 +30,24 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.57', date: '10.11.2026',
+      headline: 'Scanner und Scan-Chat laufen auch ohne Schlüssel im Browser',
+      summary: 'Am 10.11.2026 wurde die Migration 20260907_global_api_key_nur_proxy angewandt: der Server gibt den Anthropic-Schlüssel nur noch Admins heraus, alle anderen rufen die KI über den Proxy. Vier Stellen fragten aber weiter „liegt ein Schlüssel im Browser?“ statt „ist die KI erreichbar?“. Der Scanner (analyzeImage) zeigte damit jedem Nutzer ohne Admin-Rolle „KI gerade nicht erreichbar“, der Scan-Chat „API-Key nötig“ — im Prüfstand nachgestellt: 0 Aufrufe an den Proxy. Jetzt beantwortet EINE Funktion die Frage (gsKiVerfuegbar: Schlüssel ODER Proxy), und alle vier Stellen rufen sie. Warum es niemand sah: schluessel_check mass callAI und callVisionAI direkt, nie den Weg davor, und scan_check stellte in jedem Fall einen Schlüssel hin.',
+      user_summary: 'Die Bestimmung per Foto und die Rückfragen zu einem Scan funktionieren wieder für alle angemeldeten Nutzer. Nach einer Sicherheits-Umstellung auf dem Server hatte der Scanner fälschlich „KI gerade nicht erreichbar“ gemeldet.',
+      user_items: [
+        {emoji:'📷', bold:'Scanner:', text:' bestimmt wieder. Die Meldung „KI gerade nicht erreichbar“ kam fälschlich, obwohl die KI erreichbar war.'},
+        {emoji:'💬', bold:'Fragen zum Scan:', text:' der Chat unter dem Ergebnis antwortet wieder, statt nach einem API-Key zu fragen.'},
+        {emoji:'🔒', bold:'Sicherer:', text:' der KI-Schlüssel liegt nicht mehr auf deinem Gerät — alle Anfragen laufen über den GreenScan-Server.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' schluessel_check „Der Weg davor“ im Proxy-Modus ohne Schlüssel, zwei Gegenproben: mit dem alten Scanner-Tor zeigt die Karte „KI gerade nicht erreichbar“ bei 0 Aufrufen an den Proxy, mit dem alten Chat-Tor kommt die Meldung „API-Key nötig“.'},
+        {emoji:'🧩', bold:'gsKiVerfuegbar(cfg):', text:' wahr bei Schlüssel ODER Proxy-Ziel (_gsAiTarget), falsch ohne beides und ohne Anmeldung. Aufrufer: analyzeImage, sendScanChat, die Hintergrund-Recherche einer neuen Art und gsPPTestConnection (zeigt „KI-Zugang über den GreenScan-Server“ statt „Kein Key — bitte oben rechts eintragen“).'},
+        {emoji:'🧪', bold:'Prüfstand:', text:' schluessel_check 10 → 11 Fälle. Der neue geht den Weg, den ein Scan wirklich geht — Sperren gestellt wie in scan_check, nur der Schlüssel nicht; der gestellte Proxy antwortet mit stellbarem Text, Meldungen werden mitgeschrieben.'},
+        {emoji:'⚠️', bold:'Ursache, ehrlich:', text:' die Migration galt seit v32.68 als verträglich; geprüft war das an callAI und callVisionAI, nicht am Scanner davor. Zwischen dem Anwenden (10.11.2026, 22:15 Uhr) und dieser Auslieferung war der Scanner für Nutzer ohne Admin-Rolle nicht benutzbar.'},
+        {emoji:'🛠️', bold:'Datenbank (am 10.11.2026 angewandt):', text:' 20260907_global_api_key_nur_proxy, 20260831_rollen_leak_fix_v30_95 und 20260924_admin_grants; v31_36_mkt_views_auth_guard war schon seit dem 01.09.2026 in Kraft und wurde unverändert noch einmal eingespielt.'}
+      ]
+  },
+  {
     v: 'v33.56', date: '22.10.2026',
       headline: 'Teilen → GreenScan auch in der Android-App',
       summary: 'Bis v33.55 stand die Android-App nicht im Teilen-Menü: die Hülle liest das Manifest der Web-App nicht und hatte keinen ACTION_SEND-Filter. Jetzt nimmt sie Fotos an (dieselben vier Typen wie die Web-App), kopiert sie in ein Fach im Arbeitsspeicher und stösst die Seite an; die Seite holt das Foto selbst ab und zeigt dieselbe Vorschau wie im Browser — bestimmt wird erst nach dem Antippen. Ohne JavaScript-Brücke: zwei Adressen unter dem eigenen Ursprung (holen, quittieren), mit eigenem Kopfzeilen-Wert. Neu für beide: „Bestimmen“ nimmt erst nach 0,7 Sekunden an, und ein Bild mit mehr als 200 Megapixeln wird am Dateikopf abgelehnt. Eine gegnerische Prüfung fand zwölf Lücken — acht von unabhängigen Gegenprüfern bestätigt (Reihenfolge zweier Teilen, eine hängende Kopie, GIF- und JPEG-Bomben …), vier Prüfstands-Lücken von mir nachgeprüft, weil ihre Gegenprüfer am Nutzungslimit ausfielen. Alle vor dem Ausliefern geschlossen.',

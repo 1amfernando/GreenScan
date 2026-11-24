@@ -12,6 +12,30 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (ke) - v33.78: Scanner 14 — der Pilz-Vergleich zeigt die gefährlichsten Verwechsler, und ein fehlendes Register wird gesagt
+
+**Auftrag:** die Punkte 5 und 6 aus der Prüfung von #347 (Koordinator-Liste vom 24.11.2026), gemessen vor dem Bau.
+
+**Gemessen** (v33.76, sechs Verwechsler-Paare eines Wiesen-Champignons, Register gestellt): Der Vergleich zeigte Karbol-, Schaf- und
+Stadt-Champignon — BEIDE Knollenblätterpilze fielen heraus. `_gsPilzVglMerken` sortierte nur nach dem Paar-Risiko, und je Art gewann
+die erste Nennung (der Grüne Knollenblätterpilz stand zuerst mit „gering", später mit „sehr hoch"); gekürzt wurde still auf drei.
+Ohne Antwort des Registers (Fehler oder über 2,5 s) standen die Verwechsler als Latein-Slug da, ohne Essbarkeit und ohne Hinweis.
+
+**Gebaut:** Die Reihenfolge folgt zuerst der Gefahr laut Register (`_gsPilzGefahrRang`: tödlich, giftig, unbekannt, bedingt essbar,
+Rest), dann dem Paar-Risiko; je Art zählt ihr höchstes Paar. Was nicht ins Fenster passt, zählt `mehr`, und das Fenster sagt „N
+weitere Doppelgänger stehen nur in der Warnbox über dem Knopf." Kam zu einem Verwechsler keine Angabe aus dem Register, steht unter
+der Verwechsler-Liste ein Satz mit der Zahl („… Behandle sie wie giftige Pilze."), und die Karte im Vergleich trägt „❓ Essbarkeit
+nicht geladen" — milde Marken stehen am Verwechsler bewusst nicht (v33.74 C), ohne diese Marke sähe ein unbekannter aus wie ein
+harmloser. Doku: `docs/HAUPTFUNKTIONEN.md` Scanner 14.
+
+**Prüfstände:** `scan_check` PV7: mit Register Grüner Knollenblätterpilz (mit LEBENSGEFAHR, seinem höchsten Paar) vor dem
+Kegelhütigen vor dem Karbol-Champignon, „2 weitere" im Fenster; Fehler, ein fehlender Eintrag (Einzahl) und keine Antwort in 2,5 s
+je mit Satz; „❓" an 3 von 3 Verwechslern. Gegen v33.76 rot (sieben Gründe); fünf Gegenproben einzeln rot (nur nach Paar-Risiko ·
+erste Nennung gewinnt · still gekürzt · kein Satz in der Warnbox · keine Marke „nicht geladen"). PV1–PV6 bleiben grün.
+
+**Offen:** nichts aus diesen Punkten.
+**Nicht geprüft:** das echte Register und echte Paare aus `mushroom_lookalikes` (gestellt); ein echtes Telefon.
+
 ### 2026-11-24 (kf) - v33.77: Speicher · Scheibe 3 — das Register: ein reisender Schlüssel, ein Eintrag
 
 **Auftrag:** `docs/SPEICHER-V2.md` Scheibe 3 (Fernando: „Speicherorte, Verdrahtungen und alles dazu brauchen ein Next-Gen-Update",
@@ -17484,9 +17508,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.77` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.76) · SW-Cache `gs-v33.77` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.78` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.77) · SW-Cache `gs-v33.78` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **103'455 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.77; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.56).
+- **Frontend:** `index.html` **103'485 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.78; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.56).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **48** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.72: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 48** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (jv). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
