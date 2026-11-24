@@ -126,6 +126,8 @@ alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
    Ausnahmen kommen dazu: „Verzehr … vermeiden", „Geniess den Garten" (am ROHEN Text, sonst
    wird „Herbst-Zeitlose" zu zwei Woertern) und ein Gegensatz ohne Gegensatzwort. Ein
    Giftwort als Aussage ist unflektiert — „Giftiger Haeubling" ist ein Name.
+   Seit v33.82 (Lina 13) zaehlt eine GEERBTE Art nicht vor einer Standort- oder Pflege-Handlung
+   („… und kann bedenkenlos im Garten bleiben.", `nurPflegeGeerbt`); was die Basis warnt, bleibt.
 3. **Der Notfall kommt VOR dem Sende-Riegel** und nimmt die Antwort nicht weg.
 4. **Zahlen im Kontext sind Rohwerte aus einem Datensatz** — `sensor_check`
    „Lina" haelt jede Prozent-/Gradzahl gegen den Speicher. Eine Zahl, die in

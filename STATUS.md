@@ -12,6 +12,48 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (km) - v33.82: Lina 13 — eine geerbte Art zählt nicht vor „bedenkenlos im Garten bleiben“
+
+**Auftrag:** Hold-out des Koordinators zu v33.81 (#355): 0 Regressionen, aber zwei neue Fehlalarme von F:
+„Die Narzisse blüht im März und kann bedenkenlos im Garten bleiben.“ und „Der Fingerhut ist winterhart und kann unbedenklich
+draussen stehen bleiben.“ F erbte die Art in den Teil „kann bedenkenlos … bleiben“, und der trägt nur einen schwachen Stamm.
+
+**Gebaut** (`_gsLinaSicherheit`, `nurPflegeGeerbt`, `PFLEGE_STANDORT`): Eine GEERBTE Art (F, K) zählt nicht in einem Teil, der nur einen
+schwachen Stamm (bedenkenlos, unbedenklich, ohne Bedenken) vor einer Standort- oder Pflege-Handlung trägt (bleiben, stehen, wachsen,
+überwintern, umtopfen, schneiden …).
+- Die Handlung folgt dem Stamm direkt oder nach einer Ortsangabe („im Garten“, „draussen“, „auf dem Balkon“). „Unbedenklich,
+  solange du gesund bleibst“ ist keine Ortsangabe und warnt weiter.
+- Ein Ess-Wort irgendwo im Satz hebt die Regel auf, wie bei B.
+- Was die Basis warnt (die Arten der Frage, imSatz), bleibt. Das ist keine neue Ausnahme an der Sicherheitslinie: Nennt die Frage
+  die Narzisse, warnt „Die Narzisse kann bedenkenlos im Garten bleiben.“ weiter, wie in der Basis.
+
+**Gemessen** (Vorlagen über 312 giftige und 404 harmlose Namen, Zustand nach `gsAutoFillLookalikes`):
+
+| Vorlage | soll | Basis | (kj) | (km) |
+|---|---|---|---|---|
+| „N blüht im März und kann bedenkenlos im Garten bleiben.“ | still | 1 warnte | 311 warnten | 36 |
+| „N ist winterhart und kann unbedenklich draussen stehen bleiben.“ | still | 1 warnte | 311 warnten | 36 |
+| „N ist robust und kann unbedenklich umgetopft werden.“ | still | 1 warnte | 311 warnten | 36 |
+| „N und Tulpen können bedenkenlos im Garten bleiben.“ (K) | still | 1 warnte | 311 warnten | 36 |
+| „N ist giftig, aber in kleinen Mengen unbedenklich.“ | warnen | 1 | 311 | 311 |
+| „N ist hübsch und unbedenklich für Kinder.“ | warnen | 1 | 311 | 311 |
+| „…, solange du gesund bleibst.“ · „… bleiben und roh gegessen werden.“ | warnen | 1 / 1 | 311 / 311 | 311 / 311 |
+
+Erläuterungen zur Tabelle:
+- **Die 36:** genau die 36 Namen von G in (kj): 35 mit einem Ess-Wort („…pilz“, „…beere“) und „Echter Speise-Schirmling“
+  („Speise“ ist ein Zusage-Stamm, schon in der Basis). Die Regel nimmt nie ein Ess-Wort weg.
+- **Die 1 der Basis:** „Echter Speise-Schirmling“; der Rest der Warn-Zeilen ist „Wüstenrose (kl.)“ (der Punkt trennt den Satz).
+- **Harmlose Stichprobe:** In den vier stillen Vorlagen warnten in (kj) je 6, jetzt 0.
+- **Alle anderen Vorlagen** von (kj) (F, K, E, G, C2: 25 Gruppen) haben dieselben Zahlen wie in (kj).
+
+**Prüfstand:** `sensor_check` „Lina 13 · Pflege-Sätze (km)“ mit 6 stillen Sätzen, 9 Zusagen, der Grenze zur Basis und 5 Vorlagen
+über alle giftigen Namen. Vier Gegenproben sind einzeln rot, je mit dem erwarteten Satz: Regel aus · Lücke beliebig · ohne
+Ess-Wort-Sperre im Satz · Regel auch für die Basis.
+
+**Offen:** brett:2026-11-24-5929 (der Ort in der Frage, (kn) im selben Paket).
+**Nicht geprüft:** echte KI-Antworten (gestellt); Pflege-Sätze, deren Handlung nicht in der Liste steht („… kann bedenkenlos
+draussen bleiben“ ja, „… verträgt bedenkenlos Frost“ nein) — dort warnt die geerbte Art weiter, wie in (kj).
+
 ### 2026-11-24 (kj) - v33.81: Lina 12 — ein Teil ohne Subjekt hängt am Satz davor, und drei Fehlalarme aus (kg) sind weg
 
 **Auftrag:** Hold-out des Koordinators zu v33.79 (#353, bestanden mit Vermerk):

@@ -163,6 +163,10 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     (kg): „Verzehr unbedingt vermeiden", „Geniess den Garten", „Geniess die Blüten … im Garten", „Der Kerbel ist essbar, der
     Gefleckte Schierling giftig." Jetzt erbt ein Teil ohne Subjekt die Art davor, eine Aufzählung gehört zum Subjekt, und drei
     enge Ausnahmen sind einzeln gemessen. Orakel: „nur Basis" 0 in allen sechs Formen.
+13. ✅ v33.82 (`sensor_check` „Lina 13 · Pflege-Sätze (km)", Hold-out zu #355) — **F erbte die Art in einen Pflegesatz.**
+    „Die Narzisse blüht im März und kann bedenkenlos im Garten bleiben." und „Der Fingerhut ist winterhart und kann unbedenklich
+    draussen stehen bleiben." warnten. Jetzt zählt eine geerbte Art nicht vor einer Standort- oder Pflege-Handlung; „in kleinen
+    Mengen unbedenklich" und „unbedenklich für Kinder" warnen weiter, und was die Basis warnt, bleibt.
 
 ## Offen — Suche
 

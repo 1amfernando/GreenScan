@@ -2353,6 +2353,13 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > 312 giftige und 404 harmlose Namen. Jede der Ausnahmen ist einzeln gezählt (`sensor_check` „Lina 12 ·
 > Gift-Gegenprobe (kj)“, 16 Gegenproben).
 
+> **Eine Regel, die erbt, erbt auch die Ausnahmen der Basis** (v33.82, Lina 13 (km); Hold-out zu #355). F erbte die Art in
+> „… und kann bedenkenlos im Garten bleiben.“ — dort steht nur der schwache Stamm „bedenkenlos“, kein Wort vom Essen. Eine
+> GEERBTE Art zählt seither nicht vor einer Standort- oder Pflege-Handlung (`nurPflegeGeerbt`, `PFLEGE_STANDORT`). Was die
+> Basis warnt, bleibt; es ist also keine neue Ausnahme an der Sicherheitslinie. Und die Lücke zwischen Stamm und Handlung ist
+> eine ORTSANGABE, kein beliebiges Wort: Mit `(?:\S+ ){0,3}` wurde „… in kleinen Mengen unbedenklich, solange du gesund
+> bleibst.“ still (Gegenprobe M02). `sensor_check` „Lina 13 · Pflege-Sätze (km)“, vier Gegenproben.
+
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
 > lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer

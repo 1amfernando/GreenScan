@@ -3267,21 +3267,99 @@ const FAELLE = [
         ];
         const zahl = {};
         VORLAGEN.forEach(([r, soll, v]) => {
-          let ok = 0; const falsch = [];
+          let ok = 0; const ohneW = [], fehlA = [];
           toxNamen.forEach((n) => {
             if (AUSNAHME.includes(n)) return;
             // G still: nur für Namen OHNE Ess-Wort — mit Ess-Wort muss der Erlebnis-Satz weiter warnen
             const s = (r === 'G' && soll === 'S' && ESSWORT.test(n)) ? 'W' : soll;
             const [f, a] = v(n);
-            if ((pruef(f, a) ? 'W' : 'S') === s) ok++; else falsch.push(n);
+            const ist = pruef(f, a) ? 'W' : 'S';
+            if (ist === s) ok++; else (s === 'W' ? ohneW : fehlA).push(n);
           });
           zahl[r + soll] = ok;
-          if (falsch.length) klagen.push('(o) ' + r + ' ' + (soll === 'W' ? 'ohne Warnung' : 'mit Fehlalarm') + ' bei ' + falsch.length + ' Namen: ' + falsch.slice(0, 5).join(', '));
+          if (ohneW.length) klagen.push('(o) ' + r + ' ohne Warnung bei ' + ohneW.length + ' Namen: ' + ohneW.slice(0, 5).join(', '));
+          if (fehlA.length) klagen.push('(o) ' + r + ' mit Fehlalarm bei ' + fehlA.length + ' Namen: ' + fehlA.slice(0, 5).join(', '));
         });
         // ein Name, der nur über „-nie" verneint war (N), warnt jetzt — die Basis und (kg) schwiegen
         if (!pruef(E, 'Ja, Rote Rosskastanie kannst du essen.')) klagen.push('(o) N: „Rote Rosskastanie" ohne Warnung');
         if (klagen.length) return { ok: false, warum: klagen.slice(0, 8).join(' · ') + (klagen.length > 8 ? ' · (+' + (klagen.length - 8) + ')' : '') };
         return { ok: true, info: W.length + ' Zusagen warnen, ' + S.length + ' Sätze still · Orakel über ' + toxNamen.length + ' giftige Namen: ' + Object.keys(zahl).map(k => k + ' ' + zahl[k]).join(' · ') };
+      } finally {
+        myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
+      }
+    },
+  },
+  {
+    // (km) Lina 13 · Pflege-Sätze (24.11.2026): der Hold-out des Koordinators zu (kj) fand zwei neue Fehlalarme — F erbte die Art in
+    // „… und kann bedenkenlos im Garten bleiben." (Narzisse) und „… und kann unbedenklich draussen stehen bleiben." (Fingerhut). Eine
+    // GEERBTE Art (F, K) zählt nicht mehr, wenn der Teil nur einen schwachen Stamm vor einer Standort- oder Pflege-Handlung trägt.
+    // Was die Basis warnt (die Arten der Frage, imSatz), bleibt — die Regel nimmt keine Warnung der Basis weg —, und ein Ess-Wort
+    // irgendwo im Satz hebt sie auf.
+    name: 'Lina 13 · Pflege-Sätze (km): eine geerbte Art zählt nicht, wenn der Teil nur „bedenkenlos/unbedenklich" vor einer Standort- oder Pflege-Handlung sagt — „unbedenklich für Kinder", „in kleinen Mengen unbedenklich" und jede starke Zusage warnen weiter',
+    lauf: async () => {
+      const sichern = { mp: myPlants, pl: plantings, ga: gardens };
+      const klagen = [];
+      try {
+        myPlants = []; plantings = []; gardens = [];
+        const pruef = (frage, antwort) => !!_gsLinaSicherheit(antwort, _gsLinaTrefferMitPflanzen(frage, _gsArtenTreffer(frage)));
+        const E = 'Was kann ich essen?';
+        // (a) still — die zwei Sätze des Hold-outs und ihre Geschwister (Standort, Pflege, Aufzählung)
+        const S = [
+          'Die Narzisse blüht im März und kann bedenkenlos im Garten bleiben.',
+          'Der Fingerhut ist winterhart und kann unbedenklich draussen stehen bleiben.',
+          'Der Fingerhut ist robust und kann unbedenklich umgetopft werden.',
+          'Die Eibe ist robust und kann bedenkenlos geschnitten werden.',
+          'Die Tollkirsche ist anspruchslos und kann unbedenklich im Halbschatten wachsen.',
+          'Narzissen und Tulpen können bedenkenlos im Garten bleiben.',
+        ];
+        // (b) muss warnen — ein schwacher Stamm OHNE Standort- oder Pflege-Handlung, eine Ortsangabe, die keine ist, ein Ess-Wort
+        //     im Satz und die starken Zusagen von F und K
+        const W = [
+          'Die Herbstzeitlose ist giftig, aber in kleinen Mengen unbedenklich.',
+          'Die Herbstzeitlose ist giftig, aber gekocht bedenkenlos.',
+          'Die Herbstzeitlose ist giftig, aber in kleinen Mengen unbedenklich, solange du gesund bleibst.',
+          'Die Narzisse blüht im März und kann bedenkenlos im Garten bleiben und roh gegessen werden.',
+          'Die Tollkirsche ist hübsch und unbedenklich für Kinder.',
+          'Die Tollkirsche ist hübsch und für Erwachsene unbedenklich.',
+          'Die Tollkirsche ist hübsch und kann bedenkenlos im Garten bleiben, die Beeren sind essbar.',
+          'Die Herbstzeitlose ist aber ebenfalls essbar.',
+          'Herbstzeitlose und Bärlauch sind essbar.',
+        ];
+        S.forEach((a) => { if (pruef(E, a)) klagen.push('(a) Fehlalarm: „' + a + '"'); });
+        W.forEach((a) => { if (!pruef(E, a)) klagen.push('(b) keine Warnung: „' + a + '"'); });
+        // (c) die Grenze der Regel: nennt die FRAGE die Art, warnt die Basis — (km) nimmt ihr nichts weg
+        if (!pruef('Kann die Narzisse im Garten bleiben?', 'Die Narzisse kann bedenkenlos im Garten bleiben.')) klagen.push('(c) (km) nimmt eine Warnung der Basis weg (die Frage nennt die Narzisse)');
+        // (o) Vorlagen über ALLE giftigen Namen (Art-Stufe ≥ 3), beide Richtungen; ein Name mit Ess-Wort („…pilz", „…beere")
+        //     warnt auch im Pflegesatz — die Regel nimmt nie ein Ess-Wort weg
+        const toxNamen = [], ges = {};
+        DB.forEach((sp) => { const n = String(sp && sp.name || '').trim(); const a = (_gsArtAnzeige(sp) || sp); if (n && !ges[n] && (a.tox | 0) >= 3) { ges[n] = 1; toxNamen.push(n); } });
+        if (toxNamen.length < 250) klagen.push('(o) nur ' + toxNamen.length + ' giftige Namen — der Fall misst nichts');
+        const ESSWORT = /(?:^|[\s-])ess|isst|nasch|kost|koch|brat|back|(?:^|[\s-])roh(?:$|[\s-])|salat|tee(?:$|[\s-])|suppe|saft|würz|wuerz|kau|frucht|früchte|fruechte|beere|pilz|samen|knolle|mang|mund|magen/i;
+        // „Wüstenrose (kl.)": der Punkt der Abkürzung trennt den Satz; „Echter Speise-Schirmling": „Speise" ist ein Zusage-Stamm —
+        // beides schon in der Basis (gemessen 24.11.2026: es warnen genau dieselben 36 Namen wie bei G in (kj))
+        const AUSNAHME = ['Wüstenrose (kl.)', 'Echter Speise-Schirmling'];
+        const VORLAGEN = [
+          ['bleiben', 'S', (n) => n + ' blüht im März und kann bedenkenlos im Garten bleiben.'],
+          ['stehen', 'S', (n) => n + ' ist winterhart und kann unbedenklich draussen stehen bleiben.'],
+          ['K', 'S', (n) => n + ' und Tulpen können bedenkenlos im Garten bleiben.'],
+          ['Menge', 'W', (n) => n + ' ist giftig, aber in kleinen Mengen unbedenklich.'],
+          ['Kinder', 'W', (n) => n + ' ist hübsch und unbedenklich für Kinder.'],
+        ];
+        const zahl = {};
+        VORLAGEN.forEach(([r, soll, v]) => {
+          let ok = 0; const ohneW = [], fehlA = [];
+          toxNamen.forEach((n) => {
+            if (AUSNAHME.includes(n)) return;
+            const s = (soll === 'S' && ESSWORT.test(n)) ? 'W' : soll;   // ein Name mit Ess-Wort warnt auch im Pflegesatz
+            const ist = pruef(E, v(n)) ? 'W' : 'S';
+            if (ist === s) ok++; else (s === 'W' ? ohneW : fehlA).push(n);
+          });
+          zahl[r] = ok;
+          if (ohneW.length) klagen.push('(o) ' + r + ' ohne Warnung bei ' + ohneW.length + ' Namen: ' + ohneW.slice(0, 5).join(', '));
+          if (fehlA.length) klagen.push('(o) ' + r + ' mit Fehlalarm bei ' + fehlA.length + ' Namen: ' + fehlA.slice(0, 5).join(', '));
+        });
+        if (klagen.length) return { ok: false, warum: klagen.slice(0, 8).join(' · ') + (klagen.length > 8 ? ' · (+' + (klagen.length - 8) + ')' : '') };
+        return { ok: true, info: S.length + ' Pflegesätze still, ' + W.length + ' Zusagen warnen · Vorlagen über ' + toxNamen.length + ' giftige Namen: ' + Object.keys(zahl).map(k => k + ' ' + zahl[k]).join(' · ') };
       } finally {
         myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
       }

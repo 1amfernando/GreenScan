@@ -92292,6 +92292,11 @@ function _gsLinaSicherheit(antwort, treffer) {
     var GENIESS_ERLEBNIS = new RegExp('geniess\\S*\\s+' + GENIESS_ART + '\\s+' + GENIESS_LUECKE + '(?:garten|gärten|gaerten|anblick|aussicht|duft|düfte|duefte|farben|farbenpracht|blütenpracht|bluetenpracht|pracht|spaziergang|ruhe)' + GENIESS_ENDE, 'iu');
     var GENIESS_BLUETE_ORT = new RegExp('geniess\\S*\\s+' + GENIESS_ART + '\\s+' + GENIESS_LUECKE + '(?:blüten?|blueten?)' + GENIESS_ENDE + '[^.!?]*\\s(?:im|in|auf|am)\\s+(?:\\S+\\s+)?(?:garten|beet|balkon|park|wald|topf|kübel|kuebel|terrasse|wiese)(?![\\p{L}\\p{N}-])', 'iu');
     var ESSWORT = /\bess|\bisst\b|gegessen|\bnasch|verspeis|\bkost|probier|schmeck|lecker|\bkoch|gekocht|\bbrat|\bback|\broh\b|salat|\btee\b|suppe|\bsaft|marmelade|gelee|sirup|würz|wuerz|\bmund|magen|schluck|\bkau|frucht|früchte|fruechte|beere|pilz|samen|knolle|\beat|\bcook|\bmang|cuisin|cucin|\bfood/;
+    // (km) Pflege-Sätze (24.11.2026, Hold-out des Koordinators zu (kj)): F erbte die Art in „… und kann bedenkenlos im Garten
+    // bleiben.“ — ein schwacher Stamm vor einer Standort- oder Pflege-Handlung sagt nichts zum Essen. Die Handlung folgt dem Stamm
+    // direkt oder nach einer Ortsangabe („im Garten“, „draussen“); „unbedenklich, solange du gesund bleibst“ ist keine Ortsangabe.
+    var PFLEGE_ORT_LUECKE = '(?:(?:draussen|draußen|drinnen|aussen|außen|ruhig|weiter|weiterhin|ganzjährig|ganzjaehrig) |(?:im|in|ins|auf|am|an|unter|vor|neben|beim|bei|über|ueber) (?:\\S+ ){0,2}?)*';
+    var PFLEGE_STANDORT = new RegExp('(?:bedenkenlos|unbedenklich|ohne bedenken) ' + PFLEGE_ORT_LUECKE + '(?:(?:stehen|liegen) )?(?:bleib|steh|wachs|wächst|waechst|geschnitten|' + PFLEGE_TUN + ')');
     var KONTRAST = /\bdagegen\b|\bhingegen\b|\bjedoch\b|\bwährend\b|\bwaehrend\b|\bwohingegen\b|\bpar contre\b|\btandis que\b|\balors que\b|\binvece\b|\bmentre\b|\bwhereas\b|\bwhile\b|\bwhilst\b/;
     var GIFTWORT = /giftig|tödlich|toedlich|toxisch|gefährlich|gefaehrlich|poison|toxic|deadly|velenos|tossic|mortel|mortal|toxique|vénéneu|veneneu/;
     var ENTWARNT = /nicht (?:sehr |besonders |so |wirklich )?(?:giftig|gefährlich|gefaehrlich|toxisch)|ungiftig|harmlos|\bnot (?:very |really )?(?:poisonous|toxic|dangerous)\b|non (?:toxique|tossic|velenos)|pas (?:toxique|dangereu)/;
@@ -92310,6 +92315,12 @@ function _gsLinaSicherheit(antwort, treffer) {
       // „unbedenklich" nur mit einem Pflegemittel (oder „das") als Satzgegenstand — „Sie ist unbedenklich" meint die Pflanze
       if (GENIESS_ERLEBNIS.test(String(roh || '')) || GENIESS_BLUETE_ORT.test(String(roh || ''))) return true;   // G (kj), am rohen Text
       return PFLEGE_MITTEL.test(n) && PFLEGE_SUBJEKT.test(n) && !nenntArt(roh);
+    };
+    // (km): eine GEERBTE Art (F, K) zählt nicht in einem Teil, der nur einen schwachen Stamm vor einer Standort- oder
+    // Pflege-Handlung trägt. Was die Basis warnt (die Arten der Frage, imSatz), bleibt; ein Ess-Wort im Satz hebt es auf (wie B).
+    var nurPflegeGeerbt = function (n, satzN) {
+      if (STARK.test(n) || (VERZEHR.test(n) && JA_DAVOR.test(n)) || !SCHWACH.test(n) || ESSWORT.test(n) || (satzN && ESSWORT.test(satzN))) return false;
+      return PFLEGE_STANDORT.test(n);
     };
     // (kj) Lina 12 (24.11.2026, Hold-out des Koordinators zu (kg)): fünf Regeln, jede einzeln gegen die Basis gemessen
     // (Orakel über alle Namen, Vorlagen je giftigem Namen, sensor_check „Lina 12"):
@@ -92399,7 +92410,7 @@ function _gsLinaSicherheit(antwort, treffer) {
           // die Menge der Basis (hoch, sonst imSatz des Teils) bleibt immer drin; dazu A
           kand = hoch.concat(basisJa ? imSatz(teile[j]) : []);
           zustimmend.forEach(function (k) { kand = kand.concat(genanntIn(k)); });
-          kand = kand.concat(geerbt(teile, j));   // F, K (kj)
+          if (!nurPflegeGeerbt(sz, satzN)) kand = kand.concat(geerbt(teile, j));   // F, K (kj) — nicht vor einer Pflege-Handlung (km)
           if (kontrast && zustimmend.every(nenntArt)) {
             kand = kand.filter(function (art) {
               if (zustimmend.some(function (k) { return genanntIn(k).some(function (x) { return gleich(x, art); }); })) return true;
