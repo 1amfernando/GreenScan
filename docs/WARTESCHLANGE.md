@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 14:20 UTC · `main` = `1649859` (**v33.69**, #338) · letzte Änderung: Reihe auf „gestapelt" umgestellt.
+**Stand:** 24.11.2026, 14:27 UTC · `main` = `1649859` (**v33.69**, #338) · letzte Änderung: Reihe auf „gestapelt" umgestellt.
 
 ## 1 · Warum es schneller wird
 
@@ -40,11 +40,11 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 
 | Nr | Sitzung | Branch | Version | STATUS-Kennung | Zustand |
 |---|---|---|---|---|---|
-| 1 | Hauptfunktionen (Pilz · Wissen · Lina 9) | `claude/happy-thompson-24l4uu` | v33.70 | (jr) Pilz · (js) Wissen · (jt) Lina 9 | spielt main ein, bumpt, pusht — dann PR |
-| 2 | Audit | `ccr-dce5a17c-2xzhvi` | v33.71 | (ju) | stapelt auf 1, sobald deren Kopf gepusht ist |
+| 1 | Hauptfunktionen (Pilz · Wissen · Lina 9) | `claude/happy-thompson-24l4uu` | v33.70 | (jr) Pilz · (js) Wissen · (jt) Lina 9 | **PR #343 offen** (Kopf `90863cd`, CI seit 14:25) — Audit stapelt darauf; Folge-Commits nur nach Absprache |
+| 2 | Audit | `ccr-dce5a17c-2xzhvi` | v33.71 | (ju) | stapelt auf `90863cd` (Nr. 1) — jetzt dran |
 | 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | v33.72 | (jv) | stapelt auf 2; der Proxy-Teil gehört Fernando |
 | 4 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.73 | (jw) | Entwurf zuerst (Abstimmung), danach stapeln; Restnaht XP aus #338 gehört hierher |
-| 5 | Hauptfunktionen · Scanner 12 „Mit Bildern vergleichen" | `claude/happy-thompson-24l4uu` (nach v33.70) | v33.74 | (jx) | fertig lokal (7 Fälle grün, 9 Gegenproben rot); gepusht erst nach dem v33.70-Push |
+| 5 | Hauptfunktionen · Scanner 12 „Mit Bildern vergleichen" | eigener Branch ab v33.70 (nicht auf dem Kopf von Nr. 1) | v33.74 | (jx) | fertig lokal (7 Fälle grün, 9 Gegenproben rot); gepusht erst nach dem v33.70-Push |
 | – | Lina · Einblick (#340) | `claude/lina-einblick-011L7` | nächste freie | nächste freie | **wartet auf Fernando:** die Datenschutz-Freigabe („Standard AN, Wortlaut") ist nicht belegt, die Sitzung ist vom Koordinator nicht erreichbar (untrusted device) |
 | – | Brett (#341) | `ccr-b63433a4-d1xgyg` | – | nach (jw) | enthält `.github/workflows/*` und `docs/AGENTEN-NETZ.md` → Fernando; der Werkzeug-Teil kommt als eigener, kleiner PR |
 
