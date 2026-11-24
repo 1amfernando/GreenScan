@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.78.20261124">
+<meta name="app-version" content="33.79.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -80745,6 +80745,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.79', date: '24.11.2026',
+      headline: 'Lina warnt bei giftigen Pflanzen zuverlässiger — auch in der Mehrzahl und bei all deinen Pflanzen',
+      summary: 'Lina 11 neu. Die Gift-Gegenprobe behält alles, was sie bisher erkannt hat, und liest dazu Namen, wie Sätze sie schreiben: Mehrzahl, Fälle, „…blätter“ und „…beeren“ (zum Beispiel „Tollkirschen kannst du essen.“ oder „Oleanderblätter“). Sie prüft alle eigenen Pflanzen einer Frage, vorher nur zwei, und „Lilli auch.“ nach einer Zusage. Still bleibt sie nur in zwei engen Fällen: bei Pflegesätzen wie „Du kannst Lilli bedenkenlos umtopfen.“ und bei Gegensätzen, in denen eine andere Art essbar und diese giftig genannt wird. Gemessen über alle Namen der Artenliste: Was bisher warnte, warnt weiter. Ein eben notierter Schädling ist sofort bei Lina.',
+      user_summary: 'Lina warnt bei giftigen Pflanzen zuverlässiger — und nicht mehr bei Pflegetipps.',
+      user_items: [
+        {emoji:'🌿', bold:'Lina warnt, wo es zählt:', text:' auch bei „Tollkirschen“ oder „Oleanderblättern“ und bei allen deinen Pflanzen in einer Frage.'},
+        {emoji:'✂️', bold:'Pflegetipps ohne Fehlalarm:', text:' „Du kannst sie bedenkenlos umtopfen“ ist kein Essenstipp mehr.'},
+        {emoji:'🐛', bold:'Schädling notiert:', text:' Lina weiss es sofort, nicht erst nach einem Neustart.'},
+      ]
+  },
+  {
     v: 'v33.78', date: '24.11.2026',
       headline: 'Pilz-Vergleich: die gefährlichsten Doppelgänger zuerst — und wenn Angaben fehlen, steht es da',
       summary: 'Scanner 14. Der Bildvergleich im Pilz-Scanner zeigt die Doppelgänger zuerst nach ihrer Gefahr laut Register (tödlich, giftig, unbekannt), dann nach dem Verwechslungs-Risiko; je Art zählt ihr höchstes Risiko. Vorher fielen bei sechs Paaren beide Knollenblätterpilze heraus, still gekürzt auf drei. Was nicht ins Fenster passt, wird genannt („N weitere Doppelgänger stehen nur in der Warnbox“). Kam zu einem Doppelgänger keine Angabe aus dem Register, sagt die Warnbox es mit Zahl, und im Vergleich steht „Essbarkeit nicht geladen“.',
@@ -81101,34 +81112,6 @@ window.GS_RELEASES = [
         {emoji:'🧯', bold:'Nicht von hier messbar:', text:' ob die Migrationen live dasselbe tun wie im Nachbau, und ob die Edge-Functions in Deno laufen (hier gibt es kein Deno). Beides zeigt erst das Anwenden — Reihenfolge und Handgriffe in docs/FUER-FERNANDO.md §30.'}
       ]
   },
-  {
-    v: 'v33.58', date: '11.11.2026',
-      headline: 'Rezepte und Fruchtfolge zeigen nie mehr auf eine Giftpflanze — und die KI läuft über den 30. November hinaus',
-      summary: 'Sechs Dinge, alle gemessen. (1) Rezept → Art: 524 Einträge geprüft, bei 239 zeigte der Link auf eine andere Art als die Hauptzutat, bei 84 auf eine als giftig geführte, 17 davon mit Giftstufe 3 oder höher (Pfifferling-Rahmsauce → Maiglöckchen, Morchel → Herbstzeitlose). Die Verknüpfung lief über eine Namens-Teilsuche; jetzt trägt jedes Rezept geprüfte Arten-Ids, und eine giftige Art wird aus einem Rezept nie geöffnet. (2) Fruchtfolge: GS_TRACHTEN_IDS führte Knollensellerie zum Grünen Knollenblätterpilz (Giftstufe 5) und Rettich zum Rettichfälbling; alle 37 Kulturen einzeln gegen die Artenliste gehalten. (3) KI-Modelle: Anthropic schaltet claude-sonnet-4-5 am 30.11.2026 ab — der Proxy schrieb JEDES Modell darauf um (37 von 37 Aufrufen), ab dann wäre jeder Scan gescheitert. Und claude-sonnet-4-20250514 ist seit dem 15.06.2026 weg: Pflanzendoktor, Garten-Analyse und „Plan anpassen“ nannten genau dieses eine Modell und waren fünf Monate tot, ohne dass etwas meldete. Jetzt gibt es eine Kette (Sonnet 4.6 → 5.5 → 5), in der App und auf dem Server, mit Rückfall — und jedes Modell bekommt seine Einstellungen: Sonnet 5.5 und 5 denken sonst von sich aus nach, das zählt gegen max_tokens und stellt einen thinking-Block vor den Text. (4) Der geteilte Scan-Cache ist aus: eine Tabelle für alle Konten, ein 64-Bit-Hash aus 9×8 Bildpunkten, der erste Eintrag gewinnt — ein fremder Treffer hätte die Bestimmung ersetzt. (5) Der Scan-Chat geht über callAI wie jede andere KI-Anfrage; eine abgelehnte Anfrage wird gesagt statt als leere Antwort gezeigt. (6) Vier Fehler aus dem Wochenplan KW45: „Keine bekannten Risiken“ stand als Warnung da, der Ersatz-Ort Zürich wurde gespeichert und sperrte danach das GPS, der Zurück-Knopf im Geräte-Dashboard warf einen Fehler, und ohne Website-Speicher startete die App nicht.',
-      user_summary: 'Ein Rezept führt jetzt nur noch zu der Pflanze, die wirklich gemeint ist — und nie zu einer giftigen. Dasselbe gilt für die Fruchtfolge. Die KI läuft über das Monatsende hinaus weiter, und Pflanzendoktor, Garten-Analyse und „Plan anpassen“ antworten wieder.',
-      user_items: [
-        {emoji:'🍄', bold:'Rezepte zeigen auf die richtige Art:', text:' bei 239 Rezepten führte der Link zu einer anderen Pflanze als der Hauptzutat, bei einigen zu einer giftigen. Das ist berichtigt, und eine giftige Art wird aus einem Rezept nie mehr geöffnet.'},
-        {emoji:'🥬', bold:'Fruchtfolge:', text:' „Knollensellerie“ führte zum Grünen Knollenblätterpilz, „Rettich“ zu einem Giftpilz. Alle 37 Kulturen zeigen jetzt auf die richtige Pflanze.'},
-        {emoji:'🤖', bold:'Die KI bleibt erreichbar:', text:' das bisherige KI-Modell wird Ende November abgeschaltet. GreenScan hat jetzt drei Modelle hintereinander — fällt eines weg, übernimmt das nächste.'},
-        {emoji:'🩺', bold:'Pflanzendoktor, Garten-Analyse, „Plan anpassen“:', text:' alle drei antworten wieder. Sie waren seit Juni ausgefallen, ohne dass die App es gemeldet hat.'},
-        {emoji:'🔬', bold:'Jeder Scan wird frisch bestimmt:', text:' ein Zwischenspeicher, den alle Konten teilten, ist abgeschaltet — ein fremdes Ergebnis kann nie an die Stelle deiner Bestimmung treten.'},
-        {emoji:'✅', bold:'Kein falscher Alarm:', text:' „Keine bekannten Risiken“ steht nicht mehr mit Warnzeichen da.'},
-        {emoji:'📍', bold:'Standort:', text:' ohne GPS-Freigabe zeigt die App weiter das Wetter für Zürich, merkt sich diesen Ersatz aber nicht mehr — sobald du den Standort erlaubst, gilt deiner.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen, Rezepte:', text:' rezept_link_check gegen v33.56 meldet 699 Verstösse (17 doppelte Rezept-Ids, 17 Links auf Giftstufe ≥ 3, 68 auf als giftig geführte Arten, 31 nicht essbare Ziele, 12 Ids ohne Art, 25 äusserliche Anwendungen als Lebensmittel); gegen v33.58 keinen.'},
-        {emoji:'🔗', bold:'Verknüpfung nur per Id:', text:' plantIds, plantKw und plantIdsBlocked je Rezept; die Sperre gilt, sobald EIN Eintrag der Art giftig geführt ist; 43 Rezepte haben bewusst keinen Link (34 gesperrt, 9 ohne eindeutige Art). 17 doppelte Rezept-Ids tragen jetzt die Endung _2.'},
-        {emoji:'🧭', bold:'GS_TRACHTEN_IDS:', text:' 37 Kulturen, jede Id gegen data/plants.v1.js gehalten (Name, Binomen, Kategorie, Giftstufe); zwei ohne passende Art bleiben ohne Link.'},
-        {emoji:'⛓️', bold:'Eine Kette, zwei Orte:', text:' window._gsClaudeFallbacks in der App und MODELL_KETTEN in supabase/functions/_shared/modelle.mjs — vorn Sonnet 4.6, der direkte Nachfolger des Modells, auf dem die App gebaut ist (frühestens am 17.02.2027 abgeschaltet), dahinter 5.5 und 5. Kein Modellname steht mehr in einer Edge-Function; ein Secret (GS_MODEL_VISION, GS_MODEL_FAST) stellt ein Modell davor, ohne neuen Quelltext.'},
-        {emoji:'🧠', bold:'Ein Modellname allein ist keine Umstellung:', text:' modellZusatz / _gsModellZusatz geben Sonnet 5.5 thinking between_tools, Sonnet 5 thinking disabled und beiden 35 % mehr Token (neuer Tokenizer); thinking-Blöcke werden aus der Antwort entfernt, damit auch eine ältere App content[0].text lesen kann. Quelle: Anthropic, „Migrating to Claude Sonnet 5.5“, gelesen am 10.11.2026.'},
-        {emoji:'🚪', bold:'ai-proxy:', text:' Stufen basic und premium (fielen auf das Gratis-Limit), Admins 2000, gesperrte Konten 403, der Notschalter global_api_enabled gilt auch hier, Anfragen über 20 MB 413, der Fehler der Entitlements-Abfrage wird gelesen, ai_usage nennt das Modell, das geantwortet hat. Ausgeliefert am 11.11.2026 mit plant-doctor-diagnose, plan-iterate, garden-scan-analyze, pest-identify und mushroom-identify.'},
-        {emoji:'🔐', bold:'Zwei Functions nahmen den öffentlichen Schlüssel an:', text:' pest-identify und mushroom-identify antworteten live auf den anon-Key ohne Konto (gemessen: „missing image_base64“ statt 401) — wer ihn kannte, konnte KI-Aufrufe auslösen. Die Fassung im Repo prüft das Konto und begrenzt auf 30 je Stunde; nach der Auslieferung: 401.'},
-        {emoji:'💬', bold:'Scan-Chat:', text:' ruft callAI statt eine eigene Anfrage zu bauen (kein Modell-Rückfall, kein Kontingent, content[0].text). Eine Ablehnung der KI (stop_reason refusal) wird ein Satz, kein leerer Treffer.'},
-        {emoji:'🗄️', bold:'GS_SCAN_CACHE_GETEILT = false:', text:' scan_check stellt einen fremden Treffer unter den Hash des Fotos — gegen v33.56 stand er als Bestimmung da, und die KI wurde 0× gefragt.'},
-        {emoji:'🧪', bold:'Prüfstände:', text:' neu modell_check (22 Fälle: die Rechnung, der ECHTE Handler von ai-proxy in Node, der Quelltext; 14 Gegenproben einzeln rot) und rezept_link_check; scan_check 76 → 77, schluessel_check 11 → 12 (Direktweg), GS_FRISTEN 6 → 7 (ki_modelle).'},
-        {emoji:'📅', bold:'Nicht messbar von hier:', text:' ob Anthropic die Namen der Kette heute annimmt. Nach dem nächsten echten Scan zeigt es ai_usage — select model, count(*), max(created_at) from ai_usage group by 1.'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81339,7 +81322,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.78';
+var GS_VERSION = 'v33.79';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
