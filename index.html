@@ -16569,6 +16569,10 @@ window.GS_I18N_JS_STRINGS = {
   'pest_natural_enemies':      'Natürliche Feinde:',
   'pest_alternatives':         'Alternative Kandidaten:',
   // ── v28.53: Pilz-Scanner — Diagnose (gsMushroomRenderResult + VapkoBox) ─
+  // Pilz-Scanner, Nachtrag 24.11.2026: der Knopf während der Bestimmung und der Satz nach dem Schliessen
+  'mush_identifiziere':        '⏳ Identifiziere…',
+  'mush_abgebrochen':          'Pilz-Bestimmung abgebrochen — es wird kein Ergebnis gezeigt.',
+  'mush_abgebrochen_gesendet': 'Pilz-Bestimmung abgebrochen — es wird kein Ergebnis gezeigt. Das Foto war schon unterwegs; der Versuch kann für heute zählen.',
   'mush_possible_candidate':   'Möglicher Kandidat:',
   'mush_uncertain_id':         'UNSICHERE Identifikation',
   'mush_ai_unsure':            'KI ist sich nicht sicher.',
@@ -27401,7 +27405,7 @@ function closeModal(id){
   // Pilz-Scanner (19.11.2026): wer das Pilz-Fenster schliesst, hat die Bestimmung verlassen —
   // eine Antwort, die danach ankommt, legt keine Vollbild-Warnung mehr über die App.
   if (id === 'modal-mushroom' && typeof gsPilzAbbrechen === 'function') {
-    try { gsPilzAbbrechen(); } catch(_){}
+    try { gsPilzAbbrechen('zu'); } catch(_){}   // lief eine Bestimmung, sagt ein Satz, dass sie abgebrochen ist
   }
   const m = document.getElementById(id);
   if(!m){
@@ -45876,24 +45880,42 @@ window._gsPilzFehlerSatz = _gsPilzFehlerSatz;
 // (dieselbe Regel wie analyzeImage, CLAUDE.md §3.6): ein neues Foto, ein neues
 // Öffnen und das Schliessen lösen die laufende ab; ihre Antwort wird verworfen.
 var _gsPilzNr = 0;
+// Nachtrag (gegnerische Prüfung, 24.11.2026): die laufende Bestimmung — {nr, gesendet} oder null —, damit
+// das Schliessen sagen kann, dass es eine abgebrochen hat; und die Nummer des Foto-Ladens: ein früher
+// gewähltes, langsamer kodiertes Foto legte sich sonst über ein später gewähltes, samt dessen Ergebnis.
+var _gsPilzLauf = null, _gsPilzFotoNr = 0;
 function _gsPilzKnopf(laeuft) {
   var btn = document.getElementById('mushroom-submit-btn');
   if (!btn) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
   // Die Beschriftung, wie die Sprachschicht sie gesetzt hat, kommt zurück — vorher
   // stand nach jeder Bestimmung fest „🔍 Pilz identifizieren", in jeder Sprache.
   if (laeuft && !btn.disabled) btn.setAttribute('data-gs-text', btn.textContent);
   btn.disabled = !!laeuft;
   btn.style.opacity = laeuft ? '.6' : '1';
-  btn.textContent = laeuft ? '⏳ Identifiziere…' : (btn.getAttribute('data-gs-text') || btn.textContent);
+  btn.textContent = laeuft ? _t('mush_identifiziere', '⏳ Identifiziere…') : (btn.getAttribute('data-gs-text') || btn.textContent);
 }
-function gsPilzAbbrechen() {
+// grund 'zu': das Fenster wurde geschlossen. Lief dabei eine Bestimmung, kommt EIN Satz — ein Tipp auf
+// den dunklen Rand über dem Formular schliesst es, und das sah aus wie „nichts passiert". Ein Ergebnis
+// zeigt es danach nicht: ein Urteil ohne sein Fenster wäre die Verwechslung, die die Nummer verhindert.
+function gsPilzAbbrechen(grund) {
+  var lauf = _gsPilzLauf;
+  _gsPilzLauf = null;
   _gsPilzNr++;
   _gsPilzKnopf(false);
+  if (lauf && grund === 'zu') {
+    var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+    var satz = lauf.gesendet
+      ? _t('mush_abgebrochen_gesendet', 'Pilz-Bestimmung abgebrochen — es wird kein Ergebnis gezeigt. Das Foto war schon unterwegs; der Versuch kann für heute zählen.')
+      : _t('mush_abgebrochen', 'Pilz-Bestimmung abgebrochen — es wird kein Ergebnis gezeigt.');
+    try { if (typeof showProfileToast === 'function') showProfileToast(satz, 'info'); else if (typeof gsToast === 'function') gsToast(satz, 'info', 5000); } catch (_) {}
+  }
 }
 window.gsPilzAbbrechen = gsPilzAbbrechen;
 
 function openMushroomModal() {
   gsPilzAbbrechen();   // ein frisches Fenster: was noch für ein früheres Foto läuft, gilt nicht mehr
+  _gsPilzFotoNr++;     // auch ein Foto, das noch für das vorige Fenster kodiert wird
   window._gsMushroomPhotoB64 = null;
   var preview = document.getElementById('mushroom-photo-preview');
   if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
@@ -45913,12 +45935,14 @@ async function gsMushroomLoadPhoto(input) {
   // Pilz-Scanner (19.11.2026): ein neues Foto — das Ergebnis des vorigen gehört nicht darunter,
   // und eine Bestimmung, die noch für das vorige läuft, wird verworfen.
   gsPilzAbbrechen();
+  var _ladeNr = ++_gsPilzFotoNr;   // Nachtrag 24.11.: nur das zuletzt gewählte Foto kommt an
   var _altErg = document.getElementById('mushroom-result'); if (_altErg) _altErg.innerHTML = '';
   try {
     // v33.59: das Foto geht verkleinert, neu kodiert und OHNE EXIF (GPS) hinaus — derselbe
     // Weg wie die Community-Fotos (_gsFotoOhneMeta). Unlesbar: ein Satz, nichts Rohes.
     window._gsMushroomPhotoB64 = null;
     var b64 = await _gsFotoOhneMeta(file);
+    if (_ladeNr !== _gsPilzFotoNr) return;   // inzwischen ein anderes Foto gewählt oder ein neues Fenster
     if (!b64) { var _pv = document.getElementById('mushroom-photo-preview'); if (_pv) { _pv.innerHTML = ''; _pv.style.display = 'none'; } return; }
     window._gsMushroomPhotoB64 = b64;
     var preview = document.getElementById('mushroom-photo-preview');
@@ -45927,6 +45951,7 @@ async function gsMushroomLoadPhoto(input) {
       preview.style.display = 'block';
     }
   } catch(_) {
+    if (_ladeNr !== _gsPilzFotoNr) return;
     if (typeof showProfileToast === 'function') showProfileToast('Upload fehlgeschlagen', 'error');
   }
 }
@@ -45949,6 +45974,7 @@ async function gsMushroomRunScan() {
   // Pilz-Scanner (19.11.2026): die Nummer dieser Bestimmung — ein neues Foto, ein neues Öffnen
   // und das Schliessen zählen eins weiter (gsPilzAbbrechen), dann gilt ihre Antwort nicht mehr.
   var nr = ++_gsPilzNr;
+  _gsPilzLauf = { nr: nr, gesendet: false };
   _gsPilzKnopf(true);
 
   if (typeof showProfileToast === 'function') showProfileToast('🔬 KI analysiert (Sicherheit vor Präzision)…', 'info');
@@ -45963,6 +45989,7 @@ async function gsMushroomRunScan() {
     if (!gilt()) return;   // abgebrochen, bevor die Anfrage hinausging — dann geht sie auch nicht hinaus
     var fetchFn = window._gsFetch || fetch;
     var photoB64 = String(window._gsMushroomPhotoB64).replace(/^data:image\/\w+;base64,/, '');
+    if (_gsPilzLauf && _gsPilzLauf.nr === nr) _gsPilzLauf.gesendet = true;
     var resp = await fetchFn(SB_URL + '/functions/v1/mushroom-identify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + token },
@@ -45974,18 +46001,26 @@ async function gsMushroomRunScan() {
       if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + _gsPilzFehlerSatz(j, resp.status), 'error');
       return;
     }
-    gsMushroomRenderResult(j);
+    // Nachtrag (gegnerische Prüfung, 24.11.2026): die Anzeige wartet in fr/it/en/es noch auf die
+    // Übersetzung (bis zu zwei Abfragen) — NACH dieser Prüfung. Ohne await und ohne `gilt` darin
+    // erschien „✅ Speisepilz" eines alten Fotos unter einem neuen, sogar über einem neueren „TÖDLICH".
+    await gsMushroomRenderResult(j, gilt);
   } catch(e) {
     if (!gilt()) return;
     if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + ((typeof _gsFehlerText === 'function') ? _gsFehlerText(e) : 'Keine Verbindung zum Server — bitte erneut versuchen.'), 'error');
   } finally {
     // Nur die laufende Bestimmung gibt den Knopf frei — eine abgelöste darf ihn einer neuen nicht entsperren.
     if (nr === _gsPilzNr) _gsPilzKnopf(false);
+    if (_gsPilzLauf && _gsPilzLauf.nr === nr) _gsPilzLauf = null;
   }
 }
 window.gsMushroomRunScan = gsMushroomRunScan;
 
-async function gsMushroomRenderResult(j) {
+// `gilt` (optional): gilt die Bestimmung noch? Gefragt vor dem ersten Zeichnen UND nach dem Warten auf
+// die Übersetzung — dazwischen kann ein neues Foto, ein neues Öffnen oder das Schliessen liegen.
+async function gsMushroomRenderResult(j, gilt) {
+  var _giltNoch = function () { return typeof gilt !== 'function' || gilt(); };
+  if (!_giltNoch()) return;
   var box = document.getElementById('mushroom-result');
   if (!box) return;
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
@@ -46031,6 +46066,8 @@ async function gsMushroomRenderResult(j) {
       }
     }
   } catch(_){}
+  // Nachtrag 24.11.: nach dem Warten — gehört das Ergebnis noch zum gezeigten Foto?
+  if (!_giltNoch()) return;
 
   // ============= Match-Card =============
   // safety_color aus v_mushroom_safety: red/orange/yellow/green

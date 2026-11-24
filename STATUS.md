@@ -69,6 +69,10 @@ mitten in ihrer Hochzähl-Animation (3'129 … 3'134 statt 3'136). Er liest jetz
 **Und ein zweiter Fall mit der alten Regel:** `scan_check` D1g (v32.96) verlangte für dieselbe Kachel noch „nur Stufe ≥ 2“ (598) — während E9 die Zahl des Filters verlangt: zwei Fälle, zwei Regeln für eine Kachel (die Klasse aus E3/E9, v33.08). D1g rechnet jetzt mit eigenem Massstab die Regel des Filters nach und prüft weiter Stufe 4 und 5; Gegenprobe mit der alten Lexikon-Regel rot („das ist ‚nur Stufe ≥ 2‘: die 77 Einträge darunter mit Giftangabe fehlen“).
 Auf diesem Stand (main v33.67 + Pilz-Paket + dieses Paket): scan 133/0 · nutzersicht 12/0 · austausch 17/0 · robust 33/0 · contrast 0 unter AA (hell und dunkel) · render 0 verdächtig · i18n · a11y · touch · wiring · data grün.
 
+**Nachtrag 24.11. (gegnerische Prüfung):** Zähler und Listen stimmen (1'062 · 675 · 967 = Treffer), Tastatur und Kopf-Chip
+auch. Ein Rand: die Kachel „Arten" (3'136) öffnet die ganze Liste, deren Kopf „4337 Einträge" sagt — dieselbe Menge, anders
+gezählt, und der Kopf nennt seine Einheit (E9 Teil 3). Wie die Startkachel „Arten"; so gelassen.
+
 **Offen:** nichts — brett:2026-11-16-4d79 ist mit diesem Paket geschlossen.
 **Nicht geprüft:** ein echtes Telefon; die Kacheln in einer anderen App-Sprache (Wörter über `_t`, Zahlen über `gsLocale` — nicht gefahren).
 
@@ -105,6 +109,20 @@ beide rot, mit genau den gemessenen Sätzen. Gegenproben je Schutzzeile, jede am
 Prüfung vor dem Absenden → 5 · Beschriftung → PZ6. **Die erste Fassung von 3b war mit ausgebautem Schutz am Öffnen
 grün:** sie wählte danach ein neues Foto, und dessen Schutz deckte den Fall mit — ein Fall, dessen zwei Wege dasselbe
 Ergebnis liefern, prüft keinen. Brett: Nachtrag `2026-11-19-33e0` zur Klasse 89ee. Auf diesem Stand (main v33.66 + dieses Paket): scan 129/0 · robust 33/0 · i18n · nutzersicht 12/0 · wiring · escape 11/0 · versprechen · austausch 17/0 · sicherheit (Gruppe scan) grün.
+
+**Nachtrag 24.11.2026 — gegnerische Prüfung dieses Pakets** (ein Prüfer ohne meine Schlüsse, mit Playwright gegen den
+committeten Stand). **Ein schwerer Fund:** in fr/it/en/es wartet `gsMushroomRenderResult` auf bis zu zwei Übersetzungs-Abfragen,
+NACH der Prüfung in `gsMushroomRunScan`, und RunScan wartete nicht auf die Anzeige — unter einem neuen Foto erschien „✅ Speisepilz"
+des alten, und ein älteres „Speisepilz" überschrieb ein neueres „TÖDLICH" (fr, nachgestellt). Auf Deutsch zeichnet die Anzeige
+ohne Warten, und PZ5 lief nur auf Deutsch. **Behoben:** RunScan wartet auf die Anzeige und reicht `gilt` hinein; sie fragt nach dem
+Warten noch einmal. Dazu drei kleinere: zwei sich überholende Foto-Ladevorgänge (ein später kodiertes älteres Foto verdrängte das
+neuere samt dessen Ergebnis — `_gsPilzFotoNr`), der catch-Zweig einer abgelösten Bestimmung (richtig, aber von keinem Fall
+gemessen), und das stille Schliessen (ein Tipp auf den dunklen Rand über dem Formular brach ab, ohne dass etwas es sagte — jetzt
+ein Satz, mit „der Versuch kann zählen", wenn das Foto schon unterwegs war). „⏳ Identifiziere…" geht durch die Sprachschicht.
+**Bewusst nicht** geändert (Befund 5 des Prüfers als Frage): nach dem Schliessen kommt auch ein tödliches Urteil nicht mehr als
+Vollbild — die Person hat das Fenster verlassen; der Satz sagt ihr, dass es kein Ergebnis gibt. `scan_check` PZ7 (sechs Lagen),
+gegen den Stand davor rot; neun Gegenproben einzeln rot, je an der richtigen Lage. Die Klasse in CLAUDE.md §3.6: die Prüfung
+reicht bis zum Zeichnen, auch durch eine aufgerufene Funktion, die selbst wartet.
 
 **Offen:** brett:2026-11-19-a24a — der Pilz-Eintrag im Scan-Verlauf (erst nach der Datenseite); Versionsnummer `v33.6x` am Kopf der Reihe.
 **Nicht geprüft:** ein echtes Telefon; dieselbe Bauform im Pflanzendoktor und im Schädlings-Check (nicht nachgesehen, Nachtrag 33e0).

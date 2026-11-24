@@ -69,6 +69,13 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     Vollbild; nach dem Schliessen legte sich die Vollbild-Warnung später über die App. Jetzt eine Nummer je
     Bestimmung (`gsPilzAbbrechen`), und der Knopf trägt danach wieder seine eigene Beschriftung statt fest
     „🔍 Pilz identifizieren" in jeder Sprache.
+    **Nachtrag 24.11. (gegnerische Prüfung, `scan_check` PZ7):** in fr/it/en/es wartet die Anzeige auf bis zu zwei
+    Übersetzungs-Abfragen — NACH der Prüfung, und `gsMushroomRunScan` wartete nicht auf sie: unter einem neuen Foto
+    stand „✅ Speisepilz" des alten, sogar über einem neueren „TÖDLICH"; PZ5 lief nur auf Deutsch. Jetzt wartet die
+    Bestimmung auf ihre Anzeige und reicht `gilt` hinein. Dazu: ein später kodiertes älteres Foto verdrängt kein neueres
+    mehr (`_gsPilzFotoNr`), ein abgelöster Netzfehler bleibt still (der Zweig war ungeprüft), wer während der
+    Bestimmung schliesst (ein Tipp auf den dunklen Rand genügt), bekommt einen Satz statt Stille, und „⏳ Identifiziere…"
+    geht durch die Sprachschicht.
 
 ## Offen — Lina
 

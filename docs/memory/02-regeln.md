@@ -55,7 +55,9 @@ Tagebuch in `CLAUDE.md`.
    dem GESPRÄCH: kann die Person während des Wartens das Gespräch wechseln, zählt jeder
    Wechsel (`_gsLinaGespraechNr`), und Vorgeschichte, Gesprächs-Id und Antwort gehören dem
    Gespräch, in dem gefragt wurde — ist es nicht mehr offen, in die Cloud dorthin, mit einem
-   Satz. *(sensor_check L12)*
+   Satz. *(sensor_check L12)* — Die Prüfung reicht bis zum Zeichnen, auch durch eine
+   aufgerufene Funktion, die selbst wartet: auf sie warten und die Prüfung hineinreichen
+   (`gsMushroomRenderResult(j, gilt)`, wartet in fr/it/en/es auf Übersetzungen). *(scan_check PZ7)*
 
 6. **Fremder Text ist Text, nie Code.** `escHtml(s)` fuer Text/Attribut,
    `_gsOcStr(s)` fuer Werte in `onclick="…"`, `gsSanitizeHtml(html)` fuer
