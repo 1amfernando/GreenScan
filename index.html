@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.69.20261124">
+<meta name="app-version" content="33.70.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -16779,7 +16779,7 @@ window.GS_I18N_JS_STRINGS = {
   'lina_verlauf_offen':        'offen',
   'lina_zurueck':              '← Zurück',
   'lina_aktion_kaputt':        '(Die Aktion zu dieser Antwort ist nicht angekommen.)',
-  // ── v33.6x: Lina 9 — eine Antwort gehoert dem Gespraech, in dem gefragt wurde ──
+  // ── v33.70: Lina 9 — eine Antwort gehoert dem Gespraech, in dem gefragt wurde ──
   'lina_noch_dran':            'Lina antwortet noch auf deine vorige Frage — gleich bin ich wieder frei.',
   'lina_antwort_dort':         'Lina hat im vorigen Gespräch geantwortet — du findest es unter 🕘 Verlauf.',
   'lina_antwort_weg':          'Lina hat auf deine vorige Frage geantwortet — dieses Gespräch ist nicht mehr offen.',
@@ -79830,6 +79830,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.70', date: '24.11.2026',
+      headline: 'Jede Antwort bleibt bei ihrer Frage — Pilz-Scanner, Lina und der Wissen-Tab',
+      summary: 'Drei Pakete aus den Hauptfunktionen. Pilz-Scanner: ein Ergebnis gehört zu seinem Foto — ein neues Foto, ein neues Öffnen und das Schliessen lösen die laufende Bestimmung ab, auch in fr/it/en/es, wo die Anzeige noch auf Übersetzungen wartet. Lina: eine Antwort gehört dem Gespräch, in dem gefragt wurde — wer während des Wartens ein neues oder ein früheres Gespräch öffnet, findet sie bei ihrer Frage. Wissen-Tab: dieselben Zahlen wie Startseite und Filter, und jede Kachel öffnet ihre Liste.',
+      user_summary: 'Ein Pilz-Ergebnis steht nie mehr unter dem falschen Foto, Linas Antwort landet in dem Gespräch, in dem du gefragt hast, und die Zahlen im Wissen-Tab stimmen mit der Startseite überein.',
+      user_items: [
+        {emoji:'🍄', bold:'Pilz-Scanner:', text:' wählst du ein neues Foto, öffnest den Scanner neu oder schliesst ihn, gilt die laufende Bestimmung nicht mehr — ihr Ergebnis erscheint nie unter einem anderen Pilz. Schliesst du mitten in der Bestimmung, sagt dir ein Satz, dass es dazu kein Ergebnis gibt.'},
+        {emoji:'💬', bold:'Lina:', text:' tippst du während „Lina denkt nach…“ auf „＋ Neu“ oder öffnest ein früheres Gespräch, landet die Antwort trotzdem bei deiner Frage — und ein Satz sagt dir, wo sie steht.'},
+        {emoji:'📚', bold:'Wissen-Tab:', text:' „Arten“, „Essbar“ und „Giftig“ zeigen dieselben Zahlen wie die Startseite und der Filter, und jede Kachel öffnet die Liste, die sie zählt.'}
+      ],
+      items: [
+        {emoji:'🔢', bold:'Eine Nummer je Pilz-Bestimmung:', text:' _gsPilzNr und gsPilzAbbrechen (neues Foto, neues Öffnen, Schliessen). Die Prüfung gilt fragt Nummer UND Person (das Tor aus v33.68) — vor dem Senden, nach der Antwort, im catch und nach dem Warten auf die Übersetzung (gsMushroomRenderResult wartet in fr/it/en/es). _gsPilzFotoNr gegen zwei sich überholende Foto-Ladevorgänge.'},
+        {emoji:'🧵', bold:'Lina merkt sich, wo gefragt wurde:', text:' _gsLinaGespraechNr zählt jeden Wechsel des gezeigten Gesprächs; gsLinaSend hält Liste und Gesprächs-Id fest — Vorgeschichte, neue Id und Antwort gehören dorthin. Eine zweite Frage während des Wartens bekommt einen Satz statt Stille.'},
+        {emoji:'☠️', bold:'gsIstGiftig:', text:' die Regel des Filters (toxic oder Stufe 2 und höher, an der Art) als EINE Funktion für Filter und Lexikon-Kachel — vorher zählte die Kachel 598, der Filter 675.'},
+        {emoji:'🧪', bold:'Prüfstände:', text:' scan_check PZ5 bis PZ7 und D1g, sensor_check L12, nutzersicht_check E9 Teil 4 — jeder Fall gegen den alten Stand rot, jede Schutzzeile einzeln zurückgebaut am richtigen Fall rot.'}
+      ]
+  },
+  {
     v: 'v33.69', date: '24.11.2026',
       headline: 'Gelöscht bleibt gelöscht — und der Abgleich mischt, statt zu ersetzen',
       summary: 'Nachzug zu v33.68 aus der Schlussprüfung des zusammengeführten Diffs: vier Funde im Abgleich zwischen Gerät und Cloud, alle behoben. Einer war durch v33.68 selbst entstanden — die neue Zusammenführung je Eintrag holte einen ohne Empfang gelöschten Garten-Plan oder Track aus der Cloud zurück. Pläne und Tracks bekommen deshalb eine Löschmarke. Dazu drei ältere Lücken an derselben Stelle: ein frisch angemeldetes Gerät konnte Favoriten und Stimmen der Cloud ersetzen, Punkte wurden nach einem Start ohne Empfang doppelt gezählt, und ein beim Start nicht lesbares Profil blieb die ganze Sitzung ungelesen.',
@@ -80220,28 +80237,6 @@ window.GS_RELEASES = [
         {emoji:'📵', bold:'Grenze:', text:' der Server ist im Prüfstand gestellt. Geprüft ist, was die App aus einer Antwort MACHT — nicht, ob die RPC antwortet. Und versprechen_check bleibt hier blind, weil ein if (r.error) als Prüfung zählt — eigene Scheibe.'}
       ]
   },
-  {
-    v: 'v33.49', date: '17.09.2026',
-      headline: 'GreenScan ist jetzt eine Android-App',
-      summary: 'Es gibt ein APK zum Herunterladen — dieselbe App, aber die Dateien liegen IM Paket statt im Netz. Sie startet ohne Empfang, hat nie eine Adressleiste und braucht keinen Play Store. Fünf Dinge sind in der App anders als im Browser, und die App sagt jedes davon mit Grund.',
-      user_summary: 'GreenScan gibt es jetzt als richtige App zum Herunterladen. Sie startet auch ohne Empfang — die ganze Artenliste ist schon drin — und sieht nirgends mehr nach einer Webseite aus. Was in der App noch nicht geht, steht in der App.',
-      user_items: [
-        {emoji:'📱', bold:'Eine Datei, keine Anmeldung bei Google:', text:' herunterladen, einmal „Installieren erlauben“ antippen, fertig.'},
-        {emoji:'🌲', bold:'Der erste Start geht im Wald:', text:' die Artenliste und alle Bilder sind Teil der App, nicht ein Download beim ersten Öffnen.'},
-        {emoji:'↩️', bold:'Der Zurück-Knopf schliesst ein Fenster,', text:' nicht die ganze App.'},
-        {emoji:'🔎', bold:'Was noch nicht geht, sagt es:', text:' Erinnerungen und der Export von Backup/CSV/PDF kommen in der App später — im Browser auf green-scan.ch gehen sie weiter.'}
-      ],
-      items: [
-        {emoji:'📦', bold:'Nackte WebView statt TWA:', text:' dl.google.com ist aus dieser Umgebung gesperrt (403) — damit kein Google Maven, kein AndroidX, also weder Bubblewrap/TWA noch Capacitor. Und eine TWA ohne gültige Fingerabdrücke zeigt die Adressleiste, wäre also weiter eine Webseite in einer Hülle.'},
-        {emoji:'🌐', bold:'Derselbe Ursprung:', text:' shouldInterceptRequest liefert die Dateien unter https://green-scan.ch aus dem Paket. Deshalb gelten CORS, Anmelde-Rückkehr, Stripe und die CSP aus _headers unverändert — am Backend ist NICHTS zu ändern.'},
-        {emoji:'🚫', bold:'Nie null für den eigenen Ursprung:', text:' was das Paket nicht kennt, bekommt eine 404 aus dem Paket. null hiesse „hol es aus dem Netz“ — und dann wäre die App wieder eine Webseite.'},
-        {emoji:'📋', bold:'GS_HUELLE_ANDERS:', text:' fünf Einträge (kein Service Worker, kein Push, Update als Datei, kein Export, Bezahlen im Browser). Jeder hat eine Durchsetzungsstelle im Code UND steht auf dem Bildschirm; apk_check R8 hält beides gegeneinander.'},
-        {emoji:'🚪', bold:'Ein Tor statt acht Pflaster:', text:' acht Stellen bauen sich ihren eigenen Export-Anker. Das Tor sitzt am Klick auf a[download] — dieselbe Entscheidung wie das Kamera-Tor (v32.33) und die Tastatur-Nachrüstung (v32.16).'},
-        {emoji:'⏳', bold:'_gsSwReady:', text:' navigator.serviceWorker.ready kommt ohne registrierten Worker NIE zurück. Fünf Stellen warteten darauf — der Test-Push hätte für immer „⏳ Sende …“ gezeigt. Jetzt EIN Leser, der null liefert.'},
-        {emoji:'🧪', bold:'apk_check (28 Fälle, 18 Gegenproben):', text:' Pfade.java wird übersetzt und AUSGEFÜHRT (Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:), das Paket wird wirklich gebaut und aufgemacht (index.html byte-gleich), und die App läuft zweimal — mit und ohne die Kennung der Hülle.'},
-        {emoji:'📵', bold:'Grenze:', text:' hier läuft kein Android. Geprüft sind Bau, Rechnung und Entscheidung — nicht, wie sich ein Telefon verhält.'}
-      ]
-  }
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -80452,7 +80447,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.69';
+var GS_VERSION = 'v33.70';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
