@@ -985,7 +985,7 @@ const melde = (frage, ok, wie) => {
   // Start ohne Empfang: sbLoadProfile legt ein Ersatzprofil mit xp 0 an (`_ungelesen`). gsXpBootSync nahm die
   // 0 als Cloud-Stand, hielt die ganze lokale XP fuer „offline verdient" und buchte sie per fn_add_xp noch
   // einmal — die Rangliste zeigte danach das Doppelte. Und das Profil blieb die ganze Sitzung ungelesen.
-  const h12 = await page.evaluate(async () => {
+  const h12Lauf = (plus) => page.evaluate(async (PLUS) => {
     const raus = { rpc: [] };
     const warte = (ms) => new Promise(r2 => setTimeout(r2, ms));
     const echt = { fetch: window.sbFetch, login: window.sbIsLoggedIn, raw: window.fetch, agent: window.gsAgentScheduleNotifications, streak: window.checkAndUpdateStreak };
@@ -1026,11 +1026,14 @@ const melde = (frage, ok, wie) => {
       const altToast = window.showProfileToast; window.showProfileToast = () => {};
       try { gsAddXP(10, ''); await gsXpCloudFlush(); } finally { window.showProfileToast = altToast; }
       raus.puffer = window._gsXpPending || 0;
+      // Inzwischen verdient ein ZWEITES Geraet PLUS XP (die Cloud steigt, dieses Geraet weiss es nicht).
+      profil.xp += PLUS;
       // Der Empfang kommt zurueck: der naechste Abgleich holt das Profil nach.
       netz = true;
       window._gsBlobGelesen = {}; window._gsInitialSyncDone = false;
       await gsSyncUserDataOnLogin();
       await warte(1200);
+      if (window._gsXpPending) { await gsXpCloudFlush(); await warte(100); }   // ein noch offener Rest geht mit dem naechsten Flush
       raus.gelesen = !!(_sbProfile && !_sbProfile._ungelesen);
       raus.cloudXp = profil.xp;
       raus.vorgemerkt2 = window._gsXpPending || 0;
@@ -1044,16 +1047,21 @@ const melde = (frage, ok, wie) => {
       if (tok0 == null) localStorage.removeItem('gs_sb_token');
     }
     return raus;
-  });
+  }, plus);
   {
-    const summe = h12.rpc.reduce((a, n) => a + (Number(n) || 0), 0);
-    const ok = !h12.fehler && h12.ungelesen === true && h12.vorgemerkt === 0 && h12.puffer === 10 && h12.gelesen === true && h12.vorgemerkt2 === 0
-      && summe === 10 && h12.cloudXp === 1210 && h12.lokal === 1210;
-    melde('H12 · ein ungelesenes Profil ist kein Cloud-Stand: nach einem Start ohne Empfang wird die lokale XP NICHT noch einmal gebucht, der naechste gelungene Abgleich liest das Profil nach — und 10 XP aus dem Offline-Fenster kommen genau einmal an (Cloud 1210, nicht 1220)',
+    // Drei Lagen: allein (0) · das andere Geraet verdient WENIGER als dieses offline (+5: Cloud liegt zwischen
+    // altem Stand und lokal — `Puffer = lokal − Cloud` buchte hier nur 5 und verlor 5) · es verdient MEHR (+50).
+    // Erwartet ist immer: alles Verdiente steht in der Cloud, genau einmal — 1200 + PLUS + 10.
+    const lagen = [];
+    for (const plus of [0, 5, 50]) { const r12 = await h12Lauf(plus); r12.plus = plus; lagen.push(r12); }
+    const gut = (x) => !x.fehler && x.ungelesen === true && x.vorgemerkt === 0 && x.puffer === 10 && x.gelesen === true && x.vorgemerkt2 === 0
+      && x.rpc.reduce((a, n) => a + (Number(n) || 0), 0) === 10 && x.cloudXp === 1210 + x.plus && x.lokal === 1210 + x.plus;
+    const ok = lagen.every(gut);
+    const zeile = (x) => '+' + x.plus + ': gebucht ' + JSON.stringify(x.rpc) + ', Cloud ' + x.cloudXp + ', lokal ' + x.lokal + (x.fehler ? ' AUSNAHME ' + x.fehler : '');
+    melde('H12 · ein ungelesenes Profil ist kein Cloud-Stand: nach einem Start ohne Empfang wird die lokale XP NICHT noch einmal gebucht, der naechste gelungene Abgleich liest das Profil nach — und 10 XP aus dem Offline-Fenster kommen genau einmal an, auch wenn ein zweites Geraet die Cloud inzwischen um 5 oder 50 erhoeht hat',
       ok,
-      ok ? 'ohne Empfang: Ersatzprofil ungelesen, 0 vorgemerkt, nach +10 XP im Puffer 10 · mit Empfang: Profil gelesen, gebucht ' + JSON.stringify(h12.rpc) + ', Cloud 1210 = lokal'
-        : h12.fehler ? 'Ausnahme: ' + h12.fehler
-          : 'ungelesen=' + h12.ungelesen + ' · vorgemerkt ohne Empfang: ' + h12.vorgemerkt + ' XP (erwartet 0) · Puffer nach +10: ' + h12.puffer + ' · nach dem Abgleich gelesen=' + h12.gelesen + ' · vorgemerkt: ' + h12.vorgemerkt2 + ' · Buchungen: ' + JSON.stringify(h12.rpc) + ' (erwartet Summe 10) · Cloud: ' + h12.cloudXp + ' · lokale XP: ' + h12.lokal);
+      ok ? lagen.map(zeile).join(' · ')
+        : 'erwartet je Lage: gebucht Summe 10, Cloud = lokal = 1210 + PLUS — gemessen ' + lagen.map(x => zeile(x) + ' [ungelesen=' + x.ungelesen + ', vorgemerkt ' + x.vorgemerkt + ', Puffer ' + x.puffer + ', gelesen=' + x.gelesen + ', Rest ' + x.vorgemerkt2 + ']').join(' · '));
   }
 
   // ── SPEICHER-V2 Scheibe 1 · H13: ein aufgezeichneter Track bleibt ──
@@ -1128,6 +1136,123 @@ const melde = (frage, ok, wie) => {
           : 'Index ' + h13.idx + ' · nach dem Speichern lokal: ' + h13.l1 + ' · vorgemerkt: ' + h13.vorgemerkt + ' · nach dem Abgleich lokal: „' + h13.l2 + '“ · Cloud: „' + h13.c2 + '“ (erwartet beide: ' + beide + ')');
   }
 
+  // ── SPEICHER-V2 Scheibe 1 · H14: Loeschmarken, zweite Runde (Lese-Pruefung des Koordinators an v33.69) ──
+  // (a) im SAUBEREN Zweig uebernahm der Abgleich die Plan- und Track-Liste der Cloud ohne Blick auf die Marken;
+  // (b) eine Marke eines anderen Geraets entfernte nie einen LOKALEN Track (er ging mit dem naechsten Push zurueck);
+  // (d) ein gp_-Plan bekam die Marke vor dem Server-DELETE — scheiterte es, war er 90 Tage ausgeblendet;
+  // (e) Wiederherstellen nahm keine Marke zurueck · Track-Loeschen ging nach Stelle · Objekte wurden flach gemischt.
+  const h14 = await page.evaluate(async () => {
+    const raus = {};
+    const warte = (ms) => new Promise(r2 => setTimeout(r2, ms));
+    const echt = { fetch: window.sbFetch, login: window.sbIsLoggedIn, raw: window.fetch, toast: window.showProfileToast, frage: window.gsConfirmModal, liste: window.gsTrackOpenList, plaene: window.gsPPopenSavedPlans, agent: window.gsAgentScheduleNotifications };
+    const exp0 = localStorage.getItem('gs_sb_expires'), tok0 = localStorage.getItem('gs_sb_token');
+    const TAB = /\/rest\/v1\/(user_plants|user_gardens|user_app_state)/;
+    let cloud = {}, loeschenGeht = true;
+    const nimm = (tab, body) => { try { cloud[tab] = { data: JSON.parse(body).data, updated_at: new Date().toISOString() }; } catch (_) {} };
+    window.sbFetch = async function (pfad, opts) {
+      opts = opts || {}; const m = (opts.method || 'GET').toUpperCase();
+      const tab = (String(pfad).match(TAB) || [])[1];
+      if (m === 'DELETE') return loeschenGeht ? { data: [{}], error: null, status: 200 } : { data: null, error: { message: 'Service Unavailable', status: 503 }, status: 503 };
+      if (tab && (m === 'POST' || m === 'PATCH')) { nimm(tab, opts.body); return { data: [{}], error: null, status: 200 }; }
+      if (tab && m === 'GET') return cloud[tab] ? { data: [cloud[tab]], error: null, status: 200 } : { data: [], error: null, status: 200 };
+      return { data: [], error: null, status: 200 };
+    };
+    window.fetch = async function (url, opts) {
+      const tab = (String(url).match(TAB) || [])[1];
+      if (tab && opts && opts.body) { nimm(tab, opts.body); return new Response('[{}]', { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+      return echt.raw.apply(this, arguments);
+    };
+    window.sbIsLoggedIn = () => true;
+    window.showProfileToast = () => {};
+    window.gsConfirmModal = async () => true;
+    window.gsTrackOpenList = () => {};
+    window.gsPPopenSavedPlans = () => {};
+    window.gsAgentScheduleNotifications = async () => {};
+    localStorage.setItem('gs_sb_expires', String(Date.now() + 3600e3));
+    if (!tok0) localStorage.setItem('gs_sb_token', 'x.y.z');
+    const lies = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+    const ids = (a) => (a || []).map(x => x && x.id).sort().join(',');
+    const tss = (a) => (a || []).map(x => x && x.ts).sort().join(',');
+    const P = (id, tag) => ({ id: id, created: '2026-0' + tag + '-01T00:00:00.000Z', title: id, plan: { summary: id, plants: [] } });
+    const T1 = 1767225600000, T2 = 1767312000000, T3 = 1767398400000;
+    const TR = (ts) => ({ ts: ts, end: ts + 3600000, points: [] });
+    const stelle = (lokal, wolke, marken, schmutzig) => {
+      ['gs_sync_dirty', 'gs_sync_dirty_at_garden', 'gs_sync_dirty_at_state', 'gs_sync_dirty_at_plants', 'gs_garden_plan_current', 'gs_geloescht'].forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('gs_sb_uid', 'nutzer-H14'); localStorage.setItem('gs_last_active_uid', 'nutzer-H14');
+      localStorage.setItem('gs_gardens', JSON.stringify([{ id: 'g_c', name: 'Hochbeet' }])); localStorage.setItem('gs_plantings', '[]');
+      localStorage.setItem('gs_garden_plans', JSON.stringify(lokal.plans)); localStorage.setItem('gs_gpx_tracks', JSON.stringify(lokal.tracks));
+      localStorage.setItem('gs_sync_synced_at_garden', '2026-11-01T08:00:00.000Z'); localStorage.setItem('gs_sync_synced_at_state', '2026-11-01T08:00:00.000Z');
+      if (marken.lokal) localStorage.setItem('gs_geloescht', JSON.stringify(marken.lokal));
+      gardens = [{ id: 'g_c', name: 'Hochbeet' }]; plantings = [];
+      cloud = { user_gardens: { data: { gardens: [{ id: 'g_c', name: 'Hochbeet' }], plantings: [], plans: wolke.plans, current: null, gpx_tracks: wolke.tracks }, updated_at: '2026-11-20T08:00:00.000Z' } };
+      if (marken.wolke) cloud.user_app_state = { data: { geloescht: marken.wolke }, updated_at: '2026-11-20T08:00:00.000Z' };
+      window._gsBlobGelesen = {}; window._gsInitialSyncDone = false;
+      if (schmutzig) gsCloudSync.markDirty('garden');
+    };
+    try {
+      const jetzt = Date.now();
+      const M = { gs_garden_plans: { 'plan-a': jetzt }, gs_gpx_tracks: {} }; M.gs_gpx_tracks[String(T1)] = jetzt;
+      // (a) SAUBER: nichts ungesendet, die Marken liegen auf diesem Geraet, die Cloud traegt Plan und Track noch.
+      stelle({ plans: [P('plan-b', 6)], tracks: [TR(T2)] }, { plans: [P('plan-a', 5), P('plan-b', 6)], tracks: [TR(T1), TR(T2)] }, { lokal: M }, false);
+      await gsSyncUserDataOnLogin(); await warte(1500);
+      raus.a = { lokal: ids(lies('gs_garden_plans')) + ' | ' + tss(lies('gs_gpx_tracks')), cloud: ids(cloud.user_gardens.data.plans) + ' | ' + tss(cloud.user_gardens.data.gpx_tracks) };
+      // (b) UNGESENDET auf einem Geraet, das Plan und Track noch HAT; die Marken kommen aus der Cloud (anderes Geraet hat geloescht).
+      stelle({ plans: [P('plan-a', 5), P('plan-b', 6), P('plan-lokal', 7)], tracks: [TR(T1), TR(T2), TR(T3)] }, { plans: [P('plan-b', 6)], tracks: [TR(T2)] }, { wolke: M }, true);
+      await gsSyncUserDataOnLogin(); await warte(1500);
+      raus.b = { lokal: ids(lies('gs_garden_plans')) + ' | ' + tss(lies('gs_gpx_tracks')), cloud: ids(cloud.user_gardens.data.plans) + ' | ' + tss(cloud.user_gardens.data.gpx_tracks) };
+      // (d) gp_-Plan: das Server-DELETE scheitert — keine Marke (er muss sichtbar bleiben, damit man es erneut versuchen kann).
+      stelle({ plans: [], tracks: [] }, { plans: [], tracks: [] }, {}, false);
+      loeschenGeht = false;
+      await gsPPdeletePlan('gp_11111111-1111-4111-8111-111111111111');
+      loeschenGeht = true;
+      raus.d = Object.keys((JSON.parse(localStorage.getItem('gs_geloescht') || '{}').gs_garden_plans) || {}).join(',');
+      // (e3) Wiederherstellen nimmt die Marke zurueck.
+      stelle({ plans: [], tracks: [] }, { plans: [], tracks: [] }, { lokal: M }, false);
+      _gsRestoreKey('gs_garden_plans', [P('plan-a', 5)]); _gsRestoreKey('gs_gpx_tracks', [TR(T1)]);
+      const g3 = JSON.parse(localStorage.getItem('gs_geloescht') || '{}');
+      raus.e3 = { marken: Object.keys(g3.gs_garden_plans || {}).length + Object.keys(g3.gs_gpx_tracks || {}).length, plaene: ids(lies('gs_garden_plans')), tracks: tss(lies('gs_gpx_tracks')) };
+      // (e4) Track loeschen: waehrend die Rueckfrage offen ist, ersetzt ein Abgleich die Liste (ein Track kommt VORN dazu).
+      stelle({ plans: [], tracks: [TR(T2), TR(T3)] }, { plans: [], tracks: [] }, {}, false);
+      window.gsConfirmModal = async () => { localStorage.setItem('gs_gpx_tracks', JSON.stringify([TR(T1), TR(T2), TR(T3)])); return true; };
+      await gsTrackDelete(0);   // gemeint: T2 (Stelle 0 VOR der Rueckfrage)
+      window.gsConfirmModal = async () => true;
+      raus.e4 = tss(lies('gs_gpx_tracks'));
+      // (e2) Objekte eine Ebene tiefer mischen.
+      localStorage.setItem('gs_reminder_prefs', JSON.stringify({ disabled: { p1: true }, lokal: 1 }));
+      raus.e2 = JSON.stringify(_gsStateMischen('gs_reminder_prefs', { disabled: { p9: true, p1: false }, neu: 2 }));
+      localStorage.removeItem('gs_reminder_prefs');
+      raus.T = [T1, T2, T3];
+    } catch (e) { raus.fehler = String(e && e.stack || e).split('\n').slice(0, 3).join(' | '); }
+    finally {
+      window.sbFetch = echt.fetch; window.sbIsLoggedIn = echt.login; window.fetch = echt.raw; window.showProfileToast = echt.toast;
+      window.gsConfirmModal = echt.frage; window.gsTrackOpenList = echt.liste; window.gsPPopenSavedPlans = echt.plaene; window.gsAgentScheduleNotifications = echt.agent;
+      ['gs_geloescht', 'gs_sync_dirty', 'gs_sync_dirty_at_garden', 'gs_sync_dirty_at_state'].forEach(k => localStorage.removeItem(k));
+      if (exp0 == null) localStorage.removeItem('gs_sb_expires'); else localStorage.setItem('gs_sb_expires', exp0);
+      if (tok0 == null) localStorage.removeItem('gs_sb_token');
+    }
+    return raus;
+  });
+  {
+    const S = (o) => JSON.stringify(o);
+    const [T1, T2, T3] = h14.T || [0, 0, 0];
+    const f = [];
+    if (h14.fehler) f.push('Ausnahme: ' + h14.fehler);
+    else {
+      const a = 'plan-b | ' + T2;
+      if (!h14.a || h14.a.lokal !== a || h14.a.cloud !== a) f.push('(a) sauberer Zweig: erwartet Geraet und Cloud „' + a + '“, gemessen ' + S(h14.a));
+      const bSoll = 'plan-b,plan-lokal | ' + T2 + ',' + T3;
+      if (!h14.b || h14.b.lokal !== bSoll || h14.b.cloud !== bSoll) f.push('(b) Marke eines anderen Geraets gegen lokale Eintraege: erwartet „' + bSoll + '“, gemessen ' + S(h14.b));
+      if (h14.d !== '') f.push('(d) gp_-Plan: nach gescheitertem Server-DELETE steht eine Loeschmarke (' + h14.d + ') — der Plan waere 90 Tage ausgeblendet');
+      if (!h14.e3 || h14.e3.marken !== 0 || h14.e3.plaene !== 'plan-a' || h14.e3.tracks !== String(T1)) f.push('(e3) Wiederherstellen: erwartet 0 Marken, plan-a und Track da — gemessen ' + S(h14.e3));
+      if (h14.e4 !== T1 + ',' + T3) f.push('(e4) Track loeschen nach der Rueckfrage: erwartet „' + T1 + ',' + T3 + '“ (der gemeinte ' + T2 + ' ist weg), gemessen „' + h14.e4 + '“');
+      if (h14.e2 !== S({ disabled: { p1: true, p9: true }, lokal: 1, neu: 2 })) f.push('(e2) verschachtelt mischen: gemessen ' + h14.e2);
+    }
+    melde('H14 · Loeschmarken gelten ueberall: im sauberen Zweig (Plan und Track kommen nicht aus der Cloud zurueck, die Cloud wird nachgezogen), gegen LOKALE Eintraege (was ein anderes Geraet loeschte, geht auch hier), nicht fuer gp_-Plaene, nicht nach einer Wiederherstellung — und ein Track wird nach seinem Beginn geloescht, nicht nach seiner Stelle',
+      f.length === 0,
+      f.length === 0 ? 'sauber: ' + S(h14.a) + ' · fremde Marke: ' + S(h14.b) + ' · gp_: keine Marke · Wiederherstellung nimmt die Marke zurueck · Track nach ts · Objekte tief gemischt'
+        : f.join(' · '));
+  }
+
   await b.close();
 
   // ── Bericht ────────────────────────────────────────────────────────────
@@ -1144,20 +1269,25 @@ const melde = (frage, ok, wie) => {
     const i0 = QUELLE.indexOf('var stateMap = {');
     const i1 = i0 < 0 ? -1 : QUELLE.indexOf('// Wichtig: temporär den setItem-Patch umgehen', i0);
     const stueck = (i0 >= 0 && i1 > i0) ? QUELLE.slice(i0, i1) : '';
-    const rueck = Array.from(new Set(
-      [...stueck.matchAll(/^\s*'([A-Za-z0-9_]+)'\s*:/gm)].map(m => m[1])
-        .concat([...stueck.matchAll(/stateMap\['([A-Za-z0-9_]+)'\]\s*=/g)].map(m => m[1]))
-    ));
-    const ohne = rueck.filter(k => BLOB_KEYS.indexOf(k) < 0);
-    const unerklaert = ohne.filter(k => !Object.prototype.hasOwnProperty.call(OHNE_HINWEG, k));
+    // Gelesen wird OHNE Zeilenanker: die stateMap schreibt mehrere Schluessel in eine Zeile ('ps_favs': …,
+    // 'ps_votes': …) — mit Anker am Zeilenanfang sah der Fall nur den ersten je Zeile (26 von 32, Gegenpruefung).
+    const ohneKommentar = (x) => x.split('\n').filter(z => !/^\s*\/\//.test(z)).join('\n');
+    const lies = (x) => { x = ohneKommentar(x); return Array.from(new Set(
+      [...x.matchAll(/'((?:gs|ps)_[A-Za-z0-9_]+)'\s*:/g)].map(m => m[1])
+        .concat([...x.matchAll(/stateMap\['([A-Za-z0-9_]+)'\]\s*=/g)].map(m => m[1])))); };
+    const pruefe = (keys) => { const o = keys.filter(k => BLOB_KEYS.indexOf(k) < 0); return { ohne: o, unerklaert: o.filter(k => !Object.prototype.hasOwnProperty.call(OHNE_HINWEG, k)) }; };
+    const rueck = lies(stueck);
+    const { ohne, unerklaert } = pruefe(rueck);
     const ueberholt = Object.keys(OHNE_HINWEG).filter(k => ohne.indexOf(k) < 0);
-    // Gegenprobe im Fall: ein erfundener Schluessel im Rueckweg MUSS auffallen.
-    const probe = ['gs_erfunden_nur_rueckweg'].filter(k => BLOB_KEYS.indexOf(k) < 0 && !Object.prototype.hasOwnProperty.call(OHNE_HINWEG, k)).length === 1;
-    const ok = rueck.length >= 25 && unerklaert.length === 0 && ueberholt.length === 0 && probe;
+    // Gegenprobe DURCH den Parser: ein erfundener Schluessel, mitten in eine bestehende Zeile der stateMap
+    // gesetzt, MUSS als „kommt zurueck, wird nie hochgeladen" auffallen.
+    const mitErfundenem = stueck.replace("'ps_favs': sd.favs,", "'ps_favs': sd.favs, 'gs_erfunden_nur_rueckweg': sd.x,");
+    const probe = mitErfundenem !== stueck && pruefe(lies(mitErfundenem)).unerklaert.join() === 'gs_erfunden_nur_rueckweg';
+    const ok = rueck.length >= 30 && unerklaert.length === 0 && ueberholt.length === 0 && probe;
     melde('Kein Rueckweg ohne Hinweg: jeder Schluessel, den der Abgleich aus dem state-Blob zurueckschreibt, wird auch hochgeladen — oder steht mit Grund als „reist noch nicht" da',
       ok,
       ok ? rueck.length + ' Schluessel im Rueckweg · ' + ohne.length + ' ohne Hinweg, beide mit Grund (' + ohne.join(', ') + ')'
-        : rueck.length < 25 ? 'die stateMap wurde im Quelltext nicht gefunden (' + rueck.length + ' Schluessel) — der Fall misst nichts'
+        : rueck.length < 30 ? 'die stateMap wurde im Quelltext nicht (ganz) gefunden (' + rueck.length + ' Schluessel, erwartet mindestens 30) — der Fall misst nichts'
           : unerklaert.length ? 'kommt zurueck, wird aber nie hochgeladen: ' + unerklaert.join(', ')
             : ueberholt.length ? 'als „reist noch nicht" gefuehrt, hat aber inzwischen einen Hinweg — Eintrag streichen: ' + ueberholt.join(', ')
               : 'die Gegenprobe (erfundener Schluessel) fiel nicht auf');
@@ -1206,7 +1336,7 @@ const melde = (frage, ok, wie) => {
       : 'ungeprüft, weil kein Probewert eingetragen: ' + ohneProbe.join(', '));
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 24 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 25 · davon rot: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (fehler.length ? fehler.slice(0, 3).join(' | ') : 'keine'));
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;
 })();

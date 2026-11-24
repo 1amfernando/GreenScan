@@ -51,6 +51,30 @@ Eine Scheibe ist ein PR und eine Version. Reihenfolge: Datenverlust → falsche 
 | 8 | **Ein Backup, das alles enthält** | Die Export-Datei entsteht aus demselben Bauer wie das Cloud-Backup (heute fehlen ihr Tagebuch, Ernte, Saatgut, Pläne, Fundorte und Favoriten). | `backup_check`: jede Liste aus `GS_LISTEN_EINGANG` steht in der Datei | mittel |
 | 9 | **Weniger übertragen** | Rezepte und Heilmittel (376 KB) in eine eigene Datei, im Offline-Vorrat. Erzähl-Kommentare aus `index.html` nach `docs/` — das ist der grösste Hebel (ein Viertel jeder Auslieferung), aber auch der riskanteste Eingriff. | `offline_check`: Rezepte ohne Netz weiter da · `robust_check` „Kommentar-Deckel" | gross, eigene Entscheidung |
 
+### Scheibe 1 — was sie nach zwei Gegenprüfungen enthält, und ihre Grenzen
+
+Zwei Prüfungen haben den ersten Stand der Scheibe korrigiert (ein Gegenprüfer am Diff, eine Lese-Prüfung des
+Koordinators an v33.69). Eingebaut, je mit einem Fall, der vorher rot war (`sync_check` H12–H14,
+`sicherheit_check` 98_schluss_e):
+
+- **XP:** der Puffer ist `max(Puffer, lokal − Cloud)` — die Differenz allein verlor XP, sobald ein zweites
+  Gerät die Cloud inzwischen erhöht hatte. Der Puffer geht beim Abmelden nicht ans nächste Konto.
+- **Rezepte:** ein eigenes Rezept wird beim ANLEGEN gestempelt. Bestand ohne Stempel wird **nicht** geraten
+  zugeschrieben; er bleibt sichtbar wie bisher, bis das eigene Cloud-Backup ihn als Besitz belegt
+  (`gsSnapshotRestore` stempelt, was es zurückbringt). Verborgene Einträge stehen im Speicher vorn, damit die
+  eigenen nach dem Wiederanmelden oben bleiben, und überleben „Alle Daten löschen" eines anderen Kontos.
+- **Löschmarken:** sie gelten auch im Zweig ohne ungesendete Änderungen und gegen lokale Einträge, nicht für
+  `gp_`-Pläne (deren Löschen muss wiederholbar bleiben), und eine Wiederherstellung nimmt sie zurück. Ein Track
+  wird nach seinem Beginn gelöscht, nicht nach seiner Stelle in der Liste.
+
+Bewusst offen (steht auf dem Brett bzw. in Scheibe 4):
+
+- Ein schon abgeglichenes Gerät mit ungesendetem state überschreibt weiter, was ein anderes Gerät eintrug.
+- Nach einer Track-Aufzeichnung gilt der ganze Garten-Bereich als ungesendet; ein älterer offener Plan
+  (`current`) gewinnt dann gegen den neueren der Cloud.
+- App-Stände vor v33.69 kennen die zwei neuen Marken-Listen nicht und lassen sie beim Schreiben fallen; das
+  Gerät, das gelöscht hat, schreibt sie beim nächsten Abgleich wieder hinein.
+
 Nicht in meinem Bereich, aber gefunden: vier Vollflächen-Fenster (gespeicherte Pläne,
 Baum-Planer, Track-Detail, Avatar-Auswahl) hängen an keinem gemeinsamen Weg — Android-Zurück
 sieht sie nicht. Das geht als Befund aufs Brett.

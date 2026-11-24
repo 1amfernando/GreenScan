@@ -23327,7 +23327,7 @@ async function gsXpCloudFlush() {
   window._gsXpPending = 0;
   if (!amt) return;
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') { window._gsXpPending += amt; return; }
-  window._gsXpFlushLaeuft = true;   // gsXpBootSync rechnet nicht, solange ein Betrag unterwegs ist
+  window._gsXpFluesse = (window._gsXpFluesse || 0) + 1;   // ein ZAEHLER: zwei Fluesse koennen sich ueberlappen; gsXpBootSync rechnet nicht, solange einer unterwegs ist
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_add_xp', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -23343,12 +23343,14 @@ async function gsXpCloudFlush() {
         try { if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar(); } catch(_){}
       }
     } else if (r && r.error) {
+      // §3.6: wer bei einem Fehler einreiht, fragt zuerst — nach einem Kontowechsel gehoert der Betrag von A nicht in den Puffer von B
+      if (typeof _gsPersonGewechselt === 'function' && _gsPersonGewechselt(r)) return;
       window._gsXpPending += amt; // Fehler → Delta zurücklegen, Boot-Sync/nächster Flush holt es nach
     }
   } catch(e) {
     window._gsXpPending += amt;
     console.warn('[GS] fn_add_xp:', e && e.message);
-  } finally { window._gsXpFlushLaeuft = false; }
+  } finally { window._gsXpFluesse = Math.max(0, (window._gsXpFluesse || 1) - 1); }
 }
 // Beim Verlassen ungeflushte Deltas noch wegschreiben (best-effort; sonst holt Boot-Sync sie).
 try { window.addEventListener('pagehide', function(){ if (window._gsXpPending) gsXpCloudFlush(); }); } catch(_){}
@@ -23389,12 +23391,18 @@ async function gsXpBootSync() {
     // Flush legt seinen Betrag zurueck, und die lokale XP enthaelt ihn schon. `Puffer + (lokal − Cloud)`
     // zaehlte ihn doppelt; die Differenz allein ist am Start dieselbe Zahl und mitten in der Sitzung die
     // richtige (sync_check H12). Ist ein Betrag gerade unterwegs, kennt das gelesene Profil ihn noch nicht.
-    if (window._gsXpFlushLaeuft) return;
+    // Gegenpruefung Scheibe 1: NICHT `Puffer = lokal − Cloud`. Hat ein zweites Geraet die Cloud inzwischen
+    // erhoeht, ist die Differenz kleiner als der eigene, noch ungebuchte Betrag — der Puffer weiss es genauer
+    // (60 offline verdient, Cloud +50 vom Tablet: Differenz 10, Puffer 60). Das Maximum ist am Start die
+    // Differenz, mitten in der Sitzung der Puffer, und zaehlt nichts doppelt.
+    if ((window._gsXpFluesse || 0) > 0) return;
     if (local > cloud) {
-      window._gsXpPending = local - cloud;
+      window._gsXpPending = Math.max(window._gsXpPending || 0, local - cloud);
       await gsXpCloudFlush();
     } else if (cloud > local) {
       try { gsStore.set(GS_XP_KEY, String(cloud)); } catch(_){}
+      // der eigene, noch ungebuchte Betrag gehoert obendrauf (die Cloud kennt ihn nicht)
+      if (window._gsXpPending) await gsXpCloudFlush();
     }
     try { gsUpdateXPBar({animate:false}); } catch(_){}
   } catch(e) { console.warn('[GS] gsXpBootSync:', e && e.message); }
@@ -55160,7 +55168,10 @@ function _gsRecipeOverlayDefaults(x) {
 // bis hier sah das naechste Konto auf dem Geraet die selbst geschriebenen Rezepte des vorigen, und sie
 // wanderten in dessen Cloud-Backup (user_recipes). Loeschen waere Datenverlust (sie liegen nur hier und im
 // Backup): sie bleiben im Speicher, gezeigt und gesichert werden sie nur ihrem Konto. Derselbe Entscheid
-// wie beim Garten-Zwilling (gsTwinGet). Eintraege ohne Stempel (Bestand) stempelt das Abmelden.
+// wie beim Garten-Zwilling (gsTwinGet). Eintraege OHNE Stempel (Bestand von vor dieser Fassung) bleiben, wie
+// sie waren — fuer alle sichtbar: wem sie gehoeren, weiss das Geraet nicht, und ein geratener Stempel naehme
+// sie der wahren Besitzerin fuer immer weg (Gegenpruefung Scheibe 1). Einen Besitzbeleg gibt es nur einen:
+// das eigene Cloud-Backup (gsSnapshotRestore stempelt, was es zurueckbringt).
 function _gsRezeptEigen(x) { return !!(x && typeof x.id === 'string' && /^(r|rem)_\d{13}$/.test(x.id)); }
 var _gsRezepteFremd = { gs_recipes: [], gs_remedies: [] };
 function _gsRezeptWer() {
@@ -55196,32 +55207,25 @@ let newRecipeType = 'recipes'; // 'recipes' or 'remedies'
 let editingRecipeId = null;
 
 function saveRecipesData() {
+  // Die eigenen Eintraege ANDERER Konten bleiben im Speicher (nicht gezeigt, nicht verloren) — und sie stehen
+  // VORN: jedes Konto findet seine eigenen danach weiter vor den Vorgaben (angehaengt rutschten sie ans Ende,
+  // sobald ein anderes Konto speicherte). Rueckgabe: ob BEIDE Listen geschrieben wurden (§3.5: setItem wirft nie).
+  var ok = true;
   try {
-    // die eigenen Eintraege ANDERER Konten bleiben im Speicher (nicht gezeigt, nicht verloren)
-    localStorage.setItem('gs_recipes',  JSON.stringify(recipesData.concat(_gsRezepteFremd.gs_recipes || [])));
-    localStorage.setItem('gs_remedies', JSON.stringify(remediesData.concat(_gsRezepteFremd.gs_remedies || [])));
-  } catch(_){}
+    if (localStorage.setItem('gs_recipes',  JSON.stringify((_gsRezepteFremd.gs_recipes || []).concat(recipesData))) === false) ok = false;
+    if (localStorage.setItem('gs_remedies', JSON.stringify((_gsRezepteFremd.gs_remedies || []).concat(remediesData))) === false) ok = false;
+  } catch(_){ ok = false; }
+  return ok;
 }
-// Beim Abmelden: was ohne Stempel ist, gehoert der Person, die geht. Danach (und nach dem Anmelden)
-// liest _gsRezepteNeuLaden die Listen fuer die Person, die JETZT da ist.
-function _gsRezepteStempeln(uid) {
-  if (!uid || typeof uid !== 'string') return 0;
-  var n = 0;
-  try {
-    [recipesData, remediesData].forEach(function (liste) {
-      (liste || []).forEach(function (x) { if (_gsRezeptEigen(x) && !x.uid) { x.uid = uid; n++; } });
-    });
-    if (n) saveRecipesData();
-  } catch (_) {}
-  return n;
-}
+// Nach dem Abmelden, nach dem Anmelden und nach einer Wiederherstellung: die Listen fuer die Person lesen,
+// die JETZT da ist — Speicher und Variable sind danach EIN Stand.
 function _gsRezepteNeuLaden() {
   try {
     recipesData  = _gsLoadRecipeStore('gs_recipes', false);
     remediesData = _gsLoadRecipeStore('gs_remedies', true);
   } catch (_) {}
 }
-window._gsRezepteStempeln = _gsRezepteStempeln; window._gsRezepteNeuLaden = _gsRezepteNeuLaden;
+window._gsRezepteNeuLaden = _gsRezepteNeuLaden;
 
 // v24.32: Cloud-Pull aus public.recipes — mappt ins existing Format + dedupliziert
 window.gsLoadCloudRecipes = async function() {
@@ -55827,10 +55831,11 @@ function saveRecipe() {
     else recipesData.unshift(data);
   }
 
-  saveRecipesData();
+  var _rzOk = saveRecipesData();
   closeModal('modal-new-recipe');
   if (isRemedy) renderRemedies();
   else renderRecipes();
+  if (_rzOk === false) { try { gsToast('Speicher voll — das Rezept ist nur bis zum Schliessen der App da.', 'warning', 6000); } catch(_){} return; }
   showHarvest(isRemedy ? '🌿' : '🍲', 'Rezept gespeichert!', '"' + title + '" wurde gespeichert.', '');
 }
 
@@ -58966,6 +58971,24 @@ function _gsLoeschmarke(schluessel, id) {
   try { if (ok && window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch (_) {}
   return ok;
 }
+// Eine Marke zuruecknehmen: was die Person WIEDERHERSTELLT (Backup), soll bleiben — ohne das schluege die Marke
+// den wiederhergestellten Plan beim naechsten Abgleich noch einmal weg (Plaene und Tracks tragen keinen Stempel,
+// jede Marke gewinnt). Die gestempelten Listen machen dasselbe in _gsStempeln („wieder da").
+function _gsLoeschmarkenZurueck(schluessel, ids) {
+  if (GS_GELOESCHT_LISTEN.indexOf(schluessel) < 0 || !Array.isArray(ids) || !ids.length) return 0;
+  var g = _gsGeloeschtLesen(), tk = g[schluessel]; if (!tk) return 0;
+  var n = 0;
+  ids.forEach(function (id) { var k = String(id); if (Object.prototype.hasOwnProperty.call(tk, k)) { delete tk[k]; n++; } });
+  if (!n) return 0;
+  if (Object.keys(tk).length) g[schluessel] = tk; else delete g[schluessel];
+  _gsGeloeschtSchreiben(g);
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch (_) {}
+  return n;
+}
+// Steht fuer diese Id eine Marke? Nur EIGENE Eintraege der Tabelle — `tabelle['constructor']` waere sonst wahr.
+function _gsHatLoeschmarke(tabelle, id) {
+  return !!(tabelle && id != null && Object.prototype.hasOwnProperty.call(tabelle, String(id)));
+}
 // Ein state-Wert der Cloud trifft auf einen UNGESENDETEN lokalen Stand eines Geraets, das den state-Blob
 // dieses Kontos noch nie abgeglichen hat (Schlusspruefung blob, 24.11.2026): zusammenfuehren statt „lokal
 // gewinnt ganz" — sonst ersetzte der EINE neue Favorit eines frischen Geraets die zwanzig der Cloud, nur
@@ -58987,11 +59010,19 @@ function _gsStateMischen(k, c) {
     return reihe;
   }
   if (l && cv && typeof l === 'object' && typeof cv === 'object' && !Array.isArray(l) && !Array.isArray(cv)) {
+    // Auch eine Ebene tiefer: {disabled:{p1:true}} lokal und {disabled:{p9:true}} in der Cloud ergeben beide
+    // (flach gemischt gewann das lokale `disabled` ganz, und die abgeschaltete Erinnerung p9 ging wieder an).
     var dazu = false;
-    Object.keys(cv).forEach(function (kk) {
-      if (kk === '__proto__' || Object.prototype.hasOwnProperty.call(l, kk)) return;
-      l[kk] = cv[kk]; dazu = true;
-    });
+    var tief = function (ziel, quelle, ebene) {
+      Object.keys(quelle).forEach(function (kk) {
+        if (kk === '__proto__') return;
+        var q = quelle[kk];
+        if (!Object.prototype.hasOwnProperty.call(ziel, kk)) { ziel[kk] = q; dazu = true; return; }
+        var z = ziel[kk];
+        if (ebene < 4 && z && q && typeof z === 'object' && typeof q === 'object' && !Array.isArray(z) && !Array.isArray(q)) tief(z, q, ebene + 1);
+      });
+    };
+    tief(l, cv, 1);
     return dazu ? l : undefined;
   }
   return undefined;
@@ -59067,7 +59098,7 @@ function _gsMergeEintraege(lokal, cloud, ctx) {
   return { liste: aus, gleichCloud: gleich };
 }
 window._gsStempeln = _gsStempeln; window._gsMergeEintraege = _gsMergeEintraege; window._gsGeloeschtEinlesen = _gsGeloeschtEinlesen;
-window._gsLoeschmarke = _gsLoeschmarke; window._gsStateMischen = _gsStateMischen;
+window._gsLoeschmarke = _gsLoeschmarke; window._gsStateMischen = _gsStateMischen; window._gsLoeschmarkenZurueck = _gsLoeschmarkenZurueck;
 
 // Spielt ein Backup ein und sagt, was NICHT gesichert wurde (voller Speicher:
 // der Wrapper wirft nie, er gibt false zurueck — CLAUDE.md §3.5). Kein
@@ -59156,10 +59187,22 @@ function clearAllData() {
   // **Eine Löschung nach Präfix ist eine Wette darauf, dass niemand je einen
   // Schlüssel anders benannt hat.** Auf diesem Ursprung gehört alles der App,
   // also geht alles.
+  // SPEICHER-V2 Scheibe 1: die verborgenen eigenen Rezepte ANDERER Konten ueberleben das Leeren — die Person,
+  // die hier loescht, hat sie nie gesehen und kann nicht wissen, dass sie sie mitloescht.
+  var _rzFremd = {};
+  try {
+    var _rzIch = localStorage.getItem('gs_sb_uid') || null;
+    ['gs_recipes', 'gs_remedies'].forEach(function (k) {
+      var a = []; try { a = JSON.parse(localStorage.getItem(k) || '[]'); } catch (_) {}
+      var f = (Array.isArray(a) ? a : []).filter(function (x) { return _gsRezeptEigen(x) && typeof x.uid === 'string' && x.uid && x.uid !== _rzIch; });
+      if (f.length) _rzFremd[k] = f;
+    });
+  } catch (_) {}
   try { localStorage.clear(); }
   catch (_) {
     Object.keys(localStorage).forEach(function(k){ try { localStorage.removeItem(k); } catch(_){} });
   }
+  try { Object.keys(_rzFremd).forEach(function (k) { localStorage.setItem(k, JSON.stringify(_rzFremd[k])); }); } catch (_) {}
   // Und der Speicher ist nicht nur der localStorage: in IndexedDB liegen die
   // offline eingereihten Scans und die Fotos als base64 — „im Gerät
   // gespeichert" im wörtlichsten Sinn. Die Cache-API bleibt: das ist die App
@@ -61711,10 +61754,21 @@ function gsTrackExportGPX(idx) {
 }
 
 async function gsTrackDelete(idx) {
+  // WELCHER Track gemeint ist, steht VOR der Rueckfrage fest (Beginn `ts`): waehrend der Dialog offen ist, kann
+  // ein Abgleich die Liste ersetzen — nach Stelle geloescht traf es dann einen anderen Track.
+  var _gemeint = null;
+  try { var _vor = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]'); _gemeint = (Array.isArray(_vor) && _vor[idx]) ? _vor[idx] : null; } catch(_){}
   if (!(await gsConfirmModal('Track wirklich löschen?'))) return;
   try {
     var saved = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]');
-    var _weg = saved.splice(idx, 1)[0];
+    if (!Array.isArray(saved)) saved = [];
+    var _stelle = idx;
+    if (_gemeint && _gemeint.ts != null) {
+      _stelle = -1;
+      for (var _ti = 0; _ti < saved.length; _ti++) { if (saved[_ti] && String(saved[_ti].ts) === String(_gemeint.ts)) { _stelle = _ti; break; } }
+      if (_stelle < 0) { gsTrackOpenList(); return; }   // inzwischen weg: nichts anderes loeschen
+    }
+    var _weg = saved.splice(_stelle, 1)[0];
     localStorage.setItem('gs_gpx_tracks', JSON.stringify(saved));
     // 24.11.2026: Loeschmarke (Schluessel: Beginn `ts`) und der Garten-Bereich wird vorgemerkt — die Tracks
     // reisen im Garten-Blob, und ohne Vormerkung holte der naechste Abgleich den Track aus der Cloud zurueck.
@@ -75946,8 +76000,8 @@ async function gsPPopenSavedPlans() {
         var byId = Object.create(null);
         // 24.11.2026: ein auf diesem Geraet geloeschter Plan (Loeschmarke) kommt hier nicht aus der Cloud zurueck.
         var _plTomb = {}; try { _plTomb = (_gsGeloeschtLesen()['gs_garden_plans']) || {}; } catch(_){}
-        _gsSiebListe(ugPlans).forEach(function(p){ if (p && p.id && !_plTomb[String(p.id)]) byId[p.id] = p; });
-        _gsSiebListe(gpMapped).forEach(function(p){ if (p && p.id && !_plTomb[String(p.id)]) byId[p.id] = p; });
+        _gsSiebListe(ugPlans).forEach(function(p){ if (p && p.id && !_gsHatLoeschmarke(_plTomb, p.id)) byId[p.id] = p; });
+        _gsSiebListe(gpMapped).forEach(function(p){ if (p && p.id) byId[p.id] = p; });   // gp_-Plaene tragen keine Marke (siehe gsPPdeletePlan)
         saved.forEach(function(p){ if (p && p.id && !byId[p.id]) byId[p.id] = p; });
         var merged = Object.keys(byId).map(function(k){ return byId[k]; }).sort(function(a,b){
           return new Date(b.created || 0) - new Date(a.created || 0);
@@ -76089,7 +76143,10 @@ async function gsPPdeletePlan(id) {
   } catch(_){}
   // 24.11.2026: die Loeschmarke — scheitert der Cloud-Weg unten (offline), holte der naechste Abgleich
   // den Plan sonst aus der Cloud zurueck (Zusammenfuehrung je Eintrag, sync_check H10).
-  try { _gsLoeschmarke('gs_garden_plans', id); } catch(_){}
+  // Nur fuer Plaene aus user_gardens. Ein gp_-Plan liegt in der Tabelle garden_plans: gelingt das DELETE unten,
+  // ist die Zeile weg; scheitert es, muss er sichtbar BLEIBEN, damit die Person es erneut versuchen kann (mit
+  // Marke war er hier 90 Tage ausgeblendet, waehrend die Serverzeile blieb).
+  try { if (!(typeof id === 'string' && id.indexOf('gp_') === 0)) _gsLoeschmarke('gs_garden_plans', id); } catch(_){}
   // Cloud (user_gardens.data.plans + garden_plans falls source='garden_plans')
   // v32.69 (Audit B4): der Dialog verspricht „auf allen deinen Geräten entfernt" —
   // jede Server-Antwort wird angesehen, und die Meldung sagt, was wirklich gilt.
@@ -87554,6 +87611,9 @@ function gsOnLogout() {
   // Linas Gespräch im Arbeitsspeicher geht mit (der Spiegel gs_lina_verlauf geht über GS_USER_KEYS),
   // und ein offenes Lina-/Doktor-Fenster schliesst — sein Inhalt gehört der Person, die geht.
   try { window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaInhaltZeit = null; } catch(_){}
+  // Gegenpruefung Scheibe 1 (vorbestehend): der XP-Puffer lebt nur im Arbeitsspeicher und ueberlebte das
+  // Abmelden — ein nicht gebuchter Betrag von A ging mit dem ersten Gewinn von B auf dessen Konto.
+  try { window._gsXpPending = 0; if (window._gsXpFlushTimer) { clearTimeout(window._gsXpFlushTimer); window._gsXpFlushTimer = null; } } catch(_){}
   try { if (typeof closeModal === 'function') closeModal('gs-nl-modal'); } catch(_){}
   // Dasselbe für den Scanner (sbLogout lädt die Seite nicht neu): das letzte Ergebnis, sein Foto, die
   // Ergebniskarte und das Gespräch dazu. Nicht gsResetScanner — der startet die Kamera neu.
@@ -87972,11 +88032,6 @@ function gsClearUserDataKeys(){
     // 19.11.2026 (Brett a6d6): zuerst der Bildschirm — Fenster zu, Felder auf den Ausgangswert.
     _gsAbmeldenFenster();
     _gsAbmeldenFelder();
-    // SPEICHER-V2 Scheibe 1: eigene Rezepte ohne Stempel gehoeren der Person, die geht.
-    try {
-      var _rzWer = null; try { _rzWer = localStorage.getItem('gs_last_active_uid') || gsStore.get('gs_sb_uid', null); } catch(_){}
-      if (typeof _gsRezepteStempeln === 'function') _gsRezepteStempeln(_rzWer);
-    } catch(_){}
     // v33.59: nur lokal gespeicherte Plaene warten gestempelt (gs_plans_wartend), statt mit gs_plans_v2 zu gehen.
     // v33.59: parken() sagt, ob es geschrieben hat (-1 = nein). Dann bleibt gs_plans_v2 zuerst
     // liegen: die uebrigen Schluessel geben Platz frei, und es wird noch einmal geparkt.
@@ -88074,7 +88129,7 @@ function gsClearUserDataKeys(){
     // `let` statt `var`: ein `typeof` in der zeitlichen Totzone WIRFT, ein
     // eigenes try/catch je Zuweisung ist deshalb Pflicht.
     try { marketListings = []; } catch(_){}
-    // SPEICHER-V2 Scheibe 1: die Rezept-Listen fuer niemanden neu lesen (die eigenen von A sind jetzt gestempelt)
+    // SPEICHER-V2 Scheibe 1: die Rezept-Listen fuer niemanden neu lesen (gestempelte eigene von A sind dann verborgen)
     try { if (typeof _gsRezepteNeuLaden === 'function') _gsRezepteNeuLaden(); } catch(_){}
     try { farmState = (typeof _gsFarmDefault === 'function') ? _gsFarmDefault() : farmState; } catch(_){}
     try { if (typeof _gsDev !== 'undefined' && _gsDev) _gsDev.registry = {}; } catch(_){}
@@ -88195,6 +88250,7 @@ async function gsSyncUserDataOnLogin(){
     var g = await sbFetch('/rest/v1/user_gardens?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
     if (typeof _gsPerson === 'function' && _gsPerson() !== _person0) return;
     if (g && g.error) { _pullErrors++; console.warn('[gsSync] user_gardens-Pull fehlgeschlagen:', g.error.message); }
+    try { _tombLok = _gsGeloeschtLesen(); } catch(_){}   // nach dem await neu: waehrenddessen kann geloescht worden sein
     if (g && !g.error && Array.isArray(g.data) && g.data[0] && g.data[0].data) {
       var d = g.data[0].data;
       var gUpdated = g.data[0].updated_at || null;
@@ -88243,7 +88299,16 @@ async function gsSyncUserDataOnLogin(){
           try { gsCloudSync.markDirty('garden'); } catch(_){}
           console.warn('[gsSync] v27.01: cloud garden empty but local has data — keeping local + repairing cloud');
         } else {
-          if (d.plans)     _gsListeEinspielen('gs_garden_plans', Array.isArray(d.plans) ? d.plans : []);
+          if (d.plans) {
+            // Auch im sauberen Zweig gelten die Loeschmarken (Lese-Pruefung des Koordinators): traegt die Cloud
+            // noch einen Plan, der hier oder auf einem anderen Geraet geloescht wurde, kommt er nicht zurueck —
+            // und der Garten-Bereich wird vorgemerkt, damit die Cloud ihn auch verliert.
+            var _plT = _tombLok['gs_garden_plans'] || {};
+            var _plRoh = Array.isArray(d.plans) ? d.plans : [];
+            var _plOhne = _plRoh.filter(function (x) { return !(x && _gsHatLoeschmarke(_plT, x.id)); });
+            _gsListeEinspielen('gs_garden_plans', _plOhne);
+            if (_plOhne.length !== _plRoh.length) { _gNeu = true; try { gsCloudSync.markDirty('garden'); } catch(_){} }
+          }
           if (d.current)   try { localStorage.setItem('gs_garden_plan_current', JSON.stringify(d.current)); } catch(_){}
           if (gUpdated && !_gNeu) try { localStorage.setItem('gs_sync_synced_at_garden', gUpdated); } catch(_){}
         }
@@ -88253,6 +88318,7 @@ async function gsSyncUserDataOnLogin(){
     var p = await sbFetch('/rest/v1/user_plants?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
     if (typeof _gsPerson === 'function' && _gsPerson() !== _person0) return;   // v33.65: eine Antwort gehoert der Person, die gefragt hat
     if (p && p.error) { _pullErrors++; console.warn('[gsSync] user_plants-Pull fehlgeschlagen:', p.error.message); }
+    try { _tombLok = _gsGeloeschtLesen(); } catch(_){}   // nach dem await neu
     var _pGelesen = !!(p && !p.error && Array.isArray(p.data));
     if (p && !p.error && Array.isArray(p.data) && p.data[0] && p.data[0].data) {
       var pd = p.data[0].data;
@@ -88453,17 +88519,24 @@ async function gsSyncUserDataOnLogin(){
       if (g && g.data && g.data[0] && g.data[0].data) {
         var gd2 = g.data[0].data;
         if (Array.isArray(gd2.gpx_tracks)) {
+          var _trTomb = _tombLok['gs_gpx_tracks'] || {};
+          var _trLebt = function (t) { return !(t && t.ts != null && _gsHatLoeschmarke(_trTomb, t.ts)); };
           if (_shouldOverwriteLocal('garden', g.data[0].updated_at)) {
-            try { localStorage.setItem('gs_gpx_tracks', JSON.stringify(gd2.gpx_tracks)); } catch(_){}
+            // sauber: die Cloud-Liste gilt — ohne das, was eine Loeschmarke traegt (dann muss die Cloud es auch verlieren)
+            var _trCloud = gd2.gpx_tracks.filter(_trLebt);
+            try { localStorage.setItem('gs_gpx_tracks', JSON.stringify(_trCloud)); } catch(_){}
+            if (_trCloud.length !== gd2.gpx_tracks.length) { try { gsCloudSync.markDirty('garden'); } catch(_){} }
           } else if (gsCloudSync.localDirtyAt && gsCloudSync.localDirtyAt('garden')) {
             // 19.11.2026: ungesendet → Vereinigung je Track (Schluessel: Beginn `ts`), nicht „lokal gewinnt
             // ganz" — der Push danach ersetzte sonst die Tracks der Cloud (sync_check H8).
             var _trL = []; try { _trL = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]'); } catch(_){}
             if (!Array.isArray(_trL)) _trL = [];
+            // Eine Marke gilt fuer BEIDE Seiten: ein Track, den ein anderes Geraet geloescht hat, geht auch hier
+            // (vorher blieb der lokale stehen und ging mit dem naechsten Push zurueck in die Cloud).
+            var _trVorher = _trL.length; _trL = _trL.filter(_trLebt);
             var _trDa = {}; _trL.forEach(function (t) { if (t && t.ts != null) _trDa[String(t.ts)] = true; });
-            var _trTomb = _tombLok['gs_gpx_tracks'] || {};   // 24.11.2026: ein hier geloeschter Track kommt nicht zurueck (H10)
-            var _trNeu = gd2.gpx_tracks.filter(function (t) { return t && typeof t === 'object' && t.ts != null && !_trDa[String(t.ts)] && !_trTomb[String(t.ts)]; });
-            if (_trNeu.length) {
+            var _trNeu = gd2.gpx_tracks.filter(function (t) { return t && typeof t === 'object' && t.ts != null && !_trDa[String(t.ts)] && _trLebt(t); });
+            if (_trNeu.length || _trL.length !== _trVorher) {
               var _trAlle = _trL.concat(_trNeu).sort(function (a, b) { return (Number(a && a.ts) || 0) - (Number(b && b.ts) || 0); });
               try { localStorage.setItem('gs_gpx_tracks', JSON.stringify(_trAlle)); } catch(_){}
             }
@@ -89511,6 +89584,13 @@ window.gsSnapshotBuildState = gsSnapshotBuildState;
 window._gsRestoreStats = { written: 0, failed: 0 };
 function _gsRestoreKey(lsKey, snapVal){
   if (snapVal == null) return;
+  // SPEICHER-V2 Scheibe 1: was wiederhergestellt wird, soll bleiben — eine Loeschmarke fuer denselben Plan
+  // oder Track wird zurueckgenommen (sonst naehme der naechste Abgleich ihn wieder weg).
+  try {
+    if (Array.isArray(snapVal) && (lsKey === 'gs_garden_plans' || lsKey === 'gs_gpx_tracks')) {
+      _gsLoeschmarkenZurueck(lsKey, snapVal.map(function (x) { return x && (lsKey === 'gs_gpx_tracks' ? x.ts : x.id); }).filter(function (x) { return x != null; }));
+    }
+  } catch (_) {}
   // v33.59 (s1): eine eigene LISTE geht durch den einen Eingang (Sieb, Speicher,
   // Variable) — der dritte Rueckweg neben Backup und Cloud-Pull. Andere Schluessel
   // bleiben, wie sie sind.
@@ -89631,10 +89711,22 @@ async function gsSnapshotRestore(opts){
         if ((window._gsRestoreOhne || []).indexOf(pair[0]) >= 0 && _gsLokalLeer(pair[0])) return;   // v33.59: bewusst geleert
         var cur = []; try { cur = JSON.parse(localStorage.getItem(pair[0])||'[]'); } catch(_){}
         if (!Array.isArray(cur)) cur = [];
-        var seen = {}; cur.forEach(function(r){ if (r && r.id) seen[r.id] = 1; });
-        arr.forEach(function(r){ if (r && r.id && !seen[r.id]) cur.unshift(r); });
+        // SPEICHER-V2 Scheibe 1: was aus dem EIGENEN Backup kommt, gehoert diesem Konto — der einzige
+        // Besitzbeleg, den es gibt. Ein Eintrag, der im Speicher unter fremdem oder ohne Stempel liegt,
+        // bekommt den eigenen; ein neuer kommt gestempelt dazu.
+        var _rzIch = null; try { _rzIch = localStorage.getItem('gs_sb_uid') || null; } catch(_){}
+        var seen = {}; cur.forEach(function(r){ if (r && r.id) seen[r.id] = r; });
+        arr.forEach(function(r){
+          if (!r || !r.id) return;
+          if (seen[r.id]) { if (_rzIch && _gsRezeptEigen(seen[r.id])) seen[r.id].uid = _rzIch; return; }
+          if (_rzIch && _gsRezeptEigen(r)) r.uid = _rzIch;
+          cur.unshift(r);
+        });
         try { localStorage.setItem(pair[0], JSON.stringify(cur)); } catch(_){}
       });
+      // Speicher und Variable wieder EIN Stand (vorher „greifen beim naechsten Load" — bis dahin konnte ein
+      // Speichern aus der alten Variablen die wiederhergestellten Eintraege ueberschreiben).
+      if (typeof _gsRezepteNeuLaden === 'function') _gsRezepteNeuLaden();
     } catch(_){}
     try { if (st.state) _gsApplyStateBlob(st.state); } catch(_){}
     // Cloud reparieren + UI rendern (die Variablen der Listen setzt _gsListeEinspielen, v33.59)
