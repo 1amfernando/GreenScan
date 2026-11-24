@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 15:10 UTC · `main` = `8a2f16e` (**v33.70**, #340) · PR #343 mit neuem Kopf `33d2818` (v33.71), CI seit ~15:08 · Audit stapelt darauf.
+**Stand:** 24.11.2026, 15:20 UTC · `main` = `8a2f16e` (**v33.70**, #340) · #343 Kopf `33d2818` (v33.71), #344 Kopf `440f9e5` (v33.72), CI beider PRs läuft · KI-Modelle stapelt jetzt.
 
 ## 1 · Warum es schneller wird
 
@@ -41,8 +41,8 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | Nr | Sitzung | Branch | Version | STATUS-Kennung | Zustand |
 |---|---|---|---|---|---|
 | 1 | Hauptfunktionen (Pilz · Wissen · Lina 9) | `claude/happy-thompson-24l4uu` | **v33.71** | (js) Pilz · (jt) Wissen · (ju) Lina 9 | PR **#343**, Kopf **`33d2818`** (main 8a2f16e eingezogen, Prüfstände grün gemeldet), CI seit ~15:08; Kopf FROREN, Merge bei grüner CI |
-| 2 | Audit | `ccr-dce5a17c-2xzhvi` | **v33.72** | (jv) | PR **#344**; zieht jetzt `33d2818` ein, setzt den Deckel mit `_bump.js --basis`, EIN Push, Kopf per Nachricht |
-| 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | v33.73 | (jw) | stapelt auf Nr. 2; der Proxy-Teil gehört Fernando |
+| 2 | Audit | `ccr-dce5a17c-2xzhvi` | **v33.72** | (jv) | PR **#344**, Kopf **`440f9e5`** (enthält `33d2818` und main 8a2f16e), CI läuft; Kopf FROREN, Merge nach #343 |
+| 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | v33.73 | (jw) | stapelt jetzt auf `440f9e5`; der Proxy-Teil gehört Fernando (als Patch-Text in FUER-FERNANDO, nicht als Code unter supabase/) |
 | 4 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.74 | (jx) | Scheibe 1 fertig (`f859bf7`, ohne PR/Bump), stapelt auf Nr. 3 |
 | 5 | Hauptfunktionen · Lina · Einblick ehrlich machen | eigener Branch ab main | v33.75 | (jy) | Funde auf PR #340 (Kommentar 7135172753): Schalter, Schädling-Filter, Gegenprobe, Datenschutztext (**Wortlaut entscheidet Fernando**) |
 | 6 | Hauptfunktionen · Scanner 12 „Mit Bildern vergleichen" | eigener Branch ab main | v33.76 | (jz) | fertig lokal; wird nach Nr. 1 gestartet |
