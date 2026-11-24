@@ -195,7 +195,9 @@ async function scan(browser, file) {
     console.log('=== ' + path.basename(f));
     console.log('  Onboarding blockiert noch:', r.onb ? 'JA (Gast-Modus griff nicht)' : 'nein');
     if (r.onb || r.onbEnde) { console.log('  !! ' + SEED.ANMELDEBILD_SATZ); process.exitCode = 2; }
-    console.log('  JS-Fehler:', r.errs.length ? [...new Set(r.errs)].slice(0,4).join(' | ') : 'keine');
+    // „!!“ vorn bei jeder Zeile, die einen Befund nennt: in der CI zeigt pruefstaende.sh nur das Ende
+    // des Berichts und bei Rot die Zeilen mit „!!“ (24.11.2026, wie contrast_check und field_check).
+    console.log(r.errs.length ? '  !! JS-Fehler:' : '  JS-Fehler:', r.errs.length ? [...new Set(r.errs)].slice(0,4).join(' | ') : 'keine');
     console.log('  sichtbare Elemente je Tab:', Object.entries(r.perTab).map(([k,v]) => k+'='+v).join(' '));
     console.log('  gesamt vermessen:', r.rows.length);
     const muell = [];
@@ -211,13 +213,13 @@ async function scan(browser, file) {
       });
     });
     console.log('  verdaechtige Textstellen (undefined/NaN/[object Object]/…):', muell.length);
-    muell.slice(0, 8).forEach(m => console.log('     ', m));
+    muell.slice(0, 8).forEach(m => console.log('  !!  ', m));
 
     const cut  = r.rows.filter(o => o.clipX || o.clipY);
     const offs = r.rows.filter(o => o.offscreen);
     console.log('  abgeschnittener Inhalt:', cut.length, '| ragt aus dem Bildschirm:', offs.length);
     const show = (list, f) => [...list].sort((a,b) => f(b) - f(a)).slice(0, 8)
-      .forEach(o => console.log('     ', String(f(o)) + 'px  ' + o.key.replace(/\|/g,' ').slice(0, 88)));
+      .forEach(o => console.log('  !!  ', String(f(o)) + 'px  ' + o.key.replace(/\|/g,' ').slice(0, 88)));
     if (cut.length)  { console.log('   -- am staerksten abgeschnitten:'); show(cut,  o => Math.max(o.clipX, o.clipY)); }
     if (offs.length) { console.log('   -- am weitesten draussen:');       show(offs, o => o.offscreen); }
     // v33.60: ein TOR, kein Bericht — im Lauf ueber EINEN Stand. Bis v33.59 endete
