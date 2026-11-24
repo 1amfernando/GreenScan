@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-24-5d5b",
+  "art": "befund",
+  "datum": "2026-11-24",
+  "zeit": "14:45:45",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.69",
+  "titel": "Ein abgeglichenes Gerät mit ungesendetem state überschreibt weiter 40 Felder, die ein anderes Gerät inzwischen geändert hat",
+  "vorschlag": "docs/SPEICHER-V2.md Scheibe 4: je Feld eine erklärte Regel (additiv für Erfolge, Quiz-Archiv, Lernkarten; Favoriten erst mit Löschmarke). Fall zuerst: A setzt offline einen Favoriten, B erwirbt einen Erfolg — nach beiden Abgleichen steht beides auf beiden.",
+  "beleg": [
+    "gsSyncUserDataOnLogin: ist state vorgemerkt und gs_sync_synced_at_state gesetzt, wird nichts aus der Cloud übernommen (weder _sOver noch _sBlind) und der ganze lokale Blob geht hoch. _gsStateMischen (v33.69) greift nur auf einem nie abgeglichenen Gerät — bewusst, weil ein Mischen ohne Löschmarke je Feld Entferntes zurückholt (sync_check H11b hält genau das fest). Gelesen von zwei unabhängigen Prüfungen am 24.11.2026; nicht nachgestellt als eigener Fall."
+  ],
+  "stichworte": [
+    "state-blob",
+    "_gsStateMischen",
+    "gsSyncUserDataOnLogin",
+    "zwei-geraete"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var _sBlind = false;"
+    }
+  ]
+}

@@ -2188,6 +2188,39 @@ ESLint (über `scripts/package.json` und das eingecheckte Lockfile, `npm ci`).
 Dafür ist nichts zu tun. `npm audit` meldet dazu zwei mittlere Lücken in
 `minimatch`, das ESLint mitbringt — es läuft nur in den Prüfständen, nie in der App.
 
+## 33 · Lina: der Datenschutztext nennt weniger, als mitgeht — dein Wortlaut (Vorschlag, v33.74)
+
+**Was mitgeht** (gemessen am Kontext, den `gsLinaSend` an die KI schickt, `sensor_check` „Lina · Einblick
+ehrlich“): mit eingeschaltetem Einblick die Namen **und Spitznamen** deiner Pflanzen, Gärten und Pflanzungen
+mit **Sorte, Stückzahl und Datum**, **Grösse, Licht und Boden** der Gärten, fällige Aufgaben und **Termine aus
+Kalender und Gartenplänen**, die letzten Tagebuch-Einträge **und die Notiz** (gekürzt) der Pflanze, nach der du
+fragst, **im Tagebuch notierte Schädlinge** (seit diesem Paket), die Wettervorhersage für deinen gewählten Ort mit
+dessen Namen, deine letzten Scans, die Namen deiner Karten-Funde sowie **Namen** und Messwerte deiner Geräte.
+Fett ist, was der heutige Text nicht nennt. Fotos und Koordinaten gehen nicht mit — auch dann nicht, wenn der Ort
+keinen Namen hat (seit diesem Paket heisst er dann „am gewählten Ort“).
+
+**Was „ausschalten“ heisst** (seit diesem Paket, vorher nicht): mit ausgeschaltetem Einblick geht **nur deine
+Frage** mit, dazu die App-Sprache, die Jahreszeit und — wenn die Frage eine Art nennt — deren Angaben aus der
+Artenliste der App. Der heutige Text sagt „Den Einblick in Pflanzen, Gärten, Tagebuch, Wetter und Funde kannst
+du ausschalten“; Scans, Geräte und Messwerte nennt er dabei nicht — sie gehen seit diesem Paket ebenfalls nicht
+mehr mit.
+
+**Vorschlag** — `privacy.html` (der Absatz über Lina) und derselbe Satz in der App (Einstellungen › Datenschutz &
+Daten, „Fragen an Lina“):
+
+> Fragst du die Garten-Coachin **Lina**, gehen mit deiner Frage die Angaben an Anthropic, die sie für eine
+> passende Antwort braucht: die Namen und Spitznamen deiner Pflanzen, Gärten und Pflanzungen mit Sorte, Stückzahl
+> und Datum, Grösse, Licht und Boden deiner Gärten, fällige Aufgaben und Termine aus Kalender und Gartenplänen, die
+> letzten Tagebuch-Einträge und die Notiz der Pflanze, nach der du fragst, im Tagebuch notierte Schädlinge, die
+> Wettervorhersage für deinen gewählten Ort mit dessen Namen, deine letzten Scans, die Namen deiner Karten-Funde
+> sowie Namen und Messwerte deiner Geräte. **Fotos und Koordinaten gehen dabei nicht mit.** Schaltest du im
+> Lina-Fenster den Einblick aus, geht nichts davon mit: deine Frage mit dem bisherigen Gespräch, dazu die
+> Sprache der App, die Jahreszeit und zu Arten, nach denen du fragst, die Angaben aus der Artenliste der App.
+
+**Was du entscheidest:** ob dieser Wortlaut so in beide Texte kommt (oder ein kürzerer — die Liste ist lang, aber
+vollständig). Bis du Ja sagst, bleiben `privacy.html` und der Text in der App, wie sie sind; der Code hält sich
+schon jetzt an den Vorschlag (ausgeschaltet geht weniger mit, als der heutige Text verspricht — nicht mehr).
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier

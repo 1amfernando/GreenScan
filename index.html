@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.73.20261124">
+<meta name="app-version" content="33.75.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -8250,10 +8250,39 @@ html, body{ scroll-behavior: smooth; }
 // gs_garden_plans und gs_gpx_tracks).
 // keep: 'head' = Anfang behalten (Liste ist neueste-zuerst)
 //       'tail' = Ende behalten  (Liste ist aelteste-zuerst)
+//       'zeit' = die AELTESTEN nach ihrem Zeitstempel fallen heraus, die
+//                Reihenfolge der uebrigen bleibt (SPEICHER-V2 Scheibe 2). Fuer
+//                Listen mit MEHREREN Schreibern: der Pflegeverlauf einer Pflanze
+//                wird vorn (Abhaken) UND hinten (Notiz) beschrieben — 'head' und
+//                'tail' warfen dort jeweils die NEUESTEN Eintraege des anderen
+//                Schreibers hinaus. Wer eine Liste deckelt, die nicht EINE
+//                Reihenfolge hat, nimmt 'zeit'.
+// Die Zeit eines Eintrags: `ts` als Zahl (ms), als Ziffernfolge oder als
+// ISO-Text — alle drei kommen vor (gsQuickDone schreibt ISO, gsAddDiaryEntry
+// eine Zahl). Unlesbar zaehlt als aeltestes: es wandert ins Archiv, nicht ins Nichts.
+var GS_PFLEGEVERLAUF_MAX = 200;   // Eintraege im Pflegeverlauf EINER Pflanze (p.diary) — ein Deckel fuer alle drei Schreiber
+window._gsEintragZeit = function(e){
+  var t = e && e.ts;
+  if (typeof t === 'number') return isFinite(t) ? t : 0;
+  if (typeof t === 'string') {
+    if (/^\d{9,}$/.test(t)) return Number(t);
+    var d = Date.parse(t);
+    return isFinite(d) ? d : 0;
+  }
+  return 0;
+};
 window.gsCapWithArchive = function(key, arr, cap, keep){
   if (!Array.isArray(arr) || arr.length <= cap) return arr;
   var kept, dropped;
-  if (keep === 'tail') { kept = arr.slice(-cap); dropped = arr.slice(0, arr.length - cap); }
+  if (keep === 'zeit') {
+    var _rang = arr.map(function(e, i){ return { i: i, t: window._gsEintragZeit(e) }; });
+    _rang.sort(function(a, b){ return (a.t - b.t) || (a.i - b.i); });
+    var _raus = {};
+    for (var _r = 0; _r < arr.length - cap; _r++) _raus[_rang[_r].i] = true;
+    kept = []; dropped = [];
+    arr.forEach(function(e, i){ (_raus[i] ? dropped : kept).push(e); });
+  }
+  else if (keep === 'tail') { kept = arr.slice(-cap); dropped = arr.slice(0, arr.length - cap); }
   else                 { kept = arr.slice(0, cap); dropped = arr.slice(cap); }
   try { if (typeof window.gsArchiveDropped === 'function') window.gsArchiveDropped(key, dropped); } catch(_){}
   // Einmal pro Schluessel und Sitzung Bescheid geben — nicht bei jedem Speichern nerven.
@@ -10430,8 +10459,9 @@ function gsQuickDone(plantId, taskKey) {
     if (!Array.isArray(p.diary)) p.diary = [];
     // v33.60: der Titel ohne das Arbeitswort „(Quick)“ — abgehakt heisst `source`, nicht der Titel (_gsTbAbgehakt).
     p.diary.unshift({ ts: nowIso, action: taskKey, title: (defQ.icon ? defQ.icon + ' ' : '') + (defQ.name||taskKey), source: 'quick_done' });
-    // Cap auf 200 Diary-Einträge pro Pflanze (sonst Blob-Bloat)
-    p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
+    // Cap auf 200 Diary-Einträge pro Pflanze (sonst Blob-Bloat) — nach ZEIT, nicht nach Listenplatz:
+    // gsAddDiaryEntry haengt hinten an, hier wird vorn angesetzt (kalender_check „Pflegeverlauf · der Deckel“).
+    p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit');
   } catch(_){}
   var _qok = (_f && _f.liste === 'plantings') ? saveGardenData() : savePlantsToStorage();
   if (_qok === false) {
@@ -10564,7 +10594,7 @@ function _gsDoneAllDueAusfuehren(faellig) {
       var defB = (typeof TASK_DEFS !== 'undefined' && TASK_DEFS[k]) ? TASK_DEFS[k] : {icon:'', name:k};
       if (!Array.isArray(p.diary)) p.diary = [];
       p.diary.unshift({ ts: new Date(basisMs - (count - 1)).toISOString(), action: k, title: (defB.icon ? defB.icon + ' ' : '') + (defB.name||k), source: 'done_all_due' });
-      p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
+      p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit');
     } catch(_){}
     // Zugehoerigkeit ueber die REFERENZ, nicht ueber die Id — zwei Listen, zwei Speicherwege
     listen[(Array.isArray(myPlants) && myPlants.indexOf(p) >= 0) ? 'myPlants' : 'plantings'] = true;
@@ -22675,62 +22705,108 @@ function gsInitDynamicFacts(){
 }
 
 
-var _wCache={};
+var _wCache={}, _wMeta={};
+// ── Scanner 12 (24.11.2026): das Bild einer Art wird an EINER Stelle geholt ───────────────
+// Zwei Anzeigen fragen „welches Bild zeigt diese Art?": die Artenansicht (gsLoadSpeciesImage →
+// gsLoadWikiImage) und der Vergleich im Scan-Ergebnis (gsScanVergleichOeffnen). Geholt wird hier,
+// jede Anzeige zeichnet selbst. Ergebnis: {src, seite, datei} oder null.
+// Zwei Regeln: (1) ein Bild kommt nur aus dem Bildlager von Wikimedia (upload.wikimedia.org) —
+// die Antwort ist fremde Eingabe; (2) ein NETZFEHLER wird nicht als „kein Bild" gemerkt (bis
+// v33.69 tat er das: wer ohne Empfang eine Art öffnete, sah sie bis zum Neuladen ohne Bild).
+// Gemerkt wird nur, was Wikipedia selbst sagt: kein Artikel (404) oder kein Bild.
+function _gsWikiBildHolen(lat){
+  lat = String(lat || '').trim();
+  if (!lat || _wCache[lat] === 'none') return Promise.resolve(null);
+  if (_wCache[lat]) { var m0 = _wMeta[lat] || {}; return Promise.resolve({ src: _wCache[lat], seite: m0.seite || null, datei: m0.datei || null }); }
+  var name = lat.split(' ').slice(0, 2).join(' ');
+  return (window._gsFetch || fetch)('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(name), {}, 8000)
+    .then(function (r) {
+      if (!r || !r.ok) { if (r && r.status === 404) _wCache[lat] = 'none'; return null; }
+      return r.json().then(function (d) {
+        var src = (d && d.thumbnail && typeof d.thumbnail.source === 'string') ? d.thumbnail.source.replace(/\/\d+px-/, '/400px-') : null;
+        if (src && src.indexOf('https://upload.wikimedia.org/') !== 0) src = null;
+        _wCache[lat] = src || 'none';
+        if (!src) return null;
+        var meta = { seite: _gsWikiSeite(d), datei: _gsWikiDateiSeite(src) };
+        _wMeta[lat] = meta;
+        return { src: src, seite: meta.seite, datei: meta.datei };
+      });
+    })
+    .catch(function () { return null; });
+}
+// Die Artikelseite aus der Antwort — nur eine Adresse auf en.wikipedia.org, sonst null.
+function _gsWikiSeite(d) {
+  var u = d && d.content_urls && d.content_urls.desktop && d.content_urls.desktop.page;
+  u = (typeof u === 'string') ? u : '';
+  return u.indexOf('https://en.wikipedia.org/wiki/') === 0 ? u.replace(/["'<>\\\s]/g, '') : null;
+}
+// Die DATEISEITE eines Bildes (dort stehen Urheber und Lizenz — ein Bild von Wikimedia ist frei,
+// aber nicht ohne Nachweis). Aus …/wikipedia/commons/thumb/a/ab/Name.jpg/400px-Name.jpg wird
+// https://commons.wikimedia.org/wiki/File:Name.jpg; ein Bild aus der englischen Wikipedia selbst
+// bekommt deren Dateiseite. Alles andere: null (dann verweist der Nachweis auf den Artikel).
+function _gsWikiDateiSeite(src) {
+  var m = /^https:\/\/upload\.wikimedia\.org\/wikipedia\/(commons|en)\/(?:thumb\/)?[0-9a-f]\/[0-9a-f]{2}\/([^\/?#]+)/.exec(String(src || ''));
+  if (!m) return null;
+  var datei = m[2];
+  try { datei = decodeURIComponent(datei); } catch (_) { return null; }
+  return (m[1] === 'commons' ? 'https://commons.wikimedia.org/wiki/File:' : 'https://en.wikipedia.org/wiki/File:') + encodeURIComponent(datei);
+}
 function gsLoadWikiImage(lat,cid){
   if(!lat||!cid) return;
   var el=document.getElementById(cid);
   if(!el) return;
   if(_wCache[lat]==='none') return;
-  if(_wCache[lat]){
+  var zeichne=function(c, src, nachSchimmer){
     var img=document.createElement('img');
-    img.src=_wCache[lat]; img.alt='';
+    img.src=src; img.alt='';
     img.style.cssText='width:100%;height:160px;object-fit:cover;border-radius:var(--r-md);display:block;';
-    img.onerror=function(){el.style.display='none';};
-    el.innerHTML=''; el.appendChild(img); return;
-  }
+    img.onerror=function(){c.style.display='none';};
+    if(nachSchimmer) c.style.cssText='';
+    c.innerHTML=''; c.appendChild(img);
+  };
+  if(_wCache[lat]){ zeichne(el, _wCache[lat], false); return; }
   el.style.cssText='width:100%;height:120px;background:var(--surface2);border-radius:var(--r-md);animation:shimmer 1.5s ease infinite;background-image:linear-gradient(90deg,var(--surface2) 25%,var(--border) 50%,var(--surface2) 75%);background-size:200%;';
-  (window._gsFetch || fetch)('https://en.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(lat.split(' ').slice(0,2).join(' ')), {}, 8000)
-    .then(function(r){return r.json();})
-    .then(function(d){
-      var src=d.thumbnail?d.thumbnail.source.replace(/\/\d+px-/,'/400px-'):null;
-      _wCache[lat]=src||'none';
-      var c=document.getElementById(cid);
-      if(!c) return;
-      if(src){
-        var img=document.createElement('img');
-        img.src=src; img.alt='';
-        img.style.cssText='width:100%;height:160px;object-fit:cover;border-radius:var(--r-md);display:block;';
-        img.onerror=function(){c.style.display='none';};
-        c.style.cssText=''; c.innerHTML=''; c.appendChild(img);
-      } else c.style.display='none';
-    })
-    .catch(function(){_wCache[lat]='none'; var c=document.getElementById(cid); if(c) c.style.display='none';});
+  _gsWikiBildHolen(lat).then(function(w){
+    var c=document.getElementById(cid);
+    if(!c) return;
+    if(w) zeichne(c, w.src, true); else c.style.display='none';
+  });
 }
 
 // ══ v29.26 Block A: ARTEN-BILD (Community-Beitrag bevorzugt, Wikipedia-Fallback) ══
 var _spImgCache = {};
+// Scanner 12 (24.11.2026): die freigegebenen Community-Fotos einer Art an EINER Stelle holen — die
+// Artenansicht (gsLoadSpeciesImage) und der Vergleich im Scan-Ergebnis zeichnen sie nur. Immer eine
+// Liste (nie ein Wurf). v33.59 (Sicherheit): fn_contribute_species_image nimmt jede http(s)-Adresse
+// an — gezeigt wird nur, was im eigenen Speicher liegt (sonst zaehlt ein fremder Host jeden Besuch
+// mit und kann das Bild nach der Freigabe austauschen). Eine abgelehnte oder gescheiterte Abfrage
+// wird nicht als „keine Fotos" gemerkt.
+async function _gsCommunityBilderHolen(spId){
+  if (!spId || typeof sbFetch !== 'function') return [];
+  var rows = _spImgCache[spId];
+  if (!rows) {
+    var res = null;
+    try {
+      res = await sbFetch('/rest/v1/rpc/fn_species_images', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ p_species_id: spId })
+      });
+    } catch (_) { res = null; }
+    if (!res || res.error) return [];
+    rows = (Array.isArray(res.data) ? res.data : []).filter(function(rw){ return rw && _gsFremdBild(rw.url); });
+    _spImgCache[spId] = rows;
+  }
+  // v33.59: nur Fotos aus dem eigenen Speicher — auch aus einem Zwischenspeicher, den jemand anders befuellt hat
+  return (Array.isArray(rows) ? rows : []).filter(function(r){ return r && _gsFremdBild(r.url); });
+}
 async function gsLoadSpeciesImage(spId, lat, cid){
   if (!cid) return;
   var el = document.getElementById(cid);
   if (!el) return;
-  // 1) Community-Bild (approved) via fn_species_images
+  // 1) Community-Bild (approved) via fn_species_images — geholt in _gsCommunityBilderHolen
   try {
     if (typeof sbFetch === 'function') {
-      var rows = _spImgCache[spId];
-      if (!rows) {
-        var res = await sbFetch('/rest/v1/rpc/fn_species_images', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ p_species_id: spId })
-        });
-        rows = (res && res.data) || [];
-        // v33.59 (Sicherheit): fn_contribute_species_image nimmt jede http(s)-Adresse an —
-        // gezeigt wird nur, was im eigenen Speicher liegt (sonst zaehlt ein fremder Host
-        // jeden Besuch mit und kann das Bild nach der Freigabe austauschen).
-        rows = (Array.isArray(rows) ? rows : []).filter(function(rw){ return rw && _gsFremdBild(rw.url); });
-        _spImgCache[spId] = rows;
-      }
-      // v33.59: nur Fotos aus dem eigenen Speicher — sonst leere <img>-Kaesten statt Wikipedia-Rueckfall
-      rows = (Array.isArray(rows) ? rows : []).filter(function(r){ return r && _gsFremdBild(r.url); });
+      var rows = await _gsCommunityBilderHolen(spId);
       if (rows && rows.length) {
         var primary = rows.filter(function(r){ return r.is_primary; })[0] || rows[0];
         var c = document.getElementById(cid);
@@ -23336,6 +23412,7 @@ async function gsXpCloudFlush() {
   window._gsXpPending = 0;
   if (!amt) return;
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') { window._gsXpPending += amt; return; }
+  window._gsXpFluesse = (window._gsXpFluesse || 0) + 1;   // ein ZAEHLER: zwei Fluesse koennen sich ueberlappen; gsXpBootSync rechnet nicht, solange einer unterwegs ist
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_add_xp', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -23351,12 +23428,14 @@ async function gsXpCloudFlush() {
         try { if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar(); } catch(_){}
       }
     } else if (r && r.error) {
+      // §3.6: wer bei einem Fehler einreiht, fragt zuerst — nach einem Kontowechsel gehoert der Betrag von A nicht in den Puffer von B
+      if (typeof _gsPersonGewechselt === 'function' && _gsPersonGewechselt(r)) return;
       window._gsXpPending += amt; // Fehler → Delta zurücklegen, Boot-Sync/nächster Flush holt es nach
     }
   } catch(e) {
     window._gsXpPending += amt;
     console.warn('[GS] fn_add_xp:', e && e.message);
-  }
+  } finally { window._gsXpFluesse = Math.max(0, (window._gsXpFluesse || 1) - 1); }
 }
 // Beim Verlassen ungeflushte Deltas noch wegschreiben (best-effort; sonst holt Boot-Sync sie).
 try { window.addEventListener('pagehide', function(){ if (window._gsXpPending) gsXpCloudFlush(); }); } catch(_){}
@@ -23392,11 +23471,23 @@ async function gsXpBootSync() {
     if (profile._ungelesen) return;
     var cloud = profile.xp || 0;
     var local = gsGetXP();
+    // SPEICHER-V2 Scheibe 1 (Befund des Koordinators, nachgemessen): seit v33.69 laeuft dieser Abgleich
+    // auch MITTEN in der Sitzung (_gsProfilNachlesen). Dann ist der Puffer nicht leer — ein gescheiterter
+    // Flush legt seinen Betrag zurueck, und die lokale XP enthaelt ihn schon. `Puffer + (lokal − Cloud)`
+    // zaehlte ihn doppelt; die Differenz allein ist am Start dieselbe Zahl und mitten in der Sitzung die
+    // richtige (sync_check H12). Ist ein Betrag gerade unterwegs, kennt das gelesene Profil ihn noch nicht.
+    // Gegenpruefung Scheibe 1: NICHT `Puffer = lokal − Cloud`. Hat ein zweites Geraet die Cloud inzwischen
+    // erhoeht, ist die Differenz kleiner als der eigene, noch ungebuchte Betrag — der Puffer weiss es genauer
+    // (60 offline verdient, Cloud +50 vom Tablet: Differenz 10, Puffer 60). Das Maximum ist am Start die
+    // Differenz, mitten in der Sitzung der Puffer, und zaehlt nichts doppelt.
+    if ((window._gsXpFluesse || 0) > 0) return;
     if (local > cloud) {
-      window._gsXpPending = (window._gsXpPending || 0) + (local - cloud);
+      window._gsXpPending = Math.max(window._gsXpPending || 0, local - cloud);
       await gsXpCloudFlush();
     } else if (cloud > local) {
       try { gsStore.set(GS_XP_KEY, String(cloud)); } catch(_){}
+      // der eigene, noch ungebuchte Betrag gehoert obendrauf (die Cloud kennt ihn nicht)
+      if (window._gsXpPending) await gsXpCloudFlush();
     }
     try { gsUpdateXPBar({animate:false}); } catch(_){}
   } catch(e) { console.warn('[GS] gsXpBootSync:', e && e.message); }
@@ -24940,6 +25031,13 @@ async function gsAttachMushroomLookalikeWarn(card, patch) {
     var r = await sbFetch(qs, { method: 'GET' });
     if (!r || !Array.isArray(r.data) || !r.data.length) return;
     var rows = r.data;
+    // Brett bc4f: die Tabelle liefert nur Slugs — Namen aus dem Register (wie das Pilz-Ergebnis seit Scanner 13),
+    // höchstens 2,5 s; ohne Antwort der Name aus dem Slug in EINER Schreibweise.
+    try {
+      var _alle = [];
+      rows.forEach(function (x) { if (x) { _alle.push(x.edible_slug); _alle.push(x.lookalike_slug); } });
+      await Promise.race([_gsPilzRegister(_alle), new Promise(function (res) { setTimeout(res, 2500); })]);
+    } catch (_) {}
 
     // Group by confusion_risk
     var lethal = rows.filter(function(x){ return x.confusion_risk === 'sehr_hoch_lebensgefahr'; });
@@ -24958,7 +25056,7 @@ async function gsAttachMushroomLookalikeWarn(card, patch) {
       var key1 = Array.isArray(l.key_differences) && l.key_differences.length ? l.key_differences[0] : '';
       var tip = l.pro_tip || '';
       html += '<div style="background:rgba(0,0,0,.25);border-left:3px solid #ff5252;padding:6px 9px;border-radius:var(--r-xs);margin-bottom:5px;">' +
-        '<div style="font-weight:700;color:#ffcdd2;font-size:var(--fs-sm);">☠️ ' + escHtml(String(l.edible_slug).replace(/_/g,' ')) + ' vs. ' + escHtml(String(l.lookalike_slug).replace(/_/g,' ')) + '</div>' +   // v33.59
+        '<div style="font-weight:700;color:#ffcdd2;font-size:var(--fs-sm);">☠️ ' + escHtml(_gsPilzNameBekannt(l.edible_slug)) + ' vs. ' + escHtml(_gsPilzNameBekannt(l.lookalike_slug)) + '</div>' +   // v33.59
         (key1 ? '<div style="opacity:.92;margin-top:3px;font-size:var(--fs-sm);">→ ' + (typeof escHtml === 'function' ? escHtml(key1) : key1) + '</div>' : '') +
         (tip ? '<div style="opacity:.85;margin-top:3px;font-size:var(--fs-xs);font-style:italic;">💡 ' + (typeof escHtml === 'function' ? escHtml(tip) : tip) + '</div>' : '') +
       '</div>';
@@ -24999,7 +25097,7 @@ window.gsOpenMushroomLookalikesModal = function(jsonStr) {
       var riskBg = l.confusion_risk === 'sehr_hoch_lebensgefahr' ? '#c62828' : '#e65100';
       html += '<div style="background:var(--surface2);border-radius:var(--r-md);padding:12px 14px;margin-bottom:10px;border-left:4px solid ' + riskBg + ';">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
-          '<div style="font-weight:800;font-size:var(--fs-md);color:var(--text);">' + esc(String(l.edible_slug).replace(/_/g,' ')) + ' ↔ ' + esc(String(l.lookalike_slug).replace(/_/g,' ')) + '</div>' +
+          '<div style="font-weight:800;font-size:var(--fs-md);color:var(--text);">' + esc(_gsPilzNameBekannt(l.edible_slug)) + ' ↔ ' + esc(_gsPilzNameBekannt(l.lookalike_slug)) + '</div>' +
           '<span style="font-size:var(--fs-xs);background:' + riskBg + ';color:#fff;padding:2px 7px;border-radius:var(--r-xs);font-weight:800;">' + risk + '</span>' +
         '</div>';
       if (l.visual_differences) html += '<div style="font-size:var(--fs-sm);color:var(--text2);margin-bottom:4px;"><b>👁 Optisch:</b> ' + esc(l.visual_differences) + '</div>';
@@ -36127,6 +36225,392 @@ function gsPickAlternative(altKey) {
   showProfileToast(_gsSatz('✓ Bestimmung auf "{1}" geändert', alt.name));
 }
 
+// ── Hauptfunktionen · Scanner 12 (24.11.2026): „Mit Bildern vergleichen" ─────────────────────
+//
+// Eine Bestimmung prüfen heisst: das eigene Foto neben ein Bild der genannten Art halten — und
+// neben die Alternativen. Bilder gab es bis hierher nur in der Artenansicht und im Verlauf, nicht
+// dort, wo man die Bestimmung liest. Der Vergleich zeigt dein Foto, die erkannte Art und bis zu
+// drei Alternativen, je mit Referenzbild (freigegebenes Community-Foto, sonst Wikipedia), mit der
+// Marke aus dem Streifen (_gsAltMarke) und dem Unterscheidungsmerkmal; „Das ist es" wählt wie ein
+// Tipp auf die Alternative (gsPickAlternative).
+//
+// Drei Regeln:
+// (1) Geladen wird erst auf Antippen — die Datenschutzerklärung nennt Wikipedia „wenn du eine Art
+//     öffnest"; ein Bild bei JEDEM Scan wäre ein neuer Anlass.
+// (2) Was der Vergleich zeigt, wird beim ZEICHNEN der Karte gemerkt (_gsVglMerken), nicht beim
+//     Antippen — dazwischen kann ein anderer Scan laufen; dann gehört dessen Foto nicht hierher.
+// (3) Jede Öffnung hat eine Nummer; ein Bild, das für eine frühere ankommt, wird verworfen
+//     (CLAUDE.md §3.6: eine Antwort gehört ihrem Vorgang). Die Kasten-Ids tragen die Nummer.
+// Prüfstand: scan_check VG1–VG7.
+var _gsVglStand = null, _gsVglNr = 0, _gsVglOffen = 0;
+function _gsVglMerken(r, foto, t, alts) {
+  r = r || {};
+  _gsVglStand = {
+    scanId: r._scanId || null,
+    foto: (typeof foto === 'string' && /^data:image\//.test(foto)) ? foto : '',
+    haupt: {
+      name: String(r.name || ''), latin: String(r.latin || ''),
+      conf: r._ohneKiZahl ? null : (Number(r.confidence) || 0),
+      gewaehlt: !!r._userPicked,
+      marke: t ? { sym: String(t.sym || ''), label: String(t.label || ''), bg: String(t.bg || ''), color: String(t.color || '') } : null,
+      merkmale: Array.isArray(r.diagnostic_features) ? r.diagnostic_features.filter(Boolean).slice(0, 3).map(String) : []
+    },
+    alts: (Array.isArray(alts) ? alts : []).slice(0, 3)
+  };
+}
+function gsScanVergleichOeffnen() {
+  var st = _gsVglStand;
+  var akt = (typeof _lastScanResult !== 'undefined') ? _lastScanResult : null;
+  if (!st || !akt || (st.scanId && akt._scanId && st.scanId !== akt._scanId)) {
+    try { gsToast(_gsSatz('Zu diesem Ergebnis gibt es nichts mehr zu vergleichen.'), 'warning', 4000); } catch (_) {}
+    return false;
+  }
+  var liste = [{ art: st.haupt, haupt: true }];
+  st.alts.forEach(function (e, i) {
+    var a = e && window._gsAltCandidates && window._gsAltCandidates[e.key];
+    if (a) liste.push({ art: a, key: e.key, marke: e.marke || null, i: i + 1 });
+  });
+  _gsVglFenster(st.foto, liste, _gsVglKarte,
+    [_gsSatz('Bilder: freigegebene Community-Fotos, sonst Wikipedia. Geladen erst jetzt, weil du den Vergleich geöffnet hast — Wikipedia erfährt dabei nur den Artnamen.')],
+    function (k) {
+      var sp = null;
+      try { sp = (typeof gsMatchScanToDb === 'function') ? gsMatchScanToDb(k.art.name, k.art.latin) : null; } catch (_) { sp = null; }
+      return { sp: sp, latin: (sp && sp.lat) || k.art.latin || '', name: k.art.name || '' };
+    });
+  return true;
+}
+// Das FENSTER eines Vergleichs — für den Pflanzen-Scan (Scanner 12) und den Pilz-Scanner (Scanner 13): dein
+// Foto fest oben, darunter die Karten; das Bild jeder Karte lädt erst jetzt (_gsVglBildLaden, Regel 1).
+// bauer(nr, idx, eintrag) baut eine Karte; quelle(eintrag) → {sp, latin, name} für ihr Bild.
+function _gsVglFenster(foto, liste, bauer, fussSaetze, quelle) {
+  try { var schon = document.getElementById('gs-vergleich'); if (schon) gsDismissOverlay(schon); } catch (_) {}
+  var nr = ++_gsVglNr;
+  _gsVglOffen = nr;
+  var w = document.createElement('div');
+  w.id = 'gs-vergleich';
+  w.setAttribute('role', 'dialog');
+  w.setAttribute('aria-modal', 'true');
+  w.setAttribute('aria-label', _gsSatz('Mit Bildern vergleichen'));
+  w.style.cssText = 'position:fixed;inset:0;z-index:var(--z-image-overlay,99999);background:var(--g-bg);display:flex;flex-direction:column;';
+  var kopf = document.createElement('div');
+  kopf.style.cssText = 'flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 8px;background:var(--card);border-bottom:1px solid var(--border);';
+  var zu = document.createElement('button');
+  zu.type = 'button';
+  zu.setAttribute('data-gs-close', '1');
+  zu.setAttribute('aria-label', _gsSatz('Schliessen'));
+  zu.textContent = '✕';
+  zu.style.cssText = 'flex:0 0 44px;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-lg);line-height:1;cursor:pointer;font-family:inherit;';
+  var titel = document.createElement('div');
+  titel.style.cssText = 'font-weight:800;font-size:var(--fs-lg);color:var(--text);';
+  titel.textContent = '🔍 ' + _gsSatz('Mit Bildern vergleichen');
+  kopf.appendChild(zu);
+  kopf.appendChild(titel);
+  w.appendChild(kopf);
+  // Dein Foto steht fest über den Karten — so bleibt es beim Blättern neben jedem Referenzbild.
+  if (foto) {
+    var band = document.createElement('div');
+    band.style.cssText = 'flex:0 0 auto;padding:8px 12px;background:var(--g-bg);border-bottom:1px solid var(--border);';
+    var bl = document.createElement('div');
+    bl.className = 'sr2-card-lbl';
+    bl.textContent = '📷 ' + _gsSatz('Dein Foto');
+    var bi = document.createElement('img');
+    bi.alt = _gsSatz('Dein Foto');
+    bi.style.cssText = 'display:block;width:100%;height:130px;object-fit:contain;border-radius:var(--r-md);background:var(--surface2);cursor:zoom-in;';
+    bi.addEventListener('click', function () { try { gsFotoAnsicht(bi.src, bi.alt); } catch (_) {} });
+    bi.src = foto;
+    band.appendChild(bl);
+    band.appendChild(bi);
+    w.appendChild(band);
+  }
+  var feld = document.createElement('div');
+  feld.style.cssText = 'flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:12px 12px calc(env(safe-area-inset-bottom,0px) + 18px);';
+  liste.forEach(function (k, idx) { feld.appendChild(bauer(nr, idx, k)); });
+  (Array.isArray(fussSaetze) ? fussSaetze : []).forEach(function (satz) {
+    var fuss = document.createElement('div');
+    fuss.className = 'gs-vgl-fuss';
+    fuss.style.cssText = 'font-size:var(--fs-xs);color:var(--muted);line-height:1.5;margin-top:4px;padding:0 2px;';
+    fuss.textContent = satz;
+    feld.appendChild(fuss);
+  });
+  w.appendChild(feld);
+  document.body.appendChild(w);
+  zu.addEventListener('click', function () { gsDismissOverlay(w); });
+  gsRegisterOverlay(w, function () { if (_gsVglOffen === nr) _gsVglOffen = 0; try { gsReleaseFocusTrap(w); } catch (_) {} });
+  try { gsTrapFocus(w); } catch (_) {}
+  // Regel 1: erst jetzt laden
+  liste.forEach(function (k, idx) {
+    var q = {};
+    try { q = quelle(k) || {}; } catch (_) { q = {}; }
+    _gsVglBildLaden(nr, idx, q.sp || null, q.latin || '', q.name || '');
+  });
+  return nr;
+}
+function _gsVglKarte(nr, idx, k) {
+  var a = k.art || {};
+  var karte = document.createElement('div');
+  karte.className = 'sr2-card gs-vgl-karte';
+  karte.setAttribute('data-vgl', k.haupt ? 'haupt' : ('alt' + k.i));
+  var lbl = document.createElement('div');
+  lbl.className = 'sr2-card-lbl';
+  var conf = k.haupt ? a.conf : (Number(a.confidence) || 0);
+  lbl.textContent = (k.haupt ? (a.gewaehlt ? _gsSatz('Deine Wahl') : _gsSatz('Erkannt')) : _gsSatz('Alternative {1}', k.i)) +
+    ((typeof conf === 'number' && isFinite(conf)) ? ' · ' + conf + ' %' : '');
+  karte.appendChild(lbl);
+  var reihe = document.createElement('div');
+  reihe.style.cssText = 'display:flex;gap:10px;align-items:flex-start;';
+  var bild = document.createElement('div');
+  bild.id = 'gs-vgl-' + nr + '-' + idx;
+  bild.className = 'gs-vgl-bild';
+  bild.setAttribute('role', 'status');
+  bild.style.cssText = 'flex:0 0 44%;aspect-ratio:1/1;border-radius:var(--r-md);background:var(--surface2);overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;box-sizing:border-box;color:var(--text2);font-size:var(--fs-xs);line-height:1.4;';
+  bild.textContent = _gsSatz('Bild wird geladen …');
+  var text = document.createElement('div');
+  text.style.cssText = 'flex:1;min-width:0;';
+  var name = document.createElement('div');
+  name.className = 'gs-vgl-name';
+  name.style.cssText = 'font-weight:800;font-size:var(--fs-md);color:var(--text);line-height:1.35;overflow-wrap:anywhere;';
+  name.textContent = a.name || _gsSatz('Unbekannt');
+  text.appendChild(name);
+  if (a.latin) {
+    var lat = document.createElement('div');
+    lat.style.cssText = 'font-style:italic;font-size:var(--fs-sm);color:var(--text2);overflow-wrap:anywhere;';
+    lat.textContent = a.latin;
+    text.appendChild(lat);
+  }
+  var marke = null;
+  if (k.haupt && a.marke) {
+    marke = document.createElement('span');
+    marke.className = 'scan-tox-badge';
+    marke.style.background = a.marke.bg;
+    marke.style.color = a.marke.color;
+    marke.textContent = (a.marke.sym ? a.marke.sym + ' ' : '') + a.marke.label;
+  } else if (!k.haupt && k.marke) {
+    marke = document.createElement('span');
+    marke.className = k.marke.klasse;
+    marke.textContent = k.marke.text;
+  }
+  if (marke) {
+    var mz = document.createElement('div');
+    mz.className = 'gs-vgl-marke';
+    mz.style.cssText = 'margin-top:4px;';
+    mz.appendChild(marke);
+    text.appendChild(mz);
+  }
+  var mm = k.haupt ? (a.merkmale || []).join(' · ') : String(a.distinguishing_feature || '');
+  if (mm) {
+    var md = document.createElement('div');
+    md.className = 'gs-vgl-merkmal';
+    md.style.cssText = 'margin-top:6px;font-size:var(--fs-sm);color:var(--text2);line-height:1.45;overflow-wrap:anywhere;';
+    md.textContent = (k.haupt ? _gsSatz('Im Foto gesehen:') + ' ' : '→ ') + mm;
+    text.appendChild(md);
+  }
+  var nw = document.createElement('div');
+  nw.id = 'gs-vgl-' + nr + '-' + idx + '-q';
+  nw.className = 'gs-vgl-nachweis';
+  nw.style.cssText = 'margin-top:6px;font-size:var(--fs-xs);color:var(--text2);overflow-wrap:anywhere;';
+  text.appendChild(nw);
+  reihe.appendChild(bild);
+  reihe.appendChild(text);
+  karte.appendChild(reihe);
+  if (k.haupt) {
+    var ist = document.createElement('div');
+    ist.style.cssText = 'margin-top:8px;font-size:var(--fs-sm);font-weight:700;color:var(--text2);';
+    ist.textContent = '✓ ' + _gsSatz('Aktuelle Bestimmung');
+    karte.appendChild(ist);
+  } else {
+    var knopf = document.createElement('button');
+    knopf.type = 'button';
+    knopf.className = 'sr2-cta sr2-cta-secondary gs-vgl-wahl';
+    knopf.style.cssText = 'width:100%;margin-top:10px;';
+    knopf.textContent = _gsSatz('Das ist es: {1}', a.name || '');
+    knopf.addEventListener('click', function () { gsScanVergleichWaehlen(k.key); });
+    karte.appendChild(knopf);
+  }
+  return karte;
+}
+async function _gsVglBildLaden(nr, idx, sp, latin, name) {
+  var rows = [];
+  try { rows = sp ? await _gsCommunityBilderHolen(sp.id) : []; } catch (_) { rows = []; }
+  if (nr !== _gsVglOffen) return;                 // Regel 3: dieser Vergleich ist zu oder abgelöst
+  var q = null;
+  if (rows.length) {
+    var p = rows.filter(function (x) { return x && x.is_primary; })[0] || rows[0];
+    q = { src: _gsFremdBild(p.url), nachweis: '📸 ' + (p.attribution ? String(p.attribution) : _gsSatz('Community-Foto')), href: null };
+  } else if (latin) {
+    var wb = null;
+    try { wb = await _gsWikiBildHolen(latin); } catch (_) { wb = null; }
+    if (nr !== _gsVglOffen) return;
+    if (wb && wb.src) q = { src: wb.src, nachweis: '📷 ' + _gsSatz('Wikipedia — Urheber und Lizenz'), href: wb.datei || wb.seite || null };
+  }
+  var el = document.getElementById('gs-vgl-' + nr + '-' + idx);
+  if (!el) return;
+  if (!q || !q.src) {
+    el.textContent = (navigator.onLine === false) ? _gsSatz('Ohne Empfang kein Vergleichsbild.') : _gsSatz('Kein Vergleichsbild gefunden.');
+    return;
+  }
+  var img = document.createElement('img');
+  img.alt = _gsSatz('Vergleichsbild: {1}', name || latin);
+  img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in;';
+  // Laedt das Bild nicht, bleibt das <img> (ausgeblendet, mit seiner Adresse) und ein Satz steht daneben —
+  // kein zerbrochenes Bildsymbol.
+  img.addEventListener('error', function () {
+    try {
+      img.style.display = 'none';
+      var t = document.createElement('span');
+      t.className = 'gs-vgl-bildfehler';
+      t.textContent = (navigator.onLine === false) ? _gsSatz('Ohne Empfang kein Vergleichsbild.') : _gsSatz('Dieses Bild liess sich nicht laden.');
+      el.style.padding = '6px';
+      el.appendChild(t);
+    } catch (_) {}
+  });
+  img.addEventListener('click', function () { try { gsFotoAnsicht(img.src, img.alt); } catch (_) {} });
+  el.textContent = '';
+  el.style.padding = '0';
+  el.removeAttribute('role');
+  el.appendChild(img);
+  img.src = q.src;
+  var nw = document.getElementById('gs-vgl-' + nr + '-' + idx + '-q');
+  if (nw) {
+    var ziel = q.href ? _gsSafeLink(q.href) : '';
+    if (ziel) {
+      var ln = document.createElement('a');
+      ln.href = ziel;
+      ln.target = '_blank';
+      ln.rel = 'noopener';
+      ln.style.cssText = 'color:var(--g-dark);';
+      ln.textContent = q.nachweis;
+      nw.appendChild(ln);
+    } else {
+      nw.textContent = q.nachweis;
+    }
+  }
+}
+// „Das ist es" im Vergleich: dasselbe wie ein Tipp auf die Alternative im Streifen — und nur,
+// solange die Karte, zu der der Vergleich gehört, noch steht.
+function gsScanVergleichWaehlen(key) {
+  var w = document.getElementById('gs-vergleich');
+  var gibt = !!(key && window._gsAltCandidates && window._gsAltCandidates[key]);
+  if (w) { try { gsDismissOverlay(w); } catch (_) { try { w.remove(); } catch (__) {} } }
+  if (!gibt) {
+    try { gsToast(_gsSatz('Dieses Ergebnis hat sich inzwischen geändert.'), 'warning', 4000); } catch (_) {}
+    return false;
+  }
+  gsPickAlternative(key);
+  return true;
+}
+
+// ── Hauptfunktionen · Scanner 13 (24.11.2026): Pilz — die Verwechsler im Bild ──────────────────
+// Beim Pilz ist die Verwechslung die Gefahr (Grasgrüner Täubling ↔ Grüner Knollenblätterpilz). Der
+// Vergleich zeigt dein Foto, die erkannte Art und bis zu drei Verwechsler (die gefährlichsten zuerst),
+// je mit Referenzbild, der Essbarkeit aus dem REGISTER, dem Verwechslungs-Risiko und dem sichtbaren
+// Unterschied. Bewusst OHNE „Das ist es": ein Bild entscheidet bei Pilzen nichts — essen nur nach der
+// Kontrolle, und das steht im Fenster. Dieselben drei Regeln wie Scanner 12 (erst auf Antippen · beim
+// Zeichnen gemerkt · jede Öffnung mit Nummer); dazu gilt der Vergleich nur, solange die Bestimmung gilt
+// (_gsPilzNr). Prüfstand: scan_check PV1–PV5.
+var _gsPilzVglStand = null;
+function _gsPilzVglMerken(j, m, reg) {
+  m = m || {};
+  var gesehen = Object.create(null);
+  var verw = (Array.isArray(j && j.lookalikes) ? j.lookalikes : []).map(function (la) { return _gsPilzVerwechsler(la, j.matched_slug, reg); })
+    .filter(function (v) { if (!v.slug || gesehen[v.slug] || v.slug === j.matched_slug) return false; gesehen[v.slug] = 1; return true; })
+    .sort(function (x, y) { return y.risiko.rang - x.risiko.rang; })
+    .slice(0, 3);
+  var foto = window._gsMushroomPhotoB64;
+  var hname = _gsMushName(m) || _gsPilzSlugName(j && j.matched_slug);
+  _gsPilzVglStand = {
+    pilzNr: _gsPilzNr,
+    foto: (typeof foto === 'string' && /^data:image\//.test(foto)) ? foto : '',
+    haupt: { slug: String(m.slug || (j && j.matched_slug) || ''), name: hname,
+      latin: (m.scientific_name && String(m.scientific_name) !== hname) ? String(m.scientific_name) : '',
+      edibility: m.edibility || null, marke: _gsPilzEssbarMarke(m.edibility),
+      conf: Math.round(Number(j && j.confidence) || 0) },
+    verwechsler: verw
+  };
+}
+function gsPilzVergleichOeffnen() {
+  var st = _gsPilzVglStand;
+  if (!st || st.pilzNr !== _gsPilzNr || !document.querySelector('#mushroom-result .gs-pilz-vgl-knopf')) {
+    try { gsToast(_gsSatz('Zu diesem Ergebnis gibt es nichts mehr zu vergleichen.'), 'warning', 4000); } catch (_) {}
+    return false;
+  }
+  var liste = [{ art: st.haupt, haupt: true }].concat(st.verwechsler.map(function (v, i) { return { art: v, i: i + 1 }; }));
+  _gsVglFenster(st.foto, liste, _gsPilzVglKarte,
+    [_gsSatz('Ein Bild ersetzt keine Pilzkontrolle: iss einen Pilz nur, wenn ihn eine VAPKO-Kontrollstelle freigegeben hat.'),
+     _gsSatz('Bilder: Wikipedia. Geladen erst jetzt, weil du den Vergleich geöffnet hast — Wikipedia erfährt dabei nur den Artnamen.')],
+    function (k) { return { sp: null, latin: k.art.latin || _gsPilzSlugName(k.art.slug), name: k.art.name || '' }; });
+  return true;
+}
+window.gsPilzVergleichOeffnen = gsPilzVergleichOeffnen;
+function _gsPilzVglKarte(nr, idx, k) {
+  var a = k.art || {};
+  var karte = document.createElement('div');
+  karte.className = 'sr2-card gs-vgl-karte';
+  karte.setAttribute('data-vgl', k.haupt ? 'haupt' : ('alt' + k.i));
+  var lbl = document.createElement('div');
+  lbl.className = 'sr2-card-lbl';
+  lbl.textContent = k.haupt ? (_gsSatz('Erkannt') + (a.conf ? ' · ' + a.conf + ' %' : '')) : _gsSatz('Verwechsler {1}', k.i);
+  karte.appendChild(lbl);
+  var reihe = document.createElement('div');
+  reihe.style.cssText = 'display:flex;gap:10px;align-items:flex-start;';
+  var bild = document.createElement('div');
+  bild.id = 'gs-vgl-' + nr + '-' + idx;
+  bild.className = 'gs-vgl-bild';
+  bild.setAttribute('role', 'status');
+  bild.style.cssText = 'flex:0 0 44%;aspect-ratio:1/1;border-radius:var(--r-md);background:var(--surface2);overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;box-sizing:border-box;color:var(--text2);font-size:var(--fs-xs);line-height:1.4;';
+  bild.textContent = _gsSatz('Bild wird geladen …');
+  var text = document.createElement('div');
+  text.style.cssText = 'flex:1;min-width:0;';
+  var name = document.createElement('div');
+  name.className = 'gs-vgl-name';
+  name.style.cssText = 'font-weight:800;font-size:var(--fs-md);color:var(--text);line-height:1.35;overflow-wrap:anywhere;';
+  name.textContent = a.name || _gsSatz('Unbekannt');
+  text.appendChild(name);
+  if (a.latin) {
+    var lat = document.createElement('div');
+    lat.style.cssText = 'font-style:italic;font-size:var(--fs-sm);color:var(--text2);overflow-wrap:anywhere;';
+    lat.textContent = a.latin;
+    text.appendChild(lat);
+  }
+  var marken = document.createElement('div');
+  marken.className = 'gs-vgl-marke';
+  marken.style.cssText = 'margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;';
+  if (!k.haupt && a.risiko) {
+    var rk = document.createElement('span');
+    rk.className = 'gs-pilz-risiko';
+    rk.style.cssText = 'background:' + a.risiko.bg + ';color:#fff;padding:1px 7px;border-radius:var(--r-xs);font-size:var(--fs-xs);font-weight:800;';
+    rk.textContent = a.risiko.lbl;
+    marken.appendChild(rk);
+  }
+  // Am VERWECHSLER nur eine Warnung (gefahr), wie in der Warnbox: ein „Speisepilz laut Register" neben einem
+  // Doppelgänger lädt zum Verwechseln ein — und das Register ist bei einigen Arten milder als die Artenliste.
+  if (a.marke && (k.haupt || a.marke.gefahr)) {
+    var em = document.createElement('span');
+    em.className = 'gs-pilz-essbar';
+    em.style.cssText = a.marke.gefahr
+      ? 'background:var(--bg-danger-soft);color:var(--c-danger-d);padding:1px 7px;border-radius:var(--r-xs);font-size:var(--fs-xs);font-weight:800;'
+      : 'background:var(--surface2);color:var(--text2);padding:1px 7px;border-radius:var(--r-xs);font-size:var(--fs-xs);font-weight:700;';
+    em.textContent = a.marke.text;
+    marken.appendChild(em);
+  }
+  if (marken.childNodes.length) text.appendChild(marken);
+  if (!k.haupt && a.diff) {
+    var md = document.createElement('div');
+    md.className = 'gs-vgl-merkmal';
+    md.style.cssText = 'margin-top:6px;font-size:var(--fs-sm);color:var(--text2);line-height:1.45;overflow-wrap:anywhere;';
+    md.textContent = '👁️ ' + a.diff;
+    text.appendChild(md);
+  }
+  var nw = document.createElement('div');
+  nw.id = 'gs-vgl-' + nr + '-' + idx + '-q';
+  nw.className = 'gs-vgl-nachweis';
+  nw.style.cssText = 'margin-top:6px;font-size:var(--fs-xs);color:var(--text2);overflow-wrap:anywhere;';
+  text.appendChild(nw);
+  reihe.appendChild(bild);
+  reihe.appendChild(text);
+  karte.appendChild(reihe);
+  return karte;
+}
+
 // ── Hauptfunktionen · Scanner 1–3: EINE Funktion fuer „es ist eine andere Art" ──
 //
 // Zwei Wege fuehren hierher: eine Alternative antippen (`wahl`) und eine
@@ -37780,6 +38264,18 @@ function _gsAltTox(a) {
   if (vomModell == null && ausDB == null) return null;
   return Math.max(vomModell == null ? -1 : vomModell, ausDB == null ? -1 : ausDB);
 }
+// Die Marke am Namen einer Alternative — EINE Regel fuer den Streifen im Ergebnis und den Vergleich
+// (Scanner 12). Die Giftigkeit steht am Namen, nicht in einer Fussnote. „essbar" ist eine Zusage:
+// sie kommt aus der LISTE (essbar und ungiftig, geprueft), nie allein aus dem Feld der KI — gemessen
+// am 11.11.2026: „Zzz Fantasiekraut 🍽️ essbar" (die Art gibt es nicht) und „Edelweiss 🍽️ essbar"
+// (Liste: nicht essbar). scan_check V8. Rueckgabe {klasse, text} (feste Texte) oder null.
+function _gsAltMarke(a) {
+  if (!a) return null;
+  var atox = _gsAltTox(a);
+  if (atox != null && atox >= 3) return { klasse: 'sr2-alt-gift', text: atox >= 5 ? '\u2620\ufe0f t\u00f6dlich' : atox >= 4 ? '\u2620\ufe0f stark giftig' : '\u26a0\ufe0f giftig' };
+  if (atox === 0 && a.edible === true && _gsListeZumEssen({ name: a.name, latin: a.latin }).zustand === 'essbar') return { klasse: 'sr2-alt-ok', text: '\ud83c\udf7d\ufe0f essbar' };
+  return null;
+}
 // Die gefaehrlichste der ersten drei Alternativen.
 function _gsAltGefahr(res) {
   var g = 0;
@@ -37993,6 +38489,12 @@ function showScanResult(r, opts){
         '<div style="margin-top:3px;"><span class="scan-tox-badge" style="background:' + t.bg + ';color:' + t.color + ';">' + t.sym + ' ' + esc(t.label) + '</span></div>' +
       '</div>' +
     '</div>' +
+    // Scanner 12: die Bestimmung am Bild pruefen — Referenzbilder erst auf Antippen (Datenschutz:
+    // Wikipedia erfaehrt den Artnamen nur, „wenn du eine Art oeffnest").
+    ((r.name || r.latin)
+      ? '<button type="button" class="sr2-cta sr2-cta-secondary gs-vgl-knopf" onclick="gsScanVergleichOeffnen()" style="width:100%;margin-top:10px;">\ud83d\udd0d ' +
+          esc(_gsSatz((r.alternatives && r.alternatives.length) ? 'Mit Bildern vergleichen' : 'Mit einem Bild vergleichen')) + '</button>'
+      : '') +
   '</div>';
 
   // v23.69: Body neu strukturiert — klarer roter Faden
@@ -38336,6 +38838,7 @@ function showScanResult(r, opts){
   }
 
   // Alternative Arten (im neuen Card-Design)
+  var _vglAlts = [];   // Scanner 12: die Schluessel der Alternativen DIESER Karte, fuer den Vergleich
   if (r.alternatives && r.alternatives.length) {
     body += '<div style="margin:14px 0 8px;">' +
       '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px;padding:0 2px;">Top-Alternativen · tippen zum Wechseln</div>';
@@ -38382,19 +38885,17 @@ function showScanResult(r, opts){
       window._gsAltCandidates = window._gsAltCandidates || {};
       var altKey = 'alt_' + Date.now() + '_' + idx;
       window._gsAltCandidates[altKey] = alt;
+      // EINE Rechnung fuer die Marke — der Vergleich (Scanner 12) zeigt genau, was dieser Streifen zeigt
+      // (die rohe Antwort `a` traegt auch `toxic`, das `alt` nicht mehr hat).
+      var _marke = _gsAltMarke(a);
+      _vglAlts.push({ key: altKey, marke: _marke });
       body += '<div class="sr2-alt-card" onclick="gsPickAlternative(\'' + _gsOcStr(altKey) + '\')">' +
         '<div class="sr2-alt-emoji">' + catEmoji + '</div>' +
         '<div class="sr2-alt-info">' +
           '<div class="sr2-alt-name">' + esc(alt.name) +
-            // Die Giftigkeit steht AM NAMEN, nicht in einer Fussnote.
-            (atox != null && atox >= 3
-              ? ' <span class="sr2-alt-gift">' + (atox >= 5 ? '\u2620\ufe0f t\u00f6dlich' : atox >= 4 ? '\u2620\ufe0f stark giftig' : '\u26a0\ufe0f giftig') + '</span>'
-              // \u201eessbar" ist eine Zusage: sie kommt aus der LISTE (essbar und
-              // ungiftig, geprueft), nie allein aus dem Feld der KI. Gemessen am
-              // 11.11.2026: \u201eZzz Fantasiekraut \ud83c\udf7d\ufe0f essbar" (die Art gibt es nicht)
-              // und \u201eEdelweiss \ud83c\udf7d\ufe0f essbar" (Liste: nicht essbar). scan_check V8.
-              : (atox === 0 && a.edible === true && _gsListeZumEssen({ name: a.name, latin: a.latin }).zustand === 'essbar'
-                  ? ' <span class="sr2-alt-ok">\ud83c\udf7d\ufe0f essbar</span>' : '')) +
+            // Die Giftigkeit steht AM NAMEN, nicht in einer Fussnote — EINE Regel fuer
+            // diesen Streifen und den Vergleich (_gsAltMarke, Scanner 12).
+            (_marke ? ' <span class="' + _marke.klasse + '">' + _marke.text + '</span>' : '') +
           '</div>' +
           (alt.latin ? '<div class="sr2-alt-lat">' + esc(alt.latin) + '</div>' : '') +
           (alt.distinguishing_feature ? '<div class="sr2-alt-reason">→ ' + esc(alt.distinguishing_feature) + '</div>' : '') +
@@ -38404,6 +38905,10 @@ function showScanResult(r, opts){
     });
     body += '</div>';
   }
+
+  // Scanner 12: was der Vergleich zeigt, gehoert zu DIESER Karte (Foto, Art, Alternativen) —
+  // gemerkt beim Zeichnen, nicht beim Antippen: bis dahin kann ein anderer Scan laufen.
+  try { _gsVglMerken(r, _scanPhotoSrc, t, _vglAlts); } catch (_) {}
 
   // Nächstes Foto Empfehlung — v30.74: bei niedriger Konfidenz ein 2. Foto KOMBINIEREN (nicht nur neu scannen).
   if ((r.next_photo_hint && conf < 85) || (conf > 0 && conf < 60)) {
@@ -41391,6 +41896,10 @@ function openPlantDiary(plantId) {
   if (!Array.isArray(p.diary)) p.diary = [];
   var existing = document.getElementById('plant-diary-modal');
   if (existing) existing.remove();
+  // Scheibe 2 (Gegenpruefung): ein frisch gebautes Formular zeigt keine Vorschau — also haengt auch kein Foto
+  // an. Die Variable ueberlebte das Schliessen des Fensters und das Abmelden: das Foto von A landete im
+  // naechsten Eintrag, auch in dem des naechsten Kontos.
+  window._gsDiaryPhotoB64 = null;
   // v32.53: `ts` ist seit v26.51 ein ISO-String (gsQuickDone) — die Differenz zweier Strings ist NaN, die Liste war unsortiert.
   var entries = p.diary.slice().sort(function(a,b){ return (new Date(b.ts||0).getTime()||0) - (new Date(a.ts||0).getTime()||0); });
 
@@ -41505,36 +42014,67 @@ async function gsAddDiaryEntry(plantId) {
   var note = ((document.getElementById('diary-note')||{}).value || '').trim();
   // v30.35 (HL#10/#21): Foto in den Bucket laden statt base64 in den gesyncten user_plants-Blob zu legen
   // (sonst Quota-Bloat + jeder Plant-Edit re-pusht alle base64). Fallback base64 nur offline/guest/Upload-Fehler.
+  // SPEICHER-V2 Scheibe 2: scheitert der Upload (kein Empfang, Bucket lehnt ab), wartet das Foto im
+  // Ausgangskorb (IndexedDB, v31.06) und der Eintrag traegt den Platzhalter `gsphoto://<n>` — wie das
+  // Pflanzenfoto seit v31.06. Vorher lag es als base64 im Eintrag: in den 5 MB von ps_myplants und im
+  // Pflanzen-Blob, der bei JEDER Aenderung ganz hochgeht. base64 bleibt nur der Notnagel, wenn auch
+  // der Korb nicht schreibt. Pruefstand: offline_check „Ein Tagebuch-Foto ohne Empfang“.
   var photo = null;
-  if (window._gsDiaryPhotoB64) {
-    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof window.gsUploadPhotoToBucket === 'function') {
-      try { photo = await window.gsUploadPhotoToBucket('garden-diary-photos', window._gsDiaryPhotoB64); } catch(_){}
+  var _tbTs = Date.now();
+  var _tbWer = (typeof _gsPerson === 'function') ? _gsPerson() : null;   // vor dem ersten await (CLAUDE.md §3.6)
+  var _tbB64 = window._gsDiaryPhotoB64;
+  if (_tbB64) {
+    var _tbOnline = (typeof navigator === 'undefined' || navigator.onLine !== false);
+    if (_tbOnline && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof window.gsUploadPhotoToBucket === 'function') {
+      try { photo = await window.gsUploadPhotoToBucket('garden-diary-photos', _tbB64); } catch(_){}
     }
-    if (!photo) photo = 'data:image/jpeg;base64,' + window._gsDiaryPhotoB64;
+    // Die Person hat waehrend des Uploads gewechselt (bis zu 60 s): NICHT einreihen — der Korb stempelte das
+    // Foto sonst mit dem naechsten Konto, und dessen Flush lueden es in den fremden Ordner.
+    if (typeof _gsPersonAnders === 'function' && _gsPersonAnders(_tbWer)) return;
+    if (!photo && _tbWer && typeof window.gsQueuePhoto === 'function') {
+      try { photo = await window.gsQueuePhoto('garden-diary-photos', _tbB64, { kind: 'diary', ref: plantId + '|' + _tbTs }, _tbWer); } catch(_){}
+    }
+    // …und noch einmal: auch das Einreihen ist ein await.
+    if (typeof _gsPersonAnders === 'function' && _gsPersonAnders(_tbWer)) return;
+    if (!photo) photo = 'data:image/jpeg;base64,' + _tbB64;
+    // Die Liste kann waehrend des Wartens ersetzt worden sein (Abgleich) — die Pflanze neu suchen.
+    p = myPlants.find(function(x){ return x.id === plantId; });
+    if (!p) return;
+    if (!Array.isArray(p.diary)) p.diary = [];
   }
   if (!note && !photo && action === 'note') {
     if (typeof showProfileToast==='function') showProfileToast('Bitte Notiz oder Foto hinzufügen', 'warn');
     return;
   }
   var titles = {water:'Gegossen', fertilize:'Gedüngt', repot:'Umgetopft', prune:'Geschnitten', check:'Kontrolle', mist:'Besprüht', dust:'Abgestaubt', rotate:'Gedreht', note:'Notiz', photo:'Foto'};
+  // Den Stand VOR dem Eintrag merken — sagt der Speicher Nein, wird er zurueckgegeben (v33.66: erst schreiben, dann melden).
+  var _tbVor = { diary: p.diary.slice(), last: (p.tasks && p.tasks[action]) ? p.tasks[action].lastDone : undefined };
   p.diary.push({
-    ts: Date.now(),
+    ts: _tbTs,
     action: action,
     title: titles[action] || 'Eintrag',
     note: note || null,
     photo: photo
   });
-  p.diary = gsCapWithArchive('plant_diary', p.diary, 200, 'tail'); // v30.35 Cap, v31.08 jetzt mit Archiv
+  p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit'); // v30.35 Cap, v31.08 mit Archiv, Scheibe 2: nach Zeit
   // Auch lastDone der entsprechenden Aufgabe updaten falls action eine Pflege-Aktion ist
   if (p.tasks && p.tasks[action]) {
     p.tasks[action].lastDone = new Date().toISOString();
   }
-  savePlantsToStorage();
+  if (savePlantsToStorage() === false) {
+    p.diary = _tbVor.diary;
+    if (p.tasks && p.tasks[action]) { if (_tbVor.last === undefined) delete p.tasks[action].lastDone; else p.tasks[action].lastDone = _tbVor.last; }
+    // Fenster und Eingabe bleiben stehen: die Person kann Platz schaffen und es noch einmal versuchen.
+    if (typeof showProfileToast==='function') showProfileToast(_gsSatz('Nicht gespeichert — der Speicher ist voll. Der Eintrag steht noch im Formular; bitte alte Fotos oder Scans löschen.'), 'error');
+    return false;
+  }
   // Modal neu rendern für aktualisierten Stand
-  document.getElementById('plant-diary-modal').remove();
+  var _tbModal = document.getElementById('plant-diary-modal'); if (_tbModal) _tbModal.remove();
   window._gsDiaryPhotoB64 = null;
   openPlantDiary(plantId);
-  if (typeof showProfileToast==='function') showProfileToast({title:'📓 Eintrag gespeichert', body:titles[action] || 'Tagebuch aktualisiert', kind:'success', duration:1800});
+  var _tbWartet = (typeof photo === 'string' && photo.indexOf('gsphoto://') === 0);
+  if (typeof showProfileToast==='function') showProfileToast({title:'📓 Eintrag gespeichert', body: _tbWartet ? _gsSatz('Das Foto wird hochgeladen, sobald wieder Empfang da ist.') : (titles[action] || 'Tagebuch aktualisiert'), kind:'success', duration: _tbWartet ? 3200 : 1800});
+  return true;
 }
 async function gsDeleteDiaryEntry(plantId, ts) {
   var p = myPlants.find(function(x){ return x.id === plantId; });
@@ -46015,6 +46555,79 @@ function _gsPilzSlugName(slug) {
   var s = String(slug == null ? '' : slug).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 }
+// ── Hauptfunktionen · Scanner 13 (24.11.2026): die Verwechsler beim Namen — und im Bild ──────────
+// mushroom-identify schickt die Verwechsler als Paare von SLUGS (select * auf mushroom_lookalikes —
+// die Tabelle hat keine Namensspalte, scripts/edge/_live_schema.mjs). Die Warnbox machte daraus
+// „Russula Virescens" statt „Grasgrüner Täubling", in jeder Sprache — gerade der Name, auf den es in
+// „☠️ LEBENSGEFAHR" ankommt. Und scan_check PZ1 stellte dem Renderer einen Namen (edible_common_name),
+// den die Function nie schickt: der Fall prüfte die Vorlage, nicht die Ware (CLAUDE.md §3.1, v33.00).
+// Name, Latein und Essbarkeit kommen jetzt aus dem REGISTER (öffentlich lesbar) — dieselbe Quelle, die
+// der Server für das Ergebnis nimmt; die Artenliste der App zählt bei Pilzen nicht (§3.3).
+// EINE Lesart des Verwechslungs-Risikos — Warnbox und Bildvergleich (vorher nur in der Warnbox).
+function _gsPilzRisiko(risk) {
+  var r = String(risk || 'mittel');
+  var tod = (r === 'sehr_hoch_lebensgefahr' || r === 'lebensgefahr');
+  return {
+    bg: tod ? '#7f0000' : r === 'hoch' ? '#c62828' : r === 'mittel' ? '#e65100' : '#827717',
+    lbl: tod ? '☠️ LEBENSGEFAHR' : r === 'hoch' ? '🔴 HOCH' : r === 'mittel' ? '🟠 MITTEL' : r.toUpperCase(),
+    rang: tod ? 3 : r === 'hoch' ? 2 : r === 'mittel' ? 1 : 0
+  };
+}
+// Gemerkt wird nur, was das Register geliefert hat — ein Fehler merkt nichts (sonst bliebe ein Netzfehler
+// bis zum Neuladen „ohne Namen", dieselbe Falle wie _wCache in Scanner 12). Ein Slug beginnt mit einem
+// Buchstaben (kein „__proto__"), und die Tabellen haben keinen Prototyp. Ein Bindestrich gehört dazu: das Register
+// führt Slugs wie champignon-de-paris und gemeiner-fliegenpilz-var-alba (tödlich) — ohne ihn fehlte genau dort
+// „☠️ TÖDLICH" (Prüfung von #347).
+var _gsPilzRegCache = Object.create(null);
+async function _gsPilzRegister(slugs) {
+  var out = Object.create(null), fehlt = [];
+  (Array.isArray(slugs) ? slugs : []).forEach(function (x) {
+    var s = String(x == null ? '' : x);
+    if (!/^[a-z][a-z0-9_-]{1,79}$/.test(s)) return;
+    if (_gsPilzRegCache[s]) out[s] = _gsPilzRegCache[s];
+    else if (fehlt.indexOf(s) < 0) fehlt.push(s);
+  });
+  if (!fehlt.length || typeof sbFetch !== 'function') return out;
+  try {
+    var r = await sbFetch('/rest/v1/mushroom_register?slug=in.(' + fehlt.join(',') + ')&select=slug,common_name_de,common_name_fr,common_name_it,scientific_name,edibility&limit=' + fehlt.length, { method: 'GET' });
+    (r && Array.isArray(r.data) ? r.data : []).forEach(function (z) {
+      if (z && typeof z.slug === 'string' && fehlt.indexOf(z.slug) >= 0) { _gsPilzRegCache[z.slug] = z; out[z.slug] = z; }
+    });
+  } catch (_) {}
+  return out;
+}
+window._gsPilzRegister = _gsPilzRegister;
+// Die Essbarkeit des REGISTERS als Marke {text, gefahr}; unbekannt → null.
+function _gsPilzEssbarMarke(e) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  if (e === 'toedlich') return { text: '☠️ ' + _t('mush_deadly', 'TÖDLICH'), gefahr: true };
+  if (e === 'giftig') return { text: '⚠️ ' + _t('tag_toxic', 'GIFTIG'), gefahr: true };
+  if (e === 'speisepilz') return { text: '🍽️ ' + _gsSatz('Speisepilz laut Register'), gefahr: false };
+  if (e === 'speisepilz_jung') return { text: '🍽️ ' + _gsSatz('Speisepilz, nur jung'), gefahr: false };
+  if (e === 'bedingt_essbar') return { text: '⚠️ ' + _gsSatz('Bedingt essbar'), gefahr: false };
+  if (e === 'ungeniessbar') return { text: _gsSatz('Ungeniessbar'), gefahr: false };
+  return null;
+}
+// EIN Leser für einen Verwechsler — die Warnbox und der Bildvergleich nennen ihn gleich.
+function _gsPilzVerwechsler(la, matched, reg) {
+  la = la || {};
+  var andere = (la.edible_slug === matched);
+  var slug = String((andere ? la.lookalike_slug : la.edible_slug) || '');
+  var z = (reg && slug && reg[slug]) ? reg[slug] : null;
+  var gesendet = andere ? (la.lookalike_common_name || la.lookalike_name) : (la.edible_common_name || la.edible_name);
+  var name = z ? (_gsMushName(z) || _gsPilzSlugName(slug))
+    : ((typeof gesendet === 'string' && gesendet.trim()) ? gesendet.trim() : _gsPilzSlugName(slug));
+  var latin = (z && z.scientific_name && String(z.scientific_name) !== name) ? String(z.scientific_name) : '';
+  var ed = z ? z.edibility : null;
+  return { slug: slug, name: name, latin: latin, edibility: ed, marke: _gsPilzEssbarMarke(ed), risiko: _gsPilzRisiko(la.confusion_risk), diff: String(la.visual_differences || '') };
+}
+// Brett bc4f: ein Pilz beim Namen aus dem, was das Register schon geliefert hat (_gsPilzRegCache) — sonst aus dem
+// Slug in EINER Schreibweise. Für Anzeigen, die nicht selbst warten können (die Verwechsler-Galerie öffnet synchron).
+function _gsPilzNameBekannt(slug) {
+  var s = String(slug == null ? '' : slug);
+  var z = /^[a-z][a-z0-9_-]{1,79}$/.test(s) ? _gsPilzRegCache[s] : null;
+  return z ? (_gsMushName(z) || _gsPilzSlugName(s)) : _gsPilzSlugName(s);
+}
 // Die Kandidaten im Zweig „unsicher": mit Namen, und ein giftiger oder toedlicher traegt seine Warnung.
 // Die Essbarkeit kommt aus dem Register (alternative_arten, seit v33.64) — nicht aus der Artenliste der
 // App: bei Pilzen ist sie teils milder als das Register (gemessen 19.11.2026, Brett).
@@ -46083,7 +46696,13 @@ function gsPilzAbbrechen(grund) {
     var satz = lauf.gesendet
       ? _t('mush_abgebrochen_gesendet', 'Pilz-Bestimmung abgebrochen — es wird kein Ergebnis gezeigt. Das Foto war schon unterwegs; der Versuch kann für heute zählen.')
       : _t('mush_abgebrochen', 'Pilz-Bestimmung abgebrochen — es wird kein Ergebnis gezeigt.');
-    try { if (typeof showProfileToast === 'function') showProfileToast(satz, 'info'); else if (typeof gsToast === 'function') gsToast(satz, 'info', 5000); } catch (_) {}
+    // Brett 2026-11-24-8999: beim Abmelden läge ein Toast unter dem Anmeldebildschirm — der Satz kommt dann
+    // dorthin (_gsAbmeldenSagen, CLAUDE.md §3.6), sonst ginge „der Versuch kann für heute zählen" verloren.
+    try {
+      if (Array.isArray(window._gsAbmeldenSaetze) && typeof _gsAbmeldenSagen === 'function') _gsAbmeldenSagen(satz);
+      else if (typeof showProfileToast === 'function') showProfileToast(satz, 'info');
+      else if (typeof gsToast === 'function') gsToast(satz, 'info', 5000);
+    } catch (_) {}
   }
 }
 window.gsPilzAbbrechen = gsPilzAbbrechen;
@@ -46244,6 +46863,16 @@ async function gsMushroomRenderResult(j, gilt) {
       }
     }
   } catch(_){}
+  // Scanner 13: die Verwechsler tragen nur Slugs — Name, Latein und Essbarkeit aus dem Register. Höchstens
+  // 2,5 s: ohne Antwort bleibt der Name aus dem Slug, und die Warnung steht trotzdem (das rote Vollbild kam
+  // schon vor dem ersten Warten).
+  var _pilzReg = Object.create(null);
+  try {
+    var _laSlugs = (Array.isArray(j.lookalikes) ? j.lookalikes : []).map(function (la) {
+      return la ? (la.edible_slug === j.matched_slug ? la.lookalike_slug : la.edible_slug) : null;
+    });
+    if (_laSlugs.length) _pilzReg = (await Promise.race([_gsPilzRegister(_laSlugs), new Promise(function (r) { setTimeout(function () { r(null); }, 2500); })])) || Object.create(null);
+  } catch (_) { _pilzReg = Object.create(null); }
   // Nachtrag 24.11.: nach dem Warten — gehört das Ergebnis noch zum gezeigten Foto?
   if (!_giltNoch()) return;
 
@@ -46299,16 +46928,14 @@ async function gsMushroomRenderResult(j, gilt) {
       // v29.50 SAFETY: die tödlichste Stufe 'sehr_hoch_lebensgefahr' fehlte im Farb-Mapping → fiel auf
       // das harmloseste Oliv (#827717) → ein lebensgefährliches Verwechsler-Paar wirkte HARMLOSER als
       // ein bloss 'hoch'-Paar. Jetzt stärkstes Schwarz-Rot + klares Label. Plus: lesbarer Name statt DB-Slug.
-      var risk = String(la.confusion_risk || 'mittel');
-      var isLethal = (risk === 'sehr_hoch_lebensgefahr' || risk === 'lebensgefahr');
-      var riskBg = isLethal ? '#7f0000' : risk === 'hoch' ? '#c62828' : risk === 'mittel' ? '#e65100' : '#827717';
-      var riskLbl = isLethal ? '☠️ LEBENSGEFAHR' : risk === 'hoch' ? '🔴 HOCH' : risk === 'mittel' ? '🟠 MITTEL' : risk.toUpperCase();
-      var otherRaw = (la.edible_slug === j.matched_slug)
-        ? (la.lookalike_common_name || la.lookalike_name || la.lookalike_slug)
-        : (la.edible_common_name || la.edible_name || la.edible_slug);
-      var otherName = String(otherRaw||'').replace(/_/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+      // Scanner 13: Risiko und Name über die EINEN Leser (_gsPilzRisiko, _gsPilzVerwechsler) — der Name aus dem
+      // Register; vorher „Russula Virescens" aus dem Slug, auch auf Französisch.
+      var _rk = _gsPilzRisiko(la.confusion_risk);
+      var riskBg = _rk.bg, riskLbl = _rk.lbl;
+      var _vw = _gsPilzVerwechsler(la, j.matched_slug, _pilzReg);
+      var otherName = _vw.name;
       html += '<div style="padding:7px 0;border-top:1px dashed rgba(0,0,0,.1);">' +
-        '<div style="font-size:var(--fs-sm);color:#bf360c;"><span style="background:' + riskBg + ';color:#fff;padding:1px 7px;border-radius:var(--r-xs);font-size:var(--fs-xs);font-weight:800;margin-right:6px;">' + ed(riskLbl) + '</span><b>' + ed(otherName) + '</b></div>';
+        '<div style="font-size:var(--fs-sm);color:#bf360c;"><span style="background:' + riskBg + ';color:#fff;padding:1px 7px;border-radius:var(--r-xs);font-size:var(--fs-xs);font-weight:800;margin-right:6px;">' + ed(riskLbl) + '</span><b>' + ed(otherName) + '</b>' + (_vw.latin ? ' <i>(' + ed(_vw.latin) + ')</i>' : '') + ((_vw.marke && _vw.marke.gefahr) ? ' <b>' + ed(_vw.marke.text) + '</b>' : '') + '</div>';
       if (la.visual_differences) html += '<div style="font-size:var(--fs-sm);color:#bf360c;margin-top:3px;line-height:1.5;"><b>' + _t('mush_visual','👁️ Visuell:') + '</b> ' + ed(la.visual_differences) + '</div>';
       if (la.smell_differences) html += '<div style="font-size:var(--fs-sm);color:#bf360c;margin-top:2px;"><b>' + _t('mush_smell','👃 Geruch:') + '</b> ' + ed(la.smell_differences) + '</div>';
       if (la.spore_print_differences) html += '<div style="font-size:var(--fs-sm);color:#bf360c;margin-top:2px;"><b>' + _t('mush_spores','🔬 Sporen:') + '</b> ' + ed(la.spore_print_differences) + '</div>';
@@ -46317,6 +46944,11 @@ async function gsMushroomRenderResult(j, gilt) {
     });
     html += '</div>';
   }
+
+  // Scanner 13: dein Foto neben Referenzbildern der Art und ihrer Verwechsler — erst auf Antippen. Was der
+  // Vergleich zeigt, wird beim ZEICHNEN gemerkt (wie Scanner 12), nicht beim Antippen.
+  try { _gsPilzVglMerken(j, m, _pilzReg); } catch (_) {}
+  html += '<button type="button" class="sr2-cta sr2-cta-secondary gs-pilz-vgl-knopf" onclick="gsPilzVergleichOeffnen()" style="width:100%;margin-top:12px;">🔍 ' + ed(_gsSatz('Mit Bildern vergleichen')) + '</button>';
 
   // VAPKO-Pflicht-Hinweis (immer)
   html += gsMushroomVapkoBox(j, ed);
@@ -55184,7 +55816,25 @@ function _gsRecipeOverlayDefaults(x) {
   x.type = d.type;
   return x;
 }
+// SPEICHER-V2 Scheibe 1: eigene Rezepte und Heilmittel (Id r_<13 Ziffern> / rem_<13 Ziffern>) tragen ihr
+// Konto (`uid`). gs_recipes / gs_remedies bleiben beim Abmelden liegen (Zwischenspeicher der Vorgaben) —
+// bis hier sah das naechste Konto auf dem Geraet die selbst geschriebenen Rezepte des vorigen, und sie
+// wanderten in dessen Cloud-Backup (user_recipes). Loeschen waere Datenverlust (sie liegen nur hier und im
+// Backup): sie bleiben im Speicher, gezeigt und gesichert werden sie nur ihrem Konto. Derselbe Entscheid
+// wie beim Garten-Zwilling (gsTwinGet). Eintraege OHNE Stempel (Bestand von vor dieser Fassung) bleiben, wie
+// sie waren — fuer alle sichtbar: wem sie gehoeren, weiss das Geraet nicht, und ein geratener Stempel naehme
+// sie der wahren Besitzerin fuer immer weg (Gegenpruefung Scheibe 1). Einen Besitzbeleg gibt es nur einen:
+// das eigene Cloud-Backup (gsSnapshotRestore stempelt, was es zurueckbringt).
+function _gsRezeptEigen(x) { return !!(x && typeof x.id === 'string' && /^(r|rem)_\d{13}$/.test(x.id)); }
+var _gsRezepteFremd = { gs_recipes: [], gs_remedies: [] };
+function _gsRezeptWer() {
+  // Direkt aus dem Speicher: diese Funktion laeuft schon beim Parsen (recipesData wird gleich unten
+  // gelesen), bevor die Sitzungs-Variablen stehen. sbClearSession entfernt gs_sb_uid beim Abmelden.
+  try { return localStorage.getItem('gs_sb_uid') || null; } catch (_) { return null; }
+}
 function _gsLoadRecipeStore(key, wantRem) {
+  var _wer = _gsRezeptWer();
+  _gsRezepteFremd[key] = [];
   var defaults = wantRem
     ? DEFAULT_REMEDIES.filter(_gsIsRemedyType).concat(DEFAULT_RECIPES.filter(_gsIsRemedyType))
     : DEFAULT_RECIPES.filter(function(r){ return !_gsIsRemedyType(r); });
@@ -55195,6 +55845,7 @@ function _gsLoadRecipeStore(key, wantRem) {
   arr.forEach(function(x){
     if (!x || !x.id || seen[x.id]) return;
     seen[x.id] = 1;
+    if (_gsRezeptEigen(x) && typeof x.uid === 'string' && x.uid && x.uid !== _wer) { _gsRezepteFremd[key].push(x); return; }
     _gsRecipeOverlayDefaults(x);
     if (_gsIsRemedyType(x) === wantRem) out.push(x);
   });
@@ -55209,11 +55860,25 @@ let newRecipeType = 'recipes'; // 'recipes' or 'remedies'
 let editingRecipeId = null;
 
 function saveRecipesData() {
+  // Die eigenen Eintraege ANDERER Konten bleiben im Speicher (nicht gezeigt, nicht verloren) — und sie stehen
+  // VORN: jedes Konto findet seine eigenen danach weiter vor den Vorgaben (angehaengt rutschten sie ans Ende,
+  // sobald ein anderes Konto speicherte). Rueckgabe: ob BEIDE Listen geschrieben wurden (§3.5: setItem wirft nie).
+  var ok = true;
   try {
-    localStorage.setItem('gs_recipes',  JSON.stringify(recipesData));
-    localStorage.setItem('gs_remedies', JSON.stringify(remediesData));
-  } catch(_){}
+    if (localStorage.setItem('gs_recipes',  JSON.stringify((_gsRezepteFremd.gs_recipes || []).concat(recipesData))) === false) ok = false;
+    if (localStorage.setItem('gs_remedies', JSON.stringify((_gsRezepteFremd.gs_remedies || []).concat(remediesData))) === false) ok = false;
+  } catch(_){ ok = false; }
+  return ok;
 }
+// Nach dem Abmelden, nach dem Anmelden und nach einer Wiederherstellung: die Listen fuer die Person lesen,
+// die JETZT da ist — Speicher und Variable sind danach EIN Stand.
+function _gsRezepteNeuLaden() {
+  try {
+    recipesData  = _gsLoadRecipeStore('gs_recipes', false);
+    remediesData = _gsLoadRecipeStore('gs_remedies', true);
+  } catch (_) {}
+}
+window._gsRezepteNeuLaden = _gsRezepteNeuLaden;
 
 // v24.32: Cloud-Pull aus public.recipes — mappt ins existing Format + dedupliziert
 window.gsLoadCloudRecipes = async function() {
@@ -55831,14 +56496,16 @@ function saveRecipe() {
   } else {
     data.id = (isRemedy ? 'rem' : 'r') + '_' + Date.now();
     data.created = Date.now();
+    var _rw = _gsRezeptWer(); if (_rw) data.uid = _rw;   // SPEICHER-V2 Scheibe 1: ein eigenes Rezept traegt sein Konto
     if (isRemedy) remediesData.unshift(data);
     else recipesData.unshift(data);
   }
 
-  saveRecipesData();
+  var _rzOk = saveRecipesData();
   closeModal('modal-new-recipe');
   if (isRemedy) renderRemedies();
   else renderRecipes();
+  if (_rzOk === false) { try { gsToast('Speicher voll — das Rezept ist nur bis zum Schliessen der App da.', 'warning', 6000); } catch(_){} return; }
   showHarvest(isRemedy ? '🌿' : '🍲', 'Rezept gespeichert!', '"' + title + '" wurde gespeichert.', '');
 }
 
@@ -58985,6 +59652,24 @@ function _gsLoeschmarke(schluessel, id) {
   try { if (ok && window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch (_) {}
   return ok;
 }
+// Eine Marke zuruecknehmen: was die Person WIEDERHERSTELLT (Backup), soll bleiben — ohne das schluege die Marke
+// den wiederhergestellten Plan beim naechsten Abgleich noch einmal weg (Plaene und Tracks tragen keinen Stempel,
+// jede Marke gewinnt). Die gestempelten Listen machen dasselbe in _gsStempeln („wieder da").
+function _gsLoeschmarkenZurueck(schluessel, ids) {
+  if (GS_GELOESCHT_LISTEN.indexOf(schluessel) < 0 || !Array.isArray(ids) || !ids.length) return 0;
+  var g = _gsGeloeschtLesen(), tk = g[schluessel]; if (!tk) return 0;
+  var n = 0;
+  ids.forEach(function (id) { var k = String(id); if (Object.prototype.hasOwnProperty.call(tk, k)) { delete tk[k]; n++; } });
+  if (!n) return 0;
+  if (Object.keys(tk).length) g[schluessel] = tk; else delete g[schluessel];
+  _gsGeloeschtSchreiben(g);
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch (_) {}
+  return n;
+}
+// Steht fuer diese Id eine Marke? Nur EIGENE Eintraege der Tabelle — `tabelle['constructor']` waere sonst wahr.
+function _gsHatLoeschmarke(tabelle, id) {
+  return !!(tabelle && id != null && Object.prototype.hasOwnProperty.call(tabelle, String(id)));
+}
 // Ein state-Wert der Cloud trifft auf einen UNGESENDETEN lokalen Stand eines Geraets, das den state-Blob
 // dieses Kontos noch nie abgeglichen hat (Schlusspruefung blob, 24.11.2026): zusammenfuehren statt „lokal
 // gewinnt ganz" — sonst ersetzte der EINE neue Favorit eines frischen Geraets die zwanzig der Cloud, nur
@@ -59006,11 +59691,19 @@ function _gsStateMischen(k, c) {
     return reihe;
   }
   if (l && cv && typeof l === 'object' && typeof cv === 'object' && !Array.isArray(l) && !Array.isArray(cv)) {
+    // Auch eine Ebene tiefer: {disabled:{p1:true}} lokal und {disabled:{p9:true}} in der Cloud ergeben beide
+    // (flach gemischt gewann das lokale `disabled` ganz, und die abgeschaltete Erinnerung p9 ging wieder an).
     var dazu = false;
-    Object.keys(cv).forEach(function (kk) {
-      if (kk === '__proto__' || Object.prototype.hasOwnProperty.call(l, kk)) return;
-      l[kk] = cv[kk]; dazu = true;
-    });
+    var tief = function (ziel, quelle, ebene) {
+      Object.keys(quelle).forEach(function (kk) {
+        if (kk === '__proto__') return;
+        var q = quelle[kk];
+        if (!Object.prototype.hasOwnProperty.call(ziel, kk)) { ziel[kk] = q; dazu = true; return; }
+        var z = ziel[kk];
+        if (ebene < 4 && z && q && typeof z === 'object' && typeof q === 'object' && !Array.isArray(z) && !Array.isArray(q)) tief(z, q, ebene + 1);
+      });
+    };
+    tief(l, cv, 1);
     return dazu ? l : undefined;
   }
   return undefined;
@@ -59031,7 +59724,9 @@ function _gsStempeln(schluessel, liste) {
   liste.forEach(function (e) {
     if (!e || typeof e !== 'object' || e.id == null) return;
     var k = String(e.id); neu[k] = true;
-    if (alt[k] !== _gsEintragJson(e)) e.geaendert = jetzt;
+    // Scheibe 2: ein HINTERGRUND-Schreiber (Foto-Adresse nachtragen) ist kein Wille der Person — er hebt den
+    // Stempel nicht, sonst schluege er im Zwei-Geraete-Abgleich die Arbeit, die ein anderes Geraet offline tat.
+    if (alt[k] !== _gsEintragJson(e) && !(window._gsStempelLeise && window._gsStempelLeise.liste === schluessel && window._gsStempelLeise.id === k)) e.geaendert = jetzt;
   });
   var g = _gsGeloeschtLesen(), tk = g[schluessel] || {}, geaendert = false;
   // Kein Massen-Loeschen im Start-Rennen: eine leere Liste vor dem ersten Abgleich ist kein Wille der Person.
@@ -59086,7 +59781,7 @@ function _gsMergeEintraege(lokal, cloud, ctx) {
   return { liste: aus, gleichCloud: gleich };
 }
 window._gsStempeln = _gsStempeln; window._gsMergeEintraege = _gsMergeEintraege; window._gsGeloeschtEinlesen = _gsGeloeschtEinlesen;
-window._gsLoeschmarke = _gsLoeschmarke; window._gsStateMischen = _gsStateMischen;
+window._gsLoeschmarke = _gsLoeschmarke; window._gsStateMischen = _gsStateMischen; window._gsLoeschmarkenZurueck = _gsLoeschmarkenZurueck;
 
 // Spielt ein Backup ein und sagt, was NICHT gesichert wurde (voller Speicher:
 // der Wrapper wirft nie, er gibt false zurueck — CLAUDE.md §3.5). Kein
@@ -59123,18 +59818,52 @@ function _gsBackupEinspielen(data) {
   return { ok: !nicht.length, nicht_gesichert: nicht };
 }
 window._gsBackupEinspielen = _gsBackupEinspielen;
+// Scheibe 2 (Gegenpruefung): ein Foto, das noch im Ausgangskorb wartet, steht in der Liste nur als
+// Platzhalter `gsphoto://<n>`. In der Backup-DATEI steht stattdessen das Bild selbst (data:image) — sonst
+// fehlte es nach dem Einspielen auf einem anderen Geraet. Laesst es sich nicht lesen, steht dort nichts.
+// Kopiert wird nur, was einen Platzhalter traegt; die Listen im Arbeitsspeicher bleiben unberuehrt.
+async function _gsBackupFotosEinbetten(data) {
+  var istRef = function (v) { return typeof v === 'string' && v.indexOf('gsphoto://') === 0; };
+  var hol = async function (v) {
+    try { var b = (typeof window.gsPhotoRefB64 === 'function') ? await window.gsPhotoRefB64(v) : null; return b ? 'data:image/jpeg;base64,' + b : null; }
+    catch (_) { return null; }
+  };
+  var out = Object.assign({}, data);
+  var namen = ['myPlants', 'deadPlants'];
+  for (var n = 0; n < namen.length; n++) {
+    var quelle = data[namen[n]];
+    if (!Array.isArray(quelle)) continue;
+    var liste = [];
+    for (var i = 0; i < quelle.length; i++) {
+      var p = quelle[i];
+      var hat = p && typeof p === 'object' && (istRef(p.photo) || istRef(p.photoUrl) || (Array.isArray(p.diary) && p.diary.some(function (e) { return e && istRef(e.photo); })));
+      if (!hat) { liste.push(p); continue; }
+      var c = Object.assign({}, p);
+      if (istRef(c.photo)) c.photo = await hol(c.photo);
+      if (istRef(c.photoUrl)) c.photoUrl = await hol(c.photoUrl);
+      if (Array.isArray(c.diary)) {
+        var d2 = [];
+        for (var j = 0; j < c.diary.length; j++) { var e = c.diary[j]; d2.push((e && istRef(e.photo)) ? Object.assign({}, e, { photo: await hol(e.photo) }) : e); }
+        c.diary = d2;
+      }
+      liste.push(c);
+    }
+    out[namen[n]] = liste;
+  }
+  return out;
+}
 function exportUserData() {
-  const data = _gsBackupDaten();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  // v33.53: durch den EINEN Weg (gsDateiSpeichern) — bis v33.52 ein
-  // LOSGELOESTER Anker, den in der Android-App nichts sah, und danach stand
-  // trotzdem „heruntergeladen". Die Meldung kommt jetzt erst mit dem Zustand.
-  return gsDateiSpeichern(blob, 'GreenScan-Backup-' + new Date().toISOString().slice(0,10) + '.json', 'application/json')
-    .then(function (r) {
-      if (_gsDateiAngekommen(r)) showMarketNotif(r.state === 'gespeichert' ? 'Backup gespeichert!' : 'Backup erstellt und heruntergeladen!', '📤', '#2e7d32');
-      else _gsDateiNichtGespeichert(r);
-      return r;
-    });
+  return _gsBackupFotosEinbetten(_gsBackupDaten()).then(function (data) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    // v33.53: durch den EINEN Weg (gsDateiSpeichern) — bis v33.52 ein
+    // LOSGELOESTER Anker, den in der Android-App nichts sah, und danach stand
+    // trotzdem „heruntergeladen". Die Meldung kommt jetzt erst mit dem Zustand.
+    return gsDateiSpeichern(blob, 'GreenScan-Backup-' + new Date().toISOString().slice(0,10) + '.json', 'application/json');
+  }).then(function (r) {
+    if (_gsDateiAngekommen(r)) showMarketNotif(r.state === 'gespeichert' ? 'Backup gespeichert!' : 'Backup erstellt und heruntergeladen!', '📤', '#2e7d32');
+    else _gsDateiNichtGespeichert(r);
+    return r;
+  });
 }
 
 function importUserData() {
@@ -59187,10 +59916,22 @@ function clearAllData() {
   // **Eine Löschung nach Präfix ist eine Wette darauf, dass niemand je einen
   // Schlüssel anders benannt hat.** Auf diesem Ursprung gehört alles der App,
   // also geht alles.
+  // SPEICHER-V2 Scheibe 1: die verborgenen eigenen Rezepte ANDERER Konten ueberleben das Leeren — die Person,
+  // die hier loescht, hat sie nie gesehen und kann nicht wissen, dass sie sie mitloescht.
+  var _rzFremd = {};
+  try {
+    var _rzIch = localStorage.getItem('gs_sb_uid') || null;
+    ['gs_recipes', 'gs_remedies'].forEach(function (k) {
+      var a = []; try { a = JSON.parse(localStorage.getItem(k) || '[]'); } catch (_) {}
+      var f = (Array.isArray(a) ? a : []).filter(function (x) { return _gsRezeptEigen(x) && typeof x.uid === 'string' && x.uid && x.uid !== _rzIch; });
+      if (f.length) _rzFremd[k] = f;
+    });
+  } catch (_) {}
   try { localStorage.clear(); }
   catch (_) {
     Object.keys(localStorage).forEach(function(k){ try { localStorage.removeItem(k); } catch(_){} });
   }
+  try { Object.keys(_rzFremd).forEach(function (k) { localStorage.setItem(k, JSON.stringify(_rzFremd[k])); }); } catch (_) {}
   // Und der Speicher ist nicht nur der localStorage: in IndexedDB liegen die
   // offline eingereihten Scans und die Fotos als base64 — „im Gerät
   // gespeichert" im wörtlichsten Sinn. Die Cache-API bleibt: das ist die App
@@ -61099,6 +61840,10 @@ function _gsTrackSaveTrack(track) {
     return -1;
   }
   _gsTrackCommitTotals(before, rec);
+  // SPEICHER-V2 Scheibe 1: der Track reist im Garten-Blob — ohne Vormerkung hielt der naechste Abgleich
+  // die Cloud fuer massgeblich und ersetzte die Liste durch ihre (der eben aufgezeichnete Track war weg,
+  // sync_check H13). Der Auto-Track fuer diesen Schluessel wirkt nicht (der setItem-Wrapper verdeckt ihn).
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('garden'); } catch(_){}
   return saved.length - 1;
 }
 
@@ -61738,10 +62483,21 @@ function gsTrackExportGPX(idx) {
 }
 
 async function gsTrackDelete(idx) {
+  // WELCHER Track gemeint ist, steht VOR der Rueckfrage fest (Beginn `ts`): waehrend der Dialog offen ist, kann
+  // ein Abgleich die Liste ersetzen — nach Stelle geloescht traf es dann einen anderen Track.
+  var _gemeint = null;
+  try { var _vor = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]'); _gemeint = (Array.isArray(_vor) && _vor[idx]) ? _vor[idx] : null; } catch(_){}
   if (!(await gsConfirmModal('Track wirklich löschen?'))) return;
   try {
     var saved = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]');
-    var _weg = saved.splice(idx, 1)[0];
+    if (!Array.isArray(saved)) saved = [];
+    var _stelle = idx;
+    if (_gemeint && _gemeint.ts != null) {
+      _stelle = -1;
+      for (var _ti = 0; _ti < saved.length; _ti++) { if (saved[_ti] && String(saved[_ti].ts) === String(_gemeint.ts)) { _stelle = _ti; break; } }
+      if (_stelle < 0) { gsTrackOpenList(); return; }   // inzwischen weg: nichts anderes loeschen
+    }
+    var _weg = saved.splice(_stelle, 1)[0];
     localStorage.setItem('gs_gpx_tracks', JSON.stringify(saved));
     // 24.11.2026: Loeschmarke (Schluessel: Beginn `ts`) und der Garten-Bereich wird vorgemerkt — die Tracks
     // reisen im Garten-Blob, und ohne Vormerkung holte der naechste Abgleich den Track aus der Cloud zurueck.
@@ -65994,7 +66750,17 @@ async function _gsBildOhneMeta(x, opts) {
 // Speicherplatz kosten. Mit stableKey ist der Pfad deterministisch und
 // `x-upsert: true` (steht ohnehin schon unten) schreibt dieselbe Datei erneut —
 // aus zwei Dateien wird eine. Aufrufer ohne Schluessel verhalten sich unveraendert.
-window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext, stableKey) {
+// Scheibe 2 (Gegenpruefung): fuenfter Parameter `opts.ohneUpsert` — laedt mit `x-upsert: false`. Ein Upsert
+// verlangt im Storage zusaetzlich Lese- und Aenderungsrecht auf dem Objekt; laut den Migrationen im Repo hat
+// `garden-diary-photos` keine SELECT-Policy (v29_29, v29_40 — live nicht nachgemessen). Mit stabilem
+// Schluessel UND ohne Upsert meldet ein zweiter Anlauf „gibt es schon“ — und genau das ist dann der Erfolg:
+// der erste Anlauf kam durch, nur seine Antwort nicht. NUR fuer Schluessel, die EIN Bild meinen (ein
+// Tagebuch-Eintrag); `plant:<id>` meint „das aktuelle Foto“ und braucht das Ueberschreiben.
+// `window._gsUploadGrund` sagt nach einem `null`, WARUM: 'netz' (kein Empfang, Zeitueberschreitung) ·
+// 'server' (abgelehnt) · 'bild' (nicht lesbar) · '' (nicht angemeldet, Person gewechselt). Der Foto-Flush
+// zaehlt nur 'server' und 'bild' als Versuch — ein Funkloch ist kein Grund, ein Foto aufzugeben.
+window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext, stableKey, opts) {
+  try { window._gsUploadGrund = ''; } catch (_) {}
   ext = ext || 'jpg';
   bucket = bucket || 'post-images';
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
@@ -66004,7 +66770,7 @@ window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext, 
     // v33.59: kein Foto mit EXIF/GPS in einen (ueber die Adresse oeffentlichen)
     // Bucket; laesst es sich nicht neu kodieren, wird NICHT roh hochgeladen.
     var _rein = await _gsBildOhneMeta(b64);
-    if (!_rein) { console.warn('[gsUploadImage] Bild nicht lesbar — nicht hochgeladen'); return null; }
+    if (!_rein) { console.warn('[gsUploadImage] Bild nicht lesbar — nicht hochgeladen'); window._gsUploadGrund = 'bild'; return null; }
     // Tor (19.11.2026, Brett 89ee): dieser Weg geht am Tor in sbFetch vorbei (rohes fetch an
     // den Storage). Der Pfad traegt `uid` — wechselt die Person, ginge das Foto von A sonst mit
     // dem Token von B hinaus, bzw. kaeme eine Adresse in A's Ordner bei B an. `null` heisst fuer
@@ -66041,20 +66807,25 @@ window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext, 
         'Authorization': 'Bearer ' + token,
         'apikey': apikey,
         'Content-Type': 'image/' + (ext === 'jpg' ? 'jpeg' : ext),
-        'x-upsert': 'true'
+        'x-upsert': (opts && opts.ohneUpsert) ? 'false' : 'true'
       },
       body: u8
     }, 60000);
     if (_gsPersonAnders(uid)) return null;   // Tor: die Adresse in A's Ordner gehoert nicht zu B
+    var _oeffentlich = (window.SB_URL || window.SB_URL_DEFAULT) + '/storage/v1/object/public/' + bucket + '/' + fileName;
     if (!resp.ok) {
       var err = await resp.text().catch(function(){return '';});
+      // ohneUpsert + stabiler Schluessel: „gibt es schon“ heisst, ein frueherer Anlauf kam durch.
+      if (opts && opts.ohneUpsert && stableKey && (resp.status === 409 || /"statusCode"\s*:\s*"?409|Duplicate|already exists/i.test(err))) return _oeffentlich;
       console.error('[gsUploadImage]', resp.status, err);
+      window._gsUploadGrund = 'server';
       return null;
     }
     // Public-URL bauen
-    return (window.SB_URL || window.SB_URL_DEFAULT) + '/storage/v1/object/public/' + bucket + '/' + fileName;
+    return _oeffentlich;
   } catch(e) {
     console.error('[gsUploadImage] exception', e);
+    try { window._gsUploadGrund = 'netz'; } catch (_) {}
     return null;
   }
 };
@@ -75966,8 +76737,8 @@ async function gsPPopenSavedPlans() {
         var byId = Object.create(null);
         // 24.11.2026: ein auf diesem Geraet geloeschter Plan (Loeschmarke) kommt hier nicht aus der Cloud zurueck.
         var _plTomb = {}; try { _plTomb = (_gsGeloeschtLesen()['gs_garden_plans']) || {}; } catch(_){}
-        _gsSiebListe(ugPlans).forEach(function(p){ if (p && p.id && !_plTomb[String(p.id)]) byId[p.id] = p; });
-        _gsSiebListe(gpMapped).forEach(function(p){ if (p && p.id && !_plTomb[String(p.id)]) byId[p.id] = p; });
+        _gsSiebListe(ugPlans).forEach(function(p){ if (p && p.id && !_gsHatLoeschmarke(_plTomb, p.id)) byId[p.id] = p; });
+        _gsSiebListe(gpMapped).forEach(function(p){ if (p && p.id) byId[p.id] = p; });   // gp_-Plaene tragen keine Marke (siehe gsPPdeletePlan)
         saved.forEach(function(p){ if (p && p.id && !byId[p.id]) byId[p.id] = p; });
         var merged = Object.keys(byId).map(function(k){ return byId[k]; }).sort(function(a,b){
           return new Date(b.created || 0) - new Date(a.created || 0);
@@ -76109,7 +76880,10 @@ async function gsPPdeletePlan(id) {
   } catch(_){}
   // 24.11.2026: die Loeschmarke — scheitert der Cloud-Weg unten (offline), holte der naechste Abgleich
   // den Plan sonst aus der Cloud zurueck (Zusammenfuehrung je Eintrag, sync_check H10).
-  try { _gsLoeschmarke('gs_garden_plans', id); } catch(_){}
+  // Nur fuer Plaene aus user_gardens. Ein gp_-Plan liegt in der Tabelle garden_plans: gelingt das DELETE unten,
+  // ist die Zeile weg; scheitert es, muss er sichtbar BLEIBEN, damit die Person es erneut versuchen kann (mit
+  // Marke war er hier 90 Tage ausgeblendet, waehrend die Serverzeile blieb).
+  try { if (!(typeof id === 'string' && id.indexOf('gp_') === 0)) _gsLoeschmarke('gs_garden_plans', id); } catch(_){}
   // Cloud (user_gardens.data.plans + garden_plans falls source='garden_plans')
   // v32.69 (Audit B4): der Dialog verspricht „auf allen deinen Geräten entfernt" —
   // jede Server-Antwort wird angesehen, und die Meldung sagt, was wirklich gilt.
@@ -79789,6 +80563,44 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.75', date: '24.11.2026',
+      headline: 'Was du aufzeichnest, bleibt — Track, Pflegeverlauf und das Tagebuch-Foto ohne Empfang',
+      summary: 'Zwei Scheiben aus „Speicher, Abgleich, Verdrahtung“. Erstens: ein gespeicherter GPS-Track wird für den Abgleich vorgemerkt, ein gelöschter Plan oder Track bleibt gelöscht (auch wenn ohne Empfang gelöscht wurde), ein ungesendeter Stand auf einem neuen Gerät wird je Schlüssel gemischt statt überschrieben, Punkte gehen bei einem ungelesenen Profil nicht verloren, und ein neu geschriebenes eigenes Rezept trägt sein Konto. Zweitens: der Pflegeverlauf einer Pflanze hat EINEN Deckel nach Zeit für alle drei Schreiber; ein Tagebuch-Foto ohne Empfang wartet im Ausgangskorb statt als base64 in der Pflanzenliste, der Altbestand zieht nach, und der Foto-Flush gibt bei einem Funkloch nicht mehr auf. Der Tagebuch-Eintrag meldet erst nach dem Schreiben.',
+      user_summary: 'Ein aufgezeichneter Track, dein Pflegeverlauf und ein Tagebuch-Foto ohne Empfang gehen nicht mehr verloren — und was du löschst, bleibt gelöscht.',
+      user_items: [
+        {emoji:'🥾', bold:'Track und Plan:', text:' ein aufgezeichneter Track bleibt nach dem nächsten Abgleich erhalten. Löschst du einen Track oder Plan ohne Empfang, kommt er später nicht zurück.'},
+        {emoji:'📓', bold:'Pflegeverlauf:', text:' ab 200 Einträgen je Pflanze wandert der älteste ins Archiv — bisher konnte dein neuester Eintrag hinausfallen.'},
+        {emoji:'📷', bold:'Tagebuch-Foto ohne Empfang:', text:' wartet auf dem Gerät und wird nachgetragen, sobald wieder Netz da ist. Ein Funkloch zählt nicht als Fehlversuch, und das Foto belegt nicht mehr den Speicher deiner Pflanzenliste.'},
+        {emoji:'💾', bold:'Speicher voll:', text:' ein Tagebuch-Eintrag sagt es jetzt und lässt deine Eingabe stehen, statt „gespeichert“ zu melden.'},
+        {emoji:'📦', bold:'Backup-Datei:', text:' enthält auch die Fotos, die noch auf das Hochladen warten.'},
+        {emoji:'⭐', bold:'Punkte:', text:' was du ohne Empfang sammelst, wird beim nächsten Abgleich vollständig gebucht.'},
+        {emoji:'🍲', bold:'Eigene Rezepte:', text:' ein neu geschriebenes Rezept sieht nur das Konto, das es angelegt hat.'}
+      ]
+    },
+  {
+    v: 'v33.74', date: '24.11.2026',
+      headline: 'Pilz-Verwechsler beim Namen, Vergleichsbilder im Scanner — und Lina hält, was ihr Schalter sagt',
+      summary: 'Drei Pakete aus den Hauptfunktionen. Pilz-Scanner: die gefährlichen Doppelgänger stehen mit ihrem Namen und „TÖDLICH“ da — vorher nur als lateinisches Kürzel —, und „Mit Bildern vergleichen“ legt dein Foto neben die Art und ihre Verwechsler. Pflanzen-Scanner: derselbe Vergleich für die erkannte Art und ihre Alternativen. Lina: schaltest du den Einblick aus, bekommt sie nur noch deine Frage; der Schalter steht auch im laufenden Gespräch, notierte Schädlinge kommen an, und die Gift-Warnung kennt deine Pflanzen beim Spitznamen. Dazu zwei Fehler beim Abmelden.',
+      user_summary: 'Beim Pilz siehst du die gefährlichen Doppelgänger mit Namen und im Bild, im Scanner vergleichst du dein Foto mit Bildern der erkannten Art — und schaltest du Linas Einblick aus, bekommt sie wirklich nichts mehr aus deinen Gartendaten.',
+      user_items: [
+        {emoji:'🍄', bold:'Pilz · Doppelgänger:', text:' der gefährliche Verwechsler steht mit seinem Namen und „TÖDLICH“ da, nicht mehr als lateinisches Kürzel. „Mit Bildern vergleichen“ zeigt dein Foto neben der Art und ihren Doppelgängern — ein Bild ersetzt keine Pilzkontrolle, und das steht dabei.'},
+        {emoji:'🔒', bold:'Lina · Einblick aus:', text:' heisst jetzt wirklich aus — Lina bekommt nichts aus deinen Pflanzen, Gärten, Scans, Geräten oder deinem Ort; das bisherige Gespräch geht mit. Den Schalter findest du auch im laufenden Gespräch.'},
+        {emoji:'⚠️', bold:'Lina · Gift-Warnung:', text:' fragst du „Kann ich Lilli essen?“ und Lilli ist dein Maiglöckchen, warnt die App, wenn Lina zusagt — auch wenn eine giftige Art erst in ihrer Antwort steht.'},
+        {emoji:'🐛', bold:'Lina · Schädlinge:', text:' was du im Garten-Tagebuch als Schädling notierst, kennt Lina jetzt; „kein Schädling“ sagt sie nur, wenn sie dein Tagebuch auch gesehen hat.'},
+        {emoji:'🔍', bold:'Scanner · Mit Bildern vergleichen:', text:' unter dem Ergebnis legst du dein Foto neben Referenzbilder der erkannten Art und der Alternativen — mit Giftigkeits-Marke und Unterscheidungsmerkmal. „Das ist es“ übernimmt die richtige Art.'}
+      ],
+      items: [
+        {emoji:'🧭', bold:'gsLinaContext ohne Einblick:', text:' kehrt früh zurück — nur Sprache, Jahreszeit und die Arten der Frage; vorher gingen gsLinaZahlen, Pflanzenzahl und Region weiter an die KI.'},
+        {emoji:'💾', bold:'Voller Speicher:', text:' gsLinaEinblickSchalten liest die Rückgabe von setItem; gescheitert heisst aus bis zum Neuladen (_gsLinaEinblickSitzung), mit einem Satz.'},
+        {emoji:'📍', bold:'_gsOrtNameFuerKi:', text:' der Rückfall „46.948°N, 7.447°E“ von gsReverseGeocode geht nicht als Ortsname an die KI.'},
+        {emoji:'🧪', bold:'Gegenprobe:', text:' _gsLinaTrefferMitPflanzen (eigene Pflanzen beim Namen oder Spitznamen) und giftige Arten der Antwort nur mit ganzem Namen — ohne diese Einschränkung warnte „Petersilie ist essbar“ vor der Hunds-Petersilie.'},
+        {emoji:'🖼️', bold:'Scanner 12:', text:' _gsWikiBildHolen und _gsCommunityBilderHolen holen das Bild einer Art an EINER Stelle; ein Netzfehler wird nicht mehr als „kein Bild“ gemerkt, Wikipedia-Bilder kommen nur von upload.wikimedia.org und tragen ihren Nachweis.'},
+        {emoji:'🍄', bold:'Scanner 13:', text:' Name, Latein und Essbarkeit der Pilz-Verwechsler aus dem Register (_gsPilzRegister, ein Leser _gsPilzVerwechsler) — mushroom-identify schickt nur Slugs; das Vergleichsfenster ist EINE Funktion für Pflanze und Pilz (_gsVglFenster).'},
+        {emoji:'🚪', bold:'Abmelden:', text:' gsOnLogout zählt das Räumen von Linas Gespräch als Wechsel (eine späte Antwort steht nicht im neuen Gespräch), und „Pilz-Bestimmung abgebrochen“ steht auf dem Anmeldebildschirm statt in einem Toast darunter.'},
+        {emoji:'✅', bold:'Prüfstände:', text:' scan_check PV1 bis PV4 und VG1 bis VG7, sensor_check „Lina · Einblick ehrlich“, speicher_check „Lina · Einblick ausschalten“, sicherheit_check 98_schluss_e (zwei Abmelde-Fälle) — gegen den alten Stand rot, jede Schutzstelle einzeln zurückgebaut am richtigen Fall rot.'}
+      ]
+  },
+  {
     v: 'v33.73', date: '24.11.2026',
     headline: 'Die KI wählt das Modell nach Verwendung: kurze Texte auf dem schnellen Modell, Fotos und Essbarkeitsfragen auf dem genauen',
     summary: 'Eine Modellwahl je Verwendung. Kurze Texte bis 600 Token laufen auf dem schnellen Haiku; Foto-Erkennung, Scan-Chat, Garten-Analyse, Quiz-Erklärung und Sprachfragen bleiben auf Sonnet. Der Proxy-Teil (das Feld rolle) wird gesondert ausgeliefert. Die Quiz-Erklärung verwirft eine Antwort, wenn sich das Konto inzwischen geändert hat.',
@@ -80163,45 +80975,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'offline_check 24 → 39 Fälle:', text:' ein echter multipart-POST aus dem share_target durch den echten Worker; 22 Brüche als Gegenprobe. contrast_check kennt jetzt die Stapelreihenfolge — kein Dialog am <body> war je vermessen.'}
       ]
   },
-  {
-    v: 'v33.54', date: '09.10.2026',
-      headline: 'Ein Stil im Text lädt keine fremde Adresse mehr',
-      summary: 'Übersetzte Texte und Chat-Zeilen dürfen ein wenig Auszeichnung tragen — und dazu ein style-Attribut. Der Filter dafür war eine Verbotsliste auf dem Rohtext: er suchte „url(“. CSS kennt aber Escapes (u\\72l( liest der Browser als url(), und image-set("…") lädt eine Adresse ganz ohne url(. Die gegnerische Prüfung zu v33.53 hat in Chromium gezeigt, dass ein Satz damit eine fremde Adresse laden konnte. Jetzt geht jeder Stil durch eine Erlaubnisliste: nur bekannte Eigenschaften, keine Escapes, keine Zeichenketten, keine Funktion ausser rgb/hsl/var/calc.',
-      user_summary: 'Eine Sicherheitslücke ist geschlossen: ein Text aus fremder Hand (eine Übersetzung, eine Antwort im Chat) konnte über eine versteckte Stil-Angabe ein Bild von einer fremden Adresse nachladen — und damit verraten, dass du die Seite geöffnet hast. Das geht nicht mehr; normale Formatierungen bleiben, wie sie sind.',
-      user_items: [
-        {emoji:'🛡️', bold:'Keine versteckten Nachlader mehr:', text:' ein Text aus fremder Hand kann über eine Stil-Angabe nichts mehr von einer fremden Adresse laden.'},
-        {emoji:'🧱', bold:'Kein Text legt sich über die App:', text:' Stil-Angaben, die einen Satz über den ganzen Bildschirm spannen könnten, fallen weg.'},
-        {emoji:'✅', bold:'Formatierungen bleiben:', text:' Farben, Fettdruck, Grösse und Abstände in den Texten sehen aus wie bisher.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen:', text:' sechs Stile (u\\72l, \\75rl, u\\rl, image-set im Hintergrund und im Rahmen, list-style) lösten durch gsSanitizeHtml je eine Anfrage an die fremde Adresse aus — 6 von 6.'},
-        {emoji:'🧾', bold:'Erlaubnisliste statt Verbotsliste:', text:' _gsStilSaeubern prüft jede Deklaration: kein Backslash, kein Anführungszeichen, kein Kommentar, kein @; nur Eigenschaften aus GS_SANITIZE_STIL; Funktionen nur rgb/rgba/hsl/hsla/var/calc; ein geschlossenes Alphabet. Was nicht passt, fällt allein.'},
-        {emoji:'📐', bold:'Was die Texte brauchen, bleibt:', text:' gemessen an den übersetzbaren Elementen — color (auch mit var()), display, font-size, font-weight, margin, margin-bottom. position, width und Co. fallen, sonst legt sich ein Satz über die App.'},
-        {emoji:'🧪', bold:'escape_check A10b:', text:' rendert die bösen Stile wirklich ins Dokument und zählt die Anfragen des Browsers (0), prüft die Überlagerung und acht gute Stile. Gegen v33.53 rot (6 Anfragen); drei Gegenproben einzeln rot.'}
-      ]
-  },
-  {
-    v: 'v33.53', date: '09.10.2026',
-      headline: 'Export und Drucken in der Android-App',
-      summary: 'In der Android-App taten die Export-Knöpfe bisher nichts: eine nackte WebView kann eine Datei aus dem Arbeitsspeicher nicht ablegen, und print() tut dort nichts. Das Backup meldete trotzdem „heruntergeladen“, und der Giess-Zettel schrieb sich über die laufende App. Jetzt gehen Backup, GPS-Spur, CSV, Archiv und 3D-Foto an den Android-Dialog „Speichern unter“, Gartenplan und Giess-Zettel an den Druckdialog von Android (mit „Als PDF speichern“). Ohne Brücke in die Android-Schicht: die Datei geht in Teilen an Adressen unter dem eigenen Ursprung, die nur die App-Hülle beantwortet. Und jede Meldung kommt erst, wenn die Datei wirklich da ist.',
-      user_summary: 'In der Android-App kannst du jetzt exportieren und drucken: Backup, GPS-Spuren, Tabellen und Fotos speicherst du über „Speichern unter“ dort, wo du willst; Gartenplan und Giess-Zettel gehen an den Druckdialog, wo du sie auch als PDF speichern kannst. Schliesst du den Dialog, sagt die App „Nicht gespeichert“ — statt so zu tun, als wäre die Datei da.',
-      user_items: [
-        {emoji:'💾', bold:'Exportieren in der App:', text:' Backup, GPS-Spur, Pflanzen, Tagebuch, Messwerte, Archiv und das 3D-Foto speicherst du jetzt über den Android-Dialog „Speichern unter“.'},
-        {emoji:'🖨️', bold:'Drucken und PDF:', text:' Gartenplan und Giess-Zettel öffnen den Druckdialog von Android — dort gibt es „Als PDF speichern“.'},
-        {emoji:'✋', bold:'Abbrechen heisst nicht gespeichert:', text:' die Erfolgsmeldung kommt erst, wenn die Datei wirklich da ist.'},
-        {emoji:'🛡️', bold:'Sicherer Druck im Browser:', text:' Text aus der KI-Antwort steht im Garten-Scan-Druck jetzt als Text da und kann dort nichts mehr ausführen.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen:', text:' acht Export-Stellen bauten je einen eigenen Anker und sagten sofort „heruntergeladen“. In der Hülle passierte nichts; das Backup klickte einen LOSGELÖSTEN Anker, den das alte Tor gar nicht sah. window.open(\'\') liefert in einer WebView den laufenden Rahmen — der Giess-Zettel schrieb sich über die App.'},
-        {emoji:'🔌', bold:'Ein Kanal ohne Brücke:', text:' gsDateiSpeichern und gsDrucken sind die zwei Wege für alle. In der Hülle geht die Datei per fetch in Teilen an /__huelle/datei/… (start → teil → fertig), die Hülle sammelt sie in eine Spool-Datei und öffnet „Speichern unter“ bzw. den Druckdialog. Kein addJavascriptInterface.'},
-        {emoji:'🔑', bold:'Vier Riegel und ein Schlüssel:', text:' nur GET, nie eine Navigation, nur mit eigener Kopfzeile, nur vom eigenen Ursprung — und ein zufälliger Schlüssel, den nur lesen kann, wer start mit fetch gestellt hat. Ein <img> aus fremder Hand kommt nicht über start hinaus.'},
-        {emoji:'🧯', bold:'Was auf einem Telefon schiefgeht:', text:' Spool-Datei statt Arbeitsspeicher (Prozess stirbt bei offenem Dialog), "wt" statt "w" (Ersetzen kürzt), eine leere Datei wird wieder gelöscht, Schreiben im Hintergrund, Dialog nur von vorne, monotone Uhr, keine Ausnahme auf dem Faden von shouldInterceptRequest.'},
-        {emoji:'🖨️', bold:'Eine eigene Druckansicht:', text:' ohne JavaScript, ohne Netz, ohne Navigation, Grundadresse null, einmal drucken. GS_HUELLE_ANDERS hat einen sechsten Eintrag, „drucken“.'},
-        {emoji:'🛡️', bold:'Vorbestehende Lücke geschlossen:', text:' gsGardenScanExportPDF setzte Pflanzennamen, Kalender, Werkzeuge und Warnungen aus der KI-Antwort ROH in ein Dokument mit dem Ursprung der App. Jetzt escaped, im Browser wie in der App.'},
-        {emoji:'🧪', bold:'apk_check 28 → 68 Fälle:', text:' Export.java gegen android.jar 23 übersetzt und mit Grenzfällen ausgeführt; in der App-Hälfte läuft die Hülle unter https://green-scan.ch mit der CSP aus _headers, und der Kanal geht an einen Java-Prozess mit dem ECHTEN Sammler. Alle zehn Exporte über ihre echte Funktion, die Datei auf der Platte gelesen, byte-gleich mit dem Download im Browser. 16 Brüche als Gegenprobe, 18 Fälle rot, jeder mit dem richtigen Grund.'},
-        {emoji:'📵', bold:'Grenze:', text:' hier läuft kein Android. Geprüft sind Rechnung, Rand und Seite — ob ein echtes Telefon den Dialog so zeigt, sagt erst ein Gerät (Android 6, 10 und 14).'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -80412,7 +81185,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.73';
+var GS_VERSION = 'v33.75';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -83219,7 +83992,7 @@ function gsRegisterServiceWorker() {
       for (var i = 0; i < items.length; i++) {
         st.add({ src: key, item: items[i], dropped_at: Date.now(), uid: _gsUid() });
       }
-      await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; });
+      await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; tx.onabort = function(){ j(tx.error || new Error('abort')); }; });
       // Aeltestes abraeumen, wenn das Archiv selbst zu gross wird.
       try {
         var tx2 = db.transaction('dropped_entries', 'readwrite');
@@ -83299,21 +84072,28 @@ function gsRegisterServiceWorker() {
   // true/false. Damit kann der Aufrufer das Bild sofort als Platzhalter
   // hinterlegen — der Auflooeser weiter unten macht daraus beim Rendern eine
   // anzeigbare Object-URL. Vorher war ein Foto im Korb bis zum Upload unsichtbar.
-  window.gsQueuePhoto = async function(bucket, b64, target){
+  // Scheibe 2: vierter Parameter `uid` — wer VOR einem await gefragt hat, wem das Foto gehoert, gibt es mit.
+  // Ohne ihn stempelt der Korb mit dem Konto, das beim Einreihen angemeldet ist; nach einem langen Upload
+  // kann das schon das naechste sein. Und `onabort`: bricht IndexedDB die Transaktion ab (Geraet voll),
+  // feuert kein `error` — ohne den dritten Zuhoerer kehrte das Warten nie zurueck.
+  window.gsQueuePhoto = async function(bucket, b64, target, uid){
     if (!b64 || !bucket || !target || !target.kind || !target.ref) return null;
     try {
       var db = await _open();
       var tx = db.transaction('pending_photos', 'readwrite');
+      var _txEnde = new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; tx.onabort = function(){ j(tx.error || new Error('abort')); }; });
+      _txEnde.catch(function(){});
       var rq = tx.objectStore('pending_photos').add({
         bucket: bucket, b64: b64, target: target,
         key: target.kind + ':' + target.ref,
-        queued_at: Date.now(), tries: 0, uid: _gsUid()
+        queued_at: Date.now(), tries: 0, uid: (uid != null ? uid : _gsUid())
       });
       var newId = await new Promise(function(r,j){
         rq.onsuccess = function(){ r(rq.result); };
         rq.onerror   = function(){ j(rq.error); };
+        _txEnde.catch(function(e){ j(e); });
       });
-      await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; });
+      await _txEnde;
       console.log('[gsQueuePhoto] eingereiht fuer', target.kind, target.ref, '-> #' + newId);
       return GS_PHOTO_REF + newId;
     } catch(e){ console.warn('[gsQueuePhoto]', e); return null; }
@@ -83351,6 +84131,25 @@ function gsRegisterServiceWorker() {
     } catch(e){ console.warn('[gsResolvePhotoRef]', e); return null; }
   };
 
+  // Scheibe 2 (Gegenpruefung): die Bytes eines EIGENEN wartenden Fotos — fuer die Backup-Datei. Ein
+  // Platzhalter in einer Datei zeigt auf den Korb DIESES Geraets; auf einem anderen ist er leer oder,
+  // schlimmer, die Nummer eines fremden Fotos.
+  window.gsPhotoRefB64 = async function(ref){
+    if (!ref || String(ref).indexOf(GS_PHOTO_REF) !== 0) return null;
+    var id = parseInt(String(ref).slice(GS_PHOTO_REF.length), 10);
+    if (!isFinite(id)) return null;
+    try {
+      var db = await _open();
+      var tx = db.transaction('pending_photos', 'readonly');
+      var rec = await new Promise(function(r,j){
+        var rq = tx.objectStore('pending_photos').get(id);
+        rq.onsuccess = function(){ r(rq.result); };
+        rq.onerror   = function(){ j(rq.error); };
+      });
+      return (rec && rec.b64 && _gsGehoertMir(rec)) ? rec.b64 : null;
+    } catch(e){ return null; }
+  };
+
   window.gsResolvePhotosIn = async function(root){
     try {
       var scope = root || document;
@@ -83386,6 +84185,26 @@ function gsRegisterServiceWorker() {
 
   // Traegt die fertige URL im Ziel nach. Pro Ziel-Art eine kleine, klar
   // benannte Zustaendigkeit — kein generisches Herumraten an fremden Strukturen.
+  // Rueckgabe (Scheibe 2, Gegenpruefung): true = eingetragen UND gespeichert · false = das Ziel gibt es nicht
+  // mehr (Foto verwerfen) · 'voll' = das Ziel ist da, aber der Speicher sagte Nein — dann bleibt das Foto im
+  // Korb. Bis hierher fielen die letzten zwei zusammen, und der Flush warf bei vollem Speicher die einzige
+  // Kopie weg.
+  function _gsLeiseSpeichern(pid){
+    window._gsStempelLeise = { liste: 'ps_myplants', id: String(pid) };
+    try { return (typeof savePlantsToStorage === 'function') ? savePlantsToStorage() : false; }
+    finally { window._gsStempelLeise = null; }
+  }
+  function _gsTotePflanze(id){
+    try { return (typeof deadPlants !== 'undefined' && Array.isArray(deadPlants)) ? (deadPlants.find(function(x){ return x && String(x.id) === String(id); }) || null) : null; }
+    catch(_){ return null; }
+  }
+  function _gsFriedhofSpeichern(){
+    try {
+      if (gsStore.set('gs_dead_plants', JSON.stringify(deadPlants)) === false) return false;
+      try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('plants'); } catch(_){}
+      return true;
+    } catch(_){ return false; }
+  }
   function _gsApplyPhotoUrl(target, url){
     try {
       if (target.kind === 'marker') {
@@ -83395,17 +84214,44 @@ function gsRegisterServiceWorker() {
         var hit = arr.find(function(m){ return m && String(m.id) === String(target.ref); });
         if (!hit) return false;               // Fund geloescht -> Foto verwerfen
         hit.photo_url = url;
-        if (localStorage.setItem('greenscan_markers', JSON.stringify(arr)) === false) return false;
+        if (localStorage.setItem('greenscan_markers', JSON.stringify(arr)) === false) return 'voll';
         try { if (typeof gsLoadMarkers === 'function') gsLoadMarkers(); } catch(_){}
         return true;
       }
       if (target.kind === 'plant') {
         if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return false;
         var pl = myPlants.find(function(x){ return x && String(x.id) === String(target.ref); });
-        if (!pl) return false;
+        if (!pl) {
+          // im Pflanzenfriedhof? Dort zaehlt das Foto weiter — „Wiederherstellen“ ist jederzeit zugesagt.
+          var plTot = _gsTotePflanze(target.ref);
+          if (!plTot) return false;
+          var _tv = { a: plTot.photo, b: plTot.photoUrl };
+          plTot.photo = url; plTot.photoUrl = url;
+          if (!_gsFriedhofSpeichern()) { plTot.photo = _tv.a; plTot.photoUrl = _tv.b; return 'voll'; }
+          return true;
+        }
+        var _pv = { a: pl.photo, b: pl.photoUrl };
         pl.photo = url; pl.photoUrl = url;
-        if (typeof savePlantsToStorage === 'function' && savePlantsToStorage() === false) return false;
+        if (_gsLeiseSpeichern(pl.id) === false) { pl.photo = _pv.a; pl.photoUrl = _pv.b; return 'voll'; }
         try { if (typeof renderMyPlants === 'function') renderMyPlants(); } catch(_){}
+        return true;
+      }
+      // SPEICHER-V2 Scheibe 2: ein Tagebuch-Foto. ref = '<Pflanzen-Id>|<ts des Eintrags>' — gesucht wird
+      // der EINTRAG nach seiner Zeit, nicht nach dem Platzhalter: nach einem Abgleich kann der Eintrag
+      // ohne Platzhalter zurueckgekommen sein (der Blob traegt ihn nie), und das Foto gehoert trotzdem dorthin.
+      if (target.kind === 'diary') {
+        if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return false;
+        var _dr = String(target.ref), _dt = _dr.indexOf('|');
+        if (_dt < 1) return false;
+        var _dp = myPlants.find(function(x){ return x && String(x.id) === _dr.slice(0, _dt); });
+        var _dTot = false;
+        if (!_dp) { _dp = _gsTotePflanze(_dr.slice(0, _dt)); _dTot = !!_dp; }   // im Pflanzenfriedhof
+        if (!_dp || !Array.isArray(_dp.diary)) return false;
+        var _de = _dp.diary.find(function(e){ return e && String(e.ts) === _dr.slice(_dt + 1); });
+        if (!_de) return false;               // Eintrag geloescht -> Foto verwerfen
+        var _dvor = _de.photo;
+        _de.photo = url;
+        if ((_dTot ? _gsFriedhofSpeichern() : _gsLeiseSpeichern(_dp.id)) === false) { _de.photo = _dvor; return 'voll'; }
         return true;
       }
     } catch(e){ console.warn('[_gsApplyPhotoUrl]', e); }
@@ -83432,9 +84278,16 @@ function gsRegisterServiceWorker() {
         var it = items[i];
         // v32.22: fremdes Foto nicht in den eigenen Bucket laden.
         if (!_gsGehoertMir(it)) continue;
+        // Scheibe 2: Pflanzen- und Tagebuch-Fotos erst NACH dem ersten Abgleich nachtragen — vorher steht in
+        // myPlants ein Stand, den der Abgleich gleich ersetzen kann; die Adresse ginge mit ihm verloren.
+        var _art = it.target && it.target.kind;
+        if ((_art === 'diary' || _art === 'plant') && window._gsInitialSyncDone !== true) continue;
         var drop = false;
         try {
-          var url = await gsUploadImage(it.b64, it.bucket, 'jpg', it.key);
+          try { window._gsUploadGrund = ''; } catch(_){}
+          var url = await gsUploadImage(it.b64, it.bucket, 'jpg', it.key, _art === 'diary' ? { ohneUpsert: true } : undefined);
+          // Die Person hat waehrend des Uploads gewechselt: weder zaehlen noch archivieren noch eintragen.
+          if (!_gsGehoertMir(it)) continue;
           if (url) {
             // v31.07: Object-URL freigeben — sonst haelt der Browser die Bytes
             // fuer die ganze Sitzung fest, obwohl das Bild jetzt aus der Cloud kommt.
@@ -83442,8 +84295,13 @@ function gsRegisterServiceWorker() {
             var applied = _gsApplyPhotoUrl(it.target, url);
             // Auch wenn das Ziel verschwunden ist (Fund geloescht): Eintrag darf
             // weg — sonst wandert er ewig mit. Das Bild liegt dann im Bucket.
-            drop = true;
-            if (applied) done++;
+            // NICHT bei 'voll': das Ziel ist da, nur der Speicher sagte Nein — das Foto bleibt im Korb
+            // (ohne Versuch zu zaehlen; der stabile Schluessel macht den naechsten Upload zur selben Datei).
+            drop = (applied !== 'voll');
+            if (applied === true) done++;
+          } else if (window._gsUploadGrund !== 'server' && window._gsUploadGrund !== 'bild') {
+            // Kein Empfang, Zeitueberschreitung, Sitzung weg: kein VERSUCH. Nur eine Ablehnung des Servers
+            // oder ein unlesbares Bild zaehlt gegen die acht Anlaeufe — ein Funkloch im Wald nicht.
           } else {
             // v31.06: Nach 8 vergeblichen Anlaeufen aufgeben statt endlos zu
             // wiederholen. Ohne Deckel laeuft die Warteschlange bei einem
@@ -83451,7 +84309,21 @@ function gsRegisterServiceWorker() {
             it.tries = (it.tries || 0) + 1;
             if (it.tries >= 8) {
               console.warn('[gsFlushPhotoQueue] gebe auf nach 8 Versuchen:', it.key);
-              drop = true;
+              // SPEICHER-V2 Scheibe 2: aufgeben heisst ARCHIVIEREN, nicht wegwerfen. Das Foto liegt sonst
+              // nirgends mehr — der Korb war seine einzige Kopie. Im Archiv (Einstellungen → Speicher →
+              // Archiv sichern) laesst es sich als Datei holen. Nur wenn das Archiv es angenommen hat,
+              // verlaesst es den Korb; sonst bleibt es liegen und der naechste Flush gibt erneut auf.
+              // Ein Tagebuch-Foto geht zuerst ZURUECK in seinen Eintrag (als data:image, der alte Notnagel):
+              // dort bleibt es sichtbar, und gsDiaryFotosNachziehen versucht es spaeter direkt. Gibt es den
+              // Eintrag nicht mehr, will niemand das Foto. Nur wenn der Speicher Nein sagt, geht es ins Archiv.
+              var _zurueck = (_art === 'diary') ? _gsApplyPhotoUrl(it.target, 'data:image/jpeg;base64,' + it.b64) : 'voll';
+              if (_zurueck === true || _zurueck === false) drop = true;
+              else {
+                var _arch = 0;
+                try { _arch = await window.gsArchiveDropped('pending_photos', [{ bucket: it.bucket, key: it.key, target: it.target, queued_at: it.queued_at, b64: it.b64 }]); } catch(_){}
+                drop = _arch > 0;
+                if (!drop) { it.tries = 8; try { db.transaction('pending_photos', 'readwrite').objectStore('pending_photos').put(it); } catch(_){} }
+              }
             } else {
               var utx = db.transaction('pending_photos', 'readwrite');
               utx.objectStore('pending_photos').put(it);
@@ -83468,7 +84340,59 @@ function gsRegisterServiceWorker() {
       if (done) console.log('[gsFlushPhotoQueue] ' + done + ' Foto(s) nachgetragen.');
     } catch(e){ console.warn('[gsFlushPhotoQueue]', e); }
     finally { window._gsPhotoFlushing = false; }
+    try { await window.gsDiaryFotosNachziehen(); } catch(_){}
     return done;
+  };
+
+  // SPEICHER-V2 Scheibe 2: der ALTBESTAND. Bis hierher legte gsAddDiaryEntry ein Foto, dessen Upload
+  // scheiterte, als base64 in den Eintrag. Diese Fotos liegen in ps_myplants und reisen bei jeder
+  // Aenderung im Pflanzen-Blob mit. Der Nachzug laedt sie hoch und setzt die Adresse ein — und zwar
+  // DIREKT, nicht ueber den Ausgangskorb: der Korb gibt nach acht Anlaeufen auf, und ein Bild, das
+  // heute sicher im Eintrag liegt, darf durch einen Umzug nicht unsicherer werden. Scheitert der
+  // Upload, bleibt der Eintrag, wie er ist, und der Lauf endet (kein Empfang gilt fuer alle).
+  // Hoechstens `max` Fotos je Lauf (Vorgabe 5): der Flush laeuft beim Start und bei jedem „online“.
+  window.gsDiaryFotosNachziehen = async function(max){
+    max = max || 5;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return 0;
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return 0;
+    if (typeof window.gsUploadPhotoToBucket !== 'function') return 0;
+    if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return 0;
+    // Erst NACH dem ersten Abgleich: vorher steht in myPlants ein Stand, den der Abgleich gleich ersetzt.
+    if (window._gsInitialSyncDone !== true) return 0;
+    if (window._gsDiaryNachzugLaeuft) return 0;
+    window._gsDiaryNachzugLaeuft = true;
+    var n = 0;
+    try {
+      var wer = _gsUid();                       // EINMAL merken, vor jeder Runde fragen (CLAUDE.md §3.6)
+      var ALT = /^data:image\/(jpeg|png|webp);base64,/;
+      var offen = [];
+      myPlants.forEach(function(p){
+        if (!p || !Array.isArray(p.diary)) return;
+        p.diary.forEach(function(e){ if (e && typeof e.photo === 'string' && ALT.test(e.photo)) offen.push({ pid: String(p.id), ts: String(e.ts), foto: e.photo }); });
+      });
+      var finde = function(o){
+        var p = myPlants.find(function(x){ return x && String(x.id) === o.pid; });
+        if (!p || !Array.isArray(p.diary)) return null;
+        return p.diary.find(function(e){ return e && String(e.ts) === o.ts && e.photo === o.foto; }) || null;
+      };
+      for (var i = 0; i < offen.length && n < max; i++) {
+        if (!wer || _gsUid() !== wer) break;
+        if (!finde(offen[i])) continue;          // inzwischen geloescht oder ersetzt
+        var url = null;
+        try { url = await window.gsUploadPhotoToBucket('garden-diary-photos', offen[i].foto.slice(offen[i].foto.indexOf(',') + 1)); } catch(_){}
+        if (_gsUid() !== wer) break;
+        if (!url) break;                         // nichts verloren: das Bild bleibt im Eintrag
+        var ein = finde(offen[i]);               // nach dem await neu suchen — die Liste kann ersetzt worden sein
+        if (!ein) continue;
+        ein.photo = url;
+        // leise: der Nachzug ist kein Wille der Person und hebt den Stempel der Pflanze nicht (_gsStempeln)
+        if (_gsLeiseSpeichern(offen[i].pid) === false) { ein.photo = offen[i].foto; break; }
+        n++;
+      }
+      if (n) console.log('[gsDiaryFotosNachziehen] ' + n + ' Tagebuch-Foto(s) aus dem Pflanzen-Speicher in den Bucket gezogen.');
+    } catch(e){ console.warn('[gsDiaryFotosNachziehen]', e); }
+    finally { window._gsDiaryNachzugLaeuft = false; }
+    return n;
   };
 
   // Public API: gsFlushOfflineQueue — alle pending Items abarbeiten (wenn online)
@@ -87494,6 +88418,8 @@ function gsOnLoginSuccess() {
       return;
     }
     window._gsLoginDoneForUid = _uid;
+    // SPEICHER-V2 Scheibe 1: die eigenen Rezepte DIESES Kontos wieder zeigen (sie lagen gestempelt im Speicher)
+    try { if (typeof _gsRezepteNeuLaden === 'function') _gsRezepteNeuLaden(); } catch(_){}
   } catch(_){}
   localStorage.setItem(GS_ONBOARDING_KEY, 'logged_in');
   localStorage.removeItem(GS_GUEST_MODE_KEY);
@@ -87563,11 +88489,20 @@ function gsOnLogout() {
   try { window._gsGlobalKeyMem = ''; } catch(_){}
   // Linas Gespräch im Arbeitsspeicher geht mit (der Spiegel gs_lina_verlauf geht über GS_USER_KEYS),
   // und ein offenes Lina-/Doktor-Fenster schliesst — sein Inhalt gehört der Person, die geht.
-  try { window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaInhaltZeit = null; } catch(_){}
+  // Brett 2026-11-24-f834: das Räumen ist ein WECHSEL des gezeigten Gesprächs (Lina 9) — sonst stand eine Antwort,
+  // die nach dem Abmelden und Wiederanmelden DESSELBEN Kontos ankam, allein im neuen Gespräch und ging als
+  // Vorgeschichte mit der nächsten Frage an die KI.
+  try { if (typeof _gsLinaGespraechWechsel === 'function') _gsLinaGespraechWechsel(); window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaInhaltZeit = null; } catch(_){}
+  try { window._gsDiaryPhotoB64 = null; } catch(_){}   // Scheibe 2: ein im Tagebuch gewaehltes, nicht gespeichertes Foto
+  // Gegenpruefung Scheibe 1 (vorbestehend): der XP-Puffer lebt nur im Arbeitsspeicher und ueberlebte das
+  // Abmelden — ein nicht gebuchter Betrag von A ging mit dem ersten Gewinn von B auf dessen Konto.
+  try { window._gsXpPending = 0; if (window._gsXpFlushTimer) { clearTimeout(window._gsXpFlushTimer); window._gsXpFlushTimer = null; } } catch(_){}
   try { if (typeof closeModal === 'function') closeModal('gs-nl-modal'); } catch(_){}
   // Dasselbe für den Scanner (sbLogout lädt die Seite nicht neu): das letzte Ergebnis, sein Foto, die
   // Ergebniskarte und das Gespräch dazu. Nicht gsResetScanner — der startet die Kamera neu.
   try { _lastScanResult = null; } catch(_){}
+  // Die Vergleiche (Scanner 12/13) tragen das Foto der Person — es gehört ihr und liegt nur im Speicher (§3.6).
+  try { _gsVglStand = null; _gsPilzVglStand = null; } catch(_){}
   try { window._gsLastScanB64 = null; window._gsLastScanMt = null; window._gsLastScanBilder = []; window._gsLetzterScan = null; } catch(_){}
   try { _scanChatHistory = []; _scanChatFuer = null; } catch(_){}
   try { var _sr = document.getElementById('scan-result'); if (_sr) { _sr.style.display = 'none'; _sr.innerHTML = ''; } } catch(_){}
@@ -88088,6 +89023,8 @@ function gsClearUserDataKeys(){
     // `let` statt `var`: ein `typeof` in der zeitlichen Totzone WIRFT, ein
     // eigenes try/catch je Zuweisung ist deshalb Pflicht.
     try { marketListings = []; } catch(_){}
+    // SPEICHER-V2 Scheibe 1: die Rezept-Listen fuer niemanden neu lesen (gestempelte eigene von A sind dann verborgen)
+    try { if (typeof _gsRezepteNeuLaden === 'function') _gsRezepteNeuLaden(); } catch(_){}
     try { farmState = (typeof _gsFarmDefault === 'function') ? _gsFarmDefault() : farmState; } catch(_){}
     try { if (typeof _gsDev !== 'undefined' && _gsDev) _gsDev.registry = {}; } catch(_){}
     // v33.55: ein geteiltes Foto, das noch nicht abgeholt wurde, gehoert der
@@ -88207,6 +89144,7 @@ async function gsSyncUserDataOnLogin(){
     var g = await sbFetch('/rest/v1/user_gardens?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
     if (typeof _gsPerson === 'function' && _gsPerson() !== _person0) return;
     if (g && g.error) { _pullErrors++; console.warn('[gsSync] user_gardens-Pull fehlgeschlagen:', g.error.message); }
+    try { _tombLok = _gsGeloeschtLesen(); } catch(_){}   // nach dem await neu: waehrenddessen kann geloescht worden sein
     if (g && !g.error && Array.isArray(g.data) && g.data[0] && g.data[0].data) {
       var d = g.data[0].data;
       var gUpdated = g.data[0].updated_at || null;
@@ -88255,7 +89193,16 @@ async function gsSyncUserDataOnLogin(){
           try { gsCloudSync.markDirty('garden'); } catch(_){}
           console.warn('[gsSync] v27.01: cloud garden empty but local has data — keeping local + repairing cloud');
         } else {
-          if (d.plans)     _gsListeEinspielen('gs_garden_plans', Array.isArray(d.plans) ? d.plans : []);
+          if (d.plans) {
+            // Auch im sauberen Zweig gelten die Loeschmarken (Lese-Pruefung des Koordinators): traegt die Cloud
+            // noch einen Plan, der hier oder auf einem anderen Geraet geloescht wurde, kommt er nicht zurueck —
+            // und der Garten-Bereich wird vorgemerkt, damit die Cloud ihn auch verliert.
+            var _plT = _tombLok['gs_garden_plans'] || {};
+            var _plRoh = Array.isArray(d.plans) ? d.plans : [];
+            var _plOhne = _plRoh.filter(function (x) { return !(x && _gsHatLoeschmarke(_plT, x.id)); });
+            _gsListeEinspielen('gs_garden_plans', _plOhne);
+            if (_plOhne.length !== _plRoh.length) { _gNeu = true; try { gsCloudSync.markDirty('garden'); } catch(_){} }
+          }
           if (d.current)   try { localStorage.setItem('gs_garden_plan_current', JSON.stringify(d.current)); } catch(_){}
           if (gUpdated && !_gNeu) try { localStorage.setItem('gs_sync_synced_at_garden', gUpdated); } catch(_){}
         }
@@ -88265,6 +89212,7 @@ async function gsSyncUserDataOnLogin(){
     var p = await sbFetch('/rest/v1/user_plants?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
     if (typeof _gsPerson === 'function' && _gsPerson() !== _person0) return;   // v33.65: eine Antwort gehoert der Person, die gefragt hat
     if (p && p.error) { _pullErrors++; console.warn('[gsSync] user_plants-Pull fehlgeschlagen:', p.error.message); }
+    try { _tombLok = _gsGeloeschtLesen(); } catch(_){}   // nach dem await neu
     var _pGelesen = !!(p && !p.error && Array.isArray(p.data));
     if (p && !p.error && Array.isArray(p.data) && p.data[0] && p.data[0].data) {
       var pd = p.data[0].data;
@@ -88465,17 +89413,24 @@ async function gsSyncUserDataOnLogin(){
       if (g && g.data && g.data[0] && g.data[0].data) {
         var gd2 = g.data[0].data;
         if (Array.isArray(gd2.gpx_tracks)) {
+          var _trTomb = _tombLok['gs_gpx_tracks'] || {};
+          var _trLebt = function (t) { return !(t && t.ts != null && _gsHatLoeschmarke(_trTomb, t.ts)); };
           if (_shouldOverwriteLocal('garden', g.data[0].updated_at)) {
-            try { localStorage.setItem('gs_gpx_tracks', JSON.stringify(gd2.gpx_tracks)); } catch(_){}
+            // sauber: die Cloud-Liste gilt — ohne das, was eine Loeschmarke traegt (dann muss die Cloud es auch verlieren)
+            var _trCloud = gd2.gpx_tracks.filter(_trLebt);
+            try { localStorage.setItem('gs_gpx_tracks', JSON.stringify(_trCloud)); } catch(_){}
+            if (_trCloud.length !== gd2.gpx_tracks.length) { try { gsCloudSync.markDirty('garden'); } catch(_){} }
           } else if (gsCloudSync.localDirtyAt && gsCloudSync.localDirtyAt('garden')) {
             // 19.11.2026: ungesendet → Vereinigung je Track (Schluessel: Beginn `ts`), nicht „lokal gewinnt
             // ganz" — der Push danach ersetzte sonst die Tracks der Cloud (sync_check H8).
             var _trL = []; try { _trL = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]'); } catch(_){}
             if (!Array.isArray(_trL)) _trL = [];
+            // Eine Marke gilt fuer BEIDE Seiten: ein Track, den ein anderes Geraet geloescht hat, geht auch hier
+            // (vorher blieb der lokale stehen und ging mit dem naechsten Push zurueck in die Cloud).
+            var _trVorher = _trL.length; _trL = _trL.filter(_trLebt);
             var _trDa = {}; _trL.forEach(function (t) { if (t && t.ts != null) _trDa[String(t.ts)] = true; });
-            var _trTomb = _tombLok['gs_gpx_tracks'] || {};   // 24.11.2026: ein hier geloeschter Track kommt nicht zurueck (H10)
-            var _trNeu = gd2.gpx_tracks.filter(function (t) { return t && typeof t === 'object' && t.ts != null && !_trDa[String(t.ts)] && !_trTomb[String(t.ts)]; });
-            if (_trNeu.length) {
+            var _trNeu = gd2.gpx_tracks.filter(function (t) { return t && typeof t === 'object' && t.ts != null && !_trDa[String(t.ts)] && _trLebt(t); });
+            if (_trNeu.length || _trL.length !== _trVorher) {
               var _trAlle = _trL.concat(_trNeu).sort(function (a, b) { return (Number(a && a.ts) || 0) - (Number(b && b.ts) || 0); });
               try { localStorage.setItem('gs_gpx_tracks', JSON.stringify(_trAlle)); } catch(_){}
             }
@@ -88787,11 +89742,14 @@ window.gsCloudSync = (function(){
     return arr.map(function(o){
       if (!o || typeof o !== 'object') return o;
       var isRef = function(v){ return typeof v === 'string' && v.indexOf('gsphoto://') === 0; };
-      if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url)) return o;
+      // Scheibe 2: auch die Eintraege des Pflegeverlaufs (o.diary[].photo) koennen einen Platzhalter tragen.
+      var imVerlauf = Array.isArray(o.diary) && o.diary.some(function(e){ return e && isRef(e.photo); });
+      if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url) && !imVerlauf) return o;
       var c = Object.assign({}, o);
       if (isRef(c.photo))     c.photo = null;
       if (isRef(c.photoUrl))  c.photoUrl = null;
       if (isRef(c.photo_url)) c.photo_url = null;
+      if (imVerlauf) c.diary = o.diary.map(function(e){ return (e && isRef(e.photo)) ? Object.assign({}, e, { photo: null }) : e; });
       return c;
     });
   }
@@ -88801,7 +89759,7 @@ window.gsCloudSync = (function(){
     try { data.plants = _gsStripPhotoRefs(JSON.parse(gsStore.get('ps_myplants', null)||'[]')); } catch(_){ data.plants = []; }
     try { data.diary  = JSON.parse(localStorage.getItem('gs_gartentagebuch')||'[]'); } catch(_){ data.diary = []; }
     // v24.24: zusätzliche pflanzenbezogene lokale Keys mitsyncen
-    try { data.dead_plants = JSON.parse(gsStore.get('gs_dead_plants', null)||'[]'); } catch(_){}
+    try { data.dead_plants = _gsStripPhotoRefs(JSON.parse(gsStore.get('gs_dead_plants', null)||'[]')); } catch(_){}
     try { data.seed_inventory = JSON.parse(gsStore.get('gs_seed_inventory', null)||'[]'); } catch(_){}
     return data;
   }
@@ -88893,6 +89851,7 @@ window.gsCloudSync = (function(){
   // v30.50: für das einheitliche Voll-Backup exponieren — der Snapshot renutzt EXAKT diesen State-Builder
   // (DRY + zukunftssicher: neue State-Keys landen automatisch auch im Backend-Snapshot).
   try { window._gsBuildStateBlob = _buildStateBlob; } catch(_){}
+  try { window._gsBuildPlantsBlob = _buildPlantsBlob; } catch(_){}   // Scheibe 2: offline_check liest, was wirklich hochginge
 
   async function _pushBlob(table, data, sync){
     var uid = _uid();
@@ -89256,11 +90215,14 @@ function _gsStripSnapPhotoRefs(arr){
   return arr.map(function(o){
     if (!o || typeof o !== 'object') return o;
     var isRef = function(v){ return typeof v === 'string' && v.indexOf('gsphoto://') === 0; };
-    if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url)) return o;
+    // Scheibe 2: auch die Eintraege des Pflegeverlaufs (o.diary[].photo) koennen einen Platzhalter tragen.
+    var imVerlauf = Array.isArray(o.diary) && o.diary.some(function(e){ return e && isRef(e.photo); });
+    if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url) && !imVerlauf) return o;
     var c = Object.assign({}, o);
     if (isRef(c.photo))     c.photo = null;
     if (isRef(c.photoUrl))  c.photoUrl = null;
     if (isRef(c.photo_url)) c.photo_url = null;
+    if (imVerlauf) c.diary = o.diary.map(function(e){ return (e && isRef(e.photo)) ? Object.assign({}, e, { photo: null }) : e; });
     return c;
   });
 }
@@ -89295,7 +90257,7 @@ function gsSnapshotBuildState(){
     geraete:             _j('gs_geraete','[]'),          // v32.48: Geraete-Register (klein); Messwerte NICHT — dafuer ist die Tabelle da
     geraete_regeln:      _j('gs_geraete_regeln','[]'),
     ernte:               _j('gs_ernte_log','[]'),
-    dead_plants:         _j('gs_dead_plants','[]'),
+    dead_plants:         _gsStripSnapPhotoRefs(_j('gs_dead_plants','[]')),
     seed_inventory:      _j('gs_seed_inventory','[]'),
     garden_plans:        _j('gs_garden_plans','[]'),
     garden_plan_current: _j('gs_garden_plan_current','null'),
@@ -89523,6 +90485,13 @@ window.gsSnapshotBuildState = gsSnapshotBuildState;
 window._gsRestoreStats = { written: 0, failed: 0 };
 function _gsRestoreKey(lsKey, snapVal){
   if (snapVal == null) return;
+  // SPEICHER-V2 Scheibe 1: was wiederhergestellt wird, soll bleiben — eine Loeschmarke fuer denselben Plan
+  // oder Track wird zurueckgenommen (sonst naehme der naechste Abgleich ihn wieder weg).
+  try {
+    if (Array.isArray(snapVal) && (lsKey === 'gs_garden_plans' || lsKey === 'gs_gpx_tracks')) {
+      _gsLoeschmarkenZurueck(lsKey, snapVal.map(function (x) { return x && (lsKey === 'gs_gpx_tracks' ? x.ts : x.id); }).filter(function (x) { return x != null; }));
+    }
+  } catch (_) {}
   // v33.59 (s1): eine eigene LISTE geht durch den einen Eingang (Sieb, Speicher,
   // Variable) — der dritte Rueckweg neben Backup und Cloud-Pull. Andere Schluessel
   // bleiben, wie sie sind.
@@ -89643,10 +90612,22 @@ async function gsSnapshotRestore(opts){
         if ((window._gsRestoreOhne || []).indexOf(pair[0]) >= 0 && _gsLokalLeer(pair[0])) return;   // v33.59: bewusst geleert
         var cur = []; try { cur = JSON.parse(localStorage.getItem(pair[0])||'[]'); } catch(_){}
         if (!Array.isArray(cur)) cur = [];
-        var seen = {}; cur.forEach(function(r){ if (r && r.id) seen[r.id] = 1; });
-        arr.forEach(function(r){ if (r && r.id && !seen[r.id]) cur.unshift(r); });
+        // SPEICHER-V2 Scheibe 1: was aus dem EIGENEN Backup kommt, gehoert diesem Konto — der einzige
+        // Besitzbeleg, den es gibt. Ein Eintrag, der im Speicher unter fremdem oder ohne Stempel liegt,
+        // bekommt den eigenen; ein neuer kommt gestempelt dazu.
+        var _rzIch = null; try { _rzIch = localStorage.getItem('gs_sb_uid') || null; } catch(_){}
+        var seen = {}; cur.forEach(function(r){ if (r && r.id) seen[r.id] = r; });
+        arr.forEach(function(r){
+          if (!r || !r.id) return;
+          if (seen[r.id]) { if (_rzIch && _gsRezeptEigen(seen[r.id])) seen[r.id].uid = _rzIch; return; }
+          if (_rzIch && _gsRezeptEigen(r)) r.uid = _rzIch;
+          cur.unshift(r);
+        });
         try { localStorage.setItem(pair[0], JSON.stringify(cur)); } catch(_){}
       });
+      // Speicher und Variable wieder EIN Stand (vorher „greifen beim naechsten Load" — bis dahin konnte ein
+      // Speichern aus der alten Variablen die wiederhergestellten Eintraege ueberschreiben).
+      if (typeof _gsRezepteNeuLaden === 'function') _gsRezepteNeuLaden();
     } catch(_){}
     try { if (st.state) _gsApplyStateBlob(st.state); } catch(_){}
     // Cloud reparieren + UI rendern (die Variablen der Listen setzt _gsListeEinspielen, v33.59)
@@ -91152,9 +92133,29 @@ window._gsLinaArtenZeile = _gsLinaArtenZeile;
  */
 function _gsLinaSicherheit(antwort, treffer) {
   try {
-    if (!antwort || !treffer || !treffer.zahl) return '';
-    var hoch = treffer.arten.filter(function (a) { return a.tox >= 3; });
-    if (!hoch.length) return '';
+    if (!antwort) return '';
+    var hoch = (treffer && treffer.zahl) ? treffer.arten.filter(function (a) { return a.tox >= 3; }) : [];
+    // Lina · Einblick ehrlich (24.11.2026, Brett 6bbf): Arten, die nur über den Einblick zum Modell kamen
+    // (eine eigene Pflanze, die die Frage beim Spitznamen nennt) oder die erst in der ANTWORT stehen, liefen
+    // hier vorbei — die Gegenprobe sah nur _gsArtenTreffer(Frage). Eine Art aus der Antwort zählt nur in
+    // einem Satz, der sie SELBST nennt (sonst warnte „Basilikum kannst du essen. Das Maiglöckchen daneben
+    // ist giftig." vor dem Basilikum) — und nur mit ihrem GANZEN Namen oder Binomen (Mehrzahl-Endung
+    // erlaubt). Gemessen: über die Deklinations-Regel und den Familien-Zug von _gsArtenTreffer warnte
+    // „Ja, Petersilie ist essbar." vor der Hunds-Petersilie — ein Fehlalarm, den man zu überlesen lernt.
+    var imSatz = function (satzRoh) {
+      try {
+        if (typeof _gsArtenTreffer !== 'function') return [];
+        var t = _gsArtenTreffer(satzRoh);
+        if (!t || !t.zahl) return [];
+        var satz = ' ' + _gsLinaNorm(satzRoh) + ' ';
+        var genannt = function (n) {
+          var k = _gsLinaNorm(n || '');
+          if (k.length < 3) return false;
+          return new RegExp(' ' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:n|en|e|s)? ').test(satz);
+        };
+        return t.arten.filter(function (a) { return a.tox >= 3 && (genannt(a.name) || genannt(a.lat)); });
+      } catch (_) { return []; }
+    };
 
     // v33.32: Diese Pruefung ist die EINZIGE Rechnung, die eine falsche
     // Essbarkeits-Zusage ueber eine giftige Art noch abfangen kann. Die
@@ -91192,7 +92193,9 @@ function _gsLinaSicherheit(antwort, treffer) {
       if (NEIN.test(sz)) continue;                 // dieser Satz warnt selbst
       var bejaht = STAMM.test(sz) || (VERZEHR.test(sz) && JA_DAVOR.test(sz));
       if (!bejaht) continue;
-      var namen = hoch.slice(0, GS_LINA_ARTEN_NENNEN).map(function (x) { return x.name; }).join(', ');
+      var _giftig = hoch.length ? hoch : imSatz(saetze[i]);
+      if (!_giftig.length) continue;
+      var namen = _giftig.slice(0, GS_LINA_ARTEN_NENNEN).map(function (x) { return x.name; }).join(', ');
       var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
       return _t('lina_sicherheit_gift', '⚠️ Achtung: In unserer Artenliste steht {1} als giftig. Bitte nichts essen, was du nicht sicher bestimmt hast.')
         .replace('{1}', namen);
@@ -91201,6 +92204,31 @@ function _gsLinaSicherheit(antwort, treffer) {
   } catch (_) { return ''; }
 }
 window._gsLinaSicherheit = _gsLinaSicherheit;
+
+// Lina · Einblick ehrlich (Brett 6bbf): die Arten der Frage UND die der eigenen Pflanzen, die die Frage beim
+// Namen oder Spitznamen nennt (_gsLinaPflanzenInFrage — dieselbe Auflösung wie die Detailzeile des Einblicks).
+// „Kann ich Lilli essen?" — Lilli ist das Maiglöckchen auf dem Balkon; die Frage selbst nennt keine Art.
+// Auch bei ausgeschaltetem Einblick: diese Prüfung läuft auf dem Gerät und schickt nichts — und ein
+// „Ja, die kannst du essen." kann das Modell auch dann schreiben, wenn es nicht weiss, wer Lilli ist.
+function _gsLinaTrefferMitPflanzen(frage, treffer) {
+  var out = { arten: (treffer && treffer.arten) ? treffer.arten.slice() : [], zahl: 0 };
+  try {
+    if (typeof _gsLinaPflanzenInFrage === 'function') {
+      _gsLinaPflanzenInFrage(frage).forEach(function (x) {
+        var p = x && x.p; if (!p) return;
+        // Mit Binomen genau diese Art; ohne (oder ohne Treffer) der Name — als hätte die Frage ihn genannt.
+        var lat = String(p.latin || p.lat || p.species || '').trim();
+        var t = lat ? _gsArtenTreffer(lat) : null;
+        if (!t || !t.zahl) t = _gsArtenTreffer(String(p.name || ''));
+        (t && t.arten || []).forEach(function (a) {
+          if (!out.arten.some(function (b) { return b.name === a.name; })) out.arten.push(a);
+        });
+      });
+    }
+  } catch (_) {}
+  out.zahl = out.arten.length;
+  return out;
+}
 
 // ══ Linas EINBLICK (Paket I, Punkt 8) ═══════════════════════════════════════
 // Bis hierher sah Lina von den Pflanzen nur die ZAHL und die Namen mit einer
@@ -91228,18 +92256,41 @@ var GS_LINA_HILFE_NENNEN = 4;
 var GS_HILFE_UEBERFAELLIG_TAGE = 2;    // ab so vielen Tagen Verzug „braucht Hilfe" (1 Tag ist Alltag)
 var GS_HILFE_SCHAEDLING_TAGE = 14;     // ein notierter Schaedling gilt so lange als offen
 
+// Lina · Einblick ehrlich (24.11.2026, Brett 6bbf): `localStorage.setItem` wirft hier nie, es gibt bei
+// vollem Speicher `false` zurück (CLAUDE.md §3.5). Bis hierher las niemand die Rückgabe — das Abschalten
+// scheiterte still, und der Einblick blieb AN. Jetzt gilt die Wahl dann für diese Sitzung, und ein Satz
+// sagt, dass sie nach dem Neuladen weg ist.
+var _gsLinaEinblickSitzung = null;   // null: der Speicher entscheidet · true/false: diese Sitzung
 function gsLinaEinblickAn() {
+  if (_gsLinaEinblickSitzung !== null) return _gsLinaEinblickSitzung;
   try { return localStorage.getItem('gs_lina_einblick') !== '0'; } catch (_) { return true; }
 }
 window.gsLinaEinblickAn = gsLinaEinblickAn;
 function gsLinaEinblickSchalten() {
+  var warAn = gsLinaEinblickAn(), gespeichert = true;
   try {
-    if (gsLinaEinblickAn()) localStorage.setItem('gs_lina_einblick', '0');
+    if (warAn) gespeichert = (localStorage.setItem('gs_lina_einblick', '0') !== false);
     else localStorage.removeItem('gs_lina_einblick');
-  } catch (_) {}
+  } catch (_) { gespeichert = false; }
+  if (gespeichert) _gsLinaEinblickSitzung = null;
+  else {
+    _gsLinaEinblickSitzung = !warAn;
+    try { gsToast(_gsSatz('Ausgeschaltet — der Speicher des Geräts ist voll, deshalb gilt das nur, bis die App neu lädt.'), 'warning', 6000); } catch (_) {}
+  }
   try { gsLinaRender(false); } catch (_) {}
 }
 window.gsLinaEinblickSchalten = gsLinaEinblickSchalten;
+
+// Lina · Einblick ehrlich (Brett 6bbf): ein Ortsname, der eine KOORDINATE ist, geht nicht an die KI. Ohne
+// Antwort von Nominatim setzt gsReverseGeocode den Namen auf „47.371°N, 8.542°E" — die Zusage „keine
+// Koordinaten" gilt auch dann. Rückgabe: der Name oder ''.
+function _gsOrtNameFuerKi(name) {
+  var s = String(name == null ? '' : name).trim();
+  if (!s) return '';
+  if (/\d\s*°/.test(s)) return '';
+  if (/^[-+]?\d{1,3}[.,]\d+\s*[,;\/ ]\s*[-+]?\d{1,3}[.,]\d+$/.test(s)) return '';
+  return s;
+}
 
 // Eine Zeile, an der Wortgrenze gekuerzt — nie mitten im Wert (02-regeln.md).
 function _gsLinaKurz(t, n) {
@@ -91309,19 +92360,38 @@ function gsPflanzenHilfe() {
     });
   } catch (_) {}
   try {
-    var tb = (typeof gsTagebuchAlle === 'function') ? (gsTagebuchAlle() || []) : [];
-    var grenze = Date.now() - GS_HILFE_SCHAEDLING_TAGE * 864e5;
-    tb.forEach(function (e) {
-      if (!e || e.cat !== 'pest' || !e.pflanze_id || !e.ts) return;
-      var z = new Date(e.ts).getTime();
-      if (!isFinite(z) || z < grenze) return;
-      var f = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(e.pflanze_id) : null;
-      if (f && f.p) merk(f.p, 'Schädling notiert am ' + _gsLinaTag(e.ts), 50);
+    gsSchaedlingeNotiert().liste.forEach(function (sch) {
+      if (!sch.pflanze_id) return;   // ohne Pflanze: eine eigene Zeile im Einblick
+      var f = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(sch.pflanze_id) : null;
+      if (f && f.p) merk(f.p, 'Schädling notiert am ' + _gsLinaTag(sch.ts), 50);
     });
   } catch (_) {}
   return reihe.sort(function (a, b) { return b.gewicht - a.gewicht; });
 }
 window.gsPflanzenHilfe = gsPflanzenHilfe;
+
+// Lina · Einblick ehrlich (24.11.2026, Brett 6bbf): die Schädlinge im Tagebuch — über gsTagebuchAlle (alle
+// drei Quellen). Der einzige Schreiber (gsPestAddToDiary) legt `pest_observation` in der Cloud an, OHNE
+// Pflanze; der Filter verlangte `pest` UND eine Pflanze und schlug nie an — die Entwarnung nannte
+// trotzdem „kein Schädling" als geprüft. Rückgabe {bekannt, liste:[{was, ts, pflanze_id}]}; `bekannt` ist
+// false, solange das Cloud-Tagebuch auf diesem Gerät nie geladen wurde — dann ist „keiner" keine Aussage.
+function gsSchaedlingeNotiert(tage) {
+  var grenze = Date.now() - (tage || GS_HILFE_SCHAEDLING_TAGE) * 864e5, liste = [], bekannt = false;
+  try { bekannt = localStorage.getItem('gs_garden_diary_cache') !== null; } catch (_) {}
+  try {
+    var tb = (typeof gsTagebuchAlle === 'function') ? (gsTagebuchAlle() || []) : [];
+    tb.forEach(function (e) {
+      if (!e || (e.cat !== 'pest' && e.cat !== 'pest_observation') || !e.ts) return;
+      var z = new Date(e.ts).getTime();
+      if (!isFinite(z) || z < grenze) return;
+      var m = /Pest identified:\s*([^\n]+)/i.exec(String(e.note || '') + '\n' + String(e.text || ''));
+      var was = (m ? m[1] : String(e.text || '')).trim();
+      liste.push({ was: was || 'Schädling', ts: e.ts, pflanze_id: e.pflanze_id || null });
+    });
+  } catch (_) {}
+  return { bekannt: bekannt, liste: liste };
+}
+window.gsSchaedlingeNotiert = gsSchaedlingeNotiert;
 
 // Welche EIGENEN Pflanzen nennt die Frage? Ganzer Name an Wortgrenzen (mit
 // Mehrzahl-Endung), laengster Name zuerst — „Tomate" trifft „meine Tomaten",
@@ -91424,7 +92494,8 @@ function _gsLinaWetterZeile() {
     var l = JSON.parse(localStorage.getItem('gs_user_location') || 'null');
     var c = JSON.parse(localStorage.getItem('gs_weather_cache') || 'null');
     var d = c && c.data && c.data.daily;
-    if (!l || !l.name || !d || !Array.isArray(d.time)) return '';
+    if (!l || !d || !Array.isArray(d.time)) return '';
+    var ortName = _gsOrtNameFuerKi(l.name);   // eine Koordinate als Name geht nicht mit
     var lon = (l.lon != null) ? l.lon : l.lng;
     if (!(Math.abs(Number(c.lat) - Number(l.lat)) < 0.02 && Math.abs(Number(c.lon) - Number(lon)) < 0.02)) return '';
     var heute = gsHeuteTag(), i0 = -1;
@@ -91442,7 +92513,7 @@ function _gsLinaWetterZeile() {
     }
     if (!tage.length) return '';
     var alter = c.ts ? Math.max(0, Math.round((Date.now() - c.ts) / 3600000)) : null;
-    var z = 'Wetter ' + _gsLinaKurz(l.name, 40) + ' (Vorhersage Open-Meteo' + (alter != null ? ', geladen vor ' + alter + ' h' : '') + '): ' + tage.join('; ') + '.';
+    var z = 'Wetter ' + (ortName ? _gsLinaKurz(ortName, 40) : 'am gewählten Ort') + ' (Vorhersage Open-Meteo' + (alter != null ? ', geladen vor ' + alter + ' h' : '') + '): ' + tage.join('; ') + '.';
     // Die vier Schwellen (Frost, Hitze, Starkregen, Sturm) aus der EINEN Rechnung
     var wt = (typeof _gsWetterTage === 'function') ? _gsWetterTage() : null, warn = [], mehrW = 0;
     (wt || []).forEach(function (t) {
@@ -91466,10 +92537,15 @@ function gsLinaEinblick(frageText) {
     // 1 · Wer braucht Hilfe?
     if (alle.length) {
       var hilfe = gsPflanzenHilfe();
+      var _sch = gsSchaedlingeNotiert(), _schOhne = _sch.liste.filter(function (x) { return !x.pflanze_id; });
       if (hilfe.length) teile.push('Braucht Hilfe: ' + hilfe.slice(0, GS_LINA_HILFE_NENNEN).map(function (h) {
         return _gsLinaKurz(h.name, 30) + ' (' + h.gruende.slice(0, 2).join(', ') + ')';
       }).join('; ') + (hilfe.length > GS_LINA_HILFE_NENNEN ? '; +' + (hilfe.length - GS_LINA_HILFE_NENNEN) + ' weitere' : '') + '.');
-      else teile.push('Braucht Hilfe: nach den Daten der App niemand (geprüft: keine Aufgabe ' + GS_HILFE_UEBERFAELLIG_TAGE + ' oder mehr Tage überfällig, kein Schädling in ' + GS_HILFE_SCHAEDLING_TAGE + ' Tagen notiert). Über den Zustand der Pflanzen selbst sagt das nichts.');
+      else teile.push('Braucht Hilfe: nach den Daten der App niemand (geprüft: keine Aufgabe ' + GS_HILFE_UEBERFAELLIG_TAGE + ' oder mehr Tage überfällig'
+        + (_sch.bekannt && !_schOhne.length ? ', kein Schädling im Tagebuch der letzten ' + GS_HILFE_SCHAEDLING_TAGE + ' Tage' : '') + '). Über den Zustand der Pflanzen selbst sagt das nichts.');
+      if (_schOhne.length) teile.push('Schädlinge im Tagebuch (' + GS_HILFE_SCHAEDLING_TAGE + ' Tage, keiner Pflanze zugeordnet): ' + _schOhne.slice(0, 3).map(function (x) {
+        return _gsLinaKurz(x.was, 30) + ' (' + _gsLinaTag(x.ts) + ')';
+      }).join('; ') + (_schOhne.length > 3 ? '; +' + (_schOhne.length - 3) + ' weitere' : '') + '.');
     }
     // 2 · die Pflanzen aus der FRAGE, je eine Detailzeile
     _gsLinaPflanzenInFrage(frageText).forEach(function (x) { var z = _gsLinaPflanzeDetail(x); if (z) teile.push(z); });
@@ -91511,13 +92587,26 @@ function gsLinaContext(frageText){
     // Die Sprache steht hier, nicht im festen Prompt, weil sie sich ändern kann.
     // v33.61: die Zuordnung steht in _gsKiSprache — der Scan-Chat fragt dieselbe.
     try { ctx += '\n\nSPRACHE: Antworte auf ' + _gsKiSprache() + '.'; } catch(_){}
+    // Lina · Einblick ehrlich (24.11.2026, Brett 6bbf): „Aus" heisst aus. Bis hierher schaltete der Schalter
+    // nur den Block gsLinaEinblick ab — Pflanzenzahl, Ortsname und gsLinaZahlen (Pflanzennamen mit fälligen
+    // Aufgaben, Geräte und Messwerte, Kalender, letzter Scan) gingen weiter, während im Lina-Fenster „Lina
+    // sieht deine Pflanzen und Gärten gerade nicht" stand. Ohne Einblick bekommt Lina nur die Frage, die
+    // Sprache, die Jahreszeit und die Arten, die in der Frage selbst stehen.
+    if (typeof gsLinaEinblickAn === 'function' && !gsLinaEinblickAn()) {
+      var _m0 = new Date().getMonth() + 1;
+      ctx += '\n\nKONTEXT: Die Person hat den Einblick in ihre Daten ausgeschaltet — du kennst ihre Pflanzen, Gärten, Scans, Geräte und ihren Ort nicht. Beziehe dich nicht darauf; frag nach, wenn du etwas brauchst.'
+        + ' Jahreszeit: ' + ((_m0>=3&&_m0<=5)?'Frühling':(_m0>=6&&_m0<=8)?'Sommer':(_m0>=9&&_m0<=11)?'Herbst':'Winter') + '.';
+      try { var _az0 = (typeof _gsLinaArtenZeile === 'function') ? _gsLinaArtenZeile(frageText || '') : ''; if (_az0) ctx += '\n' + _az0; } catch(_){}
+      ctx += '\nREGEL: Zahlen, Daten und Gerätenamen nur aus diesem KONTEXT zitieren. Fehlt ein Wert, sag, dass keiner vorliegt — nichts schätzen, nichts interpolieren.';
+      return ctx;
+    }
     // v33.33: die Zahl aus gsPflanzenZahl() (CLAUDE.md §3.3, v33.06) — beide
     // Listen, eine Rechnung. Vorher rechnete der Kontext selbst.
     var plants = (typeof gsPflanzenZahl === 'function') ? gsPflanzenZahl() : 0;
     if (plants) ctx += '\n\nKONTEXT (nur nutzen, falls für die Frage hilfreich): Die Person hat ' + plants + ' Pflanze(n) in GreenScan (Wohnung und Garten zusammen).';
     else ctx += '\n\nKONTEXT (nur nutzen, falls für die Frage hilfreich):';
     var loc = localStorage.getItem('gs_user_location');
-    if (loc) { try { var l = JSON.parse(loc); if (l && l.name) ctx += ' Region: ' + l.name + '.'; } catch(_){} }
+    if (loc) { try { var l = JSON.parse(loc); var _on = l ? _gsOrtNameFuerKi(l.name) : ''; if (_on) ctx += ' Region: ' + _on + '.'; } catch(_){} }
     var mon = new Date().getMonth() + 1;
     ctx += ' Jahreszeit: ' + ((mon>=3&&mon<=5)?'Frühling':(mon>=6&&mon<=8)?'Sommer':(mon>=9&&mon<=11)?'Herbst':'Winter') + '.';
     var zahlen = gsLinaZahlen();
@@ -91826,7 +92915,7 @@ function gsLinaRender(typing){
     // Was Lina sieht, steht da — und laesst sich abschalten. Kein Fenster, keine Rueckfrage.
     var _ean = (typeof gsLinaEinblickAn === 'function') ? gsLinaEinblickAn() : true;
     body += '<div style="text-align:center;padding:2px 10px 8px;font-size:var(--fs-sm);color:var(--muted);line-height:1.5;">'
-      + escHtml(_ean ? _gsSatz('Lina sieht deine Pflanzen, Gärten, Tagebuch-Einträge, das Wetter an deinem Ort, deine Scans und Funde — keine Fotos, keine Koordinaten.') : _gsSatz('Lina sieht deine Pflanzen und Gärten gerade nicht.'))
+      + escHtml(_ean ? _gsSatz('Lina sieht deine Pflanzen, Gärten, Tagebuch-Einträge, das Wetter an deinem Ort, deine Scans und Funde — keine Fotos, keine Koordinaten.') : _gsSatz('Einblick aus — Lina bekommt nichts aus deinen Pflanzen, Gärten, Scans, Geräten oder deinem Ort; das bisherige Gespräch geht mit.'))
       + ' <button data-lina-einblick="' + (_ean ? '1' : '0') + '" onclick="gsLinaEinblickSchalten()" style="background:none;border:none;padding:6px 4px;color:var(--g-dark);font-weight:700;font-size:var(--fs-sm);font-family:inherit;text-decoration:underline;cursor:pointer;">'
       + escHtml(_ean ? _gsSatz('Ausschalten') : _gsSatz('Einschalten')) + '</button></div>';
   }
@@ -91839,6 +92928,15 @@ function gsLinaRender(typing){
       + '<button data-lina-verlauf="1" onclick="gsLinaGespraeche()" style="margin-left:auto;padding:6px 10px;background:var(--surface2);color:var(--text);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">' + escHtml(_t('lina_verlauf','🕘 Verlauf')) + '</button>'
       + '<button onclick="gsLinaNew()" style="padding:6px 10px;background:var(--surface2);color:var(--text);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">' + _t('lina_new','＋ Neu') + '</button>'
     + '</div>'
+    // Lina · Einblick ehrlich (Brett 6bbf): der Schalter steht auch im LAUFENDEN Gespräch — bis hierher nur
+    // im leeren Verlauf, wer schon ein Gespräch hatte, fand ihn nach dem Öffnen nicht.
+    + (msgs.length ? (function () {
+        var _an = (typeof gsLinaEinblickAn === 'function') ? gsLinaEinblickAn() : true;
+        return '<div data-lina-einblick-zeile="1" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 6px;padding:4px 12px;border-bottom:1px solid var(--border);font-size:var(--fs-xs);color:var(--muted);line-height:1.4;text-align:center;">'
+          + escHtml(_an ? _gsSatz('Lina sieht deine Gartendaten — keine Fotos, keine Koordinaten.') : _gsSatz('Einblick aus — nichts aus deinen Gartendaten; das bisherige Gespräch geht mit.'))
+          + '<button data-lina-einblick="' + (_an ? '1' : '0') + '" onclick="gsLinaEinblickSchalten()" style="background:none;border:none;padding:4px 6px;min-height:24px;color:var(--g-dark);font-weight:700;font-size:var(--fs-xs);font-family:inherit;text-decoration:underline;cursor:pointer;">'
+          + escHtml(_an ? _gsSatz('Ausschalten') : _gsSatz('Einschalten')) + '</button></div>';
+      })() : '')
     + '<div id="gs-lina-scroll" style="flex:1;overflow-y:auto;padding:12px 16px;">' + body + '</div>'
     + '<div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);">'
       + '<input id="gs-lina-input" placeholder="' + _t('lina_input_ph','Frag Lina etwas…') + '" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();gsLinaSend();}" style="flex:1;padding:11px 14px;border:1px solid var(--border);border-radius:var(--r-xl);font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;">'
@@ -92165,7 +93263,7 @@ async function gsLinaSend(){
     // Antwort wird nicht verschluckt. Dazu die ruhige Notfall-Zeile, wenn die
     // Frage einen blossen Verzehr nennt.
     try {
-      var _warn = (typeof _gsLinaSicherheit === 'function') ? _gsLinaSicherheit(reply, _treffer) : '';
+      var _warn = (typeof _gsLinaSicherheit === 'function') ? _gsLinaSicherheit(reply, _gsLinaTrefferMitPflanzen(text, _treffer)) : '';
       if (_warn) reply = _warn + '\n\n' + reply;
       if (window._gsLinaNotfallHinweis) {
         var _th = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };

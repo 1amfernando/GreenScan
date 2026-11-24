@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-24-4caa",
+  "art": "befund",
+  "datum": "2026-11-24",
+  "zeit": "14:45:41",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.69",
+  "titel": "Eigene Rezepte aus der Zeit vor dem Konto-Stempel bleiben für jedes Konto auf dem Gerät sichtbar",
+  "vorschlag": "Beim Anmelden einmal user_recipes aus dem jüngsten eigenen Snapshot lesen und passende ungestempelte Einträge stempeln; was danach ungestempelt bleibt, nach einer Frist nur noch dem zuletzt aktiven Konto zeigen — Entscheidung Fernando.",
+  "beleg": [
+    "Seit SPEICHER-V2 Scheibe 1 stempelt saveRecipe ein neues Rezept mit der uid, und _gsLoadRecipeStore verbirgt gestempelte Einträge anderer Konten (sicherheit_check 98_schluss_e). Einträge OHNE uid (alles, was vorher angelegt wurde) zeigt es weiter jedem — bewusst: das Gerät weiss nicht, wem sie gehören; ein Stempel beim Abmelden schrieb sie im ersten Entwurf dem Konto zu, das sich zuerst abmeldete, und nahm sie der Besitzerin weg (Gegenprüfung). Einziger Besitzbeleg heute: das eigene Cloud-Backup (gsSnapshotRestore stempelt)."
+  ],
+  "stichworte": [
+    "rezepte",
+    "abmelden",
+    "_gsLoadRecipeStore",
+    "gs_recipes"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "function _gsRezeptEigen(x)"
+    }
+  ]
+}

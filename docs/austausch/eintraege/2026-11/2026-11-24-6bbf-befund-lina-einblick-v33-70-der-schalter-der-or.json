@@ -1,0 +1,27 @@
+{
+  "id": "2026-11-24-6bbf",
+  "art": "befund",
+  "datum": "2026-11-24",
+  "zeit": "15:09:15",
+  "von": "sitzung/lokal/lina-einblick",
+  "stand": "v33.71",
+  "titel": "Lina · Einblick (v33.70): der Schalter, der Ortsname, das Schädling-Signal und die Gegenprobe halten nicht, was sie sagen",
+  "vorschlag": "Aus heisst aus: ohne Einblick bekommt Lina nur Frage, Sprache und Jahreszeit; Schalter auch im laufenden Gespräch; ein Ortsname, der eine Koordinate ist, geht nicht mit; voller Speicher sagt es und gilt bis zum Neuladen; Schädlinge aus dem Tagebuch (pest_observation) zählen, ohne Pflanze als eigene Zeile; die Gegenprobe prüft auch die Arten eigener Pflanzen aus der Frage und Arten, die in der Antwort in einem bejahenden Satz stehen. Je ein Fall in sensor_check, gegen v33.70 rot.",
+  "beleg": [
+    "Nachgemessen am Quelltext von v33.70 (8a2f16e), nach der Nachprüfung des Koordinators (PR #340, Kommentar 7135172753): (1) gsLinaContext schickt gsLinaZahlen (Pflanzennamen mit fälligen Aufgaben, Geräte und Messwerte, Kalender, letzter Scan), die Pflanzenzahl und „Region: <Ortsname>“ auch bei ausgeschaltetem Einblick — im Lina-Fenster steht dann „Lina sieht deine Pflanzen und Gärten gerade nicht.“ (2) Schalter und Satz stehen nur im LEEREN Verlauf (gsLinaRender, if (!msgs.length)). (3) gsReverseGeocode setzt im .catch den Namen auf „<lat>°N, <lon>°E“; _gsLinaWetterZeile und „Region:“ schicken ihn — die Zusage „keine Koordinaten“ stimmt dann nicht. (4) gsLinaEinblickSchalten liest den Rückgabewert von setItem nicht: bei vollem Speicher bleibt der Einblick still AN. (5) Der einzige Schreiber eines Schädlings im Tagebuch (gsPestAddToDiary) legt entry_type pest_observation ohne Art an; gsTagebuchAlle macht daraus cat pest_observation, pflanze_id null — der Filter in gsPflanzenHilfe verlangt cat pest UND pflanze_id und kann nie anschlagen; die Entwarnung nennt trotzdem „kein Schädling in 14 Tagen“ als geprüft. (6) _gsLinaSicherheit sieht nur Arten aus _gsArtenTreffer(Frage): eine eigene Pflanze, die die Frage beim Spitznamen nennt, und eine Art, die erst in Linas Antwort steht, laufen an der Essbarkeits-Gegenprobe vorbei. (7) Der Wortlaut von privacy.html §3 und App-Text zählt weniger auf, als gesendet wird (Notiz, Sorte, Beet-Masse, Spitzname) — Entscheidung Fernando."
+  ],
+  "stichworte": [
+    "lina",
+    "einblick",
+    "datenschutz",
+    "schalter",
+    "schaedling",
+    "gegenprobe"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "if (!e || e.cat !== 'pest' || !e.pflanze_id || !e.ts) return;"
+    }
+  ]
+}

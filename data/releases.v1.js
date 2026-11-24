@@ -30,6 +30,45 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.54', date: '09.10.2026',
+      headline: 'Ein Stil im Text lädt keine fremde Adresse mehr',
+      summary: 'Übersetzte Texte und Chat-Zeilen dürfen ein wenig Auszeichnung tragen — und dazu ein style-Attribut. Der Filter dafür war eine Verbotsliste auf dem Rohtext: er suchte „url(“. CSS kennt aber Escapes (u\\72l( liest der Browser als url(), und image-set("…") lädt eine Adresse ganz ohne url(. Die gegnerische Prüfung zu v33.53 hat in Chromium gezeigt, dass ein Satz damit eine fremde Adresse laden konnte. Jetzt geht jeder Stil durch eine Erlaubnisliste: nur bekannte Eigenschaften, keine Escapes, keine Zeichenketten, keine Funktion ausser rgb/hsl/var/calc.',
+      user_summary: 'Eine Sicherheitslücke ist geschlossen: ein Text aus fremder Hand (eine Übersetzung, eine Antwort im Chat) konnte über eine versteckte Stil-Angabe ein Bild von einer fremden Adresse nachladen — und damit verraten, dass du die Seite geöffnet hast. Das geht nicht mehr; normale Formatierungen bleiben, wie sie sind.',
+      user_items: [
+        {emoji:'🛡️', bold:'Keine versteckten Nachlader mehr:', text:' ein Text aus fremder Hand kann über eine Stil-Angabe nichts mehr von einer fremden Adresse laden.'},
+        {emoji:'🧱', bold:'Kein Text legt sich über die App:', text:' Stil-Angaben, die einen Satz über den ganzen Bildschirm spannen könnten, fallen weg.'},
+        {emoji:'✅', bold:'Formatierungen bleiben:', text:' Farben, Fettdruck, Grösse und Abstände in den Texten sehen aus wie bisher.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' sechs Stile (u\\72l, \\75rl, u\\rl, image-set im Hintergrund und im Rahmen, list-style) lösten durch gsSanitizeHtml je eine Anfrage an die fremde Adresse aus — 6 von 6.'},
+        {emoji:'🧾', bold:'Erlaubnisliste statt Verbotsliste:', text:' _gsStilSaeubern prüft jede Deklaration: kein Backslash, kein Anführungszeichen, kein Kommentar, kein @; nur Eigenschaften aus GS_SANITIZE_STIL; Funktionen nur rgb/rgba/hsl/hsla/var/calc; ein geschlossenes Alphabet. Was nicht passt, fällt allein.'},
+        {emoji:'📐', bold:'Was die Texte brauchen, bleibt:', text:' gemessen an den übersetzbaren Elementen — color (auch mit var()), display, font-size, font-weight, margin, margin-bottom. position, width und Co. fallen, sonst legt sich ein Satz über die App.'},
+        {emoji:'🧪', bold:'escape_check A10b:', text:' rendert die bösen Stile wirklich ins Dokument und zählt die Anfragen des Browsers (0), prüft die Überlagerung und acht gute Stile. Gegen v33.53 rot (6 Anfragen); drei Gegenproben einzeln rot.'}
+      ]
+  },
+  {
+    v: 'v33.53', date: '09.10.2026',
+      headline: 'Export und Drucken in der Android-App',
+      summary: 'In der Android-App taten die Export-Knöpfe bisher nichts: eine nackte WebView kann eine Datei aus dem Arbeitsspeicher nicht ablegen, und print() tut dort nichts. Das Backup meldete trotzdem „heruntergeladen“, und der Giess-Zettel schrieb sich über die laufende App. Jetzt gehen Backup, GPS-Spur, CSV, Archiv und 3D-Foto an den Android-Dialog „Speichern unter“, Gartenplan und Giess-Zettel an den Druckdialog von Android (mit „Als PDF speichern“). Ohne Brücke in die Android-Schicht: die Datei geht in Teilen an Adressen unter dem eigenen Ursprung, die nur die App-Hülle beantwortet. Und jede Meldung kommt erst, wenn die Datei wirklich da ist.',
+      user_summary: 'In der Android-App kannst du jetzt exportieren und drucken: Backup, GPS-Spuren, Tabellen und Fotos speicherst du über „Speichern unter“ dort, wo du willst; Gartenplan und Giess-Zettel gehen an den Druckdialog, wo du sie auch als PDF speichern kannst. Schliesst du den Dialog, sagt die App „Nicht gespeichert“ — statt so zu tun, als wäre die Datei da.',
+      user_items: [
+        {emoji:'💾', bold:'Exportieren in der App:', text:' Backup, GPS-Spur, Pflanzen, Tagebuch, Messwerte, Archiv und das 3D-Foto speicherst du jetzt über den Android-Dialog „Speichern unter“.'},
+        {emoji:'🖨️', bold:'Drucken und PDF:', text:' Gartenplan und Giess-Zettel öffnen den Druckdialog von Android — dort gibt es „Als PDF speichern“.'},
+        {emoji:'✋', bold:'Abbrechen heisst nicht gespeichert:', text:' die Erfolgsmeldung kommt erst, wenn die Datei wirklich da ist.'},
+        {emoji:'🛡️', bold:'Sicherer Druck im Browser:', text:' Text aus der KI-Antwort steht im Garten-Scan-Druck jetzt als Text da und kann dort nichts mehr ausführen.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' acht Export-Stellen bauten je einen eigenen Anker und sagten sofort „heruntergeladen“. In der Hülle passierte nichts; das Backup klickte einen LOSGELÖSTEN Anker, den das alte Tor gar nicht sah. window.open(\'\') liefert in einer WebView den laufenden Rahmen — der Giess-Zettel schrieb sich über die App.'},
+        {emoji:'🔌', bold:'Ein Kanal ohne Brücke:', text:' gsDateiSpeichern und gsDrucken sind die zwei Wege für alle. In der Hülle geht die Datei per fetch in Teilen an /__huelle/datei/… (start → teil → fertig), die Hülle sammelt sie in eine Spool-Datei und öffnet „Speichern unter“ bzw. den Druckdialog. Kein addJavascriptInterface.'},
+        {emoji:'🔑', bold:'Vier Riegel und ein Schlüssel:', text:' nur GET, nie eine Navigation, nur mit eigener Kopfzeile, nur vom eigenen Ursprung — und ein zufälliger Schlüssel, den nur lesen kann, wer start mit fetch gestellt hat. Ein <img> aus fremder Hand kommt nicht über start hinaus.'},
+        {emoji:'🧯', bold:'Was auf einem Telefon schiefgeht:', text:' Spool-Datei statt Arbeitsspeicher (Prozess stirbt bei offenem Dialog), "wt" statt "w" (Ersetzen kürzt), eine leere Datei wird wieder gelöscht, Schreiben im Hintergrund, Dialog nur von vorne, monotone Uhr, keine Ausnahme auf dem Faden von shouldInterceptRequest.'},
+        {emoji:'🖨️', bold:'Eine eigene Druckansicht:', text:' ohne JavaScript, ohne Netz, ohne Navigation, Grundadresse null, einmal drucken. GS_HUELLE_ANDERS hat einen sechsten Eintrag, „drucken“.'},
+        {emoji:'🛡️', bold:'Vorbestehende Lücke geschlossen:', text:' gsGardenScanExportPDF setzte Pflanzennamen, Kalender, Werkzeuge und Warnungen aus der KI-Antwort ROH in ein Dokument mit dem Ursprung der App. Jetzt escaped, im Browser wie in der App.'},
+        {emoji:'🧪', bold:'apk_check 28 → 68 Fälle:', text:' Export.java gegen android.jar 23 übersetzt und mit Grenzfällen ausgeführt; in der App-Hälfte läuft die Hülle unter https://green-scan.ch mit der CSP aus _headers, und der Kanal geht an einen Java-Prozess mit dem ECHTEN Sammler. Alle zehn Exporte über ihre echte Funktion, die Datei auf der Platte gelesen, byte-gleich mit dem Download im Browser. 16 Brüche als Gegenprobe, 18 Fälle rot, jeder mit dem richtigen Grund.'},
+        {emoji:'📵', bold:'Grenze:', text:' hier läuft kein Android. Geprüft sind Rechnung, Rand und Seite — ob ein echtes Telefon den Dialog so zeigt, sagt erst ein Gerät (Android 6, 10 und 14).'}
+      ]
+  },
+  {
     v: 'v33.52', date: '06.10.2026',
       headline: 'Vier Bestätigungen, die nur stimmten, wenn alles gut ging',
       summary: 'Profil speichern, Freundschaft annehmen und zwei Foto-Wege sagten „gespeichert“, sobald der Server keinen Fehler meldete. Bei einer Änderung, die der Server nicht erlaubt, meldet er aber keinen Fehler — er ändert einfach null Zeilen. Jetzt zählt die App die Zeilen. Dazu eine Regel auf dem Server, die beim Annehmen von Freundschaften zu grosszügig war.',
