@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-c054",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "13:56:05",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.70",
+  "titel": "erledigt: Ein Merge von ccr-dce5a17c-2xzhvi mit HEAD bricht die CI still: package.json bekommt eslint ohne Konflikt, das eingecheckte Lockfile kennt es nicht, …",
+  "ergebnis": "erledigt",
+  "wohin": "ccr-dce5a17c-2xzhvi (Merge mit main v33.67, 24.11.2026)",
+  "geschwister": "gesucht: git show HEAD:scripts/package-lock.json | grep -c '\"node_modules/eslint\"' → 1 (vorher 0); package.json und Lockfile tragen dieselbe Version 10.1.0; erzeugt mit npm install --package-lock-only, nur Zusätze",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-7a6c"
+    }
+  ]
+}

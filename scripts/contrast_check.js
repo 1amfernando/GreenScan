@@ -603,9 +603,11 @@ async function medianFarben(leser, pngBuffer, punkte) {
     async function messeFenster(fname, oeffnenQuelle, arg, deckel) {
       deckel = deckel || 8;
       try {
-        const hoch = await p.evaluate(([fn, arg]) => {
+        const hoch = await p.evaluate(async ([fn, arg]) => {
           window.__gsBodyVor = [].slice.call(document.body.children);   // v33.70: fuers Aufraeumen danach
-          const res = (new Function('return (' + fn + ')'))()(arg);
+          // v33.70: ein Oeffner darf async sein (Durchgang 3) — gemessen wird, was er AM ENDE zeigt.
+          let res = (new Function('return (' + fn + ')'))()(arg);
+          if (res && typeof res.then === 'function') res = await res;
           if (!res || !res.getBoundingClientRect) return -1;      // nichts ging auf (0 heisst: offen, rollt nicht)
           let sc = res;
           while (sc && sc !== document.body && sc.scrollHeight <= sc.clientHeight + 4) sc = sc.parentElement;
@@ -808,7 +810,6 @@ async function medianFarben(leser, pngBuffer, punkte) {
       _gsUniversalSearchInit: 'Start-Routine (Suche)',
       _gsWhatsNewInit: 'Start-Routine — den Dialog selbst misst nutzersicht_check E4',
       showWhatsNew: 'innere Funktion von _gsWhatsNewInit, von aussen nicht erreichbar',
-      _gsShowRestoreBanner: 'Banner nach einer Wiederherstellung — braucht deren Zustand',
       _gsMaintenanceBannerBoot: 'Start-Routine (Wartungs-Banner)',
       gsPPshow3DCad: 'braucht einen offenen Plan und laedt Three.js — der Planer wird oben von Hand gestellt',
     };
@@ -830,7 +831,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
       }
       return [...new Set(out)].sort();
     }, require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8'));
-    const DYN_OEFFNER = `(function(name){
+    const DYN_OEFFNER = `(async function(name){
       window.sbIsLoggedIn = function(){ return true; };
       window.gsIsAdmin = function(){ return true; };
       window.gsIsStaff = function(){ return true; };
@@ -839,7 +840,10 @@ async function medianFarben(leser, pngBuffer, punkte) {
       var vor = [].slice.call(document.body.children);
       var f = window[name];
       if (typeof f !== 'function') return 0;
-      try { f(); } catch(_) { return 0; }
+      // Ein Oeffner, der erst den Server fragt (gsPPopenSavedPlans: mit angemeldeter Sitzung
+      // zuerst sbFetch, dann das Fenster), haengt sein Fenster NACH dem await an — also warten,
+      // hoechstens vier Sekunden. Ohne das galt er als „nicht aufgegangen".
+      try { var _r = f(); if (_r && typeof _r.then === 'function') await Promise.race([_r, new Promise(function(ok){ setTimeout(ok, 4000); })]); } catch(_) { return 0; }
       var neu = [].slice.call(document.body.children).filter(function(el){
         if (vor.indexOf(el) >= 0) return false;
         var cs = getComputedStyle(el);

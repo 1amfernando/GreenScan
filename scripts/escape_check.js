@@ -322,14 +322,16 @@ const FAELLE = [
   {
     // v33.70 (Audit „escape", jeder Fund gegengeprueft). Sieben Stellen, an
     // denen ein Wert aus fremder Hand als Code ankam oder einen Knopf zerbrach.
-    name: 'Karten-Popup · die Foto-Adresse eines FREMDEN Fundes (map_user_finds.photo_url) wird kein Attribut: x" onerror=… bekommt kein <img>, https und der lokale Platzhalter schon',
+    name: 'Karten-Popup · die Foto-Adresse eines Fundes (map_user_finds.photo_url) wird kein Attribut: x" onerror=… bekommt kein <img> — beim EIGENEN Fund https und der lokale Platzhalter schon, beim FREMDEN nur der eigene Speicher',
     lauf: async () => {
       const r = await __seite.evaluate(async () => {
         if (typeof _gsBuildFindPopup !== 'function') return { fehlt: true };
         const meta = { emoji: '🍄', color: '#2e7d32', label: 'Pilz' };
         const box = document.createElement('div'); document.body.appendChild(box);
         delete window.__pwned;
-        const bau = (u) => { box.innerHTML = _gsBuildFindPopup(meta, 'Steinpilz', 'am Waldrand', new Date(), u); return Array.from(box.querySelectorAll('img')).map(i => ({ src: i.getAttribute('src'), on: i.getAttribute('onerror') })); };
+        const bau = (u, opts) => { box.innerHTML = _gsBuildFindPopup(meta, 'Steinpilz', 'am Waldrand', new Date(), u, opts); return Array.from(box.querySelectorAll('img')).map(i => ({ src: i.getAttribute('src'), on: i.getAttribute('onerror') })); };
+        // Seit v33.59 (main) trennt _gsFundFoto zwei Zweige: der EIGENE Fund (ohne opts) und der
+        // FREMDE ({fremd:true}) — dort zaehlt nur der eigene Speicher (_gsFremdBild).
         try {
           const boese = bau('x" onerror="window.__pwned=1');
           await new Promise(res => setTimeout(res, 350));          // onerror feuert erst, wenn das Bild fehlschlaegt
@@ -338,7 +340,10 @@ const FAELLE = [
           const https = bau('https://bilder.example/fund.jpg?a=1&b=2');
           const lokal = bau('gsphoto://7');
           const text = box.textContent;
-          return { boese, pw, js, https, lokal, name: /Steinpilz/.test(text) };
+          const eigen = String(SB_URL_DEFAULT).replace(/\/+$/, '') + '/storage/v1/object/public/map-find-photos/u1/f.jpg';
+          const fremd = { boese: bau('x" onerror="window.__pwned=3', { fremd: true }), https: bau('https://bilder.example/fund.jpg', { fremd: true }), eigen: bau(eigen, { fremd: true }), eigenUrl: eigen };
+          await new Promise(res => setTimeout(res, 350));
+          return { boese, pw: pw !== undefined ? pw : window.__pwned, js, https, lokal, fremd, name: /Steinpilz/.test(text) };
         } finally { box.remove(); delete window.__pwned; }
       });
       if (r.fehlt) return { ok: false, warum: '_gsBuildFindPopup fehlt' };
@@ -348,7 +353,9 @@ const FAELLE = [
       if (r.https.length !== 1 || r.https[0].src !== 'https://bilder.example/fund.jpg?a=1&b=2') return { ok: false, warum: 'https-Foto fehlt oder ist veraendert: ' + JSON.stringify(r.https) };
       if (r.lokal.length !== 1) return { ok: false, warum: 'der lokale Platzhalter gsphoto://7 bekam kein <img> — eigene Fotos waeren weg' };
       if (!r.name) return { ok: false, warum: 'der Name steht nicht mehr im Popup' };
-      return { ok: true, info: 'x" onerror=… und javascript: → kein <img>, nichts lief · https exakt · gsphoto://7 bleibt' };
+      if (r.fremd.boese.length || r.fremd.https.length) return { ok: false, warum: 'ein FREMDER Fund zeigt eine Adresse ausserhalb des eigenen Speichers: ' + JSON.stringify(r.fremd.boese.concat(r.fremd.https)) };
+      if (r.fremd.eigen.length !== 1 || r.fremd.eigen[0].src !== r.fremd.eigenUrl) return { ok: false, warum: 'ein FREMDER Fund mit einem Foto aus dem eigenen Speicher bekommt kein <img>: ' + JSON.stringify(r.fremd.eigen) };
+      return { ok: true, info: 'eigener Fund: x" onerror=… und javascript: → kein <img>, https exakt, gsphoto://7 bleibt · fremder Fund: nur der eigene Speicher, https und x" → kein <img> · nichts lief' };
     },
   },
   {

@@ -1492,6 +1492,9 @@ const FAELLE = [
   {
     name: 'Web-Root · jedes Verzeichnis und jede Datei im Wurzelverzeichnis ist entweder Auslieferung (mit Grund) oder traegt noindex in _headers UND Disallow in robots.txt',
     lauf: async () => {
+      // Seit dem Merge mit main (v33.59) EIN Fall: main hatte fuer dieselbe Regel (Brett e383) einen
+      // zweiten mit eigener OEFFENTLICH-Liste — zwei Listen fuer eine Regel. Dieser prueft dieselben
+      // Verzeichnisse und dazu die Dateien im Wurzelverzeichnis.
       // v33.70 (brett:2026-11-11-e383). Der Web-Root IST das Repo (kein Build).
       // Seit v32.69 tragen docs/, supabase/, scripts/ und store/ `noindex` — eine
       // Liste, die niemand nachzog: android/ (v33.49), store-assets/, .claude/
@@ -1819,40 +1822,6 @@ const FAELLE = [
       const s = await __seite.evaluate(() => ({ tok: localStorage.getItem('gs_sb_token'), uid: localStorage.getItem('gs_sb_uid'), drin: typeof sbIsLoggedIn === 'function' ? !!sbIsLoggedIn() : null }));
       if (!s.tok || !s.uid || s.drin !== true) return { ok: false, warum: 'die Sitzung aus _seed.js ist nach dem Start weg: ' + JSON.stringify(s) };
       return { ok: true, info: stellen.length + ' Stellen in ' + new Set(stellen.map(x => x.split(':')[0])).size + ' Dateien setzen den Token, alle in JWT-Form · Sitzung aus _seed.js steht nach 4 s, sbIsLoggedIn = true' };
-    },
-  },
-  {
-    name: 'Web-Root · jedes Verzeichnis im Wurzelverzeichnis ist entweder bewusst oeffentlich oder traegt noindex in _headers UND Disallow in robots.txt',
-    lauf: async () => {
-      // v33.59 (Brett 2026-11-11-e383): der Web-Root ist das Repo. android/ (seit v33.49), .claude/
-      // und store-assets/ lagen ohne Block da — jedes neue Verzeichnis brachte die Luecke wieder mit,
-      // weil die Regel aus v32.69 nur als Kommentar in _headers stand. Die Liste ist die Pruefung.
-      const fs = require('fs'), path = require('path'), W = path.join(__dirname, '..');
-      const OEFFENTLICH = {
-        assets: 'Bibliotheken, Schriften, Lizenztexte — die App laedt sie',
-        data: 'Artenliste und Changelog-Archiv — die App laedt sie',
-        icons: 'PWA-Icons aus manifest.json',
-        '.well-known': 'assetlinks.json fuer die Android-Huelle',
-      };
-      let verz;
-      try {
-        verz = [...new Set(require('child_process').execSync('git ls-files', { cwd: W, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-          .split('\n').filter(z => z.indexOf('/') > 0).map(z => z.split('/')[0]))].sort();
-      } catch (e) { return { ok: false, warum: 'git ls-files laesst sich nicht fahren: ' + e.message }; }
-      if (verz.length < 6) return { ok: false, warum: 'nur ' + verz.length + ' Verzeichnisse gefunden — die Suche misst nichts' };
-      const kopf = fs.readFileSync(path.join(W, '_headers'), 'utf8').split('\n');
-      const rob = fs.readFileSync(path.join(W, 'robots.txt'), 'utf8');
-      const noindex = (d) => { const i = kopf.findIndex(z => z.trim() === '/' + d + '/*'); return i >= 0 && /X-Robots-Tag:\s*noindex/.test(kopf[i + 1] || ''); };
-      const f = [], intern = [];
-      for (const d of verz) {
-        if (Object.prototype.hasOwnProperty.call(OEFFENTLICH, d)) continue;
-        intern.push(d);
-        if (!noindex(d)) f.push(d + '/ ohne Block „/' + d + '/*  X-Robots-Tag: noindex“ in _headers');
-        if (!new RegExp('^Disallow: /' + d.replace(/[.]/g, '\\.') + '/\\s*$', 'm').test(rob)) f.push(d + '/ ohne „Disallow: /' + d + '/“ in robots.txt');
-      }
-      for (const d of Object.keys(OEFFENTLICH)) if (verz.indexOf(d) < 0) f.push('OEFFENTLICH nennt ' + d + '/ — das Verzeichnis gibt es nicht mehr');
-      if (f.length) return { ok: false, warum: f.join(' · ') + ' — ein internes Verzeichnis bekommt beide Zeilen, ein oeffentliches einen Eintrag mit Grund in OEFFENTLICH' };
-      return { ok: true, info: verz.length + ' Verzeichnisse · ' + intern.length + ' intern, alle mit noindex und Disallow (' + intern.join(', ') + ') · ' + Object.keys(OEFFENTLICH).length + ' bewusst oeffentlich' };
     },
   },
 ];

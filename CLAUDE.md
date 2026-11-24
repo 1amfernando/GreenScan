@@ -1297,10 +1297,12 @@ Pruefstaende: `statik_check` (S0–S9), `datum_check` (T0–T7), `robust_check`
 > `gardens`/`plantings` nur in den Geraetespeicher; `renderGarden()` am Ende des
 > Pulls rief `initDefaultGarden()`, sah eine leere Variable, legte „Mein Garten"
 > an und speicherte ihn UEBER das Geholte — auf jedem frischen Geraet, auch in
-> der Android-App. Fuer Pflanzen stand `myPlants = pd.plants` seit v28.22 da.
-> Wer einen Pull-Zweig baut, der in den Speicher schreibt, weist im selben Zweig
-> die Variable zu; `sync_check` stellt dafuer ein LEERES Geraet her (die
-> Beispieldaten hatten den Fehler verdeckt).
+> der Android-App. Fuer Pflanzen stand die Zuweisung seit v28.22 da, fuer Gaerten
+> nie. Wer einen Pull-Zweig baut, schreibt Speicher UND Variable in EINEM Schritt —
+> seit dem Merge mit v33.59 ueber `_gsListeEinspielen` (§3.3; dort auch gesiebt),
+> nie mit einer eigenen Zuweisung (`gardens = d.gardens` meldet der Klassenwaechter
+> in `sicherheit_check` 98_schluss_e). `sync_check` stellt dafuer ein LEERES Geraet
+> her (die Beispieldaten hatten den Fehler verdeckt).
 >
 > **2 · Eine Aufbereitung im Arbeitsspeicher haengt nie an einem Schalter im
 > Geraetespeicher.** Die Artenliste wird bei jedem Start frisch gebaut; zwei

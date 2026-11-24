@@ -2102,11 +2102,11 @@ Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.
 
 **Bitte einmal gegenlesen — die Datenschutzerklärung** (`privacy.html`,
 Tabelle in §2). Dort stand „Anonyme Nutzungs- & Fehlerdaten". Beide tragen
-aber deine Konto-Kennung. Ich habe den Satz berichtigt („mit deinem Konto
-verknüpft, keine Fotos, kein Standort, kein Eingabetext"). Drei Empfänger
-fehlen in §4 weiterhin: Google Fonts (die Schriften — übertragen wird die
-IP-Adresse), Netlify (zweiter Hoster) und Wikipedia (lädt das Artbild, bekommt
-dabei nur den Artnamen). §8 nennt keine Frist für Nutzungsdaten, und
+aber deine Konto-Kennung. Das haben zwei Sitzungen parallel berichtigt; seit
+dem Merge vom 24.11. gilt der Satz von `main` („pseudonym"). Dort stehen seit
+v33.59 auch Netlify und Wikipedia unter den Empfängern, und Google Fonts ist
+keiner mehr (die Schriften liegen jetzt selbst im Repo). §8 nennt keine Frist
+für Nutzungsdaten, und
 das Stand-Datum („17. Juni 2026") habe ich nicht angefasst. Das ist dein Text
 — sag mir, wie du ihn haben willst (auf dem Brett: `brett:2026-11-11-5bef`).
 
