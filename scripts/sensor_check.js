@@ -2774,6 +2774,111 @@ const FAELLE = [
       }
     },
   },
+  {
+    // Lina · Fotos (Paket L2): EIN Foto reist mit EINER Nachricht ueber callVisionAI.
+    // Gemessen wird der Weg (welcher Aufruf, mit welchem Bild und welchem Auftrag),
+    // die Sicherung an der ANTWORT (die Frage nennt bei einem Foto keine Art), der
+    // feste Satz darunter — und dass das Bild nirgends abgelegt wird.
+    name: 'Lina · Foto: geht über callVisionAI mit Kontext und Foto-Regeln, eine Essbar-Zusage über eine Giftart aus der ANTWORT bekommt die Warnung, der feste Satz steht darunter, das Bild liegt in keinem Speicher, ohne Foto bleibt alles beim Alten',
+    lauf: async () => {
+      const sichern = { ai: window.callAI, vi: window.callVisionAI, li: window.sbIsLoggedIn, sf: window.sbFetch, gt: window.gsToast };
+      const klagen = [];
+      const B64 = 'QUJDREVGR0hJSktMTU5PUA==';
+      try {
+        window.sbIsLoggedIn = () => true;
+        const gesendet = [];
+        window.sbFetch = async (pfad, o) => { gesendet.push(String(pfad) + ' ' + String((o && o.body) || '')); return { data: [{ id: 'c1' }], error: null }; };
+        window.gsToast = () => {};
+        let ki = 0; const sehen = [];
+        window.callAI = async () => { ki++; return 'Giesse seltener.'; };
+        let antwort = 'Das sieht aus wie ein Grüner Knollenblätterpilz. Den kannst du essen.';
+        let wirft = false;
+        window.callVisionAI = async (b64, mt, prompt, extra, opts) => { sehen.push({ b64, mt, prompt, extra, opts }); if (wirft) throw new Error('aus'); return antwort; };
+        const auf = async () => {
+          window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false; gsLinaRender(false);
+          await new Promise(r => setTimeout(r, 30));
+        };
+        const frage = async (t) => { document.getElementById('gs-lina-input').value = t; await gsLinaSend(); await new Promise(r => setTimeout(r, 60)); };
+
+        // 1 · Oberfläche: Knopf da, Anhang-Zeile nur mit Foto, „Entfernen" nimmt es weg
+        await auf();
+        if (!document.querySelector('[data-lina-foto]')) klagen.push('kein Foto-Knopf im Lina-Fenster');
+        if (!document.getElementById('gs-lina-foto-datei')) klagen.push('kein Datei-Feld');
+        if (document.querySelector('[data-lina-foto-anhang]')) klagen.push('Anhang-Zeile ohne Foto');
+        window._gsLinaFoto = { b64: B64, mt: 'image/jpeg' }; gsLinaRender(false);
+        if (!document.querySelector('[data-lina-foto-anhang] img')) klagen.push('Anhang-Zeile fehlt mit Foto');
+        gsLinaFotoWeg();
+        if (window._gsLinaFoto || document.querySelector('[data-lina-foto-anhang]')) klagen.push('„Entfernen" lässt das Foto stehen');
+
+        // 2 · Der Weg: Sehmodell einmal, Textmodell nie; Bild, Auftrag, Kontext
+        await auf();
+        window._gsLinaFoto = { b64: B64, mt: 'image/jpeg' };
+        await frage('Was ist das für einer?');
+        if (sehen.length !== 1 || ki !== 0) klagen.push('Weg falsch: callVisionAI ' + sehen.length + '×, callAI ' + ki + '×');
+        const s0 = sehen[0] || { opts: {} };
+        if (s0.b64 !== B64) klagen.push('das Bild kommt nicht unverändert am Sehmodell an');
+        const sys = String((s0.opts && s0.opts.systemPrompt) || '');
+        if (sys.indexOf(LINA_FOTO_REGELN) < 0 || !/KONTEXT/.test(sys) || sys.indexOf(LINA_SYSTEM) !== 0) klagen.push('Auftrag unvollständig (LINA_SYSTEM + Foto-Regeln + Kontext)');
+        if (!/FRAGE ZUM FOTO: Was ist das für einer\?/.test(String(s0.prompt))) klagen.push('die Frage steht nicht im Aufruf');
+        if (!(s0.opts && s0.opts.quotaFeature === 'lina' && s0.opts.maxTokens === 900)) klagen.push('Kontingent oder Länge nicht gesetzt');
+        const nutzer = window._gsLinaMsgs.filter(m => m.role === 'user').map(m => m.content);
+        if (nutzer.length !== 1 || nutzer[0] !== '📷 Was ist das für einer?') klagen.push('Nutzerzeile: ' + JSON.stringify(nutzer));
+        const a1 = String((window._gsLinaMsgs.filter(m => m.role === 'assistant').pop() || {}).content || '');
+        // 3 · Sicherung an der ANTWORT: die Frage nennt keine Art, die Antwort schon
+        if (_gsArtenTreffer('Was ist das für einer?').zahl) klagen.push('der Fall misst nichts: die Frage nennt schon eine Art');
+        const warnung = _gsLinaSicherheit(antwort, _gsArtenTreffer(antwort));
+        if (!warnung) klagen.push('der Fall misst nichts: _gsLinaSicherheit sieht in der Antwort keine Zusage');
+        else if (a1.indexOf(warnung) !== 0) klagen.push('die Warnung steht nicht über der Foto-Antwort: ' + a1.slice(0, 90));
+        if (a1.indexOf(GS_LINA_FOTO_SATZ) < 0) klagen.push('der feste Foto-Satz fehlt');
+        // 4 · Das Bild liegt nirgends
+        if (window._gsLinaFoto) klagen.push('das Foto hängt nach dem Senden noch an');
+        if (gesendet.some(z => z.indexOf(B64) >= 0)) klagen.push('das Bild ging an den Server-Verlauf');
+        if (String(localStorage.getItem('gs_lina_verlauf') || '').indexOf(B64) >= 0) klagen.push('das Bild liegt im Spiegel');
+        if (!gesendet.some(z => /coach_messages/.test(z) && z.indexOf('📷 Was ist das für einer?') >= 0)) klagen.push('die Frage steht im Server-Verlauf ohne 📷');
+        // 5 · Gegenrichtung: harmlose Antwort → keine Warnung, der Satz bleibt
+        await auf(); antwort = 'Das sieht aus wie Basilikum mit etwas Sonnenbrand.';
+        window._gsLinaFoto = { b64: B64, mt: 'image/jpeg' };
+        await frage('Was hat sie?');
+        const a2 = String((window._gsLinaMsgs.filter(m => m.role === 'assistant').pop() || {}).content || '');
+        if (a2.indexOf('Das sieht aus wie Basilikum') !== 0) klagen.push('eine harmlose Foto-Antwort bekommt eine Warnung: ' + a2.slice(0, 80));
+        if (a2.indexOf(GS_LINA_FOTO_SATZ) < 0) klagen.push('der feste Satz fehlt bei der harmlosen Antwort');
+        // 6 · Foto ohne Text: die Vorgabe-Frage
+        await auf(); window._gsLinaFoto = { b64: B64, mt: 'image/jpeg' };
+        const vor = sehen.length; await frage('');
+        if (sehen.length !== vor + 1 || !/FRAGE ZUM FOTO: \S/.test(String(sehen[sehen.length - 1].prompt))) klagen.push('ein Foto ohne Text wird nicht gesendet');
+        // 7 · Ausfall: das Foto hängt wieder an
+        await auf(); wirft = true; window._gsLinaFoto = { b64: B64, mt: 'image/jpeg' };
+        await frage('Und das hier?'); wirft = false;
+        if (!(window._gsLinaFoto && window._gsLinaFoto.b64 === B64)) klagen.push('nach einem Ausfall ist das Foto weg — „Erneut senden" schickte nur Text');
+        // 8 · „Neu" räumt es
+        gsLinaNew(); if (window._gsLinaFoto) klagen.push('„Neu" lässt das Foto stehen');
+        // 9 · Ohne Foto: der alte Weg, kein Foto-Satz
+        await auf(); const v2 = sehen.length; ki = 0;
+        await frage('Wie oft giessen?');
+        const a3 = String((window._gsLinaMsgs.filter(m => m.role === 'assistant').pop() || {}).content || '');
+        if (ki !== 1 || sehen.length !== v2) klagen.push('ohne Foto: callAI ' + ki + '×, callVisionAI ' + (sehen.length - v2) + '×');
+        if (a3.indexOf(GS_LINA_FOTO_SATZ) >= 0) klagen.push('der Foto-Satz steht unter einer Antwort ohne Foto');
+        // 10 · Lesen: falscher Typ abgelehnt, ein echtes Bild wird verkleinert
+        const txt = await _gsLinaFotoLesen(new File(['x'], 'a.gif', { type: 'image/gif' }));
+        if (!txt || txt.fehler !== 'typ') klagen.push('ein GIF wird nicht abgelehnt: ' + JSON.stringify(txt));
+        const c = document.createElement('canvas'); c.width = 2600; c.height = 1300; c.getContext('2d').fillRect(0, 0, 2600, 1300);
+        const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+        const gelesen = await _gsLinaFotoLesen(new File([blob], 'b.png', { type: 'image/png' }));
+        if (!gelesen || !gelesen.b64 || gelesen.mt !== 'image/jpeg') klagen.push('ein echtes PNG wird nicht gelesen: ' + JSON.stringify(gelesen && gelesen.fehler));
+        else {
+          const masse = await new Promise(r => { const i = new Image(); i.onload = () => r([i.naturalWidth, i.naturalHeight]); i.onerror = () => r(null); i.src = 'data:image/jpeg;base64,' + gelesen.b64; });
+          if (!masse || masse[0] !== GS_LINA_FOTO_KANTE || masse[1] !== GS_LINA_FOTO_KANTE / 2) klagen.push('nicht auf ' + GS_LINA_FOTO_KANTE + ' px verkleinert: ' + JSON.stringify(masse));
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Sehmodell 1×, Textmodell 0× · Warnung aus der ANTWORT · fester Satz · Bild in keinem Speicher · Ausfall hängt es wieder an · ohne Foto unverändert · 2600 px → ' + GS_LINA_FOTO_KANTE + ' px' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + e.message + (klagen.length ? ' · ' + klagen.join(' · ') : '') };
+      } finally {
+        window.callAI = sichern.ai; window.callVisionAI = sichern.vi; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt;
+        window._gsLinaFoto = null; window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
 ];
 
 (async () => {

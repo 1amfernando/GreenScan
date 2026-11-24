@@ -87499,7 +87499,7 @@ function gsOnLogout() {
   try { window._gsGlobalKeyMem = ''; } catch(_){}
   // Linas Gespräch im Arbeitsspeicher geht mit (der Spiegel gs_lina_verlauf geht über GS_USER_KEYS),
   // und ein offenes Lina-/Doktor-Fenster schliesst — sein Inhalt gehört der Person, die geht.
-  try { window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaInhaltZeit = null; } catch(_){}
+  try { window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaInhaltZeit = null; window._gsLinaFoto = null; } catch(_){}
   try { if (typeof closeModal === 'function') closeModal('gs-nl-modal'); } catch(_){}
   // Dasselbe für den Scanner (sbLogout lädt die Seite nicht neu): das letzte Ergebnis, sein Foto, die
   // Ergebniskarte und das Gespräch dazu. Nicht gsResetScanner — der startet die Kamera neu.
@@ -90710,7 +90710,7 @@ var LINA_SYSTEM =
   'Pro & Lifetime existieren, aber du bewirbst sie NIE und bringst sie nur zur Sprache, wenn jemand ausdrücklich danach fragt — dann nennst du nüchtern die Fakten und kommst freundlich zur Natur zurück.\n\n' +
   // Der Einblick (gsLinaEinblick): was die Zeilen bedeuten und was Lina daraus NICHT machen darf.
   'DEIN EINBLICK IN DEN GARTEN: Im KONTEXT können diese Zeilen stehen — „Braucht Hilfe" (von der App gerechnet: überfällige Aufgaben und notierte Schädlinge), „Im Detail" (eine Pflanze der Person, nach der sie gerade fragt: Ort, Aufgaben, Tagebuch, Fotos), „Wetter" (Vorhersage für ihren Ort), „Pflanzen" (ihre Pflanzen beim Namen), „Gärten" (Beete mit Pflanzungen), „Frühere Scans" und „Funde auf deiner Karte". Nutze sie wie eine Freundin, die den Garten kennt: sprich die Pflanzen beim Namen an und verbinde Wetter, Beet und Pflanze zu EINEM konkreten Rat. Fragt die Person allgemein, wie es ihren Pflanzen geht oder was zu tun ist, nenne zuerst, was unter „Braucht Hilfe" steht. Steht eine Zeile nicht da, liegt dazu nichts vor — sag das und frag nach, statt zu raten.\n' +
-  'GRENZEN DES EINBLICKS: Du siehst KEINE Fotos — nur, dass und von wann es welche gibt. Wie eine Pflanze aussieht oder ob sie krank ist, beurteilst du nie aus dem Kontext; bitte um eine Beschreibung oder schlage einen Scan vor. Die App misst kein Wachstum und keinen Gesundheitswert — nenne keinen. Wetterangaben nur aus der Zeile „Wetter".\n' +
+  'GRENZEN DES EINBLICKS: Die Fotos im Tagebuch siehst du NICHT — nur, dass und von wann es welche gibt. Ein Foto siehst du nur, wenn die Person es an ihre Nachricht anhängt (Knopf 📷 neben dem Eingabefeld). Wie eine Pflanze aussieht oder ob sie krank ist, beurteilst du nie aus dem Kontext; bitte um ein Foto oder eine Beschreibung. Die App misst kein Wachstum und keinen Gesundheitswert — nenne keinen. Wetterangaben nur aus der Zeile „Wetter".\n' +
   'WANDERN UND SAMMELN: Bei Ausflügen hilfst du mit Region, Jahreszeit, Wetter und den eigenen Funden der Person: was um diese Zeit zu finden ist, worauf sie achten soll, welche Verwechslungen gefährlich sind. Erfinde NIE einen genauen Fundplatz, Weg oder eine Entfernung — eigene Fundorte zeigt die Karte. Für Arten kannst du search_species anbieten.\n\n' +
   // v30.69: Lina kann handeln (sicher per Whitelist + Nutzer-Bestätigung). Sie schlägt vor — der Nutzer bestätigt.
   'DU KANNST HANDELN: Wenn die Person dich bittet, etwas IN der App zu tun (irgendwohin navigieren, eine Pflanze hinzufügen, eine Pflege-Erinnerung einrichten, eine Art suchen, ein Formular vorbereiten), dann hänge ANS ENDE deiner Antwort GENAU EINE Zeile an, exakt in diesem Format:\n' +
@@ -91745,7 +91745,7 @@ function gsLinaRender(typing){
     // Was Lina sieht, steht da — und laesst sich abschalten. Kein Fenster, keine Rueckfrage.
     var _ean = (typeof gsLinaEinblickAn === 'function') ? gsLinaEinblickAn() : true;
     body += '<div style="text-align:center;padding:2px 10px 8px;font-size:var(--fs-sm);color:var(--muted);line-height:1.5;">'
-      + escHtml(_ean ? _gsSatz('Lina sieht deine Pflanzen, Gärten, Tagebuch-Einträge, das Wetter an deinem Ort, deine Scans und Funde — keine Fotos, keine Koordinaten.') : _gsSatz('Lina sieht deine Pflanzen und Gärten gerade nicht.'))
+      + escHtml(_ean ? _gsSatz('Lina sieht deine Pflanzen, Gärten, Tagebuch-Einträge, das Wetter an deinem Ort, deine Scans und Funde — ein Foto nur, wenn du es anhängst, und keine Koordinaten.') : _gsSatz('Lina sieht deine Pflanzen und Gärten gerade nicht.'))
       + ' <button data-lina-einblick="' + (_ean ? '1' : '0') + '" onclick="gsLinaEinblickSchalten()" style="background:none;border:none;padding:6px 4px;color:var(--g-dark);font-weight:700;font-size:var(--fs-sm);font-family:inherit;text-decoration:underline;cursor:pointer;">'
       + escHtml(_ean ? _gsSatz('Ausschalten') : _gsSatz('Einschalten')) + '</button></div>';
   }
@@ -91759,7 +91759,16 @@ function gsLinaRender(typing){
       + '<button onclick="gsLinaNew()" style="padding:6px 10px;background:var(--surface2);color:var(--text);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">' + _t('lina_new','＋ Neu') + '</button>'
     + '</div>'
     + '<div id="gs-lina-scroll" style="flex:1;overflow-y:auto;padding:12px 16px;">' + body + '</div>'
+    + ((window._gsLinaFoto && window._gsLinaFoto.b64)
+        ? '<div data-lina-foto-anhang="1" style="display:flex;align-items:center;gap:10px;padding:8px 16px 0;font-size:var(--fs-sm);color:var(--text);">'
+          + '<img alt="' + escHtml(_gsSatz('Angehängtes Foto')) + '" src="data:' + escHtml(window._gsLinaFoto.mt) + ';base64,' + window._gsLinaFoto.b64.replace(/[^A-Za-z0-9+\/=]/g, '') + '" style="width:44px;height:44px;object-fit:cover;border-radius:var(--r-sm);border:1px solid var(--border);">'
+          + '<span style="flex:1;">' + escHtml(_gsSatz('Foto angehängt — es geht mit deiner nächsten Nachricht an Lina.')) + '</span>'
+          + '<button onclick="gsLinaFotoWeg()" style="padding:8px 10px;background:var(--surface2);color:var(--text);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">' + escHtml(_gsSatz('Entfernen')) + '</button>'
+          + '</div>'
+        : '')
     + '<div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);">'
+      + '<input type="file" id="gs-lina-foto-datei" accept="image/jpeg,image/png,image/webp" onchange="gsLinaFotoGewaehlt(this)" aria-hidden="true" tabindex="-1" style="display:none;">'
+      + '<button data-lina-foto="1" onclick="gsLinaFotoWaehlen()" aria-label="' + escHtml(_gsSatz('Foto anhängen')) + '" title="' + escHtml(_gsSatz('Foto anhängen')) + '" style="padding:11px 13px;background:var(--surface2);color:var(--text);border:none;border-radius:var(--r-xl);font-weight:800;cursor:pointer;font-family:inherit;"><span aria-hidden="true">📷</span></button>'
       + '<input id="gs-lina-input" placeholder="' + _t('lina_input_ph','Frag Lina etwas…') + '" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();gsLinaSend();}" style="flex:1;padding:11px 14px;border:1px solid var(--border);border-radius:var(--r-xl);font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;">'
       + '<button onclick="gsLinaSend()" style="padding:11px 17px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-xl);font-weight:800;cursor:pointer;font-family:inherit;">➤</button>'
     + '</div></div>';
@@ -91774,7 +91783,7 @@ function gsLinaRender(typing){
 }
 window.gsLinaRender = gsLinaRender;
 
-function gsLinaNew(){ window._gsLinaConvId = null; window._gsLinaMsgs = []; gsLinaRender(false); }
+function gsLinaNew(){ window._gsLinaConvId = null; window._gsLinaMsgs = []; window._gsLinaFoto = null; gsLinaRender(false); }
 window.gsLinaNew = gsLinaNew;
 
 // ══ LINA-4 (16.11.2026): fruehere Gespraeche ═════════════════════════════════════════════
@@ -91914,6 +91923,82 @@ function _gsLinaAktionLesen(reply) {
 }
 window._gsLinaAktionLesen = _gsLinaAktionLesen;
 
+// ══ Lina · Fotos (Paket L2) ══════════════════════════════════════════════════
+// Bis hierher hatte das Lina-Fenster keinen Foto-Weg (07-lina.md „Bilder sehen").
+// Jetzt haengt die Person EIN Foto an ihre Nachricht; es geht ueber callVisionAI
+// (dort: ohne EXIF/GPS, Kontingent, Person-Tor). Drei Regeln, alle im CODE:
+//   · das Foto liegt nur im Arbeitsspeicher (window._gsLinaFoto) — nicht im Spiegel,
+//     nicht in coach_messages; Abmelden und „Neu" raeumen es
+//   · Arten, die erst in der ANTWORT stehen, gehen durch _gsArtenTreffer +
+//     _gsLinaSicherheit — bei einem Foto nennt die FRAGE meist keine Art
+//   · unter jeder Foto-Antwort steht der feste Satz GS_LINA_FOTO_SATZ
+var GS_LINA_FOTO_KANTE = 1280;                 // laengste Kante nach dem Verkleinern
+var GS_LINA_FOTO_MAX_BYTES = 15 * 1024 * 1024; // groesser wird nicht gelesen
+var GS_LINA_FOTO_TYPEN = ['image/jpeg', 'image/png', 'image/webp'];
+var GS_LINA_FOTO_SATZ = '📷 Ein Foto reicht nie für eine sichere Bestimmung. Iss nichts allein deshalb — Pilze gehören zur Pilzkontrolle.';
+var LINA_FOTO_REGELN =
+  '\n\nFOTO: Die Person hat EIN Foto an ihre Nachricht angehängt. Beschreibe zuerst kurz, was du wirklich siehst (Blätter, Flecken, Tiere, Erde, Topf, Licht), dann die wahrscheinlichste Ursache und EINEN nächsten Schritt. Sag, wie sicher du bist, und welches zweite Foto es klären würde (Blattunterseite, ganze Pflanze, Nahaufnahme). Erkennst du eine Art, sag „sieht aus wie“ — nie „ist“. Sage NIE, dass etwas essbar ist, weil es auf dem Foto so aussieht; bei Pilzen und Beeren immer: nicht essen ohne Pilzkontrolle bzw. sichere Bestimmung. Ist nichts Erkennbares auf dem Foto, sag das und bitte um ein schärferes. Kennst du die Pflanze aus dem KONTEXT (Zeile „Im Detail“), verbinde das Foto mit ihrem Tagebuch und ihren Aufgaben.';
+
+function gsLinaFotoWaehlen() {
+  try { var d = document.getElementById('gs-lina-foto-datei'); if (d) { d.value = ''; d.click(); } } catch (_) {}
+}
+window.gsLinaFotoWaehlen = gsLinaFotoWaehlen;
+function gsLinaFotoWeg() {
+  window._gsLinaFoto = null;
+  try { gsLinaRender(false); } catch (_) {}
+}
+window.gsLinaFotoWeg = gsLinaFotoWeg;
+// Datei → verkleinertes JPEG (base64 ohne Kopf). Gibt {b64, mt} oder {fehler} zurueck.
+function _gsLinaFotoLesen(datei) {
+  return new Promise(function (fertig) {
+    try {
+      if (!datei) return fertig({ fehler: 'keine' });
+      if (GS_LINA_FOTO_TYPEN.indexOf(String(datei.type || '').toLowerCase()) < 0) return fertig({ fehler: 'typ' });
+      if (datei.size > GS_LINA_FOTO_MAX_BYTES) return fertig({ fehler: 'gross' });
+      var fr = new FileReader();
+      fr.onerror = function () { fertig({ fehler: 'lesen' }); };
+      fr.onload = function () {
+        var bild = new Image();
+        bild.onerror = function () { fertig({ fehler: 'lesen' }); };
+        bild.onload = function () {
+          try {
+            var w = bild.naturalWidth, h2 = bild.naturalHeight;
+            if (!w || !h2) return fertig({ fehler: 'lesen' });
+            var f = Math.min(1, GS_LINA_FOTO_KANTE / Math.max(w, h2));
+            var c = document.createElement('canvas');
+            c.width = Math.max(1, Math.round(w * f)); c.height = Math.max(1, Math.round(h2 * f));
+            c.getContext('2d').drawImage(bild, 0, 0, c.width, c.height);
+            var url = c.toDataURL('image/jpeg', 0.85);
+            var b64 = url.slice(url.indexOf(',') + 1);
+            if (!b64) return fertig({ fehler: 'lesen' });
+            fertig({ b64: b64, mt: 'image/jpeg' });
+          } catch (e) { fertig({ fehler: 'lesen' }); }
+        };
+        bild.src = fr.result;
+      };
+      fr.readAsDataURL(datei);
+    } catch (e) { fertig({ fehler: 'lesen' }); }
+  });
+}
+async function gsLinaFotoGewaehlt(feld) {
+  var _wer = _gsPerson();   // vor dem ersten await (CLAUDE.md §3.6)
+  var datei = feld && feld.files && feld.files[0];
+  if (!datei) return false;
+  var r = await _gsLinaFotoLesen(datei);
+  if (_gsPerson() !== _wer) return false;
+  if (!r || r.fehler) {
+    var satz = (r && r.fehler === 'typ') ? _gsSatz('📷 Dieses Format kann Lina nicht lesen — bitte ein JPEG- oder PNG-Foto.')
+      : (r && r.fehler === 'gross') ? _gsSatz('📷 Das Foto ist zu gross — bitte ein kleineres wählen.')
+      : _gsSatz('📷 Das Foto liess sich nicht lesen. Bitte ein anderes versuchen.');
+    try { gsToast(satz, 'warning'); } catch (_) {}
+    return false;
+  }
+  window._gsLinaFoto = { b64: r.b64, mt: r.mt };
+  try { gsLinaRender(false); } catch (_) {}
+  return true;
+}
+window.gsLinaFotoGewaehlt = gsLinaFotoGewaehlt;
+
 async function gsLinaSend(){
   // v33.30: der Notfall geht VOR dem Doppel-Send-Riegel. Der Riegel schuetzt
   // vor zwei parallelen callAI-Aufrufen — aber waehrend einer laufenden
@@ -91954,6 +92039,9 @@ async function gsLinaSend(){
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var inp = document.getElementById('gs-lina-input');
   var text = inp ? (inp.value||'').trim() : '';
+  // L2: ein angehängtes Foto reist mit DIESER Nachricht — und nur mit ihr.
+  var _foto = (window._gsLinaFoto && window._gsLinaFoto.b64) ? window._gsLinaFoto : null;
+  if (!text && _foto) text = _gsSatz('Was siehst du auf diesem Foto?');
   if (!text) return;
   // v33.30: Notfall VOR allem anderen. Der Offline-Chat erkennt einen
   // Vergiftungs-Notfall seit v32.98/99 in vier Sprachen — Lina, der Chat, den
@@ -91970,6 +92058,12 @@ async function gsLinaSend(){
   // v33.30: ohne Netz antwortet Lina trotzdem — `getSmartAnswer` laeuft ohne
   // Netz und stand die ganze Zeit daneben. Erst wenn auch von dort nichts
   // kommt, bleibt der alte Hinweis.
+  if (!navigator.onLine && _foto) {
+    // Das Foto bleibt angehängt — ohne Netz kann es niemand ansehen, und eine Antwort
+    // aus der App-Liste auf „was ist das?" wäre geraten.
+    if (typeof gsToast === 'function') gsToast(_gsSatz('📡 Für ein Foto braucht Lina Internet — es bleibt angehängt, bis du wieder online bist.'), 'warning');
+    return;
+  }
   if (!navigator.onLine) {
     var _off = _gsLinaErsatz(text);
     if (_off) {
@@ -91990,12 +92084,15 @@ async function gsLinaSend(){
   var _schonGefuehrt = false;
   try {
     var _m = window._gsLinaMsgs || [];
-    _schonGefuehrt = _m.length >= 2 && _m[_m.length - 2].role === 'user' && _m[_m.length - 2].content === text;
+    _schonGefuehrt = _m.length >= 2 && _m[_m.length - 2].role === 'user' && (_m[_m.length - 2].content === text || _m[_m.length - 2].content === '📷 ' + text);
   } catch(_){}
   var _linaAct = null; // v30.69: optionale Aktion aus Lina's Antwort (nach dem Send-Guard dispatcht)
   if (inp) inp.value = '';
   window._gsLinaMsgs = window._gsLinaMsgs || [];
-  if (!_schonGefuehrt) window._gsLinaMsgs.push({ role:'user', content:text });
+  // Im Verlauf steht die Frage mit einem 📷 davor; das Bild selbst wird nirgends abgelegt.
+  var _zeile = _foto ? '📷 ' + text : text;
+  window._gsLinaFoto = null;
+  if (!_schonGefuehrt) window._gsLinaMsgs.push({ role:'user', content:_zeile });
   gsLinaRender(true);
   // LINA-2: die Wartezeit. Die einzige ehrliche Aussage über einen laufenden Aufruf ist, seit wann er
   // läuft (v31.79 — der Scanner zählt so seit v32.08); ab 3 s steht sie da. performance.now, nicht
@@ -92025,11 +92122,21 @@ async function gsLinaSend(){
     // Bei „Erneut senden" liegt die Frage schon in coach_messages.
     var _wdh = window._gsLinaWdh === true; window._gsLinaWdh = false;
     if (window._gsLinaConvId && !_wdh) {
-      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'user', content:text })}).then(_gsLinaSpeicherPruefen);
+      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'user', content:_zeile })}).then(_gsLinaSpeicherPruefen);
     }
     var hist = window._gsLinaMsgs.slice(-16).map(function(m){ return { role:m.role, content:m.content }; });
     var _treffer = (typeof _gsArtenTreffer === 'function') ? _gsArtenTreffer(text) : null;
-    var reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(text), 900, { quotaFeature:'lina', timeout:45000 });
+    var reply;
+    if (_foto) {
+      // Das Sehmodell bekommt EINE Nachricht: die letzten Zeilen des Gesprächs als Text, dann die Frage.
+      var _vorher = hist.slice(0, -1).slice(-6).map(function (m) {
+        return (m.role === 'user' ? 'Person: ' : 'Lina: ') + String(m.content || '').replace(/\s+/g, ' ').slice(0, 400);
+      }).join('\n');
+      reply = await callVisionAI(_foto.b64, _foto.mt, (_vorher ? 'BISHERIGES GESPRÄCH:\n' + _vorher + '\n\n' : '') + 'FRAGE ZUM FOTO: ' + text, null,
+        { systemPrompt: LINA_SYSTEM + LINA_FOTO_REGELN + gsLinaContext(text), maxTokens: 900, quotaFeature: 'lina', logLabel: 'lina_foto' });
+    } else {
+      reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(text), 900, { quotaFeature:'lina', timeout:45000 });
+    }
     if (_gsPerson() !== _wer) return;
     // v33.21: kam eine Antwort — nie der Text. v33.30: dazu, WIE geerdet wurde.
     try {
@@ -92059,7 +92166,10 @@ async function gsLinaSend(){
     // Frage einen blossen Verzehr nennt.
     try {
       var _warn = (typeof _gsLinaSicherheit === 'function') ? _gsLinaSicherheit(reply, _treffer) : '';
+      // L2: bei einem Foto nennt die FRAGE meist keine Art — die Arten stehen erst in der ANTWORT.
+      if (!_warn && _foto && typeof _gsArtenTreffer === 'function') _warn = _gsLinaSicherheit(reply, _gsArtenTreffer(reply));
       if (_warn) reply = _warn + '\n\n' + reply;
+      if (_foto) reply = reply + '\n\n' + _gsSatz(GS_LINA_FOTO_SATZ);
       if (window._gsLinaNotfallHinweis) {
         var _th = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
         reply = _th('notfall_hinweis', '⚠️ Wenn jemand etwas gegessen hat und sich unwohl fühlt: **Tox Info Suisse 145** (rund um die Uhr).') + '\n\n' + reply;
@@ -92082,6 +92192,8 @@ async function gsLinaSend(){
     }
   } catch(err){
     if (_gsPerson() !== _wer) return;
+    // L2: scheitert die Anfrage, hängt das Foto wieder an — „Erneut senden" schickt es mit.
+    if (_foto && !window._gsLinaFoto) window._gsLinaFoto = _foto;
     if (err && err.code === 'free_quota_reached') {
       // Mission: Lina bleibt gratis — KEIN Verkaufspitch, nur warme Info.
       window._gsLinaMsgs.push({ role:'assistant', content:_t('lina_quota','🌿 Wir haben heute schon richtig viel geplaudert — wie schön! Mein Tageskontingent für den geteilten KI-Schlüssel ist gerade erschöpft. Morgen bin ich wieder voll für dich da. (Wer mag, kann mit einem eigenen Anthropic-Key unbegrenzt mit mir chatten — aber das musst du absolut nicht.)') });
@@ -96363,7 +96475,7 @@ function showLegalTab(tab) {
       '<strong>Standortdaten:</strong> GPS nur bei expliziter Freigabe · Zweck: Wetter, Karte, lokale Hinweise, Bestimmung · keine Ortung über die IP-Adresse<br>' +
       '<strong>Pflanzenfotos:</strong> gehen für die Bestimmung an den KI-Dienst (Anthropic, USA), zusammen mit deinem ungefähren Standort (auf rund 100 m gerundet), und werden mit deinem Scan in deinem Konto gespeichert, bis du den Scan löschst. Vor dem Hochladen entfernt die App die Metadaten der Datei (GPS, Gerät, Aufnahmezeit). Mit einem eigenen Anthropic-Schlüssel geht die Anfrage direkt von deinem Gerät an Anthropic, ohne unseren Server<br>' +
       // Lina · Einblick: derselbe Inhalt wie privacy.html §3, zweiter Absatz.
-      '<strong>Fragen an Lina:</strong> mit deiner Frage gehen die Angaben an den KI-Dienst (Anthropic, USA), die Lina für eine passende Antwort braucht: die Namen deiner Pflanzen, Gärten und Pflanzungen, fällige Aufgaben, die letzten Tagebuch-Einträge der Pflanze, nach der du fragst, die Wettervorhersage für deinen gewählten Ort mit dessen Namen, deine letzten Scans, die Namen deiner Karten-Funde und Messwerte deiner Geräte. Fotos und Koordinaten gehen dabei nicht mit. Den Einblick in Pflanzen, Gärten, Tagebuch, Wetter und Funde kannst du im Lina-Fenster ausschalten<br>' +
+      '<strong>Fragen an Lina:</strong> mit deiner Frage gehen die Angaben an den KI-Dienst (Anthropic, USA), die Lina für eine passende Antwort braucht: die Namen deiner Pflanzen, Gärten und Pflanzungen, fällige Aufgaben, die letzten Tagebuch-Einträge der Pflanze, nach der du fragst, die Wettervorhersage für deinen gewählten Ort mit dessen Namen, deine letzten Scans, die Namen deiner Karten-Funde und Messwerte deiner Geräte. Koordinaten gehen dabei nicht mit, und ein Foto nur, wenn du es selbst an deine Nachricht anhängst (verkleinert, ohne die Metadaten der Datei; es wird nicht mit dem Gespräch gespeichert). Den Einblick in Pflanzen, Gärten, Tagebuch, Wetter und Funde kannst du im Lina-Fenster ausschalten<br>' +
       '<strong>Fotos im Speicher:</strong> Scan-, Pflanzen-, Tagebuch- und Fundfotos liegen in einem Ordner deines Kontos, sind aber über ihre Adresse für jeden abrufbar, der die Adresse kennt. Fotos in Community-Beiträgen, Inseraten, Artenbeiträgen und freigegebenen Funden sind für alle sichtbar; ein freigegebener Fund zeigt seinen Ort auf etwa 1 km gerundet<br>' +
       '<strong>Pflanzen, Gärten, Tagebuch, Messwerte (die Einträge):</strong> in deinem Konto, nur für dich lesbar (Zeilenschutz in der Datenbank)<br>' +
       // v33.59: dieselben Empfaenger wie privacy.html §4 — sicherheit_check 97 haelt beide Listen gegeneinander.
