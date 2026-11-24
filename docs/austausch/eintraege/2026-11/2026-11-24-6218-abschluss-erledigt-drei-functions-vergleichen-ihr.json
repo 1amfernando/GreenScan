@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-6218",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "13:18:28",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.70",
+  "titel": "erledigt: Drei Functions vergleichen ihr Admin-Geheimnis nicht über _shared/auth_vergleich.mjs, zwei tragen eine eigene Kopie von constantTimeEquals",
+  "ergebnis": "erledigt",
+  "wohin": "main v33.59 (adminGeheimnisOk, auth_vergleich.mjs) — hier eingemergt am 24.11.2026, NICHT ausgeliefert",
+  "geschwister": "gesucht: grep -rnE '!== *expectedSecret|function constantTimeEquals' --include=index.ts supabase/functions → 0 (vorher 5); send-push und i18n-translate importieren auth_vergleich; daily-push steht namentlich in scripts/edge/70_reste.js (nie ausgeliefert)",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-4515"
+    }
+  ]
+}

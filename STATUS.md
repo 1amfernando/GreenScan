@@ -28,7 +28,9 @@ dass `main` v33.57 (#322) und v33.58 (#323) inzwischen vergeben und das Brett
 (#325) bekommen hatte. Alle 121 Nennungen sind umnummeriert, `main` ist
 eingearbeitet (28 Konfliktstellen in elf Dateien, jede im Merge-Commit
 begründet; nachgezählt: von 391 eigenen und 1'196 fremden hinzugefügten Zeilen
-in `index.html` fehlen genau die sechs, die begründet entfallen).
+in `index.html` fehlen genau die sechs, die begründet entfallen). Danach hiess
+sie v33.59 und v33.70; heute steht sie als **v33.70 (Platzhalter)** auf `main`
+v33.68 — die endgültige Nummer vergibt, wer am Kopf der Merge-Reihe steht.
 
 **Der schwerste Fund — Datenverlust bei den Gärten (bestätigt, nachgestellt):**
 der Login-Pull schrieb `gardens`/`plantings` nur in den Gerätespeicher. Am
@@ -241,44 +243,42 @@ alle gelten noch, einer nur zum Teil; jeder hat jetzt einen Anker.
   Arbeitsverzeichnis vor dem Nachziehen — drei seiner Funde hatte `main` schon
   behoben. Jeder übernommene Fund ist am zusammengeführten Stand nachgemessen.
 
-**Die Nummer ist noch nicht endgültig — und die Reihenfolge ist offen.**
-Gemessen am 11.11.2026: drei Branches tragen v33.70 (dieser,
-`ccr-5e705a36-jveaak`, `claude/restore-banner-nur-bei-bedarf`), `main` steht bei
-v33.58 (am 16.11.2026 unverändert, 2ba302e). Für die Reihenfolge gibt es zwei
-Angaben, die sich widersprechen: die Koordinator-Sitzung nannte zuerst PR #326
-(„Hauptfunktionen", v33.61) als Ersten; ein Brett-Eintrag auf
-`claude/leitstand-kw46` nennt `ccr-5e705a36-jveaak` = v33.70, PR #324 = v33.60,
-diese Scheibe = v33.61. Die Koordinator-Sitzung hat das am 11.11. selbst als
-ungeklärt gemeldet und Fernando gefragt; bis zu seiner Antwort wird NICHT
-umnummeriert. Brett: `2026-11-11-23d2` (an Fernando, ohne Antwort).
+**Auf `main` nachgezogen (24.11.2026).** Zwei Merges: `main` v33.67 (0485b2d,
+76 Konfliktstellen in 20 Dateien) und gleich danach v33.68 (115d389, drei
+Dateien). Die Probe-Merges vom 16.11. hatten die Nähte vorher benannt; so ist
+aufgelöst:
 
-**Probeweise zusammengeführt** (16.11.2026, Wegwerf-Arbeitsbaum, nichts
-übernommen; gezählt an 4c9be8c):
-
-| Branch | über `main` | Konfliktstellen |
-|---|---|---|
-| `ccr-5e705a36-jveaak` (Sicherheitsreparatur, v33.70) | 29 Commits | 51 in 14 Dateien (`index.html` 26) |
-| `claude/zahlungsweg-nachgemessen-011L7G` (v33.60, enthält PR #324) | 30 Commits | 29 in 13 Dateien |
-| `claude/happy-thompson-24l4uu` (PR #326, v33.61) | 2 Commits | 8 in 3 Dateien |
-
-Was beim Auflösen zu wissen ist — **die Sicherheitsreparatur hat mehrere Funde
-dieses Audits PARALLEL behoben**, mit anderem Wortlaut: das Passwort in
-`android/build.sh` (dort `env:` auch im Entwicklungszweig), der Datenschutz-Satz
-in `privacy.html`, `install.html`, die noindex-Blöcke (`_headers`,
-`robots.txt`), die Permissions-Policy und „`contrast_check` urteilt". Dort ist
-jeweils eine Seite zu nehmen, nicht beide. Dazu vier Nähte, die Git nicht als
-Konflikt meldet: (1) beide Seiten haben einen Fall `apk_check` **B6** (dort
-Lizenztexte, hier „ein Übersetzungsfehler bricht den Bau ab") — einer braucht
-einen anderen Namen; (2) beide STATUS-Einträge heissen **(jr)**; (3) dort läuft
-die CI mit `npm ci` gegen ein eingechecktes Lockfile, diese Scheibe fügt ESLint
-in `scripts/package.json` hinzu — nach dem Zusammenführen das Lockfile neu
-erzeugen (`cd scripts && npm install --package-lock-only`), sonst bricht
-`npm ci` vor jedem Prüfstand ab (Brett `2026-11-11-7a6c`, dort gemessen);
-(4) der Garten-Pull: dort geht die Liste durch `_gsListeEinspielen` — beim
-Auflösen jene Seite nehmen. Mit PR #326 sind es die Versionsmarken, der
-Changelog, STATUS und `_gsPassCat` „Giftig" (dort dieselbe Schwelle
-`tox >= 2`, aber auf Art-Ebene über `_gsArtAnzeige` — jene Fassung schliesst
-diese ein und gilt beim Auflösen).
+- **Wo beide Seiten dasselbe parallel behoben hatten, gilt die Fassung von
+  `main`:** `_headers` (Permissions-Policy, CSP, noindex-Blöcke), `robots.txt`,
+  `privacy.html` („pseudonym"), das Passwort in `android/build.sh` (der
+  javac-Status aus dieser Scheibe bleibt), der Garten-Pull und das Backup über
+  `_gsListeEinspielen` (die Formprüfung VOR dem Backup-Import bleibt: ein
+  `myPlants: {…}` hätte dort sonst eine leere Liste eingespielt), Bilder eines
+  fremden Inserats nur aus dem eigenen Speicher (`_gsFremdBild`), Rezeptfotos über
+  `gsFotoAnsicht`, die Statusbox-Farben, `_gsPassCat` mit `_gsAktiveFilter`, und
+  `render_check`/`contrast_check` als Tor (beide Seiten hatten es gebaut;
+  `field_check` behält hier dazu `BEWUSST` und „nicht prüfbar").
+- **Eigenes bleibt:** `statik_check`, `datum_check`, Durchgang 3 in
+  `contrast_check` (jetzt neben den gerechneten Farbpaaren von `main`), `gsIsoKW`
+  — `_gsIsoWoche` von `main` ist jetzt derselbe, EINE Rechnung —,
+  `_gsWochenFakten`, `\r`/`\u2028` in `_gsOcStr`, die Lux-Farbe, `initDailyQuiz`
+  bleibt entfernt (auch auf `main` ohne Aufrufer). `_gsRezeptStufe` und
+  `_gsScanKatEmoji` gehen seit dem Merge über `_gsNachschlag` (die
+  Prototypketten-Regel von `main`).
+- **Umbenannt, weil `main` die Nummern vergeben hat:** `nutzersicht_check`
+  E11–E15 → **E17–E21**, `apk_check` B6 → **B7**, R19 → **R22**.
+- **Zwei Fälle an die strengere Regel angepasst:** `escape_check`
+  „Marktplatz-Detail" (fremde Hosts bekommen jetzt gar kein Bild) und
+  „Rezept-Detail" (ein Tipp öffnet `gsFotoAnsicht`, nicht `window.open`).
+- **`robust_check` „Prototypkette"** nannte vier `*_TEMPLATES[sp.cat]`, die es
+  hier nicht mehr gibt (die Füllfunktionen hatten keinen Aufrufer) — aus der
+  Liste genommen.
+- **Release-Liste:** v33.70 oben, darunter v33.68; v33.47 und v33.48 ins Archiv
+  (Deckel 20, keine Dublette, 616 Einträge zusammen).
+- **`scripts/package-lock.json`** trägt jetzt ESLint (`npm install
+  --package-lock-only`, nur Zusätze) — sonst bräche `npm ci` vor jedem
+  Prüfstand ab. `npm audit` meldet dazu zwei mittlere Lücken in `minimatch`
+  (über ESLint); ESLint läuft nur als Parser in den Prüfständen, nie in der App.
 
 **Nachgetragen am 16.11.2026 — der Hinweis des Sicherheits-Branches galt auch
 hier:** der Garten-Pull dieser Scheibe übernahm die geholte Liste UNGESIEBT
@@ -286,7 +286,9 @@ hier:** der Garten-Pull dieser Scheibe übernahm die geholte Liste UNGESIEBT
 Cloud-Antwort ging in Speicher UND Variable. Jetzt nur Objekte, wie beim
 Einspielen eines Backups. `sync_check` „Garten-Pull" schickt dafür 3 + 2
 Einträge Unrat mit; Gegenprobe mit der alten Zuweisung: rot („Speicher: …
-`<null>`, `<"kaputt">` … Unrat bei den Pflanzungen: 4").
+`<null>`, `<"kaputt">` … Unrat bei den Pflanzungen: 4"). Seit dem Merge geht der
+Pull durch `_gsMergeEintraege` und `_gsListeEinspielen` von `main`; der Unrat-Fall
+bleibt und ist dort grün.
 
 **Und eine private Adresse im ausgelieferten Code** (16.11.2026, gefunden, weil
 ein Datenschutz-Filter dieser Umgebung den Aufruf von `robust_check` verweigerte):
@@ -392,13 +394,15 @@ dieser Sitzung einmal); zweiter Lauf direkt danach 44 Prüfstände, rot: 0,
 nicht prüfbar: 0. An App und Service Worker hat diese Scheibe beim Teilen
 nichts geändert.
 
-**Für Fernando sichtbar** (`docs/FUER-FERNANDO.md` §30): die Kopfleiste ist
+**Für Fernando sichtbar** (`docs/FUER-FERNANDO.md` §32): die Kopfleiste ist
 17 px höher (so, wie das CSS sie immer wollte), auf „Rezepte" und „Heilmittel"
-steht unten rechts ein Plus-Knopf, und die Datenschutzerklärung ist an einer
-Stelle berichtigt (Nutzungsdaten sind nicht „anonym") — bitte gegenlesen.
+steht unten rechts ein Plus-Knopf, und die Datenschutzerklärung nennt
+Nutzungs- und Fehlerdaten nicht mehr „anonym" (beide Sitzungen haben das
+gefunden; es gilt der Satz von `main`: „pseudonym") — bitte gegenlesen.
 
-**Offen:** brett:2026-11-11-fe36, brett:2026-11-11-2748, brett:2026-11-11-cde7, brett:2026-11-11-6f90, brett:2026-11-11-0fd6, brett:2026-11-11-5ee2, brett:2026-11-11-6bf4, brett:2026-11-11-9d96, brett:2026-11-11-664e, brett:2026-11-11-4515 (zehn Funde in den Edge-Functions, keiner behoben; 0fd6 und 5ee2 sind Sicherheits-Einträge ohne Einzelheiten) · brett:2026-11-11-1243, brett:2026-11-11-9400, brett:2026-11-11-21ed, brett:2026-11-11-664f, brett:2026-11-11-8c07, brett:2026-11-11-9ca0, brett:2026-11-16-0ea0, brett:2026-11-16-0a7f (Service Worker, Manifest, Kompass) · brett:2026-11-11-d412, brett:2026-11-11-000a, brett:2026-11-11-035c (Datum) · brett:2026-11-11-5e72 (drei Suchen) · brett:2026-11-11-002d, brett:2026-11-11-8ee7 (CSS) · brett:2026-11-11-bf2f, brett:2026-11-11-2069 (Daten) · brett:2026-11-11-bd8a, brett:2026-11-11-2129, brett:2026-11-11-e919 (Android-Hülle) · brett:2026-11-11-5bef (Frage an Fernando, §2)
+**Offen:** brett:2026-11-11-6f90, brett:2026-11-11-6bf4, brett:2026-11-11-664e (drei Funde in `daily-push-checker`; die sieben anderen Edge-Funde hat die Sicherheitsreparatur von `main` im Repo geschlossen — live keiner, siehe §2) · brett:2026-11-11-1243, brett:2026-11-11-9400, brett:2026-11-11-21ed, brett:2026-11-11-664f, brett:2026-11-11-8c07, brett:2026-11-11-9ca0, brett:2026-11-16-0ea0, brett:2026-11-16-0a7f (Service Worker, Manifest, Kompass) · brett:2026-11-11-d412, brett:2026-11-11-000a, brett:2026-11-11-035c (Datum) · brett:2026-11-11-5e72 (drei Suchen) · brett:2026-11-11-002d, brett:2026-11-11-8ee7 (CSS) · brett:2026-11-11-bf2f, brett:2026-11-11-2069 (Daten) · brett:2026-11-11-bd8a, brett:2026-11-11-2129, brett:2026-11-11-e919 (Android-Hülle) · brett:2026-11-11-5bef (Frage an Fernando, §2)
 **Nicht geprüft:** hier läuft kein Android und kein echtes Supabase — die vier Reparaturen an der Hülle sind übersetzt (`apk_check` baut das Paket) und gelesen, nicht auf einem Gerät gefahren; die Funde in den Edge-Functions sind gelesen und zum Teil mit den echten Rümpfen in Node ausgeführt. Dass ein `fetch()` im Worker gegen `connect-src` geprüft wird, ist aus der Spezifikation gelesen, nicht im Browser gemessen. Ob Cloudflare Pages und Netlify ein Punkt-Verzeichnis (`.claude/`, `.github/`) überhaupt ausliefern, ist von hier nicht messbar. Die neue Höhe der Kopfleiste ist in Chromium bei 412 px gemessen, nicht auf einem Telefon mit Kerbe angesehen.
+
 ### 2026-11-19 (jp) - v33.68: Eine Antwort nach dem Abmelden landet nie mehr im nächsten Konto — ein Tor in sbFetch und in der KI
 
 **Auftrag:** Fernando, „Verbesser alles komplett. Alle Sicherheitslücken sollten behoben werden" — Fortsetzung
@@ -16931,9 +16935,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 - **Version:** `v33.70` (Client, Platzhalter bis zur Spitze der Merge-Reihe) · SW-Cache `gs-v33.70` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **101'599 Zeilen / rund 6,3 MB** (v33.70: rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
+- **Frontend:** `index.html` **101'690 Zeilen / rund 6,3 MB** (v33.70: rund 300 Zeilen Funktionen ohne Aufrufer heraus, gemessen nach dem Merge mit v33.68) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **587 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.39).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
-- **Prüfstände:** **46** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.70: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 46** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (je). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
+- **Prüfstände:** **48** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.70: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 48** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (jr). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -16942,7 +16946,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Warum es wartet | Belegt in |
 |---|---|---|
-| **Datenschutzerklärung gegenlesen** (v33.70) | `privacy.html` nannte Nutzungs- und Fehlerdaten „anonym"; beide tragen die Konto-Kennung (`client_errors.user_id`, `analytics_events.user_id` + `session_id`). Der Satz ist berichtigt („mit deinem Konto verknüpft"). Ein Rechtstext gehört von dir gelesen; drei Empfänger fehlen dort weiterhin (Google Fonts — überträgt die IP-Adresse; Netlify; Wikipedia für Artbilder), und das Stand-Datum der Erklärung ist nicht mitgezogen. | brett:2026-11-11-5bef · `docs/FUER-FERNANDO.md` §30 · (jr) |
+| **Datenschutzerklärung gegenlesen** (v33.70) | `privacy.html` nannte Nutzungs- und Fehlerdaten „anonym"; beide tragen die Konto-Kennung (`client_errors.user_id`, `analytics_events.user_id` + `session_id`). Zwei Sitzungen haben das parallel berichtigt; es gilt der Satz von `main` („pseudonym"), dort stehen seit v33.59 auch Netlify und Wikipedia, und Google Fonts ist keiner mehr (Schriften selbst gehostet). Ein Rechtstext gehört von dir gelesen — und das Stand-Datum der Erklärung („17. Juni 2026") ist nicht mitgezogen. | brett:2026-11-11-5bef · `docs/FUER-FERNANDO.md` §32 · (jr) |
 | **Sicherheitsreparatur v33.59 auf den Server bringen** | Der Client wirkt mit dem Merge; **alles Serverseitige ist weder angewandt noch ausgeliefert** (gemessen 11.11.2026: 0 von 23 neuen Funktionsnamen live). Bis dahin sind die Lücken, die die Migrationen beschreiben, live offen — und das Repo ist öffentlich. Reihenfolge, Handgriffe und die lesenden Abfragen danach stehen in §30; die Zeilen darunter je Datei. | `docs/FUER-FERNANDO.md` §30 · (je) |
 | **Migration `20261110_sicherheit_ki_kontingent.sql`** — ZUERST | Legt `fn_ai_kontingent_reservieren` / `_freigeben` an (nur `service_role`). Die KI-Functions aus diesem Repo rufen sie und antworten ohne sie **fail-closed mit 503** — alle, auch der Pilz-Scanner. Also: diese Migration, DANN die KI-Functions. In `rls_check` (`50_ki_kontingent`) nachgespielt: 20 gleichzeitige Reservierungen bei Limit 15 ergeben 15. | §30 · (je) |
 | **Edge-Functions der Reparatur ausliefern** — was, wann und was NICHT, steht je Verzeichnis in `supabase/functions/AUSLIEFERUNG.json` (40 Verzeichnisse: 18 `ausliefern`, 7 `erst_nach` einer Migration — die sechs KI-Functions nach `20261110_sicherheit_ki_kontingent.sql`, `device-ingest` nach den Geräte-Migrationen —, 4 `nicht`, 11 `live` unverändert; `edge_check` 60_spalten hält die Liste gegen die Verzeichnisse) | Erst danach gelten Zahlung, KI-Tor, Push-Endpunkte, Konto löschen und die festen Versionen live. Drei Dinge daran hängen: `delete-user` braucht das Secret `STRIPE_SECRET_KEY` (sonst 409 bei laufendem Abo, gewollt); `stripe-admin-extend-webhook` einmal laufen lassen, damit `charge.refunded` zugestellt wird; `stripe-webhook`, `stripe-checkout` und `stripe-portal` gehören zusammen. Die sechs live laufenden KI-Functions (jc) sind der Stand OHNE Tor — sie werden dabei ersetzt. | §30 · (je) |
@@ -17016,7 +17020,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 | Punkt | Stand |
 |---|---|
-| **Edge-Functions: zehn Funde aus dem Audit vom 11.11.2026, keiner behoben** | Alle zehn gegengeprüft und am 11.11. gegen den Stand mit `main` nachgemessen (neun gelten unverändert; bei `getUser()` ohne Token hat `main` drei von vier Functions repariert, offen ist `stripe-expert-checkout`). Die schwersten: `stripe-webhook` liest bei 16 Schreibaufrufen keinen Datenbankfehler (200 und `processed_at`, obwohl nichts verbucht wurde); `delete-user` löscht die Abo-Zeilen und kündigt bei Stripe nichts (das Abo läuft weiter); `daily-push-checker` warnt vor dem Frost von heute früh statt vor dem der kommenden Nacht und sperrt damit den richtigen Alarm. Zwei sind ausnutzbar — ihre Einzelheiten stehen NICHT im Repo, sondern in der Übergabe-Datei, die Fernando bekommen hat. Eine eigene Scheibe: Zahlungs- und Auth-Code ohne Fahrer anzufassen wäre geraten. | brett:2026-11-11-fe36 · 2748 · cde7 · 6f90 · 0fd6 · 5ee2 · 6bf4 · 9d96 · 664e · 4515 · `docs/AUDIT-2026-11-11.md` · (jr) |
+| **Edge-Functions: drei Funde aus dem Audit vom 11.11.2026 offen — sieben im Repo geschlossen, live keiner** | Alle zehn gegengeprüft. Seit dem Merge vom 24.11. trägt dieser Branch die Sicherheitsreparatur von `main` (v33.59/v33.63): sie schliesst **sieben** (`stripe-webhook` liest seine Datenbankfehler, `delete-user` kündigt bei Stripe vor dem Löschen, `plan-iterate` prüft Abbruch und Form, die Admin-Geheimnisse gehen über `auth_vergleich.mjs`, `getUser(userToken)` überall, und die zwei ausnutzbaren — abgeglichen mit den Einzelheiten, die NICHT im Repo stehen). Jeder davon ist am gemergten Baum nachgemessen und auf dem Brett geschlossen. **Live ist keiner davon**, bis Fernando die Functions ausliefert (`AUSLIEFERUNG.json`, FUER-FERNANDO §30). Offen, alle in `daily-push-checker`: Frost von heute früh statt der kommenden Nacht, Dublettensperre je Nutzer statt je Gerät, „Tagesquiz wartet" auch an alle, die schon gespielt haben. | brett:2026-11-11-6f90 · 6bf4 · 664e · `docs/AUDIT-2026-11-11.md` edge-4/7/9 · (jr) |
 | **Service Worker: drei bestätigte Funde, nicht behoben** | (1) Die Navigation wartet bei schwachem Empfang unbegrenzt aufs Netz, obwohl die App im Cache liegt (`networkFirst` ohne Frist — der Rückfall greift nur bei einer ABLEHNUNG). (2) Jede Navigations-Adresse (`/?source=pwa`, vier Shortcuts, jeder Mitteilungs-Link) legt eine eigene 6-MB-Kopie der Seite in den Shell-Cache. (3) Ein Tipp auf eine Push-Mitteilung lädt die laufende App neu, ohne `_gsAppRuhig()` zu fragen — ein offenes Scan-Ergebnis ist weg. Jeder braucht Fälle in `offline_check`. Dazu drei Reste: umgeleitete Antworten beim Install, `protocol_handlers` im Manifest, `deviceorientationabsolute`. | brett:2026-11-11-1243 · 9400 · 21ed · 664f · 8c07 · 9ca0 · (jr) |
 | **Fälligkeit über die Zeitumstellung** | `getDaysUntilDue` und `gsSnoozeTask` rechnen 24-Stunden-Blöcke: in den Nächten vom 28./29.03. und 24./25.10. liegt eine Aufgabe, die in der Umstellungsstunde erledigt oder verschoben wird, um einen Tag daneben (ausgeführt). Dazu sieben Tag-des-Jahres-Rechnungen und das Wetter-Tagesprotokoll (Datum UTC, Werte Zürcher Tag). Die Kalenderwoche ist seit v33.70 behoben. `datum_check` T0 deckelt die UTC-Tagesschnitte bei 32 (25 bewusst, 7 offen). | brett:2026-11-11-d412 · 000a · 035c · (jr) |
 | **Drei Suchen beim Tippen ohne Anfrage-Zähler** | `gsCommunitySearch`, `gsKnowledgeGlobalSearch`, `gsFriendsSearchTrigger`: kommt die ältere Antwort nach der neueren, stehen die Treffer für „to" unter dem Feld „tomate" (mit gestelltem Netz ausgeführt). | brett:2026-11-11-5e72 · (jr) |

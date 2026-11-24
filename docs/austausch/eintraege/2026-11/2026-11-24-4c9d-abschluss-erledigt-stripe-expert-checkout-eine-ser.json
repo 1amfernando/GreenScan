@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-4c9d",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "13:19:33",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.70",
+  "titel": "erledigt: stripe-expert-checkout: eine serverseitige Prüfung fehlt",
+  "ergebnis": "erledigt",
+  "wohin": "main v33.59 (Sicherheitsreparatur) — hier eingemergt am 24.11.2026, NICHT ausgeliefert: live gilt die alte Function, bis Fernando ausliefert (AUSLIEFERUNG.json)",
+  "geschwister": "abgeglichen mit den Einzelheiten, die bewusst nicht im Repo stehen: die gemeinte Lücke ist im Repo-Stand geschlossen, die Regel steht in _shared/zahlung_regeln.mjs und wird von edge_check/stripe_check gefahren. Über diese Function hinaus gesucht: dieselbe Regel gilt für alle Zahlungs-Functions über das eine Modul",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-0fd6"
+    }
+  ]
+}

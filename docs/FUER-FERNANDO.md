@@ -1,6 +1,6 @@
 # Für Fernando — was nur du machen kannst
 
-> Stand **11.11.2026** (Abschnitte bis §30) · geschrieben von Seros.
+> Stand **24.11.2026** (Abschnitte bis §32) · geschrieben von Seros.
 >
 > **Neu und zuerst zu lesen: §30** — die Sicherheitsreparatur v33.59. Von ihr ist auf
 > der Live-Datenbank NICHTS angewandt und keine Edge-Function ausgeliefert; §30 sagt,
@@ -1488,132 +1488,6 @@ anderen fünf). Ein Commit ist eine Prüfsumme — was läuft, ist Byte für Byt
 Prüfstand gefahren hat. Geladen wird beim Ausliefern, nicht zur Laufzeit. Wer sie später
 gewöhnlich ausliefern will: `supabase functions deploy <name>` aus dem Repo, das Ergebnis
 ist dasselbe.
-## 30 · Der grosse Durchgang (v33.70) — was du tun musst, und was noch offen ist
-
-**Für die App selbst musst du nichts einspielen.** Keine Migration, keine
-Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.
-
-**Was sich für dich sichtbar ändert:**
-
-- Wer sich auf einem neuen Gerät anmeldet (oder in der Android-App), behält
-  seine Gärten und Pflanzungen. Vorher ersetzte die App sie dort durch einen
-  leeren „Mein Garten" — und schob das beim nächsten Abgleich hoch. **Wenn dir
-  oder jemandem genau das schon passiert ist:** die App legt je Sitzung einen
-  Stand in `user_state_snapshots` ab (v33.26) — darin kann der Garten von
-  vorher noch stehen. Sag Bescheid, bevor du etwas versuchst; ich sehe mit dir
-  nach, welcher Stand der richtige ist.
-- Die Fragen „Wirklich löschen?" sind im Dunkelmodus wieder lesbar — ebenso
-  der Hinweis „Noch kein Standort" im Standort-Fenster (war hellgrün auf fast
-  weiss) und die Unterzeile im Kopf der Beet-Layouts.
-- Symbole und Verwechslungshinweise der Arten sind bei jedem Start da, nicht
-  nur beim allerersten.
-- **Die Kopfleiste ist 17 px höher** (56 statt 39 px) und füllt jetzt ihren
-  Platz — so wollte das CSS sie immer; ein Schreibfehler (`calc()` ohne
-  Leerraum um das Plus) hat die Angabe ungültig gemacht. Bitte einmal auf
-  deinem Telefon ansehen, auch auf einem iPhone mit Kerbe: gemessen habe ich
-  nur im Browser bei 412 px Breite.
-- **Auf „Rezepte" und „Heilmittel" steht unten rechts ein Plus-Knopf.** Den
-  gab es schon immer — er stand wegen desselben Schreibfehlers rund 10'000 px
-  unter dem Bildschirm. Eigene Rezepte liessen sich bisher gar nicht anlegen.
-- **Ein Rezept zeigt seine Warnung** („Verwechslung mit Herbstzeitlose"), ein
-  Heilmittel seine Gegenanzeigen und seine Dosierung. Beides stand in den
-  Daten, aber nicht auf dem Bildschirm.
-- **Im Registrierformular** öffnen die Links „Datenschutzerklärung" und
-  „Nutzungsbedingungen" die Texte jetzt wirklich. Vorher ging das Fenster
-  unsichtbar auf — wer sich registrierte, konnte nicht lesen, was er ankreuzt.
-- Startseite und Planer-Kalender zeigen die richtige Kalenderwoche (sie lagen
-  2026 von Montag bis Mittwoch eine Woche zurück).
-
-**Bitte einmal gegenlesen — die Datenschutzerklärung** (`privacy.html`,
-Tabelle in §2). Dort stand „Anonyme Nutzungs- & Fehlerdaten". Beide tragen
-aber deine Konto-Kennung. Ich habe den Satz berichtigt („mit deinem Konto
-verknüpft, keine Fotos, kein Standort, kein Eingabetext"). Drei Empfänger
-fehlen in §4 weiterhin: Google Fonts (die Schriften — übertragen wird die
-IP-Adresse), Netlify (zweiter Hoster) und Wikipedia (lädt das Artbild, bekommt
-dabei nur den Artnamen). §8 nennt keine Frist für Nutzungsdaten, und
-das Stand-Datum („17. Juni 2026") habe ich nicht angefasst. Das ist dein Text
-— sag mir, wie du ihn haben willst (auf dem Brett: `brett:2026-11-11-5bef`).
-
-**Die Landingpage** (`install.html`) versprach vier Dinge, die es nicht gibt:
-„funktioniert ohne Account", „gsBrain", „iNaturalist-Bridge" und „alle Daten
-in der EU". Sie sagt jetzt, was stimmt (kostenloses Konto nötig; Lina; Fotos
-zur Bestimmung gehen an Anthropic in den USA).
-
-**Offen und wichtig — die Edge-Functions.** Der Audit hat dort zehn Fehler
-gefunden und jeden gegengeprüft; behoben ist KEINER, weil das Zahlungs- und
-Anmeldecode ist, den ich hier nicht ausführen kann. Die zwei, die Geld
-betreffen:
-
-1. **Konto löschen kündigt das Abo nicht.** `delete-user` löscht die
-   Abo-Zeilen in der Datenbank, sagt Stripe aber nichts — die Abbuchung läuft
-   weiter, und das Konto, über das man kündigen könnte, ist weg. Bis das
-   repariert ist: wenn jemand mit Abo sein Konto löscht, das Abo bitte im
-   Stripe-Dashboard von Hand beenden.
-2. **Der Stripe-Webhook liest keine Datenbankfehler.** Scheitert das Verbuchen
-   einer Zahlung, antwortet er Stripe trotzdem mit „erledigt". Stripe versucht
-   es dann nicht noch einmal, und die Person hat bezahlt, ohne freigeschaltet
-   zu sein.
-
-Alle zehn stehen in `docs/AUDIT-2026-11-11.md` (edge-1 bis edge-10) mit dem
-vorgeschlagenen Fix, und jeder einzeln auf dem Brett (`docs/austausch/`) — die
-nächste Sitzung findet sie dort. Nachgemessen gegen den Stand mit v33.58: bei
-einem (die Anmelde-Prüfung in vier Functions) hat die andere Sitzung drei von
-vier Stellen schon repariert; offen ist dort nur noch `stripe-expert-checkout`.
-Zwei der zehn lassen sich ausnutzen; ihre Einzelheiten
-stehen deshalb nicht im Repo, sondern in der Übergabe-Datei
-„GreenScan-Folgeaufgaben-2026-11-11.md", die du in der Sitzung bekommen hast
-(Aufgabe 1 — als Auftragstext für eine neue Sitzung geschrieben; bitte nicht
-ins Repo legen).
-
-**Die Android-App:** vier kleine Fehler in der Hülle und im Bau-Skript sind
-behoben (der Bau brach bei einem Übersetzungsfehler nicht ab; das Passwort des
-Release-Schlüssels stand auf der Kommandozeile — es wird jetzt aus der
-Umgebung gelesen, `GS_APK_KS_PASS` setzt du wie bisher). Drei weitere brauchen
-ein Telefon und stehen auf dem Brett; der wichtigste: „Kamera" im
-Pflanzendoktor, Pilz-Check, Tagebuch und Schädlings-Check öffnet in der APK
-die Bildauswahl statt der Kamera.
-
-**Drei Dinge über die Arbeit selbst:** diese Scheibe hiess v33.57, bis sich
-zeigte, dass `main` die Nummer und v33.58 inzwischen vergeben hatte — sie ist
-auf `main` nachgezogen und heisst v33.70. **Diese Nummer ist noch nicht
-endgültig, und die Reihenfolge entscheidest du:** zwei weitere Branches tragen
-ebenfalls v33.70, und für die Reihenfolge gibt es zwei Angaben, die sich
-widersprechen (einmal steht PR #326 vorn, einmal der Sicherheits-Branch
-`ccr-5e705a36-jveaak`, dann PR #324, dann diese Scheibe als v33.61). Die Frage
-liegt auf dem Brett (`2026-11-11-23d2`). Bis du antwortest, nummeriere ich
-nicht um. Probeweise zusammengeführt (16.11.): mit PR #326 acht
-Konfliktstellen in drei Dateien, mit dem Zahlungsweg-Branch (v33.60) 29, mit
-dem Sicherheits-Branch 51 — dieser hat mehrere Funde aus meinem Audit
-parallel behoben (Passwort im Bau-Skript, Datenschutz-Satz, noindex,
-Mikrofon-/Sensor-Freigabe), mit anderem Wortlaut. Dort ist beim Zusammenführen
-je eine Seite zu nehmen; was dabei zu beachten ist, steht in STATUS (Eintrag
-„(jr) - v33.70", Absatz „Probeweise zusammengeführt"). Und: einen Pull Request habe ich NICHT geöffnet (du hast keinen
-verlangt). Der Stand liegt auf dem Branch `ccr-dce5a17c-2xzhvi`; die Prüfung
-auf GitHub läuft erst mit einem PR. **Wenn du ihn willst, sag „öffne den PR"**
-— dann ziehe ich vorher auf den dann aktuellen Stand von `main` nach.
-
-**Deine private Mailadresse stand in einer ausgelieferten Datei.** Ein Prüfstand
-(`scripts/robust_check.js`) sollte sicherstellen, dass sie nirgends im Code
-steht — und trug sie dafür selbst wörtlich. Die Datei liefern beide Hoster aus
-(nicht auffindbar, aber abrufbar). Das ist jetzt weg: der Prüfstand zählt jede
-Freemail-Adresse im Code, ohne eine zu nennen. Zwei Dinge bleiben, und die
-entscheidest du: zwei alte, längst angewandte Migrationen
-(`supabase/migrations/v26_91_…` und `v28_18_…`) nennen die Adresse in einer
-Policy, und in der Git-Geschichte steht sie weiter. Eine angewandte Migration
-habe ich nicht umgeschrieben.
-
-**Das Gegenlesen der fertigen Scheibe** ist am 11.11. zweimal am Ausgabenlimit
-gescheitert und am 16.11. gelaufen (vier Agenten lesen, je ein zweiter versucht
-zu widerlegen). Fünfzehn Stellen, alle behoben. Die wichtigsten für dich: der
-Filter „Giftig" fragt jetzt die Art (Wacholder stand unter „Ungiftig"); zwei
-Stichworte an den vertraulichen Brett-Einträgen zeigten auf die Stelle der Lücke
-und sind entfernt; und im Audit-Protokoll zeigte der Satz „zusammen mit Fund 4
-ausliefern" auf den falschen Fund — gemeint ist edge-5, die Reihenfolge ist dort
-sicherheitsrelevant.
-
-**Auf GitHub:** die Prüfung an jedem Pull Request installiert jetzt zusätzlich
-ESLint (über `scripts/package.json`). Dafür ist nichts zu tun.
-
 ## 30 · Die Sicherheitsreparatur (v33.59) — was auf dich wartet
 
 **Dein Auftrag (10.11.2026, wörtlich):** „Arbeite an dem Projekt. Verbesser alles
@@ -2189,6 +2063,125 @@ den Logs der Function darf „Wissensbasis gekuerzt" nicht auftauchen.
 alle sechs laufen seit dem 16.11. mit dem Code von `57a7acf` — `ai-proxy` v4, `plan-iterate` v6,
 `garden-scan-analyze` v12, `plant-doctor-diagnose` v7, `pest-identify` v5 stehen jetzt auf „live"
 (das Repo ist dort unverändert), `mushroom-identify` v5 auf „ausliefern" (dieses Paket).
+
+## 32 · Der grosse Durchgang (v33.70) — was du tun musst, und was noch offen ist
+
+**Für die App selbst musst du nichts einspielen.** Keine Migration, keine
+Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.
+
+**Was sich für dich sichtbar ändert:**
+
+- Wer sich auf einem neuen Gerät anmeldet (oder in der Android-App), behält
+  seine Gärten und Pflanzungen. Vorher ersetzte die App sie dort durch einen
+  leeren „Mein Garten" — und schob das beim nächsten Abgleich hoch. **Wenn dir
+  oder jemandem genau das schon passiert ist:** die App legt je Sitzung einen
+  Stand in `user_state_snapshots` ab (v33.26) — darin kann der Garten von
+  vorher noch stehen. Sag Bescheid, bevor du etwas versuchst; ich sehe mit dir
+  nach, welcher Stand der richtige ist.
+- Die Fragen „Wirklich löschen?" sind im Dunkelmodus wieder lesbar — ebenso
+  der Hinweis „Noch kein Standort" im Standort-Fenster (war hellgrün auf fast
+  weiss) und die Unterzeile im Kopf der Beet-Layouts.
+- Symbole und Verwechslungshinweise der Arten sind bei jedem Start da, nicht
+  nur beim allerersten.
+- **Die Kopfleiste ist 17 px höher** (56 statt 39 px) und füllt jetzt ihren
+  Platz — so wollte das CSS sie immer; ein Schreibfehler (`calc()` ohne
+  Leerraum um das Plus) hat die Angabe ungültig gemacht. Bitte einmal auf
+  deinem Telefon ansehen, auch auf einem iPhone mit Kerbe: gemessen habe ich
+  nur im Browser bei 412 px Breite.
+- **Auf „Rezepte" und „Heilmittel" steht unten rechts ein Plus-Knopf.** Den
+  gab es schon immer — er stand wegen desselben Schreibfehlers rund 10'000 px
+  unter dem Bildschirm. Eigene Rezepte liessen sich bisher gar nicht anlegen.
+- **Ein Rezept zeigt seine Warnung** („Verwechslung mit Herbstzeitlose"), ein
+  Heilmittel seine Gegenanzeigen und seine Dosierung. Beides stand in den
+  Daten, aber nicht auf dem Bildschirm.
+- **Im Registrierformular** öffnen die Links „Datenschutzerklärung" und
+  „Nutzungsbedingungen" die Texte jetzt wirklich. Vorher ging das Fenster
+  unsichtbar auf — wer sich registrierte, konnte nicht lesen, was er ankreuzt.
+- Startseite und Planer-Kalender zeigen die richtige Kalenderwoche (sie lagen
+  2026 von Montag bis Mittwoch eine Woche zurück).
+
+**Bitte einmal gegenlesen — die Datenschutzerklärung** (`privacy.html`,
+Tabelle in §2). Dort stand „Anonyme Nutzungs- & Fehlerdaten". Beide tragen
+aber deine Konto-Kennung. Ich habe den Satz berichtigt („mit deinem Konto
+verknüpft, keine Fotos, kein Standort, kein Eingabetext"). Drei Empfänger
+fehlen in §4 weiterhin: Google Fonts (die Schriften — übertragen wird die
+IP-Adresse), Netlify (zweiter Hoster) und Wikipedia (lädt das Artbild, bekommt
+dabei nur den Artnamen). §8 nennt keine Frist für Nutzungsdaten, und
+das Stand-Datum („17. Juni 2026") habe ich nicht angefasst. Das ist dein Text
+— sag mir, wie du ihn haben willst (auf dem Brett: `brett:2026-11-11-5bef`).
+
+**Die Landingpage** (`install.html`) versprach vier Dinge, die es nicht gibt:
+„funktioniert ohne Account", „gsBrain", „iNaturalist-Bridge" und „alle Daten
+in der EU". Sie sagt jetzt, was stimmt (kostenloses Konto nötig; Lina; Fotos
+zur Bestimmung gehen an Anthropic in den USA).
+
+**Die Edge-Functions — sieben von zehn sind im Repo behoben, live keiner.**
+Der Audit hat dort zehn Fehler gefunden und jeden gegengeprüft; behoben habe
+ich hier keinen (Zahlungs- und Anmeldecode, den ich nicht ausführen kann).
+Seit dem Merge vom 24.11. trägt dieser Branch die Sicherheitsreparatur von
+`main` (v33.59/v33.63) — und die schliesst **sieben** davon, darunter die zwei,
+die Geld betreffen (`delete-user` kündigt jetzt bei Stripe, bevor es löscht;
+der Stripe-Webhook antwortet bei einem Datenbankfehler mit 500, damit Stripe es
+noch einmal versucht), und die **zwei ausnutzbaren** (abgeglichen mit den
+Einzelheiten aus der Übergabe-Datei; im Repo stehen sie weiter nicht). Jeder
+dieser sieben ist auf dem Brett nachgemessen und geschlossen.
+
+**Wichtig: live ist davon NICHTS.** Ausgeliefert wird eine Edge-Function nur
+von dir — was wann, steht in `supabase/functions/AUSLIEFERUNG.json` und in §30.
+Bis dahin gilt: wenn jemand mit Abo sein Konto löscht, das Abo bitte im
+Stripe-Dashboard von Hand beenden.
+
+Offen sind drei, alle in `daily-push-checker` (Frost-Warnung zur falschen
+Nacht, Dublettensperre je Nutzer statt je Gerät, „Tagesquiz wartet" auch an
+alle, die schon gespielt haben). Sie stehen in `docs/AUDIT-2026-11-11.md`
+(edge-4, edge-7, edge-9) und auf dem Brett.
+
+**Die Android-App:** vier kleine Fehler in der Hülle und im Bau-Skript sind
+behoben (der Bau brach bei einem Übersetzungsfehler nicht ab; das Passwort des
+Release-Schlüssels stand auf der Kommandozeile — es wird jetzt aus der
+Umgebung gelesen, `GS_APK_KS_PASS` setzt du wie bisher). Drei weitere brauchen
+ein Telefon und stehen auf dem Brett; der wichtigste: „Kamera" im
+Pflanzendoktor, Pilz-Check, Tagebuch und Schädlings-Check öffnet in der APK
+die Bildauswahl statt der Kamera.
+
+**Drei Dinge über die Arbeit selbst:** diese Scheibe hiess v33.57, dann v33.59,
+dann v33.70 — jedes Mal hatte `main` die Nummer inzwischen vergeben. Heute
+(24.11.) ist sie auf `main` v33.68 nachgezogen und heisst weiter **v33.70, als
+Platzhalter**: die endgültige Nummer vergibt, wer am Kopf der Merge-Reihe steht.
+Zusammengeführt mit v33.67 waren es 76 Konfliktstellen in 20 Dateien, mit v33.68
+noch drei. Die Sicherheitsreparatur auf `main` hatte mehrere Funde aus meinem
+Audit parallel behoben (Passwort im Bau-Skript, Datenschutz-Satz, noindex,
+Mikrofon-/Sensor-Freigabe, Garten-Pull); dort gilt jetzt ihre Fassung, was nur
+diese Scheibe hatte, bleibt daneben stehen. Einzeln steht das in STATUS (Eintrag
+„(jr) - v33.70", Absatz „Auf `main` nachgezogen"). Und: einen Pull Request habe
+ich NICHT geöffnet (du hast keinen verlangt). Der Stand liegt auf dem Branch
+`ccr-dce5a17c-2xzhvi`; die Prüfung auf GitHub läuft erst mit einem PR. **Wenn du
+ihn willst, sag „öffne den PR"** — dann ziehe ich vorher auf den dann aktuellen
+Stand von `main` nach.
+
+**Deine private Mailadresse stand in einer ausgelieferten Datei.** Ein Prüfstand
+(`scripts/robust_check.js`) sollte sicherstellen, dass sie nirgends im Code
+steht — und trug sie dafür selbst wörtlich. Die Datei liefern beide Hoster aus
+(nicht auffindbar, aber abrufbar). Das ist jetzt weg: der Prüfstand zählt jede
+Freemail-Adresse im Code, ohne eine zu nennen. Zwei Dinge bleiben, und die
+entscheidest du: zwei alte, längst angewandte Migrationen
+(`supabase/migrations/v26_91_…` und `v28_18_…`) nennen die Adresse in einer
+Policy, und in der Git-Geschichte steht sie weiter. Eine angewandte Migration
+habe ich nicht umgeschrieben.
+
+**Das Gegenlesen der fertigen Scheibe** ist am 11.11. zweimal am Ausgabenlimit
+gescheitert und am 16.11. gelaufen (vier Agenten lesen, je ein zweiter versucht
+zu widerlegen). Fünfzehn Stellen, alle behoben. Die wichtigsten für dich: der
+Filter „Giftig" fragt jetzt die Art (Wacholder stand unter „Ungiftig"); zwei
+Stichworte an den vertraulichen Brett-Einträgen zeigten auf die Stelle der Lücke
+und sind entfernt; und im Audit-Protokoll zeigte der Satz „zusammen mit Fund 4
+ausliefern" auf den falschen Fund — gemeint ist edge-5, die Reihenfolge ist dort
+sicherheitsrelevant.
+
+**Auf GitHub:** die Prüfung an jedem Pull Request installiert jetzt zusätzlich
+ESLint (über `scripts/package.json` und das eingecheckte Lockfile, `npm ci`).
+Dafür ist nichts zu tun. `npm audit` meldet dazu zwei mittlere Lücken in
+`minimatch`, das ESLint mitbringt — es läuft nur in den Prüfständen, nie in der App.
 
 ## Und wenn etwas schiefgeht
 

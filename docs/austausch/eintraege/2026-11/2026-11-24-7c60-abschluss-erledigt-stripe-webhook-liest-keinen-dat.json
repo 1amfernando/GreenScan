@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-7c60",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "13:18:16",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.70",
+  "titel": "erledigt: stripe-webhook liest keinen Datenbankfehler: 200 und processed_at, auch wenn nichts verbucht wurde",
+  "ergebnis": "erledigt",
+  "wohin": "main v33.59 (Sicherheitsreparatur, ccr-5e705a36-jveaak) — hier eingemergt am 24.11.2026, NICHT ausgeliefert",
+  "geschwister": "gesucht im gemergten Baum: grep -c '.catch(' stripe-webhook/index.ts → 0 (vorher 6), pruefe( → 14 Stellen; die Klasse ‚admin.from() ohne Blick auf den Fehler‘ hält scripts/edge/70_reste.js (vorher 10, jetzt 0)",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-fe36"
+    }
+  ]
+}
