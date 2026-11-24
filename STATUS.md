@@ -12,6 +12,80 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (kj) - v33.81: Lina 12 — ein Teil ohne Subjekt hängt am Satz davor, und drei Fehlalarme aus (kg) sind weg
+
+**Auftrag:** Hold-out des Koordinators zu v33.79 (#353, bestanden mit Vermerk):
+- **Eine formale Regression:** „Die Herbstzeitlose ist aber ebenfalls essbar.“ blieb in Basis und (kg) still, getrennt an „aber“.
+- **Vier neue Fehlalarme von (kg):** „Geniess den Garten, die Narzissen blühen!“; „Geniess die Blüten des Fingerhuts im Garten.“;
+  „Nein, die Samen sind tödlich. Verzehr unbedingt vermeiden.“ auf eine Eibenbeeren-Frage; „Der Kerbel ist essbar, der Gefleckte
+  Schierling giftig.“
+- **Bedingungen:** Die Basis ist das Orakel: die Lina-Funktionen von `255665c`, wie `main` sie vor (kg) hatte. Jede Heuristik hat eine eigene Differenzprobe und eine eigene Gegenprobe.
+
+**Gebaut** (`_gsLinaSicherheit`, sechs Regeln; die Regeln der Basis und von (kg) bleiben):
+- **F:** Ein zustimmender Teil ohne eigenes Subjekt erbt die Arten des nächsten Teils davor, der eine Art nennt. Ein eigenes Subjekt
+  ist ein Nomen am Anfang des Teils, allein oder nach Artikel und Adjektiven, das kein Pflanzenteil ist; „Beeren“ ist einer,
+  „Himbeeren“ nicht. Ein Pronomen, Adverb oder Verb am Anfang heisst: Das Subjekt steht davor.
+- **K:** Ein Teil ohne Prädikat vor „und“ gehört zum Subjekt des nächsten Teils, wenn dessen erste Klausel zusagt
+  („Herbstzeitlose und Bärlauch sind essbar.“). Ein Giftwort zählt dabei nur unflektiert als Prädikat: „Giftiger Häubling“ ist ein Name.
+- **E:** „Verzehr … vermeiden/meiden/verzichten“ und „vom Verzehr … abgeraten“ zählen nicht als Zusage. Eine echte Zusage im selben
+  Teil bleibt eine („…, vermeide nur den Verzehr der Samen“).
+- **G:** eine vierte Form von B. „Geniess“ + Artikel + Erlebnis (Garten, Anblick, Aussicht, Duft, Farben, Pracht, Spaziergang,
+  Ruhe) oder „die Blüten … im Garten/Beet/Balkon …“ ist kein Essen. Gelesen wird am ROHEN Text: Ein Bindestrich oder Buchstabe
+  danach heisst, das Wort gehört zu einem Namen („Herbst-Zeitlose“, „Garten-Wolfsmilch“). Es gilt nicht nach einer Präposition
+  und nicht mit „mit …“ danach, und wie B nur ohne Ess-Wort im Satz.
+- **C2:** Ein Gegensatz ohne Gegensatzwort wird wie C gelesen. Das gilt, wenn eine Komma-Klausel mit eigener Art zusagt und eine
+  andere eine Art unflektiert giftig nennt oder verneint („…, der Kerbel nicht.“). Fallen lässt C nur, was eine solche Klausel selbst nennt.
+- **N:** `nie` ist eine Verneinung nur als ganzes Wort. `nie\b` las „Rote Ross**kastanie**“, „Begonie“ und „Robinie“ als Verneinung,
+  und der Satz galt als verneint. Gemessen: 20 Namen, ein giftiger.
+
+Dazu im Fall „Lina 11“: „Rote Rosskastanie“ ist keine Ausnahme mehr; ihr Grund („eine harmlose Fassung geht vor“) war falsch.
+
+**Gemessen** (Orakel und Vorlagen im Zustand nach `gsAutoFillLookalikes`):
+
+| Messung | soll | Basis | (kg) | (kj) |
+|---|---|---|---|---|
+| Orakel, 6 Formen × 3'138 Namen: nur die Basis warnt | 0 | — | 0 | **0** |
+| … (kj) warnt neu gegenüber (kg) | — | — | — | 2: Rote Rosskastanie (giftig, N) · Efeu-Geranie (harmlos, warnt vor „Efeu“) |
+| F „N ist aber ebenfalls essbar.“ (und vier Abwandlungen), 312 giftige N | warnen | 1 | 1 | 311 |
+| K „N und Bärlauch sind essbar.“ / „Ja, N, Kerbel und Bärlauch …“ | warnen | 1 / 1 | 1 / 1 | 311 / 311 |
+| C2 „N kannst du essen, der Kerbel nicht.“ / „N ist essbar, der Kerbel giftig.“ | warnen | 0 / 295 | 0 / 310 | 311 / 311 |
+| G „Geniess N im Garten!“ · „… den Tag mit N!“ · „… die Blüten von N!“ | warnen | 296 | 311 | 312 |
+| E „Ja, die kannst du essen, vermeide nur den Verzehr der Samen.“ | warnen | 311 | 312 | 312 |
+| E „Nein, … Verzehr unbedingt vermeiden.“ / „Vom Verzehr wird dringend abgeraten.“ | still | 311 warnten | 312 | **0** (= E) |
+| G „Geniess den Garten, N blüht!“ · „… die Blüten von N im Garten.“ · „… den Duft von N.“ | still | 296 warnten | 311 | 36 (= Namen mit Ess-Wort, siehe unten) |
+| C2 „Der Kerbel ist essbar, N giftig.“ | still | 296 warnten | 311 | 2 (= C2) |
+
+Erläuterungen zur Tabelle:
+- **Die 36 bei G:** Namen mit einem Ess-Wort („…pilz“, „…beere“) und „Echter Speise-Schirmling“. G nimmt nie ein Ess-Wort weg; der Fall prüft beide Richtungen.
+- **Die 2 bei C2:** „Wüstenrose (kl.)“ (der Punkt der Abkürzung trennt den Satz) und „Echter Speise-Schirmling“ („Speise“ ist ein Zusage-Stamm). Beide sind schon in der Basis so.
+- **Harmlose Stichprobe (404 Namen):** In F/K/C2 warnen sechs neu. Fünf davon warnen in der Basis schon im direkten Satz: „Ja, Scharfer Hahnenfuss kannst du essen.“ → „Hahnenfuß“, ebenso Storchschnabel und Froschlöffel. F und K tragen das nur in den „aber“- und „und“-Satz. Der sechste ist Efeu-Geranie (N).
+- **Weggefallene Basis-Fehlalarme:** In den E/G/C2-Vorlagen fallen 23/5/5 Fehlalarme der Basis bei harmlosen Namen weg.
+- **Probesätze:** Alle 50 verhalten sich wie entworfen, darunter die fünf des Koordinators.
+
+**Ausnahmen an der Sicherheitslinie** („nur die Basis warnt“, jede gezählt und mit Grund):
+- **E:** eine verneinende Antwort mit „Verzehr vermeiden“.
+- **G:** ein Erlebnis-Objekt ohne Ess-Wort.
+- **C2:** eine Art, die nur in einer Klausel steht, die sie selbst giftig nennt oder verneint.
+
+In den sechs Formen des Orakels ist die Liste leer.
+
+**Prüfstand:** `sensor_check` „Lina 12 · Gift-Gegenprobe (kj)“ mit 29 Zusagen und 19 stillen Sätzen. Dazu je Regel eine Vorlage über alle 312 giftigen Namen; G prüft beide Richtungen. 16 Gegenproben sind einzeln rot, je mit dem erwarteten Satz:
+- F: F aus · ohne eigenes Subjekt · alle Teile davor · Pflanzenteil als Teilwort;
+- K: K aus · ohne „erste Klausel sagt zu“ · Giftwort flektiert;
+- E: E aus · E nimmt den ganzen Teil;
+- G: G aus · G am normalisierten Text · ohne „mit“-Sperre;
+- C2: C2 aus · Giftwort flektiert · nur mit giftiger Art;
+- N: N aus.
+
+**Lokal (TZ=UTC) auf dem Kopf v33.81:**
+- Stände: sensor 70/0 („Lina 12“ und alle älteren Lina-Fälle) · scan 150/0 (der Scan-Chat nutzt dieselbe Gegenprobe) · sicherheit (person, schluss, senken) 104/0 ·
+  nutzersicht 17/0 (E4b rendert die Release-Notiz) · robust 38/0 · speicher 29/0 · modell 23/0 · kalender 57/0 · statik 10/0 · datum 8/0 ·
+  austausch 17/0 · i18n und wiring grün.
+- Das Orakel auf genau diesem Kopf: Basis → Kopf „nur Basis“ 0; gegenüber (kg) neu: Rote Rosskastanie und Efeu-Geranie.
+
+**Offen:** brett:2026-11-24-5929 (der Ort in der Frage, als eigener kleiner Schritt).
+**Nicht geprüft:** echte KI-Antworten (gestellt); der Hold-out des Koordinators zu (kj); Umlaut-Mehrzahlen („Aronstäbe“); Namen nur in einer anderen Sprache; ein Teil ohne Subjekt über die SATZgrenze („… giftig. Aber sie ist essbar.“ — F wirkt nur im Satz).
+
 ### 2026-11-24 (kl) - v33.80: Prototypkette — der Wächter sieht auch Tabellen mit Unterstrich, und Linas Garten-Zeile zeigt keinen Funktionstext mehr
 
 **Auftrag:** Beim Bau von Suche 12 nachgezählt (Brett-Klasse 3cad). `_GS_SUG_CATLABEL[cat]` fiel durch BEIDE Lücken des Wächters
@@ -17651,9 +17725,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.80` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.79) · SW-Cache `gs-v33.80` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.81` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.80) · SW-Cache `gs-v33.81` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **103'680 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.80; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.56).
+- **Frontend:** `index.html` **103'729 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.81; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.56).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **48** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.72: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 48** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (jv). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

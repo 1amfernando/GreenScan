@@ -120,6 +120,12 @@ alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
    bleibt. Eine Warnung nehmen nur zwei enge Ausnahmen weg: ein Pflegesatz in drei
    Formen und ein Gegensatz-Satz, dessen zustimmender Teil eine ANDERE Art nennt.
    Das Mass ist ein Orakel über alle Namen der Liste: Was die Basis warnt, warnt weiter.
+   Seit v33.81 (Lina 12) haengt ein Teil ohne eigenes Subjekt an der Art des Teils davor
+   („… ist aber ebenfalls essbar."), eine Aufzaehlung vor „und" gehoert zum Subjekt, und
+   `nie` ist eine Verneinung nur als ganzes Wort (`nie\b` las „-kastanie" als „nie"). Drei
+   Ausnahmen kommen dazu: „Verzehr … vermeiden", „Geniess den Garten" (am ROHEN Text, sonst
+   wird „Herbst-Zeitlose" zu zwei Woertern) und ein Gegensatz ohne Gegensatzwort. Ein
+   Giftwort als Aussage ist unflektiert — „Giftiger Haeubling" ist ein Name.
 3. **Der Notfall kommt VOR dem Sende-Riegel** und nimmt die Antwort nicht weg.
 4. **Zahlen im Kontext sind Rohwerte aus einem Datensatz** — `sensor_check`
    „Lina" haelt jede Prozent-/Gradzahl gegen den Speicher. Eine Zahl, die in

@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.80.20261124">
+<meta name="app-version" content="33.81.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -80760,6 +80760,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.81', date: '24.11.2026',
+      headline: 'Lina warnt bei giftigen Pflanzen auch in Sätzen mit „aber“ und „und“ — und nicht mehr bei „Geniess den Garten“',
+      summary: 'Lina 12. Die Gift-Gegenprobe liest zusammen, was ein Satz an „aber“ oder „und“ trennt: „Die Herbstzeitlose ist aber ebenfalls essbar.“ und „Herbstzeitlose und Bärlauch sind essbar.“ warnen jetzt. Auch die Rote Rosskastanie warnt; ein Wort auf „-nie“ galt vorher als Verneinung. Still bleibt Lina bei Sätzen, die gar nichts zum Essen zusagen: „Verzehr unbedingt vermeiden.“, „Geniess den Garten, die Narzissen blühen!“ und „Der Kerbel ist essbar, der Gefleckte Schierling giftig.“ Gemessen über alle Namen der Artenliste: Was vorher gewarnt hat, warnt weiter, ausser in diesen drei benannten Fällen.',
+      user_summary: 'Lina warnt bei giftigen Pflanzen zuverlässiger — und seltener, wo gar nicht vom Essen die Rede ist.',
+      user_items: [
+        {emoji:'🌿', bold:'Lina warnt auch in langen Sätzen:', text:' etwa bei „Herbstzeitlose und Bärlauch sind essbar.“'},
+        {emoji:'🌸', bold:'Kein Fehlalarm bei Gartentipps:', text:' „Geniess den Garten“ ist kein Essenstipp.'},
+      ]
+  },
+  {
     v: 'v33.80', date: '24.11.2026',
       headline: 'Pflanze anlegen: „grüner tä…“ schlägt nicht mehr den Grünen Knollenblätterpilz vor',
       summary: 'Suche 12. Bei mehreren Wörtern zählt ein Stück unter vier Zeichen nur noch am Wortanfang. Vorher schlug „grüner tä“ (wer den Grünen Täubling anlegt) den tödlich giftigen Grünen Knollenblätterpilz vor, weil „ta“ mitten in seinem lateinischen Namen steht, und „lila lac“ den giftigen Lila Risspilz statt nur den Lila Lacktrichterling. Gemessen über alle Namen der Artenliste aus mehreren Wörtern, getippt wie von Hand: jede Art bleibt bei ihren eigenen Tipp-Schritten vorgeschlagen, falsche Vorschläge mitten aus einem Wort fallen weg. Dazu nehmen Linas Garten-Zeile, das Tagebuch und der Tagesplan aus ihren festen Tabellen nur noch echte Einträge: ein Garten mit einem unsinnigen Lichtwert zeigte vorher Programmtext.',
@@ -81063,39 +81073,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'Prüfstand:', text:' backup_check, Fälle W1–W7 mit gestelltem Server; gegen v33.61 rot.'}
       ]
   },
-  {
-    v: 'v33.61', date: '16.11.2026',
-      headline: 'Suche, Scanner und Lina: „Essbar“ gilt überall gleich, Tippfehler werden verziehen — und nichts geht mehr verloren',
-      summary: 'Die Pakete der Sitzung für die vier Hauptfunktionen (Home, Scanner, Suche, Lina), alles gemessen, jede Reparatur mit einem Prüffall, der gegen den Stand davor rot ist. Sicherheit: (1) Die Filter „Essbar“, „Giftig“ und „Ungiftig“ lasen den einzelnen Eintrag statt der Art und kannten das Kennzeichen „nicht geprüft“ nicht: 167 Einträge standen unter „Essbar“, deren Karte in derselben Liste kein „Essbar“ trug, und 1’476 unter „Ungiftig“, die meisten davon ungeprüfte Einlese-Einträge ohne jede Giftangabe. gsIstEssbar und _gsPassCat fragen jetzt die Art (_gsArtAnzeige); die Startkachel „Essbar“ zählt damit 1’062 statt 1’228. (2) _gsArtAnzeige übernahm „essbar“ von der Art auch dann, wenn nur die Giftstufe höher war — 14 Einträge mit eigenem „nicht essbar“ standen als essbar da. (3) Die Menü-Einträge „Giftige Pflanzen“, „Essbare Pflanzen“ und „Heilpflanzen“ tippten das Wort in die Volltextsuche; „giftig“ traf 222 essbare Arten. Sie setzen jetzt den Filter. (4) Die Trefferliste setzte Namen und lateinische Namen roh ein, auch die aus der Community. (5) Die Notfall-Erkennung kannte kein Spanisch: 0 von 8 Sätzen. (6) Der Scan-Chat hatte weder die Notfall-Erkennung noch die Gegenprobe gegen eine falsche Essbar-Zusage. Suche: (7) Ein Vertipper findet die Art („bärlauhc“, „brenessel“, „taraxacun“), auch wenn irgendwo ein Volltext-Treffer lag; mehrere Wörter werden einzeln gesucht; ein Synonym gilt ab dem Wortanfang; die Markierung faltet Umlaute; Statuszeile und Leerzustand nennen den Filter beim Namen und bieten „Ohne Filter suchen“. Kategorie, Eigenschaft und Suchwort gelten jetzt zusammen: „Pilze“ und „Giftig“ standen beide markiert da, gefiltert wurde nur nach dem zuletzt getippten (675 Treffer statt 192 giftiger Pilze); jeder Filterknopf löschte das Suchwort; das ✕ im Suchfeld nahm den Filter weg und liess seinen Knopf markiert; und die fünf Kategorie-Einträge im Menü („Pilze“, „Bäume“ …) warfen einen Fehler, bevor die Liste neu gezeichnet war. „Mehr laden“ baute die zweite Seite mit eigenem Code: ohne Markierung des Suchworts und mit einem Giftrand von einem statt drei Pixeln — jetzt baut eine Funktion die Karten beider Seiten. Lina: (8) **fett** stand als Sternchen da; was während „Lina denkt nach…“ getippt wurde, ging verloren; antwortete die KI bei Netz nicht, stand nur „versuch es nochmal“ — jetzt darunter, was die App-Liste ohne KI weiss, und „Nochmal senden“; ein Weg (Kalender, Suche, Bereich) schloss Lina 140 ms nach der Antwort, jetzt ist er ein Knopf unter der Antwort. (9) Eine Erinnerung für eine Garten-Pflanzung meldete „eingerichtet“ und schrieb nichts; beide Schreibwege prüfen jetzt, ob gespeichert wurde. Lina lud nur das neueste Gespräch: nach „＋ Neu“ war das bisherige in der App nicht mehr erreichbar, obwohl es gespeichert war — jetzt listet „🕘 Verlauf“ die letzten zwanzig. Stand nach Linas Aktionszeile noch ein Satz, erschien „[[GS_ACTION]]{…}“ roh in der Antwort; jetzt wird sie gelesen, wo immer sie steht, und eine unvollständige wird gesagt statt still übergangen. Scanner: (10) „Alternative wählen“ legte nach zehn Sekunden einen zweiten Scan an (Verlauf und Cloud), der falsche blieb stehen, die Sicherheit der gewählten Art wurde auf 60 % gehoben, und die Karte zeigte die Merkmale der verworfenen Art; jetzt zeichnet der Wechsel dieselbe Aufnahme neu (kein zweiter Scan, kein zweiter Upload), der Verlaufseintrag wird umbenannt und merkt sich den Namen der KI, und die Karte sagt „Von dir gewählt“. Eine Korrektur ändert jetzt auch Karte und Verlauf, und das Feld schlägt Arten aus der Liste vor. (11) Die Fehlerkarte zeigte die Rohantwort der KI, englische Anbietertexte und für jede Person den Modellnamen; jetzt ganze Sätze, Rohtext und Modell nur für Admins, und „In einer Minute nochmal“ zählt sichtbar herunter. (12) Der Scan-Verlauf ordnete einen Scan mit einem Namensvergleich der Artenliste zu: 189 deutsche Namen stehen für mehrere Arten, „In Datenbank öffnen“ nahm den ersten Eintrag der Datei — in 11 Fällen eine ungiftige Art statt der gescannten giftigen (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0). Das Galerie-Detail zeigte „Essbar“ und die Giftstufe aus dem gespeicherten Scan, auch für eine Art, die die Liste als tödlich führt, und das Wort zur Trefferquote hatte im Verlauf eine eigene Tabelle (60 %: „Unsicher“ statt „Möglich“ wie auf der Karte). Jetzt derselbe Weg wie die Ergebniskarte (gsMatchScanToDb, _gsArtAnzeige, _gsKonfidenzStufe), und ein Scan ohne Treffer verspricht keinen Vorschlag mehr, den niemand nachgesehen hat. Die Vorschau im Verlauf und das Foto für „Zu meinen Pflanzen“ wurden aus dem laufenden Kamerabild gezeichnet — das zu diesem Zeitpunkt schon gestoppt war: die Vorschau blieb leer, und jede aus einem Scan angelegte Pflanze hatte kein Foto. Jetzt kommen beide aus dem gescannten Foto selbst. (12b) Der Chat zum Scan leerte sein Gespräch bei jedem Öffnen — wer zur Ergebniskarte zurückging und wieder fragte, stand vor einem leeren Chat, und die KI kannte die erste Frage nicht mehr. Er antwortete fest auf Deutsch, auch in einer anderen App-Sprache, und sein erster Satz nannte die Trefferquote „Sicherheit: 85 %“. Jetzt bleibt das Gespräch, solange es um denselben Scan geht, die KI antwortet in der App-Sprache (dieselbe Regel wie Lina), der erste Satz nennt das Wort der Ergebniskarte, und „Mit Lina weiterreden“ öffnet Lina mit Art und letzter Frage im Feld — abgeschickt wird erst von dir. Startseite: (13) Der Saison-Tipp „Jetzt sammeln“ fand „April–Juni“ im Mai nicht und in jeder anderen App-Sprache gar nichts — und diese Rechnung stand gar nicht auf dem Bildschirm: gsInitSmartSeasonTip hatte in der App keinen Aufrufer, nur die Prüfstände riefen sie direkt. Auf der Startseite stand eine zweite Rechnung aus den Gartenkulturen (im März „Paprika“, eine Voranzucht, unter „Jetzt sammeln“, im Herbst Pilze wie der Hallimasch), und online schrieb der Server-Lader 300 ms später einen zufälligen „Wusstest du?“-Eintrag hinein (v_today_tip liest did_you_know_facts: Alpendohlen, giftige Alpenpflanzen); das Antippen öffnete die Saisonansicht. Jetzt hat die Karte einen Schreiber, und das Antippen öffnet die Art, die dasteht. Beim Verdrahten gemessen: die Rechnung hätte an 158 von 372 Tagen einen Pilz und an 104 Tagen eine Art mit giftigem oder tödlichem Doppelgänger zum Sammeln empfohlen (Samtfussrübling — Gifthäubling). „Jetzt sammeln“ nimmt deshalb nur Arten ohne Pilz, ohne Gift-Warnung und ohne Doppelgänger, den die Liste als giftig führt — an jedem Tag des Jahres bleibt ein Tipp. (14) Die Wetterkarte hatte zwei Schreiber: beim Start „Bedeckt · Ort“, aus dem Zwischenspeicher ein Gartentipp mit eigener Frostregel, eigener Symboltabelle und anderem Format — was dastand, hing davon ab, wer zuletzt lief. Die Sturmwarnung „in den nächsten 1-2h“ las die Stunden 00 bis 02 Uhr des Tages (Open-Meteo zählt ab Mitternacht): ein Gewitter um Mitternacht meldete sich am Morgen, samt Push-Meldung, eines in der nächsten Stunde gar nicht. Jetzt schreibt ein Renderer die Karte für beide Wege; das Unwetter kommt aus den Stunden ab jetzt, Frost, Hitze und Wind aus denselben Schwellen wie der Kalender (GS_WETTER_GRENZEN). (14b) „Wusstest du?“ lud vom Server nur die ersten 30 von 192 Fakten, und 10 davon gehören zu einer bestimmten Kalenderwoche — sie standen in jeder Woche da; escaped wurde nur „<“. Jetzt alle aktiven (diese Woche 152), ein Wochenfakt nur in seiner ISO-Woche (wie die Datenbank sie zählt), Fremdtext ganz escaped. (14c) Ein Gartenplan, dessen Jahr vorbei ist, sagte das nur auf seiner Kachel in „Meine Pläne“ — seit ein Plan seine Termine in den Kalender legt (v33.10), legt einer vom letzten Jahr keinen mehr hin, und die Startseite sagte nicht, warum. Jetzt steht es im Tagesplan, wenn alle Pläne aus einem vergangenen Jahr sind (ein dieses Jahr angelegter Plan ohne Datum zählt als aktuell), mit dem Weg zu „Meine Pläne“ und „für dieses Jahr ausblenden“. Dabei gemessen: drei Stellen rechneten das Plan-Jahr je selbst, und eine Pflanze mit „sow_date: null“ machte aus dem Plan einen Plan von 1970 (Kachel „Plan-Jahr 1970 vorbei“, Vorlage „1971“) — jetzt eine Regel (_gsPlanJahr) mit dem Datumsleser des Planers. (15) Die Kartenreihe unter dem Tagesplan drehte alle 8 s, ohne dass man sie anhalten konnte, auch während der Fokus in ihr stand, und die Bauernregel war als Folie erzwungen: ohne Daten drehte die Reihe auf eine leere Fläche, mit eigenem Punkt. Jetzt ist eine Karte ohne Inhalt keine Folie (ein Beobachter je Karte hält Folien und Punkte nach), ein Pause-Knopf hält die Reihe an und wird gemerkt, und bei Fokus oder Mauszeiger auf der Reihe dreht sie nicht. (15b) Die Suche im Menü hatte einen eigenen Artenteil: ohne Umlaute („barlauch“ fand den Bärlauch nicht), ohne Rangfolge, ohne Vertipper und ohne jede Giftmarkierung — der Wasserschierling stand dort ohne Angabe. Dazu filterte sie je Tastendruck für jeden der 51 Menüeinträge die ganze Artenliste und warf das Ergebnis weg. Jetzt nimmt sie die Rangfolge der Artensuche (_gsSucheRang), und eine giftige Art trägt „Giftig“ wie in der Trefferliste. (16c) Lina leerte beim Öffnen ihr Gespräch und fragte nur die Cloud: offline stand sie danach leer da, und ein Gespräch, das „nur lokal geführt“ wurde, war beim nächsten Öffnen weg — an seiner Stelle erschien ein älteres aus der Cloud. Jetzt spiegelt das Gerät das laufende Gespräch, und das neuere gewinnt. (16b) Während Lina auf die KI wartet, steht jetzt seit wann („· 12 s“) — vorher dieselbe Zeile nach 2 und nach 90 Sekunden. (16) Linas Vorschläge standen fest — „Welche Pflanzen blühen im April?“ in jedem Monat — und waren in keiner Sprache übersetzbar: ihre Schlüssel standen nicht in der Übersetzungstabelle, übersetzt wurden sie nur über die Knöpfe des alten Chat-Bildschirms, und der ist seit v33.31 weg. Jetzt kommen sie aus dem, was gerade ist: heute Fälliges, der letzte Scan, der laufende Monat; die festen stehen in der Tabelle, und i18n_check kennt die Liste. (16d) Eine gegnerische Prüfung der Pakete fand sechs Fehler, alle nachgemessen und behoben. Eine Lina-Antwort, die nach dem Abmelden ankam, öffnete Lina wieder und legte das Gespräch auf dem Gerät ab — die nächste Person sah es; eine Scan-Antwort, die nach dem Abmelden ankam, wurde sogar unter dem Konto gespeichert, das dann angemeldet war. Jetzt gehört eine Antwort der Person, die gefragt hat, und das Abmelden räumt Lina, das letzte Scan-Ergebnis, sein Foto und den Scan-Chat. Linas Gesprächskopie gewann ab dem zweiten Öffnen gegen das vollständige Gespräch in der Cloud (40 statt 60 Nachrichten) und verdrängte ein neueres Gespräch eines anderen Geräts. „Jetzt sammeln“ empfahl an vier Tagen im Jahr Petersilie, deren Doppelgänger laut Liste der Schierling ist, und an zwei Tagen den Lärchen-Röhrling — einen Pilz, den die Liste als Baum führt. Die Menü-Suche stellte bei einem Leerzeichen am Ende einen Pilz vor den Giersch und zeigt bei einem Menüwort keine Arten mehr über Vertipper oder Beschreibungen („wetter“ → Fetter Gänsefuss). Die Kartenreihe stellte die zuletzt gezeigte Karte nur noch für die erste wieder her; der Saison-Tipp füllt sich auch, wenn die Artenliste spät kommt; „Wusstest du?“ lädt einmal am Tag, und sein Deckel steht in der Fristenliste. Der Scan-Chat übergab eine Modell-Rolle, die auf diesem Stand niemand liest — sie ist wieder heraus. Lina und Scanner bauten zwei Untersitzungen. Prüfstände: scan_check +39 (D1j, F1, F2, SC1–SC3, SU1–SU8, HS1–HS4, HW1, HW2, HK1, HK2, HF1, HP1, SV1–SV3, SB1; Scanner-Untersitzung H1–H3d, H5, H5b, H7), sensor_check +12 (Lina L1–L11, T3), speicher_check +2, escape_check +1.',
-      user_summary: '„Essbar“ und „Ungiftig“ bedeuten jetzt überall dasselbe wie auf der Karte einer Art. Die Suche findet auch mit Tippfehlern, Lina verliert nichts mehr und hilft auch dann weiter, wenn die KI gerade nicht antwortet, und im Scanner ändert eine gewählte Alternative die Bestimmung, statt einen zweiten Scan anzulegen.',
-      user_items: [
-        {emoji:'✅', bold:'Filter „Essbar“ und „Ungiftig“:', text:' sie zeigen nur noch Arten, bei denen die Angabe geprüft ist. Bisher standen dort auch Einträge, die noch niemand kontrolliert hat.'},
-        {emoji:'☠️', bold:'„Giftige Pflanzen“ im Menü:', text:' der Eintrag öffnet jetzt die Liste der giftigen Arten. Vorher suchte er nur nach dem Wort und zeigte auch essbare Pflanzen.'},
-        {emoji:'🔍', bold:'Die Suche verzeiht Tippfehler:', text:' „bärlauhc“ findet den Bärlauch, mehrere Wörter werden einzeln gesucht, und findet die Suche mit einem Filter nichts, kannst du ohne Filter weitersuchen.'},
-        {emoji:'🧭', bold:'Suche im Menü:', text:' sie findet Arten jetzt wie die Artensuche — auch mit Umlauten und Tippfehlern —, und eine giftige Art ist dort als „Giftig“ markiert.'},
-        {emoji:'🍄', bold:'Filter kombinieren:', text:' „Pilze“ und „Giftig“ zusammen zeigen jetzt die giftigen Pilze. Ein Filter löscht dein Suchwort nicht mehr, und „Pilze“ im Menü öffnet die Pilze wirklich.'},
-        {emoji:'💬', bold:'Chat zum Scan-Ergebnis:', text:' nennt eine Antwort eine giftige Art essbar, steht eine Warnung darüber. Schreibst du von einem Notfall, kommt sofort die Nummer von Tox Info Suisse.'},
-        {emoji:'🆘', bold:'Notfall auf Spanisch:', text:' Lina und der Scan-Chat erkennen jetzt auch spanische Sätze wie „mi hija ha comido bayas“.'},
-        {emoji:'🌿', bold:'Lina:', text:' was du während des Wartens tippst, bleibt stehen. Antwortet die KI gerade nicht, sagt Lina, was die App-Liste weiss, und du kannst die Frage nochmal senden. Einen Weg in der App zeigt sie als Knopf, statt sich zu schliessen.'},
-        {emoji:'📴', bold:'Lina ohne Netz:', text:' dein Gespräch bleibt stehen, wenn du Lina offline schliesst und wieder öffnest.'},
-        {emoji:'⏱️', bold:'Lina denkt nach:', text:' beim Warten auf die Antwort siehst du jetzt, seit wie vielen Sekunden.'},
-        {emoji:'💡', bold:'Linas Vorschläge:', text:' sie passen zum Tag — was heute bei deinen Pflanzen ansteht, dein letzter Scan, was in diesem Monat blüht — und erscheinen in deiner App-Sprache.'},
-        {emoji:'⏰', bold:'Erinnerungen über Lina:', text:' eine Erinnerung für eine Pflanze im Garten wird jetzt wirklich gespeichert — vorher stand „eingerichtet“ da, und es war nichts geschehen.'},
-        {emoji:'🕘', bold:'Frühere Gespräche mit Lina:', text:' unter „Verlauf“ findest du deine letzten zwanzig Gespräche wieder. Bisher war ein Gespräch nach „＋ Neu“ in der App nicht mehr zu erreichen.'},
-        {emoji:'👆', bold:'Scanner — eine andere Art wählen:', text:' die Bestimmung wird geändert, statt einen zweiten Scan anzulegen, und die Karte zeigt nichts mehr von der verworfenen Art. Dasselbe gilt für eine Korrektur — dort schlägt das Feld jetzt passende Arten vor.'},
-        {emoji:'💡', bold:'Scanner — wenn etwas schiefgeht:', text:' die Fehlerkarte sagt in einem Satz, was los ist, statt technischer Meldungen, und „In einer Minute nochmal“ zählt sichtbar herunter.'},
-        {emoji:'📜', bold:'Scan-Verlauf:', text:' er zeigt jetzt dieselbe Art und dieselben Sicherheitsangaben wie das Scan-Ergebnis. Vorher konnte „In Datenbank öffnen“ bei einem Namen, den mehrere Arten tragen, eine andere, harmlosere Art öffnen.'},
-        {emoji:'💬', bold:'Fragen zum Scan:', text:' das Gespräch bleibt stehen, wenn du zwischendurch zum Ergebnis zurückgehst, die Antworten kommen in deiner App-Sprache, und mit „Mit Lina weiterreden“ nimmst du die Frage zu Lina mit.'},
-        {emoji:'🖼️', bold:'Dein Scan-Foto:', text:' es steht jetzt als Vorschau im Verlauf und wird mitgenommen, wenn du die Pflanze zu „Meine Pflanzen“ hinzufügst. Bisher blieb beides leer.'},
-        {emoji:'🌱', bold:'Saison-Tipp auf der Startseite:', text:' er zeigt jetzt eine Pflanze aus der Artenliste, die gerade Saison hat und sich ohne gefährliche Verwechslung sammeln lässt, und öffnet beim Antippen genau diese Art. Pilze stehen dort nicht mehr — für sie gibt es die eigene Pilzkarte. Bisher konnte dort auch eine Aussaat wie „Paprika“ im März oder ein beliebiger Naturfakt stehen.'},
-        {emoji:'⏸️', bold:'Kartenreihe auf der Startseite:', text:' sie lässt sich mit dem Knopf neben den Punkten anhalten und bleibt angehalten. Leere Karten erscheinen nicht mehr, und während du eine Karte antippst oder mit der Tastatur darin bist, dreht sie nicht weiter.'},
-        {emoji:'🌦️', bold:'Wetter auf der Startseite:', text:' die Karte zeigt immer dasselbe — das Wetter und den Ort, darunter eine Frost-, Hitze- oder Unwetterwarnung. Eine Gewitterwarnung gilt jetzt wirklich für die nächsten Stunden; vorher konnte sie sich auf die vergangene Nacht beziehen.'},
-        {emoji:'🔒', bold:'Abmelden:', text:' was du Lina gefragt oder zuletzt gescannt hast, bleibt nach dem Abmelden nicht auf dem Gerät — auch nicht, wenn die Antwort erst danach ankommt. Die nächste Person am Gerät sieht nichts davon.'},
-        {emoji:'🌿', bold:'„Jetzt sammeln“:', text:' Petersilie (Verwechslung mit dem Schierling) und ein Pilz, der in der Artenliste falsch abgelegt war, werden nicht mehr zum Sammeln empfohlen.'},
-        {emoji:'⏳', bold:'Gartenplan auf der Startseite:', text:' sind alle deine Gartenpläne aus einem vergangenen Jahr, sagt es jetzt der Tagesplan und führt zu „Meine Pläne“, wo du einen als Vorlage übernehmen kannst. Mit ✕ blendest du den Hinweis für dieses Jahr aus.'},
-        {emoji:'🔢', bold:'Startseite:', text:' die Zahl unter „Essbar“ ist kleiner geworden — sie zählt nur noch geprüfte Arten.'}
-      ],
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81306,7 +81283,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.80';
+var GS_VERSION = 'v33.81';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -92276,7 +92253,9 @@ function _gsLinaSicherheit(antwort, treffer) {
     var STAMM = /essbar|geniess|verzehr|speisepilz|speise|bedenkenlos|unbedenklich|comestib|commestib|\bedib/;
     var VERZEHR = /\bessen\b|\bisst\b|\bkochen\b|\broh\b|\bmanger\b|\bmange\b|\bconsommer\b|\bmangiare\b|\bmangia\b|\beat\b|\beating\b|\bcook\b/;
     var JA_DAVOR = /\bja\b|\bkannst\b|\bkann man\b|\bkoennen\b|\bdarfst\b|\bdarf man\b|\beignet sich\b|\boui\b|\bpouvez\b|\bpeut\b|\bsi\b|\bpuo\b|\byes\b|\bcan\b|\bsafe\b/;
-    var NEIN = /nicht|kein|niemals|nie\b|auf keinen fall|ungeniess|unbedingt meiden|finger weg|\bpas\b|\bjamais\b|\bnon\b|\bmai\b|\bnot\b|\bnever\b|\bdon t\b|\bdo not\b|\bavoid\b/;
+    // N (kj): „nie“ als ganzes Wort — `nie\b` traf jedes Wort auf „-nie“ („Rote Rosskastanie“, „Glyzinie“): der Satz galt
+    // als verneint, und die Zusage blieb ohne Warnung (Basis wie (kg); gemessen 24.11.2026: 20 Namen, 1 giftiger)
+    var NEIN = /nicht|kein|niemals|\bnie\b|auf keinen fall|ungeniess|unbedingt meiden|finger weg|\bpas\b|\bjamais\b|\bnon\b|\bmai\b|\bnot\b|\bnever\b|\bdon t\b|\bdo not\b|\bavoid\b/;
 
     // (kg) Lina 11 neu (24.11.2026): Die Regeln der Basis (255665c, oben) bleiben, wie sie sind. Was dazukommt, ist einzeln gegen die
     // Basis gemessen — Orakel über ALLE Namen der Artenliste, sensor_check „Lina 11". Nichts, was die Basis warnt, wird still,
@@ -92303,6 +92282,15 @@ function _gsLinaSicherheit(antwort, treffer) {
     // — das ist für sie unbedenklich“); „Das ist unbedenklich, auch beim Umtopfen.“ auf eine Essfrage bleibt eine Zusage
     var PFLEGE_SUBJEKT = /\b(?:dünger|duenger|kaffeesatz|wasser|kalk|mulch|kompost|substrat|erde|blumenerde|schnitt|rückschnitt|rueckschnitt|halbschatten|schatten|sonne|morgensonne|licht)\b.*\b(?:ist|sind)\b.*\b(?:unbedenklich|bedenkenlos)|\b(?:giess|gegossen|düng|dueng|umtopf|dünger|duenger|kaffeesatz|wasser|kalk|mulch|kompost|substrat|erde|schnitt|rückschnitt|rueckschnitt|schatten|sonne|licht)\w*\b.*\b(?:das|dies)\b (?:ist|sind)\b.*\b(?:unbedenklich|bedenkenlos)/;
     var PFLEGE_GENIESST = /geniess\w* (?:\S+ ){0,2}(?:morgensonne|abendsonne|mittagssonne|sonne|halbschatten|schatten|licht|wärme|waerme|feuchtigkeit|regen)\b|\bgiess\w*\b.*\bgeniess/;
+    // G (kj): das Erlebnis ist das OBJEKT von „geniess“ — mit Artikel davor („Geniess den Garten“, „Geniess die Blüten … im
+    // Garten“), ohne Präposition dazwischen („Geniess Tollkirschen im Garten“ meint die Tollkirschen), ohne „mit …“ danach
+    // („Geniess den Garten mit seinen Tollkirschen“) — und am ROHEN Text: `_gsLinaNorm` macht aus „Herbst-Zeitlose“ und
+    // „Garten-Wolfsmilch“ zwei Wörter; ein Bindestrich oder ein Buchstabe direkt danach heisst: das Wort ist Teil eines Namens.
+    var GENIESS_ART = '(?:den|die|das|dem|der|deinen|deine|dein|deinem|euren|eure|euer|unseren|unsere|unser|einen|eine|ein|diesen|diese|dieses|diesem)';
+    var GENIESS_LUECKE = '(?:(?!(?:im|in|am|an|auf|bei|unter|vor|neben|zwischen|hinter|über|ueber|aus|von|vom|mit|nach|zu|zum|zur)\\s)\\S+\\s+){0,2}';
+    var GENIESS_ENDE = '(?![\\p{L}\\p{N}-])(?![^.!?]*\\smit\\s)';
+    var GENIESS_ERLEBNIS = new RegExp('geniess\\S*\\s+' + GENIESS_ART + '\\s+' + GENIESS_LUECKE + '(?:garten|gärten|gaerten|anblick|aussicht|duft|düfte|duefte|farben|farbenpracht|blütenpracht|bluetenpracht|pracht|spaziergang|ruhe)' + GENIESS_ENDE, 'iu');
+    var GENIESS_BLUETE_ORT = new RegExp('geniess\\S*\\s+' + GENIESS_ART + '\\s+' + GENIESS_LUECKE + '(?:blüten?|blueten?)' + GENIESS_ENDE + '[^.!?]*\\s(?:im|in|auf|am)\\s+(?:\\S+\\s+)?(?:garten|beet|balkon|park|wald|topf|kübel|kuebel|terrasse|wiese)(?![\\p{L}\\p{N}-])', 'iu');
     var ESSWORT = /\bess|\bisst\b|gegessen|\bnasch|verspeis|\bkost|probier|schmeck|lecker|\bkoch|gekocht|\bbrat|\bback|\broh\b|salat|\btee\b|suppe|\bsaft|marmelade|gelee|sirup|würz|wuerz|\bmund|magen|schluck|\bkau|frucht|früchte|fruechte|beere|pilz|samen|knolle|\beat|\bcook|\bmang|cuisin|cucin|\bfood/;
     var KONTRAST = /\bdagegen\b|\bhingegen\b|\bjedoch\b|\bwährend\b|\bwaehrend\b|\bwohingegen\b|\bpar contre\b|\btandis que\b|\balors que\b|\binvece\b|\bmentre\b|\bwhereas\b|\bwhile\b|\bwhilst\b/;
     var GIFTWORT = /giftig|tödlich|toedlich|toxisch|gefährlich|gefaehrlich|poison|toxic|deadly|velenos|tossic|mortel|mortal|toxique|vénéneu|veneneu/;
@@ -92320,25 +92308,85 @@ function _gsLinaSicherheit(antwort, treffer) {
       if (STARK.test(n) || (VERZEHR.test(n) && JA_DAVOR.test(n)) || !SCHWACH.test(n) || ESSWORT.test(n) || (satzN && ESSWORT.test(satzN))) return false;
       if (PFLEGE_BEDENKENLOS.test(n) || PFLEGE_GENIESST.test(n)) return true;
       // „unbedenklich" nur mit einem Pflegemittel (oder „das") als Satzgegenstand — „Sie ist unbedenklich" meint die Pflanze
+      if (GENIESS_ERLEBNIS.test(String(roh || '')) || GENIESS_BLUETE_ORT.test(String(roh || ''))) return true;   // G (kj), am rohen Text
       return PFLEGE_MITTEL.test(n) && PFLEGE_SUBJEKT.test(n) && !nenntArt(roh);
+    };
+    // (kj) Lina 12 (24.11.2026, Hold-out des Koordinators zu (kg)): fünf Regeln, jede einzeln gegen die Basis gemessen
+    // (Orakel über alle Namen, Vorlagen je giftigem Namen, sensor_check „Lina 12"):
+    //  F · Ein zustimmender Teil ohne eigenes Subjekt hängt am Teil davor. „Die Herbstzeitlose ist aber ebenfalls essbar." wurde
+    //      an „aber" getrennt, und „ebenfalls essbar" nannte keine Art — Basis und (kg) blieben still. Ein solcher Teil erbt die
+    //      Arten des NÄCHSTEN vorangehenden Teils, der eine Art nennt; ein Teil mit eigenem Subjekt („aber Nudeln sind essbar")
+    //      erbt nichts, ein Pflanzenteil („aber die Beeren sind essbar") oder ein Pronomen („aber sie ist essbar") schon.
+    //  K · Ein Teil ohne eigenes Prädikat vor „und" gehört zum Subjekt des nächsten: „Herbstzeitlose und Bärlauch sind essbar."
+    //  E · „Verzehr … vermeiden" ist keine Zusage („Nein, die Samen sind tödlich. Verzehr unbedingt vermeiden."); die Basis
+    //      kannte „unbedingt meiden", nicht „vermeiden". Eine echte Zusage im selben Teil („…, vermeide nur den Verzehr der
+    //      Kerne") bleibt eine.
+    //  G · „Geniess den Garten" und „Geniess die Blüten … im Garten" sind kein Essen — eine vierte Form von B, nur ohne Ess-Wort.
+    //  C2 · Ein Gegensatz OHNE Gegensatzwort („Der Kerbel ist essbar, der Gefleckte Schierling giftig.") wird wie C gelesen —
+    //      nur wenn eine Komma-Klausel mit eigener Art zusagt und eine andere eine Art giftig nennt.
+    var VERZEHR_MEIDEN = /(?:^| )(?:verzehr\S*(?: \S+){0,3} (?:vermeid|meid|verzicht|unterlass|vermied)\S*|(?:vermeid|meid|verzicht|unterlass|vermied)\S*(?: \S+){0,3} verzehr\S*|(?:vom|von) verzehr\S*(?: \S+){0,3} (?:abgeraten|abraten|abzuraten)\S*)/g;
+    var bejahtE = function (n) { return bejahtIn(String(n || '').replace(VERZEHR_MEIDEN, ' ')); };   // E
+    var ARTIKEL = /^(?:der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines|kein|keine|keinen|keinem|keiner|diese|dieser|dieses|diesen|jene|jener|jenes|manche|viele|einige|alle|beide|solche)$/;
+    var BINDE = /^(?:aber|und|doch|jedoch|dagegen|hingegen|auch|dafür|dafuer|sondern|oder|mais|ma|but|and|et|e)$/;
+    // ein Pflanzenteil ist das GANZE Nomen — „Himbeeren“ ist eine andere Pflanze, keine Beeren der genannten
+    var PFLANZENTEIL = /^(?:blatt|blätter|blaetter|beere|beeren|frucht|früchte|fruechte|fruchtfleisch|fleisch|samen|same|samenmantel|kern|kerne|knolle|knollen|wurzel|wurzeln|blüte|blüten|bluete|blueten|stängel|staengel|stengel|stiel|stiele|rinde|schale|schalen|zwiebel|zwiebeln|spross|sprosse|sprossen|trieb|triebe|hut|hüte|huete|lamelle|lamellen|nadel|nadeln|zweig|zweige|holz|saft|knospe|knospen|kraut|pflanze|pflanzen|pilz|pilze|teil|teile)$/;
+    // F: ein eigenes Subjekt steht am Anfang des Teils — ein Nomen (gross geschrieben), allein oder nach Artikel und Adjektiven,
+    // das kein Pflanzenteil ist; ein Pronomen, ein Adverb oder ein Verb am Anfang heisst: das Subjekt steht im Teil davor
+    var eigenesSubjekt = function (teilRoh) {
+      var w = String(teilRoh || '').split(/\s+/).map(function (x) { return x.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}-]+$/gu, ''); }).filter(Boolean), k = 0;
+      while (k < w.length && BINDE.test(w[k].toLowerCase())) k++;
+      if (k < w.length && ARTIKEL.test(w[k].toLowerCase())) { k++; while (k < w.length && /^\p{Ll}/u.test(w[k])) k++; }
+      var kopf = w[k] || '';
+      return /^\p{Lu}/u.test(kopf) && !PFLANZENTEIL.test(kopf.toLowerCase());
+    };
+    // ein Giftwort als AUSSAGE steht unflektiert am Wortende („… giftig“, „hochgiftig“, „lebensgefährlich“); „Giftiger Häubling“,
+    // „Giftiger Wasserschierling“ ist ein NAME — für K (kein Prädikat davor) und C2 (die giftige Klausel)
+    var PRAED_GIFT = /(?:^| )\S*(?:giftig|tödlich|toedlich|toxisch|gefährlich|gefaehrlich|poisonous|toxic|deadly)(?= |$)/;
+    var geerbt = function (teile, j) {
+      var x = [];
+      if (j < 1) return x;
+      var tj = teile[j];
+      // F
+      if (!nenntArt(tj) && !eigenesSubjekt(tj)) {
+        for (var v = j - 1; v >= 0; v--) { if (nenntArt(teile[v])) { x = x.concat(genanntIn(teile[v])); break; } }
+      }
+      // K: nur wenn die erste Klausel dieses Teils selbst zusagt (dort steht das Prädikat der Aufzählung)
+      var erste = _gsLinaNorm(tj.split(/,+/)[0] || '');
+      if (erste && !NEIN.test(erste) && bejahtE(erste)) {
+        for (var u = j - 1; u >= 0; u--) {
+          var un = _gsLinaNorm(teile[u]);
+          // ein Giftwort als PRÄDIKAT steht unflektiert („… giftig“); „Giftiger Häubling“, „Giftiger Wasserschierling“ ist ein Name
+          if (!un || PRAEDIKAT.test(un) || bejahtE(un) || PRAED_GIFT.test(un) || NEIN.test(un) || !nenntArt(teile[u])) break;
+          x = x.concat(genanntIn(teile[u]));
+        }
+      }
+      return x;
+    };
+    // C2: Gegensatz ohne Gegensatzwort — genau die Lage, in der C eine Art fallen lässt
+    var asyndetisch = function (satz) {
+      var kl = satz.split(/,+/).map(function (k) { return { r: k, n: _gsLinaNorm(k) }; }).filter(function (k) { return k.n; });
+      if (kl.length < 2) return false;
+      // die andere Klausel nennt IRGENDEINE Art („…, der Kerbel nicht.“) — fallen lässt C nur, was eine solche Klausel selbst nennt
+      var gift = kl.some(function (k) { return !ENTWARNT.test(k.n) && !bejahtE(k.n) && (PRAED_GIFT.test(k.n) || NEIN.test(k.n)) && nenntArt(k.r); });
+      return gift && kl.some(function (k) { return !NEIN.test(k.n) && bejahtE(k.n) && nenntArt(k.r); });
     };
     var zugesagt = false;
     var saetzeR = roh.split(/[.!?\n]+/);
     for (var i = 0; i < saetzeR.length; i++) {
       var satzR = saetzeR[i], satzN = _gsLinaNorm(satzR);
       if (!satzN) continue;
-      var kontrast = KONTRAST.test(_gsLinaNorm(satzR));
+      var kontrast = KONTRAST.test(_gsLinaNorm(satzR)) || asyndetisch(satzR);   // C2 (kj)
       var klauseln = kontrast ? satzR.split(/(?:[,;]+|\bund\b|\baber\b|\bmais\b|\bma\b|\bbut\b)/i) : [];
       // dieselben Teile wie die Basis: an . ! ? ; Zeilenumbruch und an und/aber/mais/ma/but
       var teile = satzR.split(/(?:;+|\bund\b|\baber\b|\bmais\b|\bma\b|\bbut\b)/i);
       for (var j = 0; j < teile.length; j++) {
         var sz = _gsLinaNorm(teile[j]);
         if (!sz) continue;
-        var basisJa = !NEIN.test(sz) && bejahtIn(sz);         // die Regel der Basis für diesen Teil
+        var basisJa = !NEIN.test(sz) && bejahtE(sz);          // die Regel der Basis für diesen Teil (E: „Verzehr … vermeiden“ zählt nicht)
         var zustimmend = (basisJa && !nurPflege(sz, teile[j], satzN)) ? [teile[j]] : [];
         if (kontrast) {
           // C: im Gegensatz-Satz zählen die Klauseln einzeln — eine mit „nicht" warnt selbst, eine andere kann trotzdem zusagen
-          var ja = teile[j].split(/,+/).filter(function (k) { var kn = _gsLinaNorm(k); return kn && !NEIN.test(kn) && bejahtIn(kn) && !nurPflege(kn, k, satzN); });
+          var ja = teile[j].split(/,+/).filter(function (k) { var kn = _gsLinaNorm(k); return kn && !NEIN.test(kn) && bejahtE(kn) && !nurPflege(kn, k, satzN); });
           if (ja.length) zustimmend = ja;
         }
         var auch = !zustimmend.length && zugesagt && !NEIN.test(sz) && AUCH.test(sz) && sz.split(' ').length <= 4 && !PRAEDIKAT.test(sz) &&
@@ -92351,13 +92399,14 @@ function _gsLinaSicherheit(antwort, treffer) {
           // die Menge der Basis (hoch, sonst imSatz des Teils) bleibt immer drin; dazu A
           kand = hoch.concat(basisJa ? imSatz(teile[j]) : []);
           zustimmend.forEach(function (k) { kand = kand.concat(genanntIn(k)); });
+          kand = kand.concat(geerbt(teile, j));   // F, K (kj)
           if (kontrast && zustimmend.every(nenntArt)) {
             kand = kand.filter(function (art) {
               if (zustimmend.some(function (k) { return genanntIn(k).some(function (x) { return gleich(x, art); }); })) return true;
               return !klauseln.some(function (q) {
                 if (zustimmend.indexOf(q) >= 0) return false;
                 var qn = _gsLinaNorm(q);
-                if (!qn || ENTWARNT.test(qn) || bejahtIn(qn) || !(GIFTWORT.test(qn) || NEIN.test(qn))) return false;
+                if (!qn || ENTWARNT.test(qn) || bejahtE(qn) || !(GIFTWORT.test(qn) || NEIN.test(qn))) return false;
                 return genanntIn(q).some(function (x) { return gleich(x, art); });
               });
             });

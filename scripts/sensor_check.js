@@ -3098,9 +3098,11 @@ const FAELLE = [
         harmlos.forEach((w) => { if (pruef('Was kann ich essen?', 'Ja, ' + w + ' kannst du essen.')) klagen.push('(c) Fehlalarm bei „' + w + '"'); });
         giftig.forEach((w) => { if (!pruef('Was kann ich essen?', 'Ja, ' + w + ' kannst du essen.')) klagen.push('(c) keine Warnung bei „' + w + '"'); });
         // (o) das Orakel im Kleinen: für JEDEN Namen der Liste, dessen Art giftig ist (Stufe >= 3), warnen „Ja, N kannst du essen."
-        //     und „N ist essbar." — wie in der Basis 255665c, die nur bei diesen zwei ebenso schweigt: „Wüstenrose (kl.)" (der Punkt
-        //     der Abkürzung trennt den Satz) und „Rote Rosskastanie" (eine harmlose Fassung desselben Namens geht vor)
-        const AUSNAHME = ['Wüstenrose (kl.)', 'Rote Rosskastanie'];
+        //     und „N ist essbar." — wie in der Basis 255665c, die nur bei „Wüstenrose (kl.)" ebenso schweigt (der Punkt der
+        //     Abkürzung trennt den Satz). „Rote Rosskastanie" stand hier bis (kj) mit dem Grund „eine harmlose Fassung desselben
+        //     Namens geht vor" — der Grund war falsch: `nie\b` in NEIN las „-kastanie" als „nie", der Satz galt als verneint.
+        //     Seit (kj) Regel N warnt sie (sensor_check „Lina 12").
+        const AUSNAHME = ['Wüstenrose (kl.)'];
         const toxNamen = [], gesehen = {};
         DB.forEach((sp) => { const n = String(sp && sp.name || '').trim(); const a = (_gsArtAnzeige(sp) || sp); if (n && (a.tox | 0) >= 3 && !gesehen[n]) { gesehen[n] = 1; toxNamen.push(n); } });
         const still = toxNamen.filter((n) => AUSNAHME.indexOf(n) < 0 && (!pruef(E, 'Ja, ' + n + ' kannst du essen.') || !pruef(E, n + ' ist essbar.')));
@@ -3171,6 +3173,117 @@ const FAELLE = [
         if (sichern.on) Object.defineProperty(navigator, 'onLine', sichern.on); else { try { delete navigator.onLine; } catch (_) {} }
         sichern.ls.forEach(([k, v]) => { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); });
         window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+      }
+    },
+  },
+  {
+    // (kj) Lina 12 (24.11.2026): der Hold-out des Koordinators zu (kg) fand eine Lücke, die Basis und (kg) teilen („Die Herbstzeitlose
+    // ist aber ebenfalls essbar." — getrennt an „aber", der zustimmende Teil nennt keine Art) und vier neue Fehlalarme von (kg). Fünf
+    // Regeln, jede mit eigener Gegenprobe: F (ein Teil ohne Subjekt erbt die Art des Teils davor), K (eine Aufzählung vor „und" gehört
+    // zum Subjekt), E („Verzehr … vermeiden" ist keine Zusage), G („Geniess den Garten" ist kein Essen), C2 (Gegensatz ohne Gegensatzwort).
+    name: 'Lina 12 · Gift-Gegenprobe (kj): ein Teil ohne Subjekt hängt am Satz davor, eine Aufzählung vor „und" gehört zum Subjekt — und „Verzehr vermeiden", „Geniess den Garten", „Kerbel essbar, Schierling giftig" sind keine Zusagen',
+    lauf: async () => {
+      const sichern = { mp: myPlants, pl: plantings, ga: gardens };
+      const klagen = [];
+      try {
+        myPlants = []; plantings = []; gardens = [];
+        const pruef = (frage, antwort) => !!_gsLinaSicherheit(antwort, _gsLinaTrefferMitPflanzen(frage, _gsArtenTreffer(frage)));
+        const E = 'Was kann ich essen?';
+        // (a) muss warnen — F, K, die echte Zusage neben „Verzehr vermeiden", G mit der Pflanze als Objekt, C2 in der Gegenrichtung
+        const W = [
+          ['F', E, 'Bärlauch ist essbar, das Maiglöckchen dagegen giftig. Die Herbstzeitlose ist aber ebenfalls essbar.'],
+          ['F', E, 'Die Herbstzeitlose ist aber ebenfalls essbar.'],
+          ['F', E, 'Die Herbstzeitlose ist giftig, aber in kleinen Mengen essbar.'],
+          ['F', E, 'Die Herbstzeitlose ist giftig, aber sie ist in kleinen Mengen essbar.'],
+          ['F', E, 'Die Samen der Eibe sind giftig, aber das Fruchtfleisch ist essbar.'],
+          ['F', E, 'Die Tollkirsche sieht aus wie eine Kirsche und ist essbar.'],
+          ['K', E, 'Herbstzeitlose und Bärlauch sind essbar.'],
+          ['K', E, 'Ja, Herbstzeitlose und Bärlauch kannst du essen.'],
+          ['K', E, 'Herbstzeitlose, Eibe und Bärlauch sind essbar.'],
+          ['K', E, 'Herbstzeitlose und Bärlauch sind essbar, sagt das Buch.'],
+          ['K', E, 'Giftiger Häubling und Bärlauch sind essbar.'],
+          ['K', E, 'Giftiger Wasserschierling und Bärlauch sind essbar.'],
+          ['K', E, 'Ja, Giftiger Häubling, Kerbel und Bärlauch kannst du essen.'],
+          ['E', E, 'Ja, die Eibe kannst du essen, vermeide nur den Verzehr der Samen.'],
+          ['E', E, 'Vermeide den Verzehr der Blätter, die Beeren der Tollkirsche kannst du essen.'],
+          ['G', E, 'Geniess die Tollkirschen im Garten!'],
+          ['G', E, 'Geniess Tollkirschen im Garten!'],
+          ['G', E, 'Geniess den Tag mit Tollkirschen!'],
+          ['G', E, 'Geniess den Garten mit seinen Tollkirschen.'],
+          ['G', E, 'Geniess die Blüten des Fingerhuts!'],
+          ['G', E, 'Geniess die Blüten des Fingerhuts im Salat aus dem Garten.'],
+          ['G', E, 'Geniess die Garten-Wolfsmilch!'],
+          ['G', E, 'Geniess Herbst-Zeitlose im Garten!'],
+          ['G', E, 'Geniess den Herbst mit Herbstzeitlosen!'],
+          ['C2', E, 'Die Tollkirsche ist essbar, der Kerbel giftig.'],
+          ['C2', E, 'Die Tollkirsche kannst du essen, der Schierling nicht.'],
+          ['C2', E, 'Ja, der Gefleckte Schierling ist essbar, giftig ist nur die Wurzel.'],
+          ['C2', E, 'Die Tollkirsche kannst du essen, der Kerbel nicht.'],
+          ['N', E, 'Ja, Rote Rosskastanie kannst du essen.'],
+        ];
+        // (b) muss still sein — die vier neuen Fehlalarme von (kg) und ihre Geschwister, und was F und K NICHT erben dürfen
+        const S = [
+          ['E', 'Kann ich Eibenbeeren essen?', 'Nein, die Samen sind tödlich. Verzehr unbedingt vermeiden.'],
+          ['E', 'Kann ich die Beeren der Eibe essen?', 'Nein, die Samen sind tödlich. Verzehr unbedingt vermeiden.'],
+          ['E', 'Kann ich Tollkirschen essen?', 'Vom Verzehr wird dringend abgeraten.'],
+          ['G', E, 'Geniess den Garten, die Narzissen blühen!'],
+          ['G', E, 'Geniess die Blüten des Fingerhuts im Garten.'],
+          ['G', E, 'Geniess den Duft des Maiglöckchens.'],
+          ['G', E, 'Geniess den Anblick der Tollkirschen, aber iss sie nicht!'],
+          ['C2', E, 'Der Kerbel ist essbar, der Gefleckte Schierling giftig.'],
+          ['C2', E, 'Der Kerbel ist essbar, der Gefleckter Schierling ist giftig.'],
+          ['C2', E, 'Ja, Bärlauch ist essbar, Maiglöckchen ist giftig, also Vorsicht beim Sammeln.'],
+          ['C2', E, 'Der Kerbel ist essbar, der Schierling nicht.'],
+          ['F', E, 'Die Eibe ist giftig, aber Himbeeren sind essbar.'],
+          ['F', E, 'Die Eibe ist giftig, aber Nudeln sind essbar.'],
+          ['F', E, 'Das Maiglöckchen sieht ähnlich aus, aber Bärlauch riecht nach Knoblauch und ist essbar.'],
+          ['F', E, 'Das Maiglöckchen ist giftig, aber Bärlauch ist essbar.'],
+          ['K', E, 'Maiglöckchen und Herbstzeitlose sind giftig, Bärlauch ist essbar.'],
+          ['K', E, 'Verwechsle Bärlauch nicht mit Maiglöckchen und Herbstzeitlose. Bärlauch ist essbar.'],
+          ['N', E, 'Nie die Beeren essen, das ist gefährlich.'],
+          ['N', E, 'Die Tollkirsche darfst du nie essen.'],
+        ];
+        W.forEach(([r, f, a]) => { if (!pruef(f, a)) klagen.push('(a) ' + r + ' keine Warnung: „' + a + '"'); });
+        S.forEach(([r, f, a]) => { if (pruef(f, a)) klagen.push('(b) ' + r + ' Fehlalarm: „' + a + '"'); });
+        // (o) Orakel im Kleinen: jede Regel über ALLE giftigen Namen der Liste (Art-Stufe ≥ 3), beide Richtungen
+        const toxNamen = [], ges = {};
+        DB.forEach((sp) => { const n = String(sp && sp.name || '').trim(); const a = (_gsArtAnzeige(sp) || sp); if (n && !ges[n] && (a.tox | 0) >= 3) { ges[n] = 1; toxNamen.push(n); } });
+        if (toxNamen.length < 250) klagen.push('(o) nur ' + toxNamen.length + ' giftige Namen — der Fall misst nichts');
+        // Gemessen 24.11.2026 (Orakel + Vorlagen über 312 giftige Namen): zwei Namen tragen ihre Ausnahme schon in der Basis —
+        // „Wüstenrose (kl.)" (der Punkt der Abkürzung trennt den Satz) und „Echter Speise-Schirmling" („Speise" ist ein Zusage-Stamm).
+        // G nimmt nie ein Ess-Wort weg: ein Name mit „…pilz", „…beere" usw. warnt auch im Erlebnis-Satz (Gegenrichtung unten).
+        const ESSWORT = /(?:^|[\s-])ess|isst|nasch|kost|koch|brat|back|(?:^|[\s-])roh(?:$|[\s-])|salat|tee(?:$|[\s-])|suppe|saft|würz|wuerz|kau|frucht|früchte|fruechte|beere|pilz|samen|knolle|mang/i;
+        const AUSNAHME = ['Wüstenrose (kl.)', 'Echter Speise-Schirmling'];
+        const VORLAGEN = [
+          ['F', 'W', (n) => [E, n + ' ist aber ebenfalls essbar.']],
+          ['K', 'W', (n) => [E, n + ' und Bärlauch sind essbar.']],
+          ['C2', 'W', (n) => [E, n + ' ist essbar, der Kerbel giftig.']],
+          ['C2', 'W', (n) => [E, n + ' kannst du essen, der Kerbel nicht.']],
+          ['G', 'W', (n) => [E, 'Geniess ' + n + ' im Garten!']],
+          ['N', 'W', (n) => [E, 'Ja, ' + n + ' kannst du essen.']],
+          ['E', 'S', (n) => ['Kann ich ' + n + ' essen?', 'Nein, die Samen sind tödlich. Verzehr unbedingt vermeiden.']],
+          ['G', 'S', (n) => [E, 'Geniess den Garten, ' + n + ' blüht!']],
+          ['C2', 'S', (n) => [E, 'Der Kerbel ist essbar, ' + n + ' giftig.']],
+        ];
+        const zahl = {};
+        VORLAGEN.forEach(([r, soll, v]) => {
+          let ok = 0; const falsch = [];
+          toxNamen.forEach((n) => {
+            if (AUSNAHME.includes(n)) return;
+            // G still: nur für Namen OHNE Ess-Wort — mit Ess-Wort muss der Erlebnis-Satz weiter warnen
+            const s = (r === 'G' && soll === 'S' && ESSWORT.test(n)) ? 'W' : soll;
+            const [f, a] = v(n);
+            if ((pruef(f, a) ? 'W' : 'S') === s) ok++; else falsch.push(n);
+          });
+          zahl[r + soll] = ok;
+          if (falsch.length) klagen.push('(o) ' + r + ' ' + (soll === 'W' ? 'ohne Warnung' : 'mit Fehlalarm') + ' bei ' + falsch.length + ' Namen: ' + falsch.slice(0, 5).join(', '));
+        });
+        // ein Name, der nur über „-nie" verneint war (N), warnt jetzt — die Basis und (kg) schwiegen
+        if (!pruef(E, 'Ja, Rote Rosskastanie kannst du essen.')) klagen.push('(o) N: „Rote Rosskastanie" ohne Warnung');
+        if (klagen.length) return { ok: false, warum: klagen.slice(0, 8).join(' · ') + (klagen.length > 8 ? ' · (+' + (klagen.length - 8) + ')' : '') };
+        return { ok: true, info: W.length + ' Zusagen warnen, ' + S.length + ' Sätze still · Orakel über ' + toxNamen.length + ' giftige Namen: ' + Object.keys(zahl).map(k => k + ' ' + zahl[k]).join(' · ') };
+      } finally {
+        myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
       }
     },
   },
