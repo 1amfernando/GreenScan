@@ -12,6 +12,7 @@ gsLinaSend()                                index.html, grep "async function gsL
  │    ├─ gsLinaZahlen()                       Faellig · Alarme · Messwerte · letzter Scan · Aussaatfenster · Plan-Termine
  │    └─ _gsLinaArtenZeile(text)              die Arten aus der FRAGE, geerdet ueber _gsArtenTreffer + _gsArtAnzeige
  ├─ callAI(hist.slice(-16), LINA_SYSTEM + ctx, 900)   kein Tool-Use: {model, max_tokens, system, messages}
+ │    oder, mit angehaengtem Foto (L2): callVisionAI(foto, …, {systemPrompt: LINA_SYSTEM + LINA_FOTO_REGELN + ctx})
  ├─ _gsLinaSicherheit(antwort, treffer)      Zusage „essbar" ueber eine Art mit tox ≥ 3 → Warnzeile darueber
  └─ gsLinaDispatch(aktion)                   EINE Textzeile am Antwortende, Whitelist, Schreiben nur nach gsConfirmModal
 ```
@@ -117,8 +118,18 @@ alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
   Edge-Functions referenzieren `coach_messages`; Lina existiert nur im
   geoeffneten Tab. Frost-Push und Wochen-Zahl kommen vom Cron
   (`daily-push-checker`, `weather-alert-checker`), ohne Lina.
-- **Bilder sehen**: `callVisionAI` gibt es, das Lina-Fenster hat keinen
-  Foto-Weg; der Scanner ist der Weg zum Foto.
+- **Bilder sehen** — seit L2 EIN Weg: die Person haengt ein Foto an ihre
+  Nachricht (`gsLinaFotoWaehlen` → `_gsLinaFotoLesen`, verkleinert auf
+  `GS_LINA_FOTO_KANTE` 1280 px), `gsLinaSend` schickt es ueber `callVisionAI`
+  (ohne EXIF, Kontingent `lina`). Das Bild liegt nur in `window._gsLinaFoto` —
+  nicht im Spiegel, nicht in `coach_messages` (dort steht die Frage mit 📷);
+  Abmelden und „Neu" raeumen es, ein Ausfall haengt es wieder an. Die Sicherung
+  laeuft bei einem Foto auch ueber die Arten der ANTWORT
+  (`_gsLinaSicherheit(reply, _gsArtenTreffer(reply))`), und unter jeder
+  Foto-Antwort steht `GS_LINA_FOTO_SATZ`. Die Fotos im TAGEBUCH sieht sie
+  weiterhin nicht (nur den Zaehler); ein Vergleich „heute gegen frueher" ist
+  nicht gebaut. *(sensor_check „Lina · Foto", Gegenprobe: ohne die
+  Antwort-Sicherung rot)*
 - **Praeferenzen lernen**: Es gibt keinen Ort fuer Praeferenzen der PERSON
   (`DEFAULT_PREFS` hat 9 technische Felder). Eine aus dem Verhalten ERRATENE
   Praeferenz waere eine Behauptung ueber die Person — nur ausdruecklich
