@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 20:05 UTC · `main` = `072ee49` (**v33.78**) · #353 Lina 11 neu v33.79 `ceea353` (CI seit 19:48, fertig ca. 20:26; Hold-out UND Orakel (3'138 Namen × 5 Formen, „nur Basis“ = 0) bestanden) → Merge-Commit bei grün · danach: Hauptfunktionen pusht v33.80 = Suche 12 (kk) + Prototypkette (kl) (lokal fertig) · Sicherheit Scheibe 5 = v33.81 (ki) stapelt auf deren Kopf (eigener Zweig, CI parallel) · Lina 12 = v33.82 (kj) · Brett-Branch (kh).
+**Stand:** 24.11.2026, 20:39 UTC · `main` = `6bcfee9` (**v33.79**, #353 Lina 11 neu) · Hauptfunktionen pusht jetzt v33.80 = Suche 12 (kk) + Prototypkette (kl) (`8ddb0ca`, Fast-Forward auf `ceea353`), PR + Prüfung folgen · Sicherheit Scheibe 5 = v33.81 (ki) stapelt auf deren Kopf (eigener Zweig, CI parallel) · Lina 12 = v33.82 (kj) · Brett-Branch (kh).
 
 ## 1 · Warum es schneller wird
 
@@ -48,7 +48,7 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | 6 | Hauptfunktionen · Suche 11 (kc) — (kd) zurückgenommen | `claude/happy-thompson-24l4uu` | v33.76 | (kc) | **GEMERGT** als Merge-Commit `ab9ad0f` (#350; CI auf `74baeb6` grün; Lina 11 vor dem Merge zurückgenommen: elf Rückschritte, Leserbefund) |
 | 8 | Hauptfunktionen · Scanner 14 (ke) | `claude/happy-thompson-24l4uu` | v33.78 | (ke) | **GEMERGT** als Merge-Commit `072ee49` (#352; CI auf `dcfb1d2` grün; Test-Merge unterschied sich nur um Audits sechs Dateien) |
 | 9 | Sicherheit · Scheibe 3 (Register GS_SPEICHER) | `ccr-5e705a36-jveaak` | v33.77 | (kf) | **GEMERGT** als Merge-Commit `378138c` (#351; CI auf `a8d5bff` grün; Test-Merge unterschied sich nur um Audits sechs Dateien) |
-| 10 | Hauptfunktionen · Lina 11 neu (kg) | `claude/happy-thompson-24l4uu` | v33.79 | (kg) | PR **#353**, Kopf **`ceea353`**, CI läuft; Hold-out bestanden (Basis 39 → 71 von 88 warnend; Fehlalarme 18 → 11; 1 formale Regression = bestehende Lücke); Orakel-Lauf des Koordinators läuft; Merge-Commit bei grün |
+| 10 | Hauptfunktionen · Lina 11 neu (kg) | `claude/happy-thompson-24l4uu` | v33.79 | (kg) | **GEMERGT** als Merge-Commit `6bcfee9` (#353; CI auf `ceea353` grün; Hold-out des Koordinators + Orakel über 3'138 Namen × 5 Formen bestanden) |
 | 10b | Hauptfunktionen · Suche 12 (kk) + Prototypkette (kl) | `claude/happy-thompson-24l4uu` | **v33.80** | (kk) · (kl) | lokal fertig (`8952dc7` Suche 12: Stück < 4 Zeichen nur am Wortanfang, 2'440 falsche Vorschläge weg, davon 266 Giftarten; `69a282e` Prototypkette Brett 3cad: zwölf Nachschläge, u. a. „constructor“ nie mehr an die KI); Push als Fast-Forward auf `ceea353` nach dem Merge von #353 (Signal vom Koordinator) |
 | 11 | Sicherheit · Scheibe 5 (ruhiger Pull) | `ccr-5e705a36-jveaak` | **v33.81** | (ki) | baut lokal; stapelt auf den v33.80-Kopf von Hauptfunktionen (SHA kommt vom Koordinator, ca. 20:30), eigener Zweig → CI parallel |
 | 12 | Hauptfunktionen · Lina 12 (kj) | `claude/happy-thompson-24l4uu` | **v33.82** | (kj) | baut lokal (fünf Punkte: „aber ebenfalls essbar“, „Nein … Verzehr vermeiden“, Narzissen/Fingerhut-Geniess, Kerbel/Schierling-Gegensatz; je eine Differenzprobe + Gegenprobe; Orakel gegen ceea353); der Ort (5929) als eigener kleiner Schritt; stapelt auf Sicherheits Kopf |
@@ -65,6 +65,7 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 
 | main | Version | Was |
 |---|---|---|
+| `6bcfee9` | v33.79 | #353 Hauptfunktionen — Lina 11 neu: Lina warnt bei giftigen Pflanzen zuverlässiger, auch in der Mehrzahl und bei all deinen Pflanzen (MERGE-COMMIT; CI auf ceea353 grün; Hold-out: Zusagen 39 → 71 von 88, Fehlalarme 18 → 11; Orakel „nur Basis“ = 0) |
 | `072ee49` | v33.78 | #352 Hauptfunktionen — Scanner 14: Pilz-Vergleich, die gefährlichsten Doppelgänger zuerst, und fehlende Angaben werden gesagt (MERGE-COMMIT; CI auf dcfb1d2 grün) |
 | `378138c` | v33.77 | #351 Sicherheit — Ein Register für alles, was zwischen den Geräten reist (SPEICHER-V2 Scheibe 3; MERGE-COMMIT; CI auf a8d5bff grün) |
 | `ab9ad0f` | v33.76 | #350 Hauptfunktionen — Suche 11: Pflanze anlegen auch mit Tippfehlern, und mit der Giftstufe der Art (MERGE-COMMIT; CI auf 74baeb6 grün; Test-Merge unterschied sich nur um Audits sechs Dateien, Kombination lokal gefahren; Lina 11 vor dem Merge zurückgenommen) |
