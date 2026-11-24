@@ -12,7 +12,7 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
-### 2026-11-24 (jr) - kein Bump: die CI speichert ihre Downloads zwischen, der Wächter ist entschieden, und der Schwarm geht als EIN Pull-Request
+### 2026-11-24 (ju) - kein Bump: die CI speichert ihre Downloads zwischen, der Wächter ist entschieden, und der Schwarm geht als EIN Pull-Request
 
 **Auftrag:** Fernando, 24.11.2026, drei Entscheidungen zu den offenen Fragen des Schwarms (Branch
 `ccr-b63433a4-d1xgyg`, Eintrag (jh)): **ein** Pull-Request für alles; der Wächter läuft **stündlich ab dem
