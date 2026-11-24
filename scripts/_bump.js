@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // scripts/_bump.js — die Versionsnummer einer Scheibe setzen oder umnummerieren, als SKRIPT statt
-// Handarbeit (docs/WARTESCHLANGE.md §1 Punkt 6; CLAUDE.md §3.1). Ein Helfer, kein Pruefstand (`_`).
+// Handarbeit (docs/WARTESCHLANGE.md §1 Punkt 6 — die Datei liegt auf dem Branch des Koordinators,
+// claude/quirky-ritchie-7fkc3f; CLAUDE.md §3.1). Ein Helfer, kein Pruefstand (`_`).
 //
 //   node scripts/_bump.js --von v33.70 --nach v33.71 [--kennung jr:ju] [--datum 2026-11-24]
 //                         [--basis origin/main] [--trocken]
@@ -17,6 +18,15 @@
 //      data/releases.v1.js (CLAUDE.md §3.1), keine Dublette.
 //   5. Pruefen: GS_VERSION === GS_RELEASES[0].v === 'v' + meta === sw.js VERSION ohne „gs-".
 // `--trocken` zaehlt nur und schreibt nichts.
+//
+// GESTAPELT (der Vorgaenger ist noch nicht auf main) — zwei Regeln, sonst schreibt Schritt 2 fremde Nennungen um:
+//   * `--basis` ist der Kopf des VORGAENGERS (nach `git fetch`), nicht origin/main — nur dort sieht die Sicherung
+//     eine Nummer oder Kennung, die der Vorgaenger schon traegt (v33.71: (jr) war beim Vorgaenger der Pilz-Eintrag).
+//   * ZUERST umnummerieren, DANN den Vorgaenger einziehen. Schritt 2 ersetzt in JEDER versionierten Datei.
+// Nur den Deckel durchsetzen (z. B. nach dem Einziehen): `--von vX --nach vX` (gleiche Nummer). Hat der Vorgaenger
+// schon einen Eintrag ins Archiv gelegt, beim Konflikt dessen Seite nehmen — eine Dublette verweigert Schritt 4.
+// Nicht hier: `_headers` Zeile 1 (steht seit #327 auf v33.59, `_headers` aendert nur Fernando) und die Zahlen in
+// STATUS §1 (Zeilen, Archiv, Pruefstaende) — die zieht man von Hand nach, `austausch_check` misst einen Teil davon.
 'use strict';
 const fs = require('fs');
 const path = require('path');

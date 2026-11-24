@@ -2146,18 +2146,18 @@ die Bildauswahl statt der Kamera.
 
 **Drei Dinge über die Arbeit selbst:** diese Scheibe hiess v33.57, dann v33.59,
 dann v33.70, jetzt v33.71 — jedes Mal hatte `main` die Nummer inzwischen vergeben. Heute
-(24.11.) ist sie auf `main` v33.68 nachgezogen und heisst weiter **v33.71, als
-Platzhalter**: die endgültige Nummer vergibt, wer am Kopf der Merge-Reihe steht.
+(24.11.) ist sie auf `main` v33.68 nachgezogen und auf **PR #343 gestapelt** (v33.70:
+Pilz-Scanner, Lina, Wissen-Tab; darin `main` v33.69). Die Nummer **v33.71** ist ihr Platz
+in der Merge-Reihe: erst #343, dann dieser PR (#344).
 Zusammengeführt mit v33.67 waren es 76 Konfliktstellen in 20 Dateien, mit v33.68
 noch drei. Die Sicherheitsreparatur auf `main` hatte mehrere Funde aus meinem
 Audit parallel behoben (Passwort im Bau-Skript, Datenschutz-Satz, noindex,
 Mikrofon-/Sensor-Freigabe, Garten-Pull); dort gilt jetzt ihre Fassung, was nur
 diese Scheibe hatte, bleibt daneben stehen. Einzeln steht das in STATUS (Eintrag
-„(ju) - v33.71", Absatz „Auf `main` nachgezogen"). Und: einen Pull Request habe
-ich NICHT geöffnet (du hast keinen verlangt). Der Stand liegt auf dem Branch
-`ccr-dce5a17c-2xzhvi`; die Prüfung auf GitHub läuft erst mit einem PR. **Wenn du
-ihn willst, sag „öffne den PR"** — dann ziehe ich vorher auf den dann aktuellen
-Stand von `main` nach.
+„(ju) - v33.71", Absätze „Auf `main` nachgezogen" und „Auf v33.70 gestapelt"). Den
+Pull Request (#344) hat die koordinierende Sitzung geöffnet, nicht ich; er zeigt gegen
+`main`, bis #343 gemergt ist, auch dessen Änderungen. **Bitte in dieser Reihenfolge
+mergen: #343, dann #344.**
 
 **Deine private Mailadresse stand in einer ausgelieferten Datei.** Ein Prüfstand
 (`scripts/robust_check.js`) sollte sicherstellen, dass sie nirgends im Code

@@ -90,14 +90,15 @@ es neun Function-Dateien und vier Stellen in `index.html`. Vereinen, nicht
 ersetzen, und die Pruefstaende beider Seiten an die vereinte Form anpassen,
 nicht ruhigstellen (CLAUDE.md §5, §7.1).
 
-Fuenf Marker, immer zusammen (`robust_check` „Changelog“ haelt sie zusammen):
+Vier Marker, immer zusammen (`robust_check` „Changelog“ haelt sie zusammen) — gesetzt mit
+`node scripts/_bump.js --von vA.B --nach vC.D [--kennung alt:neu] [--basis <ref>]` (seit v33.71; der Kopf der
+Datei sagt, was beim Stapeln auf einen Vorgaenger gilt):
 
 | Marker | wo |
 |---|---|
 | `<meta name="app-version" content="33.33.20260915">` | `index.html` `<head>` |
 | `var GS_VERSION = 'v33.34';` | `index.html` |
 | `const VERSION = 'gs-v33.34';` | `sw.js` |
-| `# GreenScan — Cloudflare Pages Security Headers (v33.34)` | `_headers` Zeile 1 |
 | neuer Eintrag GANZ OBEN in `window.GS_RELEASES` | `index.html` |
 
 Der Eintrag: `{v, date, headline, summary, user_summary, user_items: [{emoji, bold, text}], items: []}`.

@@ -44,8 +44,8 @@ den Root. Keine Geheimnisse in Dateien.
 
 ## Versionen und Branches
 
-- Version `vMAJOR.MINOR` (z. B. `v33.33`), fuenf Marker je Bump
-  (`08-arbeitsweise.md` §7). `GS_RELEASES[0].v` muss `GS_VERSION` sein, sonst
+- Version `vMAJOR.MINOR` (z. B. `v33.33`), vier Marker je Bump,
+  gesetzt mit `scripts/_bump.js` (`08-arbeitsweise.md` §7). `GS_RELEASES[0].v` muss `GS_VERSION` sein, sonst
   bleibt „Was ist neu" bei allen Nutzern still.
 - `main` ist Produktion; nie direkt pushen. Feature-Branches
   `claude/<thema>-<id>`, PR-Merge (squash) mit gruener CI.

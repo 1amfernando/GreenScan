@@ -208,7 +208,12 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 ### 3.1 · Versionierung
 - Versions-Format: `vMAJOR.MINOR` (z.B. `v30.79`). Aktuell: siehe `GS_VERSION`
   in `index.html` und `CACHE_VERSION` in `sw.js`. Bei Bumps **immer beide
-  syncen** + `meta name="app-version"` im `<head>`.
+  syncen** + `meta name="app-version"` im `<head>`. Seit v33.71 ein Skript:
+  `node scripts/_bump.js --von vA.B --nach vC.D` setzt alle vier Marker, hält
+  den Changelog-Deckel und prüft das Ergebnis — sein Kopf sagt, was beim
+  Stapeln auf einen noch nicht gemergten Vorgänger gilt (`--basis` = dessen
+  Kopf, erst umnummerieren, dann einziehen). `_headers` Zeile 1 steht seit
+  v33.59 fest und ist kein Marker mehr.
 - Commit-Message-Format: `vXX.YY: <kurze Aussage>` + Markdown-Body mit
   Bullets pro Bereich (Sicherheit / UX / Feature). Beispiel siehe letzte
   Commits auf `main`.

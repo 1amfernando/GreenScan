@@ -31,7 +31,7 @@ begründet; nachgezählt: von 391 eigenen und 1'196 fremden hinzugefügten Zeile
 in `index.html` fehlen genau die sechs, die begründet entfallen). Danach hiess
 sie v33.59 und v33.70; heute steht sie als **v33.71** auf `main` v33.68 und ist
 auf v33.70 (PR #343, darin `main` v33.69) gestapelt — die Nummer ist ihr Platz in der
-Merge-Reihe (docs/WARTESCHLANGE.md).
+Merge-Reihe (`docs/WARTESCHLANGE.md` auf `claude/quirky-ritchie-7fkc3f`).
 
 **Der schwerste Fund — Datenverlust bei den Gärten (bestätigt, nachgestellt):**
 der Login-Pull schrieb `gardens`/`plantings` nur in den Gerätespeicher. Am
@@ -301,7 +301,7 @@ Nach den Reparaturen einzeln grün: `storage`, `apk` (106), `sicherheit`
 (`schluss_e`), `contrast`, `sensor`, `escape` (18), `robust` (38), `sync` (19),
 `statik`, `austausch`.
 
-**Auf v33.70 gestapelt (24.11.2026, docs/WARTESCHLANGE.md).** Der Vorgänger in der Reihe ist PR #343
+**Auf v33.70 gestapelt (24.11.2026, `docs/WARTESCHLANGE.md` auf `claude/quirky-ritchie-7fkc3f`).** Der Vorgänger in der Reihe ist PR #343
 (`claude/happy-thompson-24l4uu`, Kopf `90863cd`, v33.70 — Pilz-Scanner, Lina, Wissen-Tab; `main` v33.69 ist
 darin). Eingezogen mit `git merge` (rerere an), vorher mit `git merge-tree` angesehen: vier Dateien mit
 Konflikt, alle Buchführung — `sw.js`, `GS_VERSION` und `meta app-version` bleiben v33.71; in `GS_RELEASES`
@@ -309,7 +309,23 @@ steht v33.71 über v33.70 und v33.69; v33.49 hatte der Vorgänger schon ins Arch
 `scripts/_bump.js` dazu (inline 20, Archiv 598, keine Dublette); in STATUS steht (ju) über (jt), (js), (jr).
 Die übrigen Dateien (`CLAUDE.md`, `docs/memory/02-regeln.md` und `05-fallen.md`, `nutzersicht_check`,
 `sync_check`) hat git ohne Konflikt gemischt; die Fallnummern beider Seiten überschneiden sich nicht
-(nachgesehen: `sync_check` H1–H12, `nutzersicht_check` E17–E21 hier, E9 Teil 4 dort).
+(nachgesehen: `sync_check` H1–H12, `nutzersicht_check` E17–E21 hier, E9 Teil 4 dort). Danach einzeln gefahren
+auf `0d78924`, alle 0 rot: `statik` 10, `austausch` 17, `robust` 38, `nutzersicht` 17, `sync` 22, `sensor` 66,
+`escape` 18, `scan` 134, `sicherheit` `98_schluss_e` 14.
+
+**Den Stapel gegengelesen (24.11.2026):** vier Leser über die Nähte (Lina und Pilz-Scanner · Abgleich und
+Löschmarken · Filter und Wissen-Tab · Doku), je ein Gegenprüfer. Im Code: keine Naht — keine Funktion haben
+beide Seiten geändert, jede steht im Kopf wie auf ihrer Seite (mit acorn über vier Stände verglichen), und keine
+Seite ruft etwas, das die andere entfernt hat. Drei Funde, alle Doku, alle behoben: (1) weiter unten in diesem
+Eintrag steht „*Nicht angefasst:* der Zähler „Giftig" im Lexikon zählt `tox >= 2` … hängt an der offenen Frage
+`2026-11-11-3ba5`" — das hat v33.70 erledigt ((js), Brett `2026-11-16-4d79` geschlossen): Kachel und Filter
+fragen beide `gsIstGiftig`; in der geladenen Liste sind es 77 Einträge der Stufe 1 mit Giftvermerk (die 78 dort
+sind roh gezählt, F007 ist eine Dublette), und 3ba5 fragt nach der Essbarkeit der PA-haltigen Arten, nicht nach
+der Zählregel. Der Satz bleibt als Messung von damals stehen. (2) FUER-FERNANDO §32 beschrieb noch den Stand vor
+dem Stapeln. (3) Der Verweis auf die Warteschlange nannte keinen Branch — die Datei liegt nur auf dem Branch des
+Koordinators. Nebenbei gesehen und NICHT aus der Mischung (gelesen, nicht gemessen; dem Koordinator gemeldet):
+`gsOnLogout` leert das Lina-Gespräch, zählt `_gsLinaGespraechNr` aber nicht hoch; und wer während einer
+Pilz-Bestimmung abgemeldet wird, bekommt „abgebrochen" als Toast, der unter dem Anmeldebildschirm liegt.
 
 **Nachgetragen am 16.11.2026 — der Hinweis des Sicherheits-Branches galt auch
 hier:** der Garten-Pull dieser Scheibe übernahm die geholte Liste UNGESIEBT
@@ -17104,7 +17120,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.71` (Client, Platzhalter bis zur Spitze der Merge-Reihe) · SW-Cache `gs-v33.71` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.71` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.70) · SW-Cache `gs-v33.71` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
 - **Frontend:** `index.html` **101'949 Zeilen / rund 6,3 MB** (v33.71: rund 300 Zeilen Funktionen ohne Aufrufer heraus; gemessen nach dem Stapeln auf v33.70) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **598 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.50).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
