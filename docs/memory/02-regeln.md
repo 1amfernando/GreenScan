@@ -107,7 +107,7 @@ Tagebuch in `CLAUDE.md`.
     holen/quittieren, je Foto eine Nummer). *(§4e, offline_check 25–41,
     apk_check G1–G9/T0–T13, v33.55/v33.56)*
 
-## Zehn Regeln aus v33.59 (CLAUDE.md §4f)
+## Zehn Regeln aus v33.70 (CLAUDE.md §4f)
 
 - **Ein Pull frischt auch den Arbeitsspeicher auf.** Wer in einem Pull-Zweig
   in den Speicher schreibt, weist dort auch die Variable zu (`gardens`,
@@ -129,7 +129,7 @@ Tagebuch in `CLAUDE.md`.
   in UTC (hier, in CI) sieht man es nie. *(datum_check)*
 - **Ein Pruefstand urteilt oder heisst Bericht.** `contrast_check`,
   `render_check` und `field_check` endeten immer mit 0 und urteilen seit
-  v33.59; nur `perf_check` ist bewusst ein Bericht.
+  v33.70; nur `perf_check` ist bewusst ein Bericht.
 - **`calc()` braucht Leerraum um + und −.** `calc(var(--a)+var(--b))` ist
   ungueltig, die Eigenschaft faellt still weg (Kopfleiste 39 statt 56 px; ein
   Knopf 10'499 px unter dem Bildschirm). *(statik_check S8)*

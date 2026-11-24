@@ -129,7 +129,7 @@ GreenScan/
 ├── scripts/             # Prüfstände (§7.1) + pruefstaende.sh (fährt alle, seit v32.94 mit perf; wie viele: STATUS.md §1) + package.json (Playwright + ESLint, NICHT im Root)
 │                        scripts/apk/ = drei Java-Fahrer fuer apk_check (ExportFahrer, KanalFahrer — seit v33.53; GeteiltFahrer seit v33.56)
 ├── .github/workflows/   # pruefstaende.yml (alle Prüfstände auf jedem PR) · weekly-cleanup.yml
-├── .claude/             # workflows/greenscan-audit.js (acht Audit-Blickwinkel, jeder Fund gegengeprüft — seit v33.59) · workflows/austausch-runde.js (§5) ·
+├── .claude/             # workflows/greenscan-audit.js (acht Audit-Blickwinkel, jeder Fund gegengeprüft — seit v33.70) · workflows/austausch-runde.js (§5) ·
 │                        agents/gs-auditor.md + gs-gegenpruefer.md (nur lesend) · launch.json
 ├── docs/austausch/      # das Brett: ein Eintrag je Datei, über das sich alle KI-Sitzungen austauschen (§5) · Werkzeug scripts/austausch.mjs
 ├── docs/                # lebende Doku · docs/_archiv/ = 53 historische Aufträge/Audits (seit v32.69 aus dem Root) · docs/AUDIT-2026-11-11.md = 70 gegengeprüfte Funde aus zwei Läufen; die offenen stehen mit Anker auf dem Brett
@@ -402,7 +402,7 @@ interne Dateien gehören nach `docs/`, nie in den Root.
   | Kontext | Helfer | Warum nicht der andere |
   |---|---|---|
   | Text oder Attributwert in HTML | `escHtml(s)` (kennt seit v32.66 auch `'`) | — |
-  | Wert in einem einfach zitierten JS-String in `onclick="…"` | `_gsOcStr(s)` (seit v33.59 ist `_gsOcArg` derselbe — der alte halbe Helfer liess `&#39;` stehen) | der Wert durchläuft ZWEI Parser: `escHtml` allein lässt ein `'` den String beenden, `_gsOcArg` allein lässt ein `&#39;` im Wert vom HTML-Parser zu `'` werden |
+  | Wert in einem einfach zitierten JS-String in `onclick="…"` | `_gsOcStr(s)` (seit v33.70 ist `_gsOcArg` derselbe — der alte halbe Helfer liess `&#39;` stehen) | der Wert durchläuft ZWEI Parser: `escHtml` allein lässt ein `'` den String beenden, `_gsOcArg` allein lässt ein `&#39;` im Wert vom HTML-Parser zu `'` werden |
   | Fragment, das Auszeichnung TRAGEN darf (Übersetzung mit `<br>`, Chat-Zeile mit `<strong>`) | `gsSanitizeHtml(html)` — Allowlist in einem `<template>`; ein `style` nur über `_gsStilSaeubern` (Erlaubnisliste je Deklaration, seit v33.54) | `escHtml` zerstört die Auszeichnung, `innerHTML = fremd` führt sie aus |
   | Adresse aus fremder Hand | `_gsSafeUrl(u)` für Bilder (https/data:image), `_gsSafeLink(l)` für Navigation (eigener Ursprung oder https), `swSafeUrl` im Service Worker (nur eigener Ursprung) | `javascript:` ist eine gültige URL |
   `innerHTML = <etwas Fremdes>` ohne einen davon gibt es nicht mehr. Wer eine
@@ -484,7 +484,7 @@ interne Dateien gehören nach `docs/`, nie in den Root.
 > `gsOpenLina` lädt die letzte Konversation aus der Cloud, `gsLinaSend` persistiert).
 > Pflanzen-/Garten-Kontext kommt aus `myPlants`/`gardens` (bereits cloud-synced).
 >
-> **v33.59: die Aufrufstellen sind entfernt** (14 Bloecke). Die fuenfzehnte war
+> **v33.70: die Aufrufstellen sind entfernt** (14 Bloecke). Die fuenfzehnte war
 > kein No-Op, sondern ein Versprechen: der Sprachmodus sagte „Ich habe deinen
 > Wunsch gespeichert", und der einzige Schreiber war `gsBrain.observe`.
 > `statik_check` S3 meldet jeden neuen `typeof`-Schutz vor einem Namen, den es
@@ -844,14 +844,14 @@ Zwei Fallen aus dem Bau von v31.75, damit sie niemand neu findet:
   und waehlt Schwarz oder Weiss — fuer jede Stelle, an der Text auf einer
   Farbe aus einer Antwort steht.
 
-## 4f · Zehn Regeln aus dem Audit vom 11.11.2026 (v33.59)
+## 4f · Zehn Regeln aus dem Audit vom 11.11.2026 (v33.70)
 
 Pruefstaende: `statik_check` (S0–S9), `datum_check` (T0–T7), `robust_check`
 („Zweite Sitzung", „Kaputter Speicher", „Rechtstexte vor der Anmeldung",
 „Web-Root"), `sync_check` (Garten-Pull), `contrast_check` (Durchgang 3),
 `nutzersicht_check` (E11–E15), `apk_check` (B6, R19).
 
-> **v33.59 — zehn Regeln aus einem Durchgang mit 18 Agenten in drei Laeufen**
+> **v33.70 — zehn Regeln aus einem Durchgang mit 18 Agenten in drei Laeufen**
 > (das Protokoll: `docs/AUDIT-2026-11-11.md`, 70 Funde, jeder gegengeprueft).
 >
 > **1 · Ein Pull frischt auch den ARBEITSSPEICHER auf.** Der Login-Pull schrieb
@@ -876,7 +876,7 @@ Pruefstaende: `statik_check` (S0–S9), `datum_check` (T0–T7), `robust_check`
 > der Ladebildschirm bleibt stehen. Wer eine Liste braucht, ruft
 > `_gsListeLesen(key)` (bzw. `_gsListeLesen(key, true)` fuer Zeichenketten), wer
 > ein Objekt braucht `_gsObjektLesen(key)`; `safeGetItem(key, vorgabe)` haelt
-> seit v33.59 die FORM der Vorgabe. `JSON.parse(x || '[]')` faengt weder `null`
+> seit v33.70 die FORM der Vorgabe. `JSON.parse(x || '[]')` faengt weder `null`
 > noch `{}`. Die Integritaetspruefung laeuft VOR dem Hauptskript.
 >
 > **4 · `var(--x, rueckfall)` mit einem Namen, den niemand definiert, ist eine
@@ -1148,8 +1148,8 @@ node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wied
 node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen; seit v33.53 der KANAL fuer Export und Drucken: Export.java gegen android.jar 23 uebersetzt und mit Grenzfaellen ausgefuehrt (X0–X11, scripts/apk/ExportFahrer.java), R12–R16 am Rand (Weiche, Druckansicht, „Speichern unter", zwei evaluateJavascript, die Naht Java↔JS), und die Huelle-Fahrt laeuft unter https://green-scan.ch mit der CSP aus _headers gegen einen ECHTEN Java-Sammler (scripts/apk/KanalFahrer.java): zehn Exporte ueber ihre echte Funktion (E1–E10), drei Netz-Faelle (N1–N3), K1–K10 (Abbruch, Fehler, viele Teile, Grenzen, 0 Downloads in der Huelle, byte-gleich mit dem Browser, KI-Text im Druck); seit v33.56 das TEILEN in der Huelle: Geteilt.java gegen android.jar 23 und mit Grenzfaellen ausgefuehrt (G1–G9, scripts/apk/GeteiltFahrer.java — Quelle, Typ an den Bytes, Deckel, Nummern, zwei Kopien, 8 Faeden, Fristen auf die Millisekunde, Weiche mit eigenem Kopfzeilen-Wert, jede Ausnahme der Quelle), R17 (die Naht des Teilens) und R18 (der Rand: dieselben vier Typen wie die PWA, ClipData zuerst, eigener Faden, nie eine Datei selbst gelesen), B5 (die Filter im GEBAUTEN Paket, aus `aapt dump xmltree`), R8 auch in der Gegenrichtung (keine Kennung ohne Eintrag), und T0–T13 gegen ein ECHTES Geteilt.Fach im KanalFahrer (Kaltstart, langsame Kopie, Wiederkehr, ein neueres Foto waehrend eines Scans, Frist, jeder Grund ein Satz, Abmelden, 0 Griffe in den Cache der PWA, kein zweites Angebot waehrend des eigenen Scans, der Kanal antwortet nicht wie die Huelle, Aufgeben raeumt nichts, die Versuche zaehlen je Teilen); Typ und Kopfzeilen der Antwort kommen aus Geteilt.Antwort — derselben Methode, die AssetServer nimmt
 node scripts/rezept_link_check.js # zeigt ein Rezept auf die gemeinte Art — und nie auf eine giftige? (seit v33.58, reines Node: 524 Eintraege gegen data/plants.v1.js; doppelte Rezept-Ids, Ids ohne Art, Giftstufe, essbar)
 node scripts/modell_check.js     # antwortet die KI noch, wenn Anthropic ein Modell abschaltet? (seit v33.58) Drei Haelften: RECHNUNG (_shared/modelle.mjs in Node — Ketten, Secret, Freigabe, Zusatz je Modell, Denk-Bloecke, Rueckfall) · RAND (der ECHTE Handler von ai-proxy, Typen entfernt, Deno/Supabase/Anthropic gestellt: Stufen, Sperre, Notschalter, Groesse, Schluessel, CORS) · QUELLTEXT (kein Modellname in einer Edge-Function; App und Server meinen dieselben Modelle und denselben Zusatz). Ohne stripTypeScriptTypes: „nicht pruefbar" (Exit 2)
-node scripts/statik_check.js     # was sagt ein PARSER ueber die App? (seit v33.59) ESLint nur als Parser mit Geltungsbereichen: alles parst · keine Funktion doppelt deklariert · kein Name, den es nirgends gibt · kein typeof-Schutz vor etwas, das es nie gibt · 41 Korrektheitsregeln mit null Treffern · keine Funktion, deren Nennungen alle im EIGENEN Rumpf stehen · jede benutzte CSS-Variable ist definiert · sw.js mit den Namen eines Workers · S8: jedes calc() hat Leerraum um + und − · S9: jedes statische Tag wird geschlossen. Ohne ESLint: „nicht pruefbar" (Exit 2). Laeuft als ERSTER (14 s)
-node scripts/datum_check.js      # stimmt der TAG, wenn es in der Schweiz nach Mitternacht ist? (seit v33.59) Europe/Zurich, Uhr auf 01:30 gestellt — alle anderen laufen in UTC, wo lokaler und UTC-Tag dasselbe sind: Vorgabe in Datumsfeldern, EXIF-Datum, Tagebuch-Serie, Ernte-Tracker, Ernte ohne erfundene Uhrzeit, Giess-Banner, T7: die Kalenderwoche ist die ISO-Woche (acht Probetage gegen eine eigene Rechnung, KW 53); T0 deckelt die UTC-Tagesschnitte (32)
+node scripts/statik_check.js     # was sagt ein PARSER ueber die App? (seit v33.70) ESLint nur als Parser mit Geltungsbereichen: alles parst · keine Funktion doppelt deklariert · kein Name, den es nirgends gibt · kein typeof-Schutz vor etwas, das es nie gibt · 41 Korrektheitsregeln mit null Treffern · keine Funktion, deren Nennungen alle im EIGENEN Rumpf stehen · jede benutzte CSS-Variable ist definiert · sw.js mit den Namen eines Workers · S8: jedes calc() hat Leerraum um + und − · S9: jedes statische Tag wird geschlossen. Ohne ESLint: „nicht pruefbar" (Exit 2). Laeuft als ERSTER (14 s)
+node scripts/datum_check.js      # stimmt der TAG, wenn es in der Schweiz nach Mitternacht ist? (seit v33.70) Europe/Zurich, Uhr auf 01:30 gestellt — alle anderen laufen in UTC, wo lokaler und UTC-Tag dasselbe sind: Vorgabe in Datumsfeldern, EXIF-Datum, Tagebuch-Serie, Ernte-Tracker, Ernte ohne erfundene Uhrzeit, Giess-Banner, T7: die Kalenderwoche ist die ISO-Woche (acht Probetage gegen eine eigene Rechnung, KW 53); T0 deckelt die UTC-Tagesschnitte (32)
 node scripts/austausch_check.js  # kommt an, was eine KI-Sitzung der nächsten sagt? Das Brett (Form, Bezüge, Wächter, Anker, Zählungen), die zwei Übergabe-Zeilen in STATUS.md §0, die vier Zahlen in STATUS.md §1, die Agenten-Runde — und jede Regel gegen gebaute gute UND schlechte Fälle, das Werkzeug als Prozess, zwei echte git-Branches (seit 11.11.2026; braucht nur Node und git)
 bash scripts/pruefstaende.sh     # ALLE nacheinander, ein Bericht, ein Exit-Code (seit v32.69; `schnell` laesst die vier langsamen aus)
 #   Seit v32.94 laeuft `perf_check` WIRKLICH mit — bis dahin sagte die Kopfzeile

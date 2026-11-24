@@ -518,7 +518,7 @@ const FAELLE = [
     }),
   },
   {
-    // v33.59. „erinnere mich …" beantwortete der Sprachmodus mit „Ich habe deinen
+    // v33.70. „erinnere mich …" beantwortete der Sprachmodus mit „Ich habe deinen
     // Wunsch gespeichert … Schau im Tagebuch oder Mein-Garten-Tab nach für die
     // Erinnerung." Gespeichert wurde NICHTS: der einzige Schreiber war
     // `gsBrain.observe`, und gsBrain gibt es seit v28.75 nicht mehr.
@@ -551,7 +551,7 @@ const FAELLE = [
     }),
   },
   {
-    // v33.59. Die Kalibrierung des Lichtmessers las `gsUserPosition` — einen
+    // v33.70. Die Kalibrierung des Lichtmessers las `gsUserPosition` — einen
     // Namen, den es nie gab. Mit gespeichertem Standort stand dort „Aktiviere
     // GPS für astronomische Referenz-Kalibrierung"; die Referenz selbst ist
     // kein einziges Mal erschienen.
@@ -594,7 +594,7 @@ const FAELLE = [
     }),
   },
   {
-    // v33.59. „Zu meinen Pflanzen" las `EMOJI_BY_CAT` — eine Tabelle, die es nie
+    // v33.70. „Zu meinen Pflanzen" las `EMOJI_BY_CAT` — eine Tabelle, die es nie
     // gab. Jede aus einem Scan uebernommene Pflanze ohne eigenes Symbol bekam
     // 🌿, auch ein Pilz. Die Scan-Karte daneben zeigte laengst 🍄 (eigene Tabelle).
     name: 'E13 · Eine aus dem Scan übernommene Pflanze trägt das Symbol ihrer Kategorie — dasselbe wie die Scan-Karte; ein eigenes Symbol bleibt, eine unbekannte Kategorie ergibt 🌿',
@@ -640,7 +640,7 @@ const FAELLE = [
   },  {
     name: 'E14 · Ein Rezept zeigt seine Warnung, ein Heilmittel seine Gegenanzeigen und seine Dosierung — und die Schwierigkeit steht als Etikett da, nicht als rohes Wort',
     lauf: async () => __seite.evaluate(async () => {
-      // v33.59 (Audit „Datenform"). Gemessen wird der TEXT des geoeffneten Fensters
+      // v33.70 (Audit „Datenform"). Gemessen wird der TEXT des geoeffneten Fensters
       // gegen die Daten des Rezepts — nicht eine neue Funktion. Gegen den Stand
       // davor: die Warnung eines Rezepts fehlte (die Bedingung hiess isRemedy),
       // Gegenanzeigen und Dosierung hatte keine Anzeige, und auf den Karten stand
@@ -682,7 +682,7 @@ const FAELLE = [
   {
     name: 'E15 · Der Filter „Giftig" zeigt jede Art ab Giftstufe 2 — und „Ungiftig" nur Stufe 0; gefragt wird die ART, nicht der Eintrag',
     lauf: async () => __seite.evaluate(async () => {
-      // v33.59 (Audit „Datenform"). `toxic` und `tox` sind zwei Felder fuer dieselbe
+      // v33.70 (Audit „Datenform"). `toxic` und `tox` sind zwei Felder fuer dieselbe
       // Frage; bei acht Eintraegen der Stufe 2 stand `toxic:false` — sie fehlten in
       // BEIDEN Filtern. Massstab ist hier die Stufe, nicht das Feld, das der Filter liest.
       const alt = currentFilter;

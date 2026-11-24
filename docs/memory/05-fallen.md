@@ -192,32 +192,32 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v33.55** Die Aufraeum-Funktion der Teilen-Vorschau loeschte das Foto — und
   sie laeuft auch, wenn `switchTab` alle Dialoge abraeumt. Regel: wer eine
   Folge (Loeschen, Senden) an ein Schliessen haengt, fragt, WER geschlossen hat.
-- **v33.59** `_gsSichtbar` stand zweimal als Funktion in derselben Datei — die
+- **v33.70** `_gsSichtbar` stand zweimal als Funktion in derselben Datei — die
   spaetere gewinnt still, fuer ALLE Aufrufer. Regel: kein Lauf zeigt das, ein
   Parser in einer Sekunde (`statik_check` S1).
-- **v33.59** `if (typeof markDirty === 'function') markDirty('state')` — die
+- **v33.70** `if (typeof markDirty === 'function') markDirty('state')` — die
   Funktion heisst `gsCloudSync.markDirty`. Ein `typeof`-Schutz vor einem Namen,
   den es nicht gibt, ist ein toter Zweig, der wie Sorgfalt aussieht
   (`statik_check` S3). Vier weitere lagen so da.
-- **v33.59** Ein Fall rief `gsAddScanToMyPlants`, das zuerst „Wohnung oder
+- **v33.70** Ein Fall rief `gsAddScanToMyPlants`, das zuerst „Wohnung oder
   Garten?" fragt und auf einen Tipp WARTET — zehn Minuten Stille. Regel: wer
   einen Weg faehrt, der eine Rueckfrage stellt, stellt die Antwort.
-- **v33.59** Der Deckel in `datum_check` stand zuerst auf 27 (geschaetzt);
+- **v33.70** Der Deckel in `datum_check` stand zuerst auf 27 (geschaetzt);
   gezaehlt waren es 32. Regel: „gemessen" steht nur vor einer Zahl, hinter der
   eine Rechnung steht (wie v33.52).
-- **v33.59** Sieben `calc()`-Ausdruecke ohne Leerraum um das Plus: ungueltig,
+- **v33.70** Sieben `calc()`-Ausdruecke ohne Leerraum um das Plus: ungueltig,
   ohne Meldung. Gefunden hat es ein Agent mit einem Skript ueber die
   Stylesheets; gemessen wurde die Wirkung erst danach im Browser
   (`getComputedStyle`) — die Kopfleiste war seit jeher 17 px zu niedrig.
-- **v33.59** Ein Fall mass „angemeldet" auf der Seite der Beispieldaten — dort
+- **v33.70** Ein Fall mass „angemeldet" auf der Seite der Beispieldaten — dort
   steht nach dem Start der Anmeldebildschirm (der Pseudo-Token ist keine
   Sitzung). Die Gegenrichtung muss den Zustand HERSTELLEN wie `render_check`.
-- **v33.59** Der Titel eines Wochen-Fakts kommt in mehreren Wochen vor; ein
+- **v33.70** Der Titel eines Wochen-Fakts kommt in mehreren Wochen vor; ein
   Fall, der die Woche am ERSTEN Treffer des Titels ablas, meldete KW 49 statt
   52. Gefragt wird die Zugehoerigkeit, nicht der erste Treffer.
-- **v33.59** Ein Brett-Abschluss nannte „13 Verzeichnisse" — geschaetzt; der
+- **v33.70** Ein Brett-Abschluss nannte „13 Verzeichnisse" — geschaetzt; der
   Fall daneben mass 12. Der Eintrag war noch nicht veroeffentlicht und wurde
   neu geschrieben. Eine Zahl kommt aus der Messung, nie aus dem Kopf.
-- **v33.59** Acht lose Agenten rissen zweimal am Nutzungslimit, bevor einer
+- **v33.70** Acht lose Agenten rissen zweimal am Nutzungslimit, bevor einer
   berichtet hatte. Regel: ein Workflow mit Zwischenspeicher je Agent, und jeder
   Auditor schreibt seine Funde ZUERST in eine Datei.

@@ -102,7 +102,7 @@ sed -e "s/android:versionCode=\"1\"/android:versionCode=\"$VERSION_CODE\"/" \
 # ---------------------------------------------------------------- Uebersetzen
 echo "-- javac"
 aapt package -f -m -J "$BAU/src" -M "$BAU/AndroidManifest.xml" -S "$HIER/res" -I "$ANDROID_JAR"
-# v33.59: der Status von javac wird FESTGEHALTEN. Vorher lief die Ausgabe durch
+# v33.70: der Status von javac wird FESTGEHALTEN. Vorher lief die Ausgabe durch
 # einen Filter mit `|| true` — ein Uebersetzungsfehler in MainActivity ergab
 # „1 error", javac schrieb trotzdem 17 von 40 Klassen, die Pruefung fragte nur
 # nach IRGENDEINER .class, und das Skript baute und signierte ein Paket OHNE
@@ -151,7 +151,7 @@ else
 fi
 
 zipalign -f 4 "$BAU/out/unsigned.apk" "$BAU/out/aligned.apk"
-# v33.59: im Release-Bau liest apksigner das Passwort aus der UMGEBUNG (env:).
+# v33.70: im Release-Bau liest apksigner das Passwort aus der UMGEBUNG (env:).
 # Als `pass:<wert>` stand das Passwort des einen unersetzlichen Schluessels fuer
 # die Dauer des Signierens in der Prozessliste (`ps`, /proc/<pid>/cmdline) —
 # lesbar fuer jeden anderen Nutzer und jedes Protokoll der Maschine. Der

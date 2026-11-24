@@ -246,7 +246,7 @@ public class MainActivity extends Activity {
           return true;
         } catch (RuntimeException e) {
           // Kein stilles Haengenbleiben: das Feld bekommt seine Absage.
-          // v33.59: `return true`, nicht false — true heisst „der Rueckruf ist
+          // v33.70: `return true`, nicht false — true heisst „der Rueckruf ist
           // beantwortet". Mit false sagte die WebView dem Feld ein ZWEITES Mal
           // ab („Duplicate showFileChooser result"). Und gefangen wird jede
           // RuntimeException: auch eine SecurityException liesse den Rueckruf
@@ -270,7 +270,7 @@ public class MainActivity extends Activity {
       setIntent(new Intent(Intent.ACTION_MAIN));
     }
 
-    // v33.59: `restoreState` gibt null zurueck, wenn es nichts wiederherstellen
+    // v33.70: `restoreState` gibt null zurueck, wenn es nichts wiederherstellen
     // konnte (der Zustand wurde gesichert, bevor die erste Navigation stand, oder
     // die System-WebView wurde inzwischen aktualisiert). Die Rueckgabe las
     // niemand — die App blieb dann eine leere weisse Seite. (apk_check R19)

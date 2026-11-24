@@ -1,4 +1,4 @@
-# GreenScan — Cloudflare Pages Security Headers (v33.59)
+# GreenScan — Cloudflare Pages Security Headers (v33.70)
 # Apply to every path on the deployed site.
 
 /*
@@ -6,7 +6,7 @@
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=31536000; includeSubDomains
-  # v33.59: microphone, accelerometer, gyroscope und magnetometer standen auf `()` —
+  # v33.70: microphone, accelerometer, gyroscope und magnetometer standen auf `()` —
   # eine leere Liste sperrt das Merkmal auch fuer den EIGENEN Ursprung. Die App benutzt
   # sie selbst: der Karten-Kompass und die Richtungsanzeige des Lichtmessers hoeren auf
   # `deviceorientation` (in Chromium nur mit accelerometer + gyroscope), der Sprachmodus
@@ -19,7 +19,7 @@
   # v32.71 (Audit A8): kein 'unsafe-eval' (0 eval/new Function im App-Code), worker-src kennt cdnjs
   # (sonst fiel der pdf.js-Worker still auf den Hauptthread), frame-ancestors 'none' (die App wird
   # nie eingebettet; X-Frame-Options DENY fuer aeltere Browser), ipapi.co raus (Audit A9).
-  # v33.59: connect-src kennt die Hosts, die der Service Worker SELBST holt (Schriften, cdnjs,
+  # v33.70: connect-src kennt die Hosts, die der Service Worker SELBST holt (Schriften, cdnjs,
   # Artbilder von Wikimedia). Diese Kopfzeile gilt auch fuer /sw.js und ist damit die
   # Richtlinie des Workers; ein fetch() im Worker wird gegen connect-src geprueft, nicht
   # gegen img-src/font-src der Seite.
@@ -39,7 +39,7 @@
   X-Robots-Tag: noindex, nofollow
 /store/*
   X-Robots-Tag: noindex, nofollow
-# v33.59 (brett:2026-11-11-e383): dieselbe Regel fuer die Verzeichnisse, die seit
+# v33.70 (brett:2026-11-11-e383): dieselbe Regel fuer die Verzeichnisse, die seit
 # v32.69 dazugekommen sind — die Android-Huelle, das Store-Bildmaterial und die
 # CI-Konfiguration. robust_check „Web-Root" haelt jedes Verzeichnis im
 # Wurzelverzeichnis gegen diese Liste: Auslieferung (mit Grund) oder noindex.

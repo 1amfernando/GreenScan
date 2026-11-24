@@ -1459,7 +1459,7 @@ anderen fünf). Ein Commit ist eine Prüfsumme — was läuft, ist Byte für Byt
 Prüfstand gefahren hat. Geladen wird beim Ausliefern, nicht zur Laufzeit. Wer sie später
 gewöhnlich ausliefern will: `supabase functions deploy <name>` aus dem Repo, das Ergebnis
 ist dasselbe.
-## 30 · Der grosse Durchgang (v33.59) — was du tun musst, und was noch offen ist
+## 30 · Der grosse Durchgang (v33.70) — was du tun musst, und was noch offen ist
 
 **Für die App selbst musst du nichts einspielen.** Keine Migration, keine
 Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.
@@ -1546,9 +1546,9 @@ die Bildauswahl statt der Kamera.
 
 **Drei Dinge über die Arbeit selbst:** diese Scheibe hiess v33.57, bis sich
 zeigte, dass `main` die Nummer und v33.58 inzwischen vergeben hatte — sie ist
-auf `main` nachgezogen und heisst v33.59. **Diese Nummer ist noch nicht
+auf `main` nachgezogen und heisst v33.70. **Diese Nummer ist noch nicht
 endgültig, und die Reihenfolge entscheidest du:** zwei weitere Branches tragen
-ebenfalls v33.59, und für die Reihenfolge gibt es zwei Angaben, die sich
+ebenfalls v33.70, und für die Reihenfolge gibt es zwei Angaben, die sich
 widersprechen (einmal steht PR #326 vorn, einmal der Sicherheits-Branch
 `ccr-5e705a36-jveaak`, dann PR #324, dann diese Scheibe als v33.61). Die Frage
 liegt auf dem Brett (`2026-11-11-23d2`). Bis du antwortest, nummeriere ich
@@ -1558,7 +1558,7 @@ dem Sicherheits-Branch 51 — dieser hat mehrere Funde aus meinem Audit
 parallel behoben (Passwort im Bau-Skript, Datenschutz-Satz, noindex,
 Mikrofon-/Sensor-Freigabe), mit anderem Wortlaut. Dort ist beim Zusammenführen
 je eine Seite zu nehmen; was dabei zu beachten ist, steht in STATUS (Eintrag
-„(je) - v33.59", Absatz „Probeweise zusammengeführt"). Und: einen Pull Request habe ich NICHT geöffnet (du hast keinen
+„(jr) - v33.70", Absatz „Probeweise zusammengeführt"). Und: einen Pull Request habe ich NICHT geöffnet (du hast keinen
 verlangt). Der Stand liegt auf dem Branch `ccr-dce5a17c-2xzhvi`; die Prüfung
 auf GitHub läuft erst mit einem PR. **Wenn du ihn willst, sag „öffne den PR"**
 — dann ziehe ich vorher auf den dann aktuellen Stand von `main` nach.

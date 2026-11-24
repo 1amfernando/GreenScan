@@ -3,7 +3,7 @@
 //
 //   node scripts/datum_check.js
 //
-// Anlass (v33.59): alle anderen Pruefstaende laufen in der Zeitzone der
+// Anlass (v33.70): alle anderen Pruefstaende laufen in der Zeitzone der
 // Maschine — hier und auf dem GitHub-Runner ist das UTC. Die Nutzer sitzen in
 // der Schweiz (UTC+1 / UTC+2). `new Date().toISOString().slice(0, 10)` ist der
 // UTC-Tag: zwischen 00:00 und 02:00 Ortszeit ist das GESTERN. In UTC sind
@@ -201,7 +201,7 @@ const SEITE = [
   {
     name: 'T7 · Die Kalenderwoche ist die ISO-Woche: am Mittwoch, 11.11.2026 ist KW 46 — auf der Startseite UND im Planer-Kalender, am 1. Januar 2027 noch KW 53, und Montag 00:30 schon die neue Woche',
     lauf: async () => {
-      // v33.59 (Audit datum-5). Gemessen wird das VERHALTEN — gsGetKW() und die
+      // v33.70 (Audit datum-5). Gemessen wird das VERHALTEN — gsGetKW() und die
       // im Planer hervorgehobene Woche — gegen eine eigene ISO-Rechnung (Ordinaltag
       // und Wochentag, nicht der Donnerstags-Trick der App). Die Uhr wird fuer
       // jeden Probetag in der Seite gestellt und danach zurueckgegeben.
@@ -215,7 +215,7 @@ const SEITE = [
         if (w < 1) w = wochen(j - 1); else if (w > wochen(j)) w = 1;
         return w;
       };
-      // v33.59 (Gegenlesen): die nächtliche Probe lag nur auf einem MITTWOCH — dort ist
+      // v33.70 (Gegenlesen): die nächtliche Probe lag nur auf einem MITTWOCH — dort ist
       // der UTC-Tag (Dienstag) in derselben Woche, eine Rechnung auf dem UTC-Tag fiele
       // nicht auf. Erst ein MONTAG nach Mitternacht trennt die beiden: Mo 16.11.2026
       // 00:30 in Zuerich ist KW 47, der UTC-Tag (So 15.11., 23:30) KW 46.
@@ -344,7 +344,7 @@ const SEITE = [
   console.log('  ---');
   console.log('  Faelle geprueft: ' + (SEITE.length + 1) + ' · davon kaputt: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
-  // v33.59 (Gegenlesen): hier stand „zwoelf Tages-Riegel in UTC" als offen — der Kopf
+  // v33.70 (Gegenlesen): hier stand „zwoelf Tages-Riegel in UTC" als offen — der Kopf
   // dieser Datei ordnet die Tages-Riegel als BEWUSST UTC ein, offen sind sieben andere.
   console.log('  Grenze: geprueft sind diese Faelle und der Deckel. Offen (STATUS Sektion 2, „Faelligkeit ueber die');
   console.log('  Zeitumstellung"): die Faelligkeit in den Naechten 28./29.03. und 24./25.10. und sieben lokal gemeinte');

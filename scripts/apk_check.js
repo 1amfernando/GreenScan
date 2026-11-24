@@ -573,7 +573,7 @@ function paket() {
                  : { ok: true, info: filterImPaket.length + ' Filter im Paket · SEND + SEND_MULTIPLE · ' + typenWebB.join(', ') },
   });
 
-  // B6 — v33.59 (Audit „Android-Huelle"). build.sh liess die Ausgabe von javac
+  // B6 — v33.70 (Audit „Android-Huelle"). build.sh liess die Ausgabe von javac
   // durch einen Filter mit `|| true` laufen: ein Uebersetzungsfehler in
   // MainActivity ergab „1 error", javac schrieb trotzdem 17 von 40 Klassen, und
   // das Skript baute und signierte ein Paket OHNE MainActivity mit Exit 0.
@@ -926,7 +926,7 @@ function rand() {
     r: r18.length ? { ok: false, warum: r18.join(' · ') } : { ok: true, info: 'SEND + SEND_MULTIPLE · ' + (typenWeb || []).join(', ') + ' · singleTask · Fach static final, Uhr monoton' },
   });
 
-  // R19 — v33.59 (Audit „Android-Huelle", vier bestaetigte Funde).
+  // R19 — v33.70 (Audit „Android-Huelle", vier bestaetigte Funde).
   const r19 = [];
   const wahl = (MAINACT_OHNE.match(/public boolean onShowFileChooser\([\s\S]*?\n      \}/) || [''])[0];
   if (!wahl) r19.push('onShowFileChooser nicht gefunden');

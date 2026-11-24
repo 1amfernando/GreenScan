@@ -119,7 +119,7 @@ for fid, f in felder.items():
     else:
         verdaechtig.append(zeile)
 
-# v33.59 (brett:2026-11-11-ec73): der Pruefstand URTEILT. Bis dahin endete er
+# v33.70 (brett:2026-11-11-ec73): der Pruefstand URTEILT. Bis dahin endete er
 # immer mit 0 — „N Felder, die niemand liest" haette `pruefstaende.sh` als gruen
 # gemeldet, und die Zeile stand nur fuer den da, der den Bericht las (dieselbe
 # Luecke wie in contrast_check und render_check, im selben Schnitt geschlossen).

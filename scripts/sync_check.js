@@ -75,7 +75,7 @@ const PROBEN = {
   'gs_garden_plans': '[{"id":"pl1"}]',
   'gs_garden_plan_current': '{"id":"pl1"}',
   'gs_gardens': '[{"id":"g1","name":"Hof"}]',
-  // v33.59: die Pflanzung in ihrer HEUTIGEN Form — mit `tasks`. Seit der Pull
+  // v33.70: die Pflanzung in ihrer HEUTIGEN Form — mit `tasks`. Seit der Pull
   // auch den Arbeitsspeicher auffrischt, ruestet `_gsPflanzungenNachruesten`
   // eine Pflanzung OHNE Aufgaben beim ersten Lesen nach (v32.47) und speichert
   // sie; der Probewert kaeme dann zu Recht veraendert zurueck. Dasselbe geschah
@@ -337,7 +337,7 @@ const melde = (frage, ok, wie) => {
         : k.ereignisse + ' Ereignis(se) bei drei Renderings, Felder: „' + k.felder + '“, im Vokabular: ' + k.imVokabular);
   }
 
-  // ── v33.59 · Der Pull frischt auch den ARBEITSSPEICHER auf ──────────────
+  // ── v33.70 · Der Pull frischt auch den ARBEITSSPEICHER auf ──────────────
   // Gemessen (Audit „robust", bestaetigt): der Login-Pull schrieb Gaerten und
   // Pflanzungen NUR in den Geraetespeicher. Die Variablen `gardens` und
   // `plantings` blieben, wie sie beim Parsen der Seite waren — auf einem
@@ -356,7 +356,7 @@ const melde = (frage, ok, wie) => {
     const hoch = [];
     window.sbFetch = async function (pfad, opts) {
       opts = opts || {}; const m = (opts.method || 'GET').toUpperCase();
-      // v33.59: die Cloud-Liste traegt auch Unrat (`null`, eine Zeichenkette, eine Liste) —
+      // v33.70: die Cloud-Liste traegt auch Unrat (`null`, eine Zeichenkette, eine Liste) —
       // was von dort kommt, ist fremde Eingabe und geht gesiebt in Speicher UND Variable.
       if (/\/rest\/v1\/user_gardens/.test(pfad) && m === 'GET') return { data: [{ data: { gardens: G.concat([null, 'kaputt', ['x']]), plantings: PL.concat([null, 7]) }, updated_at: new Date().toISOString() }], error: null, status: 200 };
       if (/\/rest\/v1\/user_gardens/.test(pfad)) { try { hoch.push(JSON.parse(opts.body).data); } catch (_) {} return { data: [{}], error: null, status: 200 }; }
