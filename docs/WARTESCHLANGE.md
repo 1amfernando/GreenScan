@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 16:57 UTC · `main` = `bbb5b26` (**v33.73**) · #347 Hauptfunktionen: Fix-Kopf **`5844cf6`** (Baum identisch mit dem Test-Merge, CI Lauf 45442194303 seit 16:52, fertig ca. 17:31) → Merge-Commit bei grün · Sicherheit stapelt v33.75 (kb) auf `5844cf6` (SHA gemeldet 16:55) · danach „Suche 11“ v33.76 (kc) auf Sicherheits Kopf · #348 Audit (kein Bump) zuletzt.
+**Stand:** 24.11.2026, 17:15 UTC · `main` = `bbb5b26` (**v33.73**) · CI läuft für drei PRs gleichzeitig: #348 Audit (seit 16:50, fertig ca. 17:28), #347 Hauptfunktionen `5844cf6` (seit 16:52, ca. 17:31), #349 Sicherheit `255665c` (seit 17:10, ca. 17:48) · Merge-Reihenfolge #347 → #349 → „Suche 11“ v33.76 (kc, stapelt auf `255665c`) → #348 zuletzt · jeder als MERGE-COMMIT bei grün und Baum-Gleichheit.
 
 ## 1 · Warum es schneller wird
 
@@ -44,8 +44,8 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | 2 | Audit | `ccr-dce5a17c-2xzhvi` | **v33.72** | (jv) | **GEMERGT** als Merge-Commit `06daf91` (#344; CI auf 440f9e5 grün, Baum identisch) |
 | 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | **v33.73** | (jw) | **GEMERGT** als Merge-Commit `bbb5b26` (#346; CI auf 24dd782 grün, Baum identisch); der Proxy-Teil gehört Fernando (FUER-FERNANDO §33) |
 | 4 | Hauptfunktionen · Lina · Einblick ehrlich + Scanner 12 + Pilz-Verwechsler (EIN Kopf) | `claude/happy-thompson-24l4uu` | v33.74 | (jx) · (jy) · (jz) · (ka) | PR **#347**, Kopf **`5844cf6`** (`9e0cc7a` + Fix A–E aus den drei Lesern; Baum = Test-Merge `bd2dc89`), CI Lauf 45442194303 läuft |
-| 5 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.75 | (kb) | Scheibe 1 fertig; stapelt auf **`5844cf6`** (Signal 16:55), Bump von Hand (`_bump.js` trippt auf dem Stapel); nichts unter supabase/.github/_headers/_redirects in diesem Push |
-| 6 | Hauptfunktionen · Suche 11 (Vorschläge beim Anlegen wie die Artensuche, „⚠️ giftig“ je Art) | `claude/happy-thompson-24l4uu` | v33.76 | (kc) | baut lokal; pusht erst auf den Kopf von Nr. 5, wenn der Koordinator ihn meldet; Bärlauch/Maiglöckchen-Gegenprobe Pflicht |
+| 5 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.75 | (kb) | PR **#349**, Kopf **`255665c`** (enthält `5844cf6`; merge-tree gegen main und gegen #347 = Kopf-Baum `a4dc964`), CI Lauf 45445512732 seit 17:10; nichts unter supabase/.github/_headers/_redirects; offene Frage für Fernando: Brett e247 (kommt ein Offline-Foto live je im Speicher an?) |
+| 6 | Hauptfunktionen · Suche 11 (Vorschläge beim Anlegen wie die Artensuche, „⚠️ giftig“ je Art) | `claude/happy-thompson-24l4uu` | v33.76 | (kc) | Signal 17:13: stapelt auf `255665c`, Bump von Hand; Bärlauch/Maiglöckchen-Gegenprobe Pflicht |
 | 7 | Audit · Prüfstände (kein Bump) | `ccr-dce5a17c-2xzhvi` | – | (jv) Nachtrag | PR **#348**, Kopf `b199b6d` (docs + `!!`-Ausgabe), CI läuft; wird als LETZTER gemergt (dann main einziehen, CI neu) |
 | – | Brett (#341) | `ccr-b63433a4-d1xgyg` | – | – | enthält `.github/workflows/*` und `docs/AGENTEN-NETZ.md` → Fernando; der Werkzeug-Teil kommt als eigener PR |
 
