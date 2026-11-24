@@ -14892,7 +14892,7 @@ async function dqAskKIExplain() {
 
   try {
     var messages = [{ role: 'user', content: userMsg }];
-    var answer = await callAI(messages, systemPrompt, 300, { brain: 'botaniker' });
+    var answer = await callAI(messages, systemPrompt, 300, { brain: 'botaniker', rolle: 'vision' });
     var safe = String(answer || 'Keine Antwort').replace(/</g,'&lt;').replace(/\n/g,'<br>');
     block.innerHTML =
       '<div style="font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.65;margin-bottom:4px;">💡 Erklärung</div>' +
@@ -44306,7 +44306,7 @@ Antworte NUR mit dem JSON-Objekt, kein Text davor/danach.`;
     if (diagImageData) {
       resp = await callVisionAI(diagImageData, 'image/jpeg', userMsg + '\n\n' + sysPrompt, null, { quotaFeature: 'doctor' });
     } else {
-      resp = await callAI([{role:'user', content: userMsg + '\n' + sysPrompt}], '', 600);
+      resp = await callAI([{role:'user', content: userMsg + '\n' + sysPrompt}], '', 600, { rolle: 'vision' });
     }
 
     // Parse JSON
@@ -75886,7 +75886,7 @@ async function gsVoiceProcess(transcript) {
   if (typeof callAI === 'function') {
     try {
       var sysPrompt = 'Du bist GreenScan, ein freundlicher Schweizer Garten-Assistent. Antworte in höchstens 3-4 kurzen, klaren Sätzen auf Deutsch (Standard-Deutsch mit Schweizer Begriffen wo passend). Keine Listen, keine Markdown — Fließtext, da die Antwort per Text-to-Speech vorgelesen wird. Wenn du unsicher bist, sag es ehrlich.';
-      var resp = await callAI([{ role: 'user', content: transcript }], sysPrompt, 250, { brain: 'generalist', timeout: 20000 });
+      var resp = await callAI([{ role: 'user', content: transcript }], sysPrompt, 250, { brain: 'generalist', timeout: 20000, rolle: 'vision' });
       var txt = '';
       if (typeof resp === 'string') txt = resp;
       else if (resp && resp.content && Array.isArray(resp.content)) {
