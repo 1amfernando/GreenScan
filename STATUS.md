@@ -12,6 +12,34 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (jr) - v33.6x (Nummer folgt am Kopf der Reihe): Lina — eine Antwort gehört dem Gespräch, in dem gefragt wurde
+
+**Auftrag:** Hauptfunktionen, Lina (Fernando: „Entscheide selber", „weiter"). Gefunden beim Nachlesen von `gsLinaSend`
+(`docs/HAUPTFUNKTIONEN.md`, Lina 9). Gebaut auf diesem Branch über (jq), main v33.67 (`0485b2d`); #337 (Sicherheit) fasst
+Linas Sende- und Gesprächsfunktionen nicht an (nachgesehen).
+
+**Gemessen** (die geladene App, gestellte KI und Cloud): wer während „Lina denkt nach…" auf **„＋ Neu"** tippte, sah das neue
+Gespräch mit der Antwort auf eine Frage beginnen, die dort nicht stand; im gefragten Gespräch fehlte sie (Cloud: nur die
+Frage), und die nächste Frage ging mit dieser fremden Antwort als Vorgeschichte an die KI (`assistant:ANTWORT-A | user:FRAGE-B`).
+Wer ein **früheres Gespräch** öffnete, bekam die Antwort dort angehängt UND unter dessen Id in der Cloud gespeichert. Wurde
+gewechselt, während ein neues Gespräch angelegt wurde, bekam das andere dessen Id und die KI eine leere Vorgeschichte. Eine
+zweite Frage während des Wartens verschluckte der Riegel wortlos (Feld gefüllt, nichts geschah).
+
+**Behoben:** `_gsLinaGespraechNr` zählt jeden Wechsel des gezeigten Gesprächs (`gsLinaNew`, `_gsLinaLadeGespraech`,
+`gsOpenLina`); `gsLinaSend` hält beim Senden fest, wo gefragt wurde (Liste, Id): Vorgeschichte, neue Gesprächs-Id und Antwort
+gehören dorthin. Wird es noch gezeigt (oder wieder — Lina neu geöffnet, im Verlauf angetippt), steht die Antwort da; sonst liegt
+sie in der Cloud bei IHREM Gespräch, und ein Satz sagt „unter 🕘 Verlauf". Ein Ausfall landet nicht als „Erneut senden" im
+falschen Gespräch, sondern als Satz; eine Schreibaktion fragt nicht in einem Gespräch nach, das nicht offen ist; die zweite
+Frage bekommt einen Satz, das Feld bleibt. Doku: CLAUDE.md §3.6, `docs/memory/02-regeln.md` 5b, `docs/HAUPTFUNKTIONEN.md` Lina 9.
+
+**Prüfstände:** `sensor_check` L12 — sieben Lagen („＋ Neu" · früheres Gespräch mit zweiter Frage · zurück im selben Gespräch ·
+ohne Wechsel · Wechsel beim Anlegen · Ausfall · leeres Neu-Öffnen), gegen den alten Stand rot; zehn Gegenproben einzeln rot, je an
+der richtigen Lage. Beim Bau selbst gelernt: ein `return lauf` aus einer async-Hilfe WARTET auf das Senden — der Fall hing elf
+Minuten, bis das Versprechen in einem Behälter zurückkam. Die volle Suite steht im Nachtrag.
+
+**Offen:** nichts.
+**Nicht geprüft:** ein echtes Telefon; dass die Cloud die Antwort beim gefragten Gespräch wirklich annimmt (gestellt, nicht live).
+
 ### 2026-11-19 (jq) - v33.6x (Nummer folgt am Kopf der Reihe): Wissen-Tab — dieselben Zahlen wie Startseite und Filter, und jede Kachel öffnet ihre Liste
 
 **Auftrag:** Hauptfunktionen, Home 3 (`docs/HAUPTFUNKTIONEN.md`; eigener Befund `2026-11-16-4d79` vom 16.11.) — Fernando,

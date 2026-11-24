@@ -707,6 +707,14 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   wird die FOLGE, nicht der Aufruf — `callVisionAI` kennt kein Abbruchsignal (Brett-Idee
   `2026-11-16-8186`); die Anfrage läuft weiter und kann zählen, und der Satz nach dem
   Abbrechen sagt das. `scan_check` AB1–AB4.
+  **Und dem GESPRÄCH, in dem gefragt wurde** (v33.6x, Lina 9). Wer während des Wartens das
+  gezeigte Gespräch wechseln kann („＋ Neu", ein früheres aus dem Verlauf, Lina neu öffnen),
+  zählt jeden Wechsel (`_gsLinaGespraechNr`) und hält beim Senden fest, WO gefragt wurde
+  (Liste, Gesprächs-Id): Vorgeschichte, neue Gesprächs-Id und Antwort gehören dorthin. Wird es
+  nicht mehr gezeigt, geht die Antwort in die Cloud zu IHREM Gespräch, und ein Satz sagt, wo sie
+  ist — nie in das gerade offene. Vorher stand sie im neuen Gespräch (ohne Frage) bzw. im
+  früheren UND wurde unter dessen Id gespeichert, und die nächste Frage ging mit ihr als
+  Vorgeschichte an die KI. `sensor_check` L12 (sieben Lagen, zehn Gegenproben).
 
 ### 3.7 · revDSG (Schweizer Datenschutz)
 - Analytics ist **Opt-In** (Consent-Banner beim ersten Launch). Niemals

@@ -90,6 +90,15 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    Monat, ohne Bezug zu fälligen Aufgaben oder zum letzten Scan.
 8. ✅ v33.61 (bestätigt und schlimmer: mit Text dahinter stand die Zeile roh in der Antwort;
    `sensor_check` L6) — Verdacht: ein kaputtes `[[GS_ACTION]]` am Antwortende wird still verworfen.
+9. ✅ v33.6x (`sensor_check` L12, gefunden 24.11. beim Nachlesen von `gsLinaSend`) — **Eine Antwort
+   landet im falschen Gespräch.** Wer während „Lina denkt nach…" auf „＋ Neu" tippte, sah das neue
+   Gespräch mit der Antwort auf eine Frage beginnen, die dort nicht stand; die nächste Frage ging mit
+   dieser Antwort als Vorgeschichte an die KI. Wer ein früheres Gespräch öffnete, bekam die Antwort dort
+   angehängt UND unter dessen Id in der Cloud gespeichert — im gefragten Gespräch fehlte sie. Wurde
+   während des Anlegens eines neuen Gesprächs gewechselt, bekam das andere Gespräch dessen Id. Eine
+   zweite Frage verschluckte der Riegel wortlos. Jetzt zählt jeder Wechsel (`_gsLinaGespraechNr`),
+   Vorgeschichte, Id und Antwort bleiben beim gefragten Gespräch (Cloud), ein Satz sagt, wo die Antwort
+   ist, und die zweite Frage bekommt einen Satz statt Stille.
 
 ## Offen — Suche
 

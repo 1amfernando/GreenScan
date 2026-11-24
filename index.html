@@ -16718,6 +16718,11 @@ window.GS_I18N_JS_STRINGS = {
   'lina_verlauf_offen':        'offen',
   'lina_zurueck':              '← Zurück',
   'lina_aktion_kaputt':        '(Die Aktion zu dieser Antwort ist nicht angekommen.)',
+  // ── v33.6x: Lina 9 — eine Antwort gehoert dem Gespraech, in dem gefragt wurde ──
+  'lina_noch_dran':            'Lina antwortet noch auf deine vorige Frage — gleich bin ich wieder frei.',
+  'lina_antwort_dort':         'Lina hat im vorigen Gespräch geantwortet — du findest es unter 🕘 Verlauf.',
+  'lina_antwort_weg':          'Lina hat auf deine vorige Frage geantwortet — dieses Gespräch ist nicht mehr offen.',
+  'lina_vorige_fehler':        'Lina konnte deine vorige Frage gerade nicht beantworten.',
   // v33.61 (Lina 7): Linas feste Vorschlaege (GS_LINA_VORSCHLAEGE) — bis hier ohne Eintrag
   'ai_sug_1':                  'Was ist der giftigste Pilz der Schweiz?',
   'ai_sug_3':                  'Bärlauch richtig bestimmen',
@@ -90327,6 +90332,7 @@ async function gsOpenLina(){
     return;
   }
   _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">🌿 Lina kommt…</div>');
+  _gsLinaGespraechWechsel();   // LINA-9: das gezeigte Gespräch wird neu geladen
   window._gsLinaMsgs = []; window._gsLinaConvId = null;
   var _wer = _gsPerson();
   // LINA-4 (Rest): der Spiegel des zuletzt gezeigten Gesprächs. Bis hier leerte jedes Öffnen den
@@ -90624,7 +90630,16 @@ function gsLinaRender(typing){
 }
 window.gsLinaRender = gsLinaRender;
 
-function gsLinaNew(){ window._gsLinaConvId = null; window._gsLinaMsgs = []; gsLinaRender(false); }
+// LINA-9 (24.11.2026): eine Antwort gehört dem GESPRÄCH, in dem gefragt wurde — dieselbe Regel wie
+// Scanner 4 und der Pilz-Scanner (CLAUDE.md §3.6). Gemessen: wer während „Lina denkt nach…" auf
+// „＋ Neu" tippte, sah das neue Gespräch mit der Antwort auf eine Frage beginnen, die dort nicht stand,
+// und die nächste Frage ging mit dieser fremden Antwort als Vorgeschichte an die KI; wer ein früheres
+// Gespräch öffnete, bekam die Antwort dort angehängt UND unter dessen Id in der Cloud gespeichert — im
+// Gespräch, in dem gefragt wurde, fehlte sie. Jeder Wechsel des gezeigten Gesprächs zählt hier hoch;
+// gsLinaSend hält beim Senden fest, wo gefragt wurde, und schreibt die Antwort dorthin.
+var _gsLinaGespraechNr = 0;
+function _gsLinaGespraechWechsel() { _gsLinaGespraechNr = (_gsLinaGespraechNr || 0) + 1; }
+function gsLinaNew(){ _gsLinaGespraechWechsel(); window._gsLinaConvId = null; window._gsLinaMsgs = []; gsLinaRender(false); }
 window.gsLinaNew = gsLinaNew;
 
 // ══ LINA-4 (16.11.2026): fruehere Gespraeche ═════════════════════════════════════════════
@@ -90638,6 +90653,7 @@ async function _gsLinaLadeGespraech(id) {
   if (!id || typeof sbFetch !== 'function') return false;
   var rm = await sbFetch('/rest/v1/coach_messages?conversation_id=eq.' + encodeURIComponent(id) + '&select=role,content&order=created_at.desc&limit=100', { method: 'GET' });
   if (!rm || rm.error || !Array.isArray(rm.data)) return false;
+  _gsLinaGespraechWechsel();   // LINA-9: die gezeigte Liste wird ersetzt
   window._gsLinaConvId = id;
   window._gsLinaMsgs = rm.data.map(function (m) { return { role: m.role, content: m.content }; }).reverse();
   return true;
@@ -90800,8 +90816,13 @@ async function gsLinaSend(){
       if (window._gsLinaSending) return;
     }
   } catch(_){}
-  if (window._gsLinaSending) return; // v29.48: Doppel-Send-Guard — sonst 2 parallele callAI → doppelter Quota-Abzug
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  if (window._gsLinaSending) { // v29.48: Doppel-Send-Guard — sonst 2 parallele callAI → doppelter Quota-Abzug
+    // LINA-9: der Riegel verschluckte eine zweite Frage wortlos — das Feld blieb gefüllt, und nichts
+    // geschah. Wer inzwischen ein anderes Gespräch geöffnet hat, sieht nicht einmal mehr „denkt nach".
+    try { if (typeof gsToast === 'function') gsToast(_t('lina_noch_dran', 'Lina antwortet noch auf deine vorige Frage — gleich bin ich wieder frei.'), 'info', 3000); } catch(_){}
+    return;
+  }
   var inp = document.getElementById('gs-lina-input');
   var text = inp ? (inp.value||'').trim() : '';
   if (!text) return;
@@ -90846,6 +90867,11 @@ async function gsLinaSend(){
   if (inp) inp.value = '';
   window._gsLinaMsgs = window._gsLinaMsgs || [];
   if (!_schonGefuehrt) window._gsLinaMsgs.push({ role:'user', content:text });
+  // LINA-9: das Gespräch, in dem gefragt wird — seine Liste, seine Id und die Nummer des Wechsels. Gilt
+  // es noch, wenn die Antwort kommt? Ja, solange nichts gewechselt hat — oder wieder dasselbe Gespräch
+  // gezeigt wird (Lina geschlossen und neu geöffnet, im Verlauf wieder dieses angetippt).
+  var _gefragtIn = window._gsLinaMsgs, _gnr = _gsLinaGespraechNr, _konv = window._gsLinaConvId || null;
+  var _hier = function () { return _gnr === _gsLinaGespraechNr || (!!_konv && window._gsLinaConvId === _konv); };
   gsLinaRender(true);
   // LINA-2: die Wartezeit. Die einzige ehrliche Aussage über einen laufenden Aufruf ist, seit wann er
   // läuft (v31.79 — der Scanner zählt so seit v32.08); ab 3 s steht sie da. performance.now, nicht
@@ -90865,19 +90891,25 @@ async function gsLinaSend(){
   // mehr ins Fenster, in den Spiegel oder in die Cloud — sie gehört der Person, die gefragt hat.
   var _wer = _gsPerson();
   try {
-    if (!window._gsLinaConvId) {
+    if (!_konv) {
       var rc = await sbFetch('/rest/v1/coach_conversations', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify({ user_id: uid, title: text.slice(0,40) })});
       if (_gsPerson() !== _wer) return;
       var conv = (rc && rc.data && rc.data[0]) || null;
-      if (conv) window._gsLinaConvId = conv.id;
+      if (conv) {
+        _konv = conv.id;
+        // LINA-9: die neue Id gehört dem Gespräch, in dem gefragt wurde — nicht dem, das inzwischen
+        // gezeigt wird („＋ Neu" oder ein früheres aus dem Verlauf schrieben sonst in dieses).
+        if (_gnr === _gsLinaGespraechNr && !window._gsLinaConvId) window._gsLinaConvId = _konv;
+      }
       else if (typeof gsToast === 'function') gsToast(_t('lina_local_only','Verlauf wird gerade nur lokal geführt (Cloud nicht erreichbar).'), 'info', 3500); // v29.48: Conv-Anlage fehlgeschlagen → Nutzer dezent informieren
     }
     // Bei „Erneut senden" liegt die Frage schon in coach_messages.
     var _wdh = window._gsLinaWdh === true; window._gsLinaWdh = false;
-    if (window._gsLinaConvId && !_wdh) {
-      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'user', content:text })}).then(_gsLinaSpeicherPruefen);
+    if (_konv && !_wdh) {
+      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: _konv, user_id: uid, role:'user', content:text })}).then(_gsLinaSpeicherPruefen);
     }
-    var hist = window._gsLinaMsgs.slice(-16).map(function(m){ return { role:m.role, content:m.content }; });
+    // Die Vorgeschichte ist die des Gesprächs, in dem gefragt wurde (LINA-9) — nicht die eines anderen.
+    var hist = _gefragtIn.slice(-16).map(function(m){ return { role:m.role, content:m.content }; });
     var _treffer = (typeof _gsArtenTreffer === 'function') ? _gsArtenTreffer(text) : null;
     var reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(text), 900, { quotaFeature:'lina', timeout:45000 });
     if (_gsPerson() !== _wer) return;
@@ -90924,14 +90956,29 @@ async function gsLinaSend(){
       if (_gsLinaAktionLabel(_linaAct)) _msgA.aktion = _linaAct;
       _linaAct = null;
     }
-    window._gsLinaMsgs.push(_msgA);
-    gsLinaRender(false);
-    if (window._gsLinaConvId) {
-      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'assistant', content:reply })}).then(_gsLinaSpeicherPruefen);
-      sbFetch('/rest/v1/coach_conversations?id=eq.'+window._gsLinaConvId, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ updated_at: new Date().toISOString() })});
+    // LINA-9: die Antwort geht in das Gespräch, in dem gefragt wurde. Wird es noch gezeigt, steht sie da;
+    // sonst liegt sie in der Cloud bei ihm (zu finden unter „🕘 Verlauf"), und EIN Satz sagt, wo sie ist.
+    if (_hier()) {
+      (window._gsLinaMsgs || _gefragtIn).push(_msgA);
+      gsLinaRender(false);
+    } else {
+      _gefragtIn.push(_msgA);
+      _linaAct = null;   // eine Aktion fragt nicht in einem Gespräch nach, das gar nicht offen ist
+      try { if (typeof gsToast === 'function') gsToast(_konv ? _t('lina_antwort_dort', 'Lina hat im vorigen Gespräch geantwortet — du findest es unter 🕘 Verlauf.') : _t('lina_antwort_weg', 'Lina hat auf deine vorige Frage geantwortet — dieses Gespräch ist nicht mehr offen.'), 'info', 4500); } catch(_){}
+    }
+    if (_konv) {
+      sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: _konv, user_id: uid, role:'assistant', content:reply })}).then(_gsLinaSpeicherPruefen);
+      sbFetch('/rest/v1/coach_conversations?id=eq.'+_konv, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ updated_at: new Date().toISOString() })});
     }
   } catch(err){
     if (_gsPerson() !== _wer) return;
+    // LINA-9: ein Ausfall gehört wie eine Antwort zum Gespräch, in dem gefragt wurde. Eine Zeile mit
+    // „Erneut senden" in einem ANDEREN Gespräch wiederholte dort eine Frage, die es nicht gibt.
+    if (typeof _hier === 'function' && !_hier()) {
+      _linaAct = null; window._gsLinaNotfallHinweis = false;
+      try { if (typeof gsToast === 'function') gsToast(_t('lina_vorige_fehler', 'Lina konnte deine vorige Frage gerade nicht beantworten.'), 'warning', 4000); } catch(_){}
+      return;
+    }
     if (err && err.code === 'free_quota_reached') {
       // Mission: Lina bleibt gratis — KEIN Verkaufspitch, nur warme Info.
       window._gsLinaMsgs.push({ role:'assistant', content:_t('lina_quota','🌿 Wir haben heute schon richtig viel geplaudert — wie schön! Mein Tageskontingent für den geteilten KI-Schlüssel ist gerade erschöpft. Morgen bin ich wieder voll für dich da. (Wer mag, kann mit einem eigenen Anthropic-Key unbegrenzt mit mir chatten — aber das musst du absolut nicht.)') });

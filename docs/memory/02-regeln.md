@@ -51,7 +51,11 @@ Tagebuch in `CLAUDE.md`.
    Arbeitsspeicher liegt und einer Person gehört, räumt `gsOnLogout`.
    *(§3.6; sensor_check L10, scan_check SC3)* — Und dem VORGANG: wer abbrechen lässt
    oder einen neuen Vorgang über den laufenden startet, gibt jedem eine Nummer und prüft
-   sie nach jedem `await` (`_gsScanNr`, `gsScanAbbrechen`). *(scan_check AB1–AB4)*
+   sie nach jedem `await` (`_gsScanNr`, `gsScanAbbrechen`). *(scan_check AB1–AB4)* — Und
+   dem GESPRÄCH: kann die Person während des Wartens das Gespräch wechseln, zählt jeder
+   Wechsel (`_gsLinaGespraechNr`), und Vorgeschichte, Gesprächs-Id und Antwort gehören dem
+   Gespräch, in dem gefragt wurde — ist es nicht mehr offen, in die Cloud dorthin, mit einem
+   Satz. *(sensor_check L12)*
 
 6. **Fremder Text ist Text, nie Code.** `escHtml(s)` fuer Text/Attribut,
    `_gsOcStr(s)` fuer Werte in `onclick="…"`, `gsSanitizeHtml(html)` fuer
