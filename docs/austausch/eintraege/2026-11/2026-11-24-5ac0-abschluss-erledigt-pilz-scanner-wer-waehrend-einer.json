@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-5ac0",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "16:03:36",
+  "von": "sitzung/lokal/fix-abmelden",
+  "stand": "v33.72",
+  "titel": "erledigt: Pilz-Scanner: wer während einer Bestimmung abgemeldet wird, bekommt „Pilz-Bestimmung abgebrochen“ als Toast unter dem Anmeldebildschirm — der Satz ko…",
+  "ergebnis": "erledigt",
+  "wohin": "Nach v33.72, Branch claude/happy-thompson-24l4uu: gsPilzAbbrechen gibt den Satz beim Abmelden an _gsAbmeldenSagen; sicherheit_check 98_schluss_e „Abmelden · Pilz-Scanner …“ (echtes sbLogout während einer laufenden Bestimmung), gegen den Stand davor rot",
+  "geschwister": "gesucht: grep auf showProfileToast/gsToast in Funktionen, die _gsAbmeldenFenster beim Schliessen eines Fensters auslöst (gsPilzAbbrechen, gsScanAbbrechen, Lina) — nur gsPilzAbbrechen spricht beim Schliessen; gsScanAbbrechen läuft nur auf Knopfdruck, Lina schliesst still",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-24-8999"
+    }
+  ]
+}

@@ -46390,7 +46390,13 @@ function gsPilzAbbrechen(grund) {
     var satz = lauf.gesendet
       ? _t('mush_abgebrochen_gesendet', 'Pilz-Bestimmung abgebrochen — es wird kein Ergebnis gezeigt. Das Foto war schon unterwegs; der Versuch kann für heute zählen.')
       : _t('mush_abgebrochen', 'Pilz-Bestimmung abgebrochen — es wird kein Ergebnis gezeigt.');
-    try { if (typeof showProfileToast === 'function') showProfileToast(satz, 'info'); else if (typeof gsToast === 'function') gsToast(satz, 'info', 5000); } catch (_) {}
+    // Brett 2026-11-24-8999: beim Abmelden läge ein Toast unter dem Anmeldebildschirm — der Satz kommt dann
+    // dorthin (_gsAbmeldenSagen, CLAUDE.md §3.6), sonst ginge „der Versuch kann für heute zählen" verloren.
+    try {
+      if (Array.isArray(window._gsAbmeldenSaetze) && typeof _gsAbmeldenSagen === 'function') _gsAbmeldenSagen(satz);
+      else if (typeof showProfileToast === 'function') showProfileToast(satz, 'info');
+      else if (typeof gsToast === 'function') gsToast(satz, 'info', 5000);
+    } catch (_) {}
   }
 }
 window.gsPilzAbbrechen = gsPilzAbbrechen;
@@ -87880,7 +87886,10 @@ function gsOnLogout() {
   try { window._gsGlobalKeyMem = ''; } catch(_){}
   // Linas Gespräch im Arbeitsspeicher geht mit (der Spiegel gs_lina_verlauf geht über GS_USER_KEYS),
   // und ein offenes Lina-/Doktor-Fenster schliesst — sein Inhalt gehört der Person, die geht.
-  try { window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaInhaltZeit = null; } catch(_){}
+  // Brett 2026-11-24-f834: das Räumen ist ein WECHSEL des gezeigten Gesprächs (Lina 9) — sonst stand eine Antwort,
+  // die nach dem Abmelden und Wiederanmelden DESSELBEN Kontos ankam, allein im neuen Gespräch und ging als
+  // Vorgeschichte mit der nächsten Frage an die KI.
+  try { if (typeof _gsLinaGespraechWechsel === 'function') _gsLinaGespraechWechsel(); window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaInhaltZeit = null; } catch(_){}
   try { if (typeof closeModal === 'function') closeModal('gs-nl-modal'); } catch(_){}
   // Dasselbe für den Scanner (sbLogout lädt die Seite nicht neu): das letzte Ergebnis, sein Foto, die
   // Ergebniskarte und das Gespräch dazu. Nicht gsResetScanner — der startet die Kamera neu.

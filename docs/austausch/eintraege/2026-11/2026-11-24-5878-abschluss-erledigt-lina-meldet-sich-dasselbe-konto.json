@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-5878",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "16:03:33",
+  "von": "sitzung/lokal/fix-abmelden",
+  "stand": "v33.72",
+  "titel": "erledigt: Lina: meldet sich dasselbe Konto während des Wartens ab und wieder an, steht die Antwort allein im neuen Gespräch — und geht als Vorgeschichte mit de…",
+  "ergebnis": "erledigt",
+  "wohin": "Nach v33.72, Branch claude/happy-thompson-24l4uu: gsOnLogout ruft _gsLinaGespraechWechsel(); sicherheit_check 98_schluss_e „Abmelden · Lina …“ (echtes gsOnLogout, dieselbe Person), gegen den Stand davor rot",
+  "geschwister": "gesucht: was gsOnLogout sonst an laufenden Gesprächen räumt — der Scan-Chat (_scanChatHistory/_scanChatFuer): eine späte Antwort derselben Person landet dort nur im geschlossenen Fenster und in einer Liste, die openScanChat beim nächsten Ergebnis neu beginnt (_scanChatFuer ist null) — in der Wirkung nicht betroffen, nicht gebaut",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-24-f834"
+    }
+  ]
+}

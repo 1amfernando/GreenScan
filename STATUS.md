@@ -12,6 +12,24 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (Kennung folgt) - v33.7x: Abmelden während Lina und Pilz-Bestimmung — zwei Funde im Code von v33.71
+
+**Auftrag:** Brett 2026-11-24-f834 und 2026-11-24-8999 — gemessen von der Sitzung des grossen Durchgangs (v33.72) beim
+Gegenlesen des Stapels, im Code von #343 (Lina 9, Pilz-Scanner). Beide gehören in die Hauptfunktionen.
+
+**Behoben:** (1) `gsOnLogout` räumt Linas Gespräch und zählt das jetzt als Wechsel des gezeigten Gesprächs
+(`_gsLinaGespraechWechsel`). Meldete sich dasselbe Konto während „Lina denkt nach…" ab und wieder an, stand die Antwort sonst
+allein im neuen Gespräch und ging als Vorgeschichte mit der nächsten Frage an die KI; jetzt liegt sie in der Cloud beim gefragten
+Gespräch (Lina 9). (2) `gsPilzAbbrechen` gibt den Satz „Pilz-Bestimmung abgebrochen …" beim Abmelden an `_gsAbmeldenSagen` —
+er steht im Meldefeld des Anmeldebildschirms statt in einem Toast darunter, den niemand sah; „der Versuch kann für heute zählen"
+kommt damit an.
+
+**Prüfstände:** `sicherheit_check` 98_schluss_e, zwei neue Fälle über die echten Wege (gsOnLogout mit derselben Person;
+sbLogout während einer laufenden Bestimmung) — gegen den Stand davor beide rot, mit der Reparatur grün (98_schluss_e 16/0).
+
+**Offen:** nichts — brett:2026-11-24-f834 und brett:2026-11-24-8999 sind geschlossen (Abschlüsse 5878, 5ac0).
+**Nicht geprüft:** ein echtes Telefon; ein echtes Abmelden und Wiederanmelden über den Anmeldebildschirm (gestellt mit gsOnLogout bei bleibender Person).
+
 ### 2026-11-24 (Kennung folgt) - v33.7x: Lina · Einblick — „Aus" heisst aus, und die Gegenprobe sieht, was Lina sieht
 
 **Auftrag:** Hauptfunktionen, Lina (Fernando: „Die Agenten müssen die App auf ein next höheres Niveau bringen"). Anlass: die
