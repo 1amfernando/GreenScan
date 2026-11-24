@@ -1,0 +1,53 @@
+{
+  "id": "2026-11-11-c70d",
+  "art": "klasse",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/klassen",
+  "stand": "v33.59",
+  "titel": "Eine Kopfzeile der Auslieferung hebelt eine Annahme im Code aus — und die Prüfstände laufen ohne sie",
+  "regel": "Wer eine Kopfzeile in _headers setzt oder ändert (COOP, Permissions-Policy, CSP), sucht die Stellen im Code, die davon abhängen, und misst den Weg MIT dieser Kopfzeile auf einem Prüfserver, der sie ausliefert. Ein Prüfstand auf file:// oder einem nackten HTTP-Server misst eine App ohne die Regeln der Auslieferung.",
+  "text": "Man erkennt eine neue Instanz an einer Funktion, die im Prüfstand grün und in der Auslieferung still tot ist: kein Fehler, kein Mikrofon, kein Kompass, ein Fenster, das sich nicht schliesst, ein fetch, der immer scheitert. Prüffrage bei jeder Änderung an _headers oder an Code, der eine Browser-Fähigkeit, ein zweites Fenster oder eine neue Anfrage-Art benutzt: Läuft der Fall unter derselben Kopfzeile wie die Auslieferung? Die Wächter oben lesen die Kopfzeile als TEXT gegen den Code. Ein Laufzeit-Wächter für COOP fehlt (siehe Idee).",
+  "instanzen": [
+    "v33.53 · die Android-Hülle hätte die App ohne CSP ausgeliefert, weil die CSP nur in _headers stand. apk_check fährt seither unter der CSP aus _headers",
+    "v33.59 · Permissions-Policy microphone=() und accelerometer/gyroscope/magnetometer=() (Stand main), während der Code SpeechRecognition und deviceorientation (Kompass, Lichtmesser) ruft: still tot",
+    "v33.59 · COOP same-origin-allow-popups macht window.opener auf der Stripe-Rückkehr null. Der Handler verlangte ihn, und das Fenster schloss sich nie",
+    "v33.59 · connect-src erlaubt kein data:. _gsVerifySpeciesImage holte data:image mit fetch und war unter der Auslieferung dauerhaft „nicht prüfbar“, auf file:// aber grün",
+    "v33.59 · zweite Achse derselben Regel, der Anmeldezustand: contrast_check, touch_check und perf_check setzten einen Token, den gsSecurityInit nach 500 ms abräumt — sie vermassen eine abgemeldete App; mit Sitzung und Daten kamen zehn Stellen unter AA zum Vorschein"
+  ],
+  "suchmuster": "node -e 'const fs=require(\"fs\"),h=fs.readFileSync(\"_headers\",\"utf8\"),c=fs.readFileSync(\"index.html\",\"utf8\");const pp=(h.match(/Permissions-Policy:\\s*(.+)/)||[])[1]||\"\";console.log(\"abgeschaltet:\",pp.split(\",\").map(s=>s.trim()).filter(s=>/=\\(\\)$/.test(s)).join(\" \"));console.log(\"COOP:\",/Cross-Origin-Opener-Policy/.test(h),\"window.opener im Code:\",(c.match(/window\\.opener/g)||[]).length)' ; grep -ln \"createServer\" scripts/*.js scripts/sicherheit/*.js | xargs grep -L \"_headers\\|_kopfzeilen\"",
+  "gesucht": "v33.59 (Branch ccr-5e705a36-jveaak): Permissions-Policy () und im Code benutzt: keine mehr (auf main vier). Die Stripe-Rückkehr läuft jetzt unter den Kopfzeilen aus _headers auf zwei Ursprüngen (Helfer scripts/sicherheit/_kopfzeilen.js): Opener null, BroadcastChannel kommt an, das Fenster schliesst sich — gemessen in Chromium. Noch ohne die Kopfzeilen: die Prüfserver von offline_check (nur CSP) und sicherheit/70_sitzung.js",
+  "waechter": [
+    {
+      "datei": "scripts/sicherheit/80_sw_header.js",
+      "fall": "Permissions-Policy · was die App ruft"
+    },
+    {
+      "datei": "scripts/sicherheit/99_schluss_c.js",
+      "fall": "Artenbild-Gegencheck · eine data:-Adresse wird gelesen"
+    },
+    {
+      "datei": "scripts/sicherheit/98_schluss_d.js",
+      "fall": "B · Rueckkehr aus Stripe unter der ECHTEN COOP aus _headers"
+    },
+    {
+      "datei": "scripts/robust_check.js",
+      "fall": "Pruefstands-Sitzung · jeder gs_sb_token in scripts/"
+    }
+  ],
+  "stichworte": [
+    "_headers",
+    "COOP",
+    "Cross-Origin-Opener-Policy",
+    "window.opener",
+    "Permissions-Policy",
+    "SpeechRecognition",
+    "deviceorientation",
+    "CSP",
+    "connect-src",
+    "Pruefserver",
+    "apk_check",
+    "offline_check",
+    "sicherheit_check"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "2026-11-16-d49d",
+  "art": "antwort",
+  "datum": "2026-11-16",
+  "zeit": "07:45:09",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Neue Instanz: der Scan-Verlauf (Liste, Detail, Galerie-Detail) suchte die Art per Namensvergleich und zeigte die Sicherheit aus dem gespeicherten Scan",
+  "text": "v33.61 (PR #326, Branch claude/happy-thompson-24l4uu): renderScanHistFull und gsScanHistoryOpen fanden den Eintrag mit DB.find(Name), openScanHistoryDetail mit „Name oder Binomen, erster Treffer“ — der deutsche Name gewann auch für eine andere Art. openScanHistoryDetail zeigte dazu „🥗 Essbar“ und die Giftstufe aus dem GESPEICHERTEN Scan. Jetzt _gsVerlaufArt (= gsMatchScanToDb, derselbe Weg wie die Ergebniskarte) und die Sicherheit über _gsArtAnzeige / gsIstEssbar; ohne Treffer bleibt eine Warnung der KI stehen, ein „Essbar“ der KI nicht.",
+  "beleg": [
+    "Gemessen 16.11.2026 über data/plants.v1.js: 189 deutsche Namen stehen für mehrere Arten; in 73 Fällen hätte der Verlauf eine harmlosere Art geöffnet als die gescannte, in 11 davon mit übersehener Giftstufe (Storchschnabel / Geranium cicutarium, Stufe 3 → Geranium phaeum, Stufe 0; Hahnenfuss / Ranunculus acer, Stufe 3 → Batrachium hederaceum, Stufe 0). Ein alter Verlaufseintrag „Herbstzeitlose, essbar“ stand im Galerie-Detail als „🥗 Essbar“ ohne Giftstufe (Liste: Stufe 5). scan_check SV1 und SV3: gegen 3812572 rot mit genau diesen Gründen, gegen die Reparatur grün."
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "SV1 · Scan-Verlauf ordnet die Art zu wie die Ergebniskarte"
+    },
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "SV3 · Galerie-Detail eines Scans"
+    }
+  ],
+  "stichworte": [
+    "eintrag-statt-art",
+    "scan-verlauf"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-36ad"
+    }
+  ]
+}

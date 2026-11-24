@@ -524,7 +524,7 @@ const FAELLE = [
     // `gsBrain.observe`, und gsBrain gibt es seit v28.75 nicht mehr.
     // versprechen_check sieht so etwas nicht — er sucht eine Meldung neben
     // einem sbFetch, und hier gab es gar keinen Schreibvorgang.
-    name: 'E11 · Der Sprachmodus verspricht nichts, was er nicht tut: wer „Ich habe … gespeichert" sagt, hat danach etwas gespeichert',
+    name: 'E17 · Der Sprachmodus verspricht nichts, was er nicht tut: wer „Ich habe … gespeichert" sagt, hat danach etwas gespeichert',
     lauf: async () => __seite.evaluate(async () => {
       if (typeof gsVoiceProcess !== 'function') return { ok: false, warum: 'gsVoiceProcess fehlt' };
       const bild = () => { const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); o[k] = localStorage.getItem(k); } return JSON.stringify(o); };
@@ -555,7 +555,7 @@ const FAELLE = [
     // Namen, den es nie gab. Mit gespeichertem Standort stand dort „Aktiviere
     // GPS für astronomische Referenz-Kalibrierung"; die Referenz selbst ist
     // kein einziges Mal erschienen.
-    name: 'E12 · Die Lichtmesser-Kalibrierung sagt, was stimmt: mit Standort steht die astronomische Referenz da, ohne Standort heisst es „ohne Standort" — nie „Aktiviere GPS", wenn es an ist',
+    name: 'E18 · Die Lichtmesser-Kalibrierung sagt, was stimmt: mit Standort steht die astronomische Referenz da, ohne Standort heisst es „ohne Standort" — nie „Aktiviere GPS", wenn es an ist',
     lauf: async () => __seite.evaluate(async () => {
       if (typeof gsLuxCalibrate !== 'function' || typeof gsSunLuxEstimate !== 'function') return { ok: false, warum: 'gsLuxCalibrate/gsSunLuxEstimate fehlt' };
       const val = document.getElementById('lux-value'), box = document.getElementById('lux-calib-sun');
@@ -594,10 +594,54 @@ const FAELLE = [
     }),
   },
   {
+    name: 'E12 · Saatgut-Inventar: der Knopf zum Erfassen spricht Deutsch („+ Hinzufügen"), sein Text geht durch die Sprachschicht, er steht unter den Feldern statt daneben — und im Fenster steht kein englisches „Add"',
+    lauf: async () => __seite.evaluate(async () => {
+      // GARTEN, 11.11.2026: der Knopf hiess „+ Add" — der einzige englische in einer deutschen
+      // Oberflaeche, fest verdrahtet (keine Sprache bekam je eine Uebersetzung). Zwei Richtungen:
+      // Deutsch steht da, UND ein Sprachpaket kommt an (ein fest verdrahtetes „+ Hinzufügen"
+      // waere sonst ebenfalls gruen). Und der Platz: mit dem deutschen Wort in der alten
+      // Dreier-Zeile blieben dem Datumsfeld bei 360 px Breite 64 px.
+      const alt = localStorage.getItem('gs_seed_inventory');
+      const tAlt = window.gsI18n && gsI18n.t;
+      const knopfVon = () => document.querySelector('#gs-nl-body button[onclick="gsSeedAdd()"]');
+      try {
+        localStorage.setItem('gs_seed_inventory', JSON.stringify([{ name: 'Tomate Ochsenherz', qty: '20 Stk', expires: null, ts: 1 }]));
+        gsOpenSeedInventory();
+        await new Promise(r => setTimeout(r, 450));
+        const body = document.getElementById('gs-nl-body'), knopf = knopfVon();
+        if (!body || !knopf) return { ok: false, warum: 'das Saatgut-Fenster zeigt keinen Knopf mit gsSeedAdd()' };
+        const klagen = [], de = (knopf.textContent || '').trim();
+        if (de !== '+ Hinzufügen') klagen.push('der Knopf sagt „' + de + '" statt „+ Hinzufügen"');
+        // je Bedienelement gelesen — im Fliesstext des Fensters klebt der Knopftext ohne Abstand an der Liste
+        const eng = Array.from(body.querySelectorAll('button, input')).map(x => ((x.textContent || '') + ' ' + (x.getAttribute('placeholder') || '')).trim()).filter(t => /\bAdd\b/.test(t));
+        if (eng.length) klagen.push('im Fenster steht das englische „Add": „' + eng.join('", „') + '"');
+        // Platz: der Knopf steht UNTER den zwei Feldern, und die teilen sich die Zeile
+        const k = knopf.getBoundingClientRect(), q = document.getElementById('gs-s-qty').getBoundingClientRect(), d = document.getElementById('gs-s-exp').getBoundingClientRect();
+        if (!(k.width > 0 && d.width > 0)) klagen.push('Knopf oder Datumsfeld nicht sichtbar (' + Math.round(k.width) + ' / ' + Math.round(d.width) + ' px) — der Fall misst nichts');
+        if (k.top < d.bottom - 1) klagen.push('der Knopf steht NEBEN den Feldern (Knopf ' + Math.round(k.width) + ' px, Datumsfeld ' + Math.round(d.width) + ' px) — ein längeres Wort drückt das Datum zusammen');
+        // die Sprachschicht: mit Paket die Uebersetzung
+        let fr = '';
+        if (typeof tAlt !== 'function') klagen.push('gsI18n.t ist nicht erreichbar');
+        else {
+          gsI18n.t = function (key, fb) { return key === 'seed_add_btn' ? 'PRUEFSTAND-FR' : tAlt.apply(gsI18n, arguments); };
+          gsOpenSeedInventory();
+          fr = ((knopfVon() || {}).textContent || '').trim();
+          if (fr !== 'PRUEFSTAND-FR') klagen.push('mit Sprachpaket zeigt der Knopf „' + fr + '" — sein Text geht nicht durch die Sprachschicht (Schlüssel seed_add_btn)');
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'deutsch „' + de + '" · mit Sprachpaket „' + fr + '" · Knopf ' + Math.round(k.width) + ' px unter den Feldern (Menge ' + Math.round(q.width) + ' px · Datum ' + Math.round(d.width) + ' px) · kein „Add" im Fenster' };
+      } finally {
+        if (typeof tAlt === 'function') gsI18n.t = tAlt;
+        if (alt == null) localStorage.removeItem('gs_seed_inventory'); else localStorage.setItem('gs_seed_inventory', alt);
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    }),
+  },
+  {
     // v33.70. „Zu meinen Pflanzen" las `EMOJI_BY_CAT` — eine Tabelle, die es nie
     // gab. Jede aus einem Scan uebernommene Pflanze ohne eigenes Symbol bekam
     // 🌿, auch ein Pilz. Die Scan-Karte daneben zeigte laengst 🍄 (eigene Tabelle).
-    name: 'E13 · Eine aus dem Scan übernommene Pflanze trägt das Symbol ihrer Kategorie — dasselbe wie die Scan-Karte; ein eigenes Symbol bleibt, eine unbekannte Kategorie ergibt 🌿',
+    name: 'E19 · Eine aus dem Scan übernommene Pflanze trägt das Symbol ihrer Kategorie — dasselbe wie die Scan-Karte; ein eigenes Symbol bleibt, eine unbekannte Kategorie ergibt 🌿',
     lauf: async () => __seite.evaluate(async () => {
       if (typeof gsAddScanToMyPlants !== 'function') return { ok: false, warum: 'gsAddScanToMyPlants fehlt' };
       const mp0 = JSON.stringify(myPlants), roh0 = localStorage.getItem('ps_myplants');
@@ -638,7 +682,7 @@ const FAELLE = [
       }
     }),
   },  {
-    name: 'E14 · Ein Rezept zeigt seine Warnung, ein Heilmittel seine Gegenanzeigen und seine Dosierung — und die Schwierigkeit steht als Etikett da, nicht als rohes Wort',
+    name: 'E20 · Ein Rezept zeigt seine Warnung, ein Heilmittel seine Gegenanzeigen und seine Dosierung — und die Schwierigkeit steht als Etikett da, nicht als rohes Wort',
     lauf: async () => __seite.evaluate(async () => {
       // v33.70 (Audit „Datenform"). Gemessen wird der TEXT des geoeffneten Fensters
       // gegen die Daten des Rezepts — nicht eine neue Funktion. Gegen den Stand
@@ -680,7 +724,7 @@ const FAELLE = [
     }),
   },
   {
-    name: 'E15 · Der Filter „Giftig" zeigt jede Art ab Giftstufe 2 — und „Ungiftig" nur Stufe 0; gefragt wird die ART, nicht der Eintrag',
+    name: 'E21 · Der Filter „Giftig" zeigt jede Art ab Giftstufe 2 — und „Ungiftig" nur Stufe 0; gefragt wird die ART, nicht der Eintrag',
     lauf: async () => __seite.evaluate(async () => {
       // v33.70 (Audit „Datenform"). `toxic` und `tox` sind zwei Felder fuer dieselbe
       // Frage; bei acht Eintraegen der Stufe 2 stand `toxic:false` — sie fehlten in
@@ -711,6 +755,94 @@ const FAELLE = [
         if (f.length) return { ok: false, warum: f.join(' · ') };
         return { ok: true, info: '„Giftig" ' + nGiftig + ' Einträge, darunter jeder ab Stufe 2 · „Ungiftig" ' + nUngiftig + ', alle Stufe 0 · in keinem der beiden: ' + (DB.length - nGiftig - nUngiftig) + ' · „Wacholder" (T018, Stufe 0) nach seiner Art unter „Giftig"' };
       } finally { currentFilter = alt; }
+    }),
+  },
+  {
+    // v33.60 · gemessen am 11.11.2026 (Befund IDEE-B, vom Head nachgefahren): die Menue-Suche
+    // (51 Eintraege) fand zu „Notfall", „145", „Tox", „Vergiftung" NICHTS, und „gegessen" fuehrte
+    // zu den Rezepten. Die Nummern standen nur dort, wo ein Scan oder ein Chat sie ausloest.
+    // Zwei Richtungen: wer eines der Notfall-Woerter tippt, findet den Eintrag ZUERST — und wer
+    // „Tomate" oder „essbar" tippt, bekommt ihn NICHT (ein Eintrag, der immer oben steht, ist einer,
+    // den man zu ueberlesen lernt, v32.98). Dazu das Fenster: genau die vier Nummern, die die App
+    // schon nennt bzw. Tox Info Suisse selbst angibt — und kein Rat, was man tun soll.
+    name: 'E15 · Notfall: die Menü-Suche findet „Notfall", „145", „Tox", „Vergiftung", „gegessen" (auch fr/it/en/es) ZUERST — „Tomate" und „essbar" nicht; das Fenster ruft 145, die Auslandnummer, 144 und 112 an und gibt keinen Erste-Hilfe-Rat',
+    lauf: async () => __seite.evaluate(async () => {
+      const klagen = [];
+      const res = () => Array.from(document.querySelectorAll('#menu-search-results .menu-search-result'));
+      const erster = (q) => { searchMenu(q); const r = res(); return r.length ? (r[0].textContent || '').replace(/\s+/g, ' ').trim() : ''; };
+      const alle = (q) => { searchMenu(q); return res().map(r => (r.textContent || '').replace(/\s+/g, ' ').trim()); };
+      try {
+        if (typeof searchMenu !== 'function') return { ok: false, warum: 'searchMenu fehlt' };
+        // (a) die Notfall-Woerter, in vier Sprachen
+        // …und drei SAETZE: die trifft kein Suchwort, sondern das eine Notfall-Vokabular (_gsNotfallStufe).
+        // Ohne sie blieb die Gegenprobe „eigene Trefferregel ausgebaut" gruen — die gewoehnliche
+        // Punktzahl stellte den Eintrag bei allen 17 Einzelwoertern zufaellig auch nach vorn.
+        const ja = ['notfall', 'Notfall', '145', 'tox', 'tox info', 'vergiftung', 'vergiftet', 'gift', 'gegessen', 'verschluckt', 'giftnotruf', 'urgence', 'empoisonnement', 'emergenza', 'avvelenamento', 'emergency', 'poison',
+          'mein kind hat beeren gegessen', 'hund hat pilz gefressen', 'mon enfant a mangé des baies',
+          // v33.60 (brett:2026-11-11-df0b): Spanisch ist die fuenfte App-Sprache — das Menue kennt ihre Woerter
+          'emergencia', 'envenenamiento', 'veneno', 'intoxicación', 'intoxicacion'];
+        const fehlt = ja.filter(q => !/Notfall/.test(erster(q)));
+        if (fehlt.length) klagen.push(fehlt.length + ' von ' + ja.length + ' Notfall-Wörtern führen nicht zuerst zum Notfall: ' + fehlt.slice(0, 8).map(q => '„' + q + '" → „' + (erster(q).slice(0, 28) || 'nichts') + '"').join(' · '));
+        // (b) die Gegenrichtung
+        // schwache Teiltreffer zaehlen dazu: „giftig" enthaelt „gift", und ein einzelner Buchstabe steckt in jedem Suchwort
+        const nein = ['tomate', 'essbar', 'rezept', 'giessen', 'kalender', 'pilz', 'giftig', 'giftige pflanzen', 'a', 'ei'];
+        const zuviel = nein.filter(q => alle(q).some(t => /Notfall/.test(t)));
+        if (zuviel.length) klagen.push('der Notfall-Eintrag erscheint auch bei: ' + zuviel.join(', '));
+        // (c) der echte Treffer wird angetippt
+        searchMenu('notfall');
+        const tr = res()[0];
+        if (!tr) klagen.push('kein Treffer zum Antippen');
+        else {
+          tr.click();
+          await new Promise(r => setTimeout(r, 400));
+          const m = document.getElementById('gs-nl-modal'), body = document.getElementById('gs-nl-body');
+          const offen = !!(m && (m.classList.contains('open') || m.classList.contains('active')) && body && (body.textContent || '').trim().length > 20);
+          if (!offen) klagen.push('der Treffer wurde angetippt, und es steht kein Notfall-Fenster da');
+          else {
+            const tel = Array.from(body.querySelectorAll('a[href^="tel:"]')).map(a => a.getAttribute('href'));
+            ['tel:145', 'tel:+41442515151', 'tel:144', 'tel:112'].forEach(t => { if (tel.indexOf(t) < 0) klagen.push('im Fenster fehlt der Anruf-Link ' + t + ' (da: ' + tel.join(', ') + ')'); });
+            if (tel.length !== 4) klagen.push(tel.length + ' Anruf-Links statt 4: ' + tel.join(', '));
+            const txt = (body.textContent || '').replace(/\s+/g, ' ');
+            if (!/Tox Info Suisse/.test(txt)) klagen.push('das Fenster nennt Tox Info Suisse nicht');
+            if (!/toxinfo\.ch/.test(txt) || !/\d{2}\.\d{2}\.\d{4}/.test(txt)) klagen.push('das Fenster nennt weder Quelle noch Prüfdatum der Nummern');
+            // kein Rat, was zu tun ist — das sagt die Fachperson am Telefon
+            const rat = txt.match(/erbrechen|Milch|Kohle|trinken lassen|Wasser geben|hinlegen|Seitenlage/i);
+            if (rat) klagen.push('das Fenster gibt einen Erste-Hilfe-Rat („' + rat[0] + '") — dafür gibt es hier keine Quelle');
+            // jeder Link ist ein Antippziel (mindestens 44 px hoch)
+            const klein = Array.from(body.querySelectorAll('a[href^="tel:"]')).filter(a => { const r = a.getBoundingClientRect(); return r.height < 44 && a.getAttribute('href') !== 'tel:+41442515151'; });
+            if (klein.length) klagen.push(klein.length + ' Anruf-Knöpfe sind niedriger als 44 px');
+            const ausland = body.querySelector('a[href="tel:+41442515151"]');
+            if (ausland) { const r = ausland.getBoundingClientRect(); if (r.height < 24 || r.width < 24) klagen.push('die Auslandnummer ist als Antippziel kleiner als 24 px (' + Math.round(r.width) + '×' + Math.round(r.height) + ')'); }
+          }
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: ja.length + ' Notfall-Eingaben (de/fr/it/en, drei davon ganze Sätze) → Notfall zuerst · ' + nein.length + ' Alltags-Eingaben ohne ihn · Fenster: 145 · +41 44 251 51 51 · 144 · 112, mit Quelle und Datum, ohne Rat' };
+      } finally {
+        try { clearMenuSearch(); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        try { closeMainMenu(); } catch (_) {}
+      }
+    }),
+  },
+  {
+    // v33.60 · der Menue-Eintrag „Premium freischalten" versprach „TWINT · Karte · IBAN". Welche
+    // Zahlungsarten im Checkout erscheinen, entscheidet seit v33.60 das Stripe-Dashboard (keine feste
+    // Zahlungsart im Aufruf) — die App kann es nicht wissen. Ob TWINT im Abo-Checkout erscheint, ist
+    // nicht gemessen (docs/FUER-FERNANDO.md §30). Eine Zusage, die niemand pruefen kann, steht nicht da.
+    name: 'E16 · „Premium freischalten" verspricht keine Zahlungsart, die die App nicht kennen kann — und wer „twint" sucht, findet den Eintrag trotzdem',
+    lauf: async () => __seite.evaluate(async () => {
+      try {
+        searchMenu('premium');
+        const tr = Array.from(document.querySelectorAll('#menu-search-results .menu-search-result')).find(r => /Premium/.test(r.textContent || ''));
+        if (!tr) return { ok: false, warum: 'die Suche nach „premium" findet den Eintrag nicht' };
+        const txt = (tr.textContent || '').replace(/\s+/g, ' ').trim();
+        const zusage = txt.match(/TWINT|IBAN|SEPA|Karte|Kreditkarte|PayPal|Rechnung/i);
+        if (zusage) return { ok: false, warum: 'der Eintrag verspricht eine Zahlungsart: „' + txt + '"' };
+        searchMenu('twint');
+        const tw = Array.from(document.querySelectorAll('#menu-search-results .menu-search-result')).some(r => /Premium/.test(r.textContent || ''));
+        if (!tw) return { ok: false, warum: 'wer „twint" sucht, findet „Premium freischalten" nicht mehr' };
+        return { ok: true, info: '„' + txt + '" · „twint" führt weiter zum Eintrag' };
+      } finally { try { clearMenuSearch(); } catch (_) {} }
     }),
   },
 ];

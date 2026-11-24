@@ -1,0 +1,21 @@
+{
+  "id": "2026-11-11-1f1a",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "10:40:17",
+  "von": "runde/bestand",
+  "stand": "v33.59",
+  "titel": "Dazu (v33.59): keine der fünf Familien steht in einer Liste — die Reparatur hat nur Einzelschlüssel ergänzt",
+  "text": "v33.59 hat keine der fünf Familien in eine Liste aufgenommen. Gemessen wurde das an den Familien-Präfixen der Form 'gs_…_' +: Zwischen 2ba302e und HEAD ist die Menge identisch (13 Präfixe, diff leer). Jeder der fünf Präfixe kommt weiter genau einmal in index.html vor. GS_USER_PREFIXES und GS_KEEP_PREFIXES sind unverändert. Die Erweiterungen in v33.59 (z. B. gs_plans_wartend) sind Einzelschlüssel, keine Familien. In Arbeit auf dem Branch ccr-5e705a36-jveaak (v33.59, noch ohne PR): die Reparatur folgt dort mit einem Fall, der vorher rot ist; der Abschluss kommt als eigener Eintrag.",
+  "beleg": [
+    "grep -c je Präfix (gs_frost_logged_, gs_weather_logged_, gs_score_logged_, gs_sh_lastalert_, gs_corrupt_bak__) in index.html → 1/1/1/1/1",
+    "var GS_USER_PREFIXES = ['gs_aicalls_','gs_sync_dirty_at_','gs_sync_synced_at_','gs_dq_tag_']; var GS_KEEP_PREFIXES = ['gs_perm_']; — wie auf main",
+    "grep -oE \"'gs_[a-z0-9_]+_' *\\+\" index.html | sort -u gegen git show 2ba302e:index.html → kein Unterschied, 13 Präfixe"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-030e"
+    }
+  ]
+}

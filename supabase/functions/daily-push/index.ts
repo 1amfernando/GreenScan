@@ -23,8 +23,10 @@
 //        ); $$);
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+// v33.59 (Lieferkette): dieselbe supabase-js wie alle anderen Functions, nicht mehr esm.sh@2.39.0.
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 import webpush from "npm:web-push@3.6.7";
+import { pushEndpunktOk, PUSH_TIMEOUT_MS } from "../_shared/push_helfer.mjs";
 
 function jsonResp(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -164,10 +166,14 @@ serve(async (req) => {
       badge: "./icons/icon-192.png",
       data: { url: "./index.html?utm_source=push" },
     };
+    // v33.59: nur an bekannte Push-Dienste (den Endpunkt schreibt die Person selbst — SSRF), mit Frist.
+    const ep = pushEndpunktOk(s.endpoint);
+    if (!ep.ok) return { id: s.id, ok: false, error: "Endpunkt abgewiesen: " + ep.grund };
     try {
       await webpush.sendNotification(
         { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
         JSON.stringify(payload),
+        { timeout: PUSH_TIMEOUT_MS },
       );
       await supa.from("push_subscriptions").update({ last_sent_at: new Date().toISOString(), failure_count: 0 }).eq("id", s.id);
       return { id: s.id, ok: true };

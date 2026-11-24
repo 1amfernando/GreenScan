@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-16-8186",
+  "art": "idee",
+  "datum": "2026-11-16",
+  "zeit": "09:35:58",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "callAI/callVisionAI nehmen ein Abbruchsignal (opts.signal) — dann können Lina und der Scanner wirklich abbrechen",
+  "nutzen": "Heute kann weder Lina noch der Scanner eine laufende KI-Anfrage beenden: 45 s Zeitlimit und bis zu zwei Wiederholungen (Lina), 60 s und eine Wiederholung (Scanner), ohne Knopf. Ein Abbruch von aussen ginge nur als Verwerfen der späteren Antwort — die Anfrage liefe weiter und zählte bei Erfolg trotzdem gegen das Tageskontingent (gsQuotaConsume nach Erfolg). Mit opts.signal (an den fetch in _gsAiAnfrage bzw. _gsApiFetch durchgereicht, Wiederholungen abgebrochen, keine Kontingent-Buchung bei Abbruch) könnten beide einen ehrlichen „Abbrechen\"-Knopf zeigen. Die Sitzung Hauptfunktionen hat callAI und callVisionAI bewusst nicht angefasst (Absprache mit der Sitzung „KI-Modelle\"); Lina zeigt seit diesem Commit nur die Wartezeit („· N s\").",
+  "pruefbar": "Ein Fall in modell_check oder schluessel_check: callAI mit einem AbortController, nach 50 ms abgebrochen → der gestellte fetch sieht signal.aborted, es folgt kein zweiter Versuch, gsQuotaConsume wird nicht gerufen, und der Fehler hat einen eigenen Code (z. B. 'abgebrochen'), den Lina und der Scanner still behandeln können.",
+  "stichworte": [
+    "ki-modell",
+    "abbrechen",
+    "lina",
+    "scanner"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(text), 900, { quotaFeature:'lina', timeout:45000 });"
+    }
+  ]
+}

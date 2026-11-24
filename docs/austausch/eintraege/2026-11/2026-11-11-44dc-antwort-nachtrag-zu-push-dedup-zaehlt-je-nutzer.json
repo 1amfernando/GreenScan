@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-11-44dc",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:33:31",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.59",
+  "titel": "Nachtrag zu: Push-Dedup zählt je Nutzer, gesendet wird je Abonnement — das zweite Gerät bleibt stumm, und ein Fehler der Abfrage sendet bei jedem Lauf erneut",
+  "text": "Am Baum der Sicherheitsreparatur nachgemessen (Branch ccr-5e705a36-jveaak, v33.59 — NICHT ausgeliefert; live gilt der alte Stand), von einem zweiten Agenten gegengeprüft. Lage hier: unveraendert. Alle drei Cron-Sender fragen weiter fn_push_already_sent_today mit Nutzer und Kategorie ab. Sie lesen nur data und nie error. v33.59 arbeitet die Abos eines Nutzers nun nacheinander ab (abosAuswaehlen(...).gruppen). Damit ist das Rennen weg, aber nicht der Befund: Das erste Abo schreibt das Protokoll, das zweite Gerät desselben Kontos sieht danach 'schon gesendet' und bleibt stumm. Ein Fehler der RPC liefert weiterhin 'noch nicht gesendet'. logSend liest das Ergebnis seines Inserts nicht, und in sensor-push gilt dasselbe für die Inserts ins push_send_log, die der Marker sind. Nur notifyTrialEnd entscheidet je Nutzer einmal und sendet dann an alle Abos. Gegenprüfung: Zwei Genauigkeiten. (a) Das zweite Gerät bleibt nur dann stumm, wenn der Push an das erste ERFOLGREICH war: die RPC zählt nur result='sent'. Ein gescheiterter erster Versuch lässt das zweite Abo weiter senden. (b) Im weather-alert-checker kommt eine zweite Sperre je Nutzer dazu: hasActiveAlert(sub.user_id, a.type) in Z.222 lässt das zweite Abo schon vor der Dedup-Frage aus. Auch die Inbox-Dedup ist dort also je Nutzer, nicht je Abo. Die Ausnahme notifyTrialEnd gilt nur für die Senderichtung; vom Lesefehler-Teil ist sie nicht ausgenommen. Noch zu tun: Je Nutzer und Kategorie einmal entscheiden und an alle ausgewählten Abos senden; error der RPC und des Protokoll-Inserts lesen und bei einem Lesefehler nur Wetter-Warnungen senden — als reine Funktion in _shared/push_helfer.mjs mit edge_check-Fall. Von dieser Sitzung NICHT übernommen — frei für die Sitzung, die die Push-Functions nach dem Merge anfasst.",
+  "beleg": [
+    "grep -cF 'const { data } = await sb.rpc(\"fn_push_already_sent_today\"' supabase/functions/daily-push-checker/index.ts → 1",
+    "engagement-push-checker/index.ts:23 und weather-alert-checker/index.ts:172: dieselbe Form, return data === true",
+    "daily-push-checker/index.ts:303-306 abarbeiten(auswahl.gruppen, …) → processSubscription je Abo, Dedup je Nutzer",
+    "sensor-push/index.ts:86 und :94 await sb.from(\"push_send_log\").insert(…) ohne Blick auf error",
+    "_shared/push_helfer.mjs:108-109 Kommentar: wer nach Nutzer dedupliziert, arbeitet die Abos EINES Nutzers nacheinander ab"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-6bf4",
+      "ref": "origin/ccr-dce5a17c-2xzhvi"
+    }
+  ]
+}

@@ -1,0 +1,211 @@
+{
+  "_": "Auslieferungsstand der Edge-Functions (v33.59, Austausch-Runde offen-x2): EINE Liste je Verzeichnis. zustand: live = laeuft, nichts auszuliefern · ausliefern = geaendert, ohne Voraussetzung · erst_nach = erst nach der Migration in „nach\" · nicht = nicht ausliefern (grund). live_version: gelesen am 10.11.2026 (list_edge_functions), fuer die sieben am 10./11.11. neu ausgelieferten (ai-proxy, plant-doctor-diagnose, plan-iterate, garden-scan-analyze, pest-identify, mushroom-identify, key-health-check) am 11.11.2026 03:28 UTC nachgelesen; null = nie ausgeliefert. edge_check 60_spalten haelt die Liste gegen die Verzeichnisse und verlangt fuer live/ausliefern/erst_nach den Spalten-Scan. Reihenfolge und Secrets: docs/FUER-FERNANDO.md §30b/§30d. bedingung (v33.63): eine Voraussetzung, die keine Migration ist und die ein MENSCH erfuellt — vorher nicht ausliefern.",
+  "stand": "2026-11-19",
+  "functions": {
+    "admin-seed-species": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v4"
+    },
+    "ai-proxy": {
+      "zustand": "live",
+      "grund": "Code von v33.59 (Commit 57a7acf) live seit 16.11.2026 — nachgesehen 19.11.2026 (get_edge_function, nur lesend): Tor vor dem Proxy: Tageskontingent je Plan (KI_GRENZEN) VOR dem Aufruf reserviert, Nutzer per Token, Eingabegrenzen (kiProxyEingabe), Modell nur aus der Kette — ohne die Migration antwortet er allen mit 503",
+      "live_version": "v4"
+    },
+    "book-ingest": {
+      "zustand": "live",
+      "grund": "laeuft live ohne Quelltext im Repo (nur BEFUND.md) — nichts auszuliefern",
+      "live_version": "v9"
+    },
+    "create-checkout": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v7"
+    },
+    "customer-portal": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v6"
+    },
+    "daily-push": {
+      "zustand": "nicht",
+      "grund": "nie ausgeliefert; liest/schreibt Spalten von push_subscriptions, die es live nicht gibt und brain_memory — reparieren oder entfernen ist eine Entscheidung (edge_check 60_spalten: bekannt kaputt)",
+      "live_version": null
+    },
+    "daily-push-checker": {
+      "zustand": "ausliefern",
+      "grund": "Push nur an bekannte Push-Dienste, Frist je Versand, gerundeter Ort",
+      "live_version": "v9"
+    },
+    "delete-user": {
+      "zustand": "ausliefern",
+      "grund": "raeumt alle Buckets mit Nutzerordnern, kuendigt ein laufendes Abo (braucht STRIPE_SECRET_KEY)",
+      "live_version": "v5"
+    },
+    "device-ingest": {
+      "zustand": "erst_nach",
+      "nach": "20260903_oekosystem_v1_geraete.sql",
+      "grund": "nie ausgeliefert; devices, device_readings, device_commands und metric_catalog gibt es live erst mit der Geraete-Migration („wenn das erste Geraet da ist\")",
+      "live_version": null
+    },
+    "engagement-push-checker": {
+      "zustand": "ausliefern",
+      "grund": "Push nur an bekannte Push-Dienste, Frist je Versand",
+      "live_version": "v2"
+    },
+    "entitlements": {
+      "zustand": "nicht",
+      "grund": "nie ausgeliefert; gehaertet fuer den Tag, an dem sie es wird — die erste Auslieferung ist eine Entscheidung, keine Folge dieser Reparatur",
+      "live_version": null
+    },
+    "feedback-triage": {
+      "zustand": "ausliefern",
+      "grund": "Feedback-Texte gedeckelt und als Daten abgegrenzt, Modell-Antwort nur fuer den gesendeten Stapel",
+      "live_version": "v3"
+    },
+    "garden-scan-analyze": {
+      "zustand": "live",
+      "grund": "Code von v33.59 (Commit 57a7acf) live seit 16.11.2026 — nachgesehen 19.11.2026 (get_edge_function, nur lesend); vorher: Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503; der Satz beim Zeitablauf passt ungekuerzt in die Anzeige der App und raet nur bei einem Mehrjahresplan zum kuerzeren Horizont",
+      "live_version": "v12"
+    },
+    "i18n-translate": {
+      "zustand": "ausliefern",
+      "grund": "Versionen festgelegt; der Geheimnis-Vergleich (Service-Key) kommt aus _shared/auth_vergleich.mjs statt aus einer eigenen Kopie — zwei leere Werte sind dort kein Treffer mehr",
+      "live_version": "v5"
+    },
+    "key-health-check": {
+      "zustand": "ausliefern",
+      "grund": "nur die Versionen festgelegt",
+      "live_version": "v2"
+    },
+    "knowledge-bulk-gen": {
+      "zustand": "ausliefern",
+      "grund": "Geheimnis konstantzeitig, Anzahl gedeckelt, KI-Zeilen nur in erlaubte Spalten mit Quelle „KI-Entwurf, ungeprüft\", Pilze „Status unklar\", achievements mit der Live-Spalte icon",
+      "live_version": "v13"
+    },
+    "marketplace-publish": {
+      "zustand": "ausliefern",
+      "grund": "ein gesperrtes Konto veroeffentlicht nicht mehr ueber diesen Weg",
+      "live_version": "v4"
+    },
+    "mushroom-identify": {
+      "zustand": "ausliefern",
+      "grund": "v33.64: ALLE Arten des Registers gehen ans Modell (pilzWissenAuswahl) — live v5 (Code von v33.59, ausgeliefert 16.11.2026, nachgesehen 19.11.2026) laedt .limit(200): 76 von 276 Arten fehlen, 19 davon giftig; ohne Register 503 VOR der Reservierung",
+      "live_version": "v5"
+    },
+    "pest-identify": {
+      "zustand": "live",
+      "grund": "Code von v33.59 (Commit 57a7acf) live seit 16.11.2026 — nachgesehen 19.11.2026 (get_edge_function, nur lesend); vorher: Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503",
+      "live_version": "v5"
+    },
+    "plan-iterate": {
+      "zustand": "live",
+      "grund": "Code von v33.59 (Commit 57a7acf) live seit 16.11.2026 — nachgesehen 19.11.2026 (get_edge_function, nur lesend); vorher: Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503; eine abgeschnittene Antwort nennt den Umfang des Plans (nicht den Wunsch), der Plan geht kompakt an das Modell",
+      "live_version": "v6"
+    },
+    "plant-doctor-diagnose": {
+      "zustand": "live",
+      "grund": "Code von v33.59 (Commit 57a7acf) live seit 16.11.2026 — nachgesehen 19.11.2026 (get_edge_function, nur lesend); vorher: Tageskontingent vor dem Aufruf, Nutzer per Token, Eingabegrenzen — ohne die Migration antwortet sie allen mit 503; dazu der Krankheits-Kontext aus den Live-Spalten von plant_diseases",
+      "live_version": "v7"
+    },
+    "push-test": {
+      "zustand": "nicht",
+      "grund": "nie ausgeliefert; liest/schreibt Spalten von push_subscriptions, die es live nicht gibt — reparieren oder entfernen ist eine Entscheidung (edge_check 60_spalten: bekannt kaputt)",
+      "live_version": null
+    },
+    "send-push": {
+      "zustand": "ausliefern",
+      "grund": "Push nur an bekannte Push-Dienste, Frist je Versand; der Geheimnis-Vergleich (Service-Key) kommt aus _shared/auth_vergleich.mjs statt aus einer eigenen Kopie",
+      "live_version": "v2"
+    },
+    "send-receipt": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v4"
+    },
+    "sensor-push": {
+      "zustand": "nicht",
+      "grund": "nie ausgeliefert; gehaertet fuer den Tag, an dem sie es wird — die erste Auslieferung ist eine Entscheidung, keine Folge dieser Reparatur",
+      "live_version": null
+    },
+    "species-bulk-seed": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v5"
+    },
+    "species-search": {
+      "zustand": "ausliefern",
+      "grund": "nur die Versionen festgelegt",
+      "live_version": "v2"
+    },
+    "stripe-admin-extend-webhook": {
+      "zustand": "ausliefern",
+      "grund": "Admin-Geheimnis konstantzeitig; abonniert seit v33.63 alle Ereignisse aus STRIPE_EREIGNISSE (u.a. charge.refunded, checkout.session.async_payment_succeeded) — erst NACH dem vereinten stripe-webhook rufen",
+      "live_version": "v3",
+      "bedingung": "erst nach der Modus-Pruefung durch Fernando (FUER-FERNANDO §30 Schritt 0: Live oder Test, Webhook-Endpunkt, Preise) — vorher nicht ausliefern"
+    },
+    "stripe-bootstrap": {
+      "zustand": "ausliefern",
+      "grund": "Admin-Geheimnis konstantzeitig",
+      "live_version": "v7"
+    },
+    "stripe-checkout": {
+      "zustand": "ausliefern",
+      "grund": "v33.63 vereint (main + PR #329): kein automatic_payment_methods (Stripe lehnte jeden Kauf mit 400 ab — gefolgert, nicht gemessen), nur bekannte Checkout-Parameter, kein zweites Abo neben einem laufenden/neben Lifetime, Rueckkehr nur auf eigene Adressen, Startangebot und Gratistage am Server, Fehler als Kennung",
+      "live_version": "v8",
+      "bedingung": "erst nach der Modus-Pruefung durch Fernando (FUER-FERNANDO §30 Schritt 0: Live oder Test, Webhook-Endpunkt, Preise) — vorher nicht ausliefern"
+    },
+    "stripe-complete-setup": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v6"
+    },
+    "stripe-create-connect-account": {
+      "zustand": "ausliefern",
+      "grund": "ein fremdes Stripe-Konto wird abgewiesen",
+      "live_version": "v2"
+    },
+    "stripe-expert-checkout": {
+      "zustand": "ausliefern",
+      "grund": "nur der Autor zahlt, nie fuer sich selbst, Betrag fest",
+      "live_version": "v2"
+    },
+    "stripe-final-audit": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v5"
+    },
+    "stripe-import-fernando-sub": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v5"
+    },
+    "stripe-portal": {
+      "zustand": "ausliefern",
+      "grund": "v33.63 vereint: Kunde ueber kundeFinden, Kuendigen nur auf ein echtes laufendes Abo (nie lifetime_<uuid>), Fortsetzen ohne Plan-Wechsel-Seite, Rueckkehr nur auf eigene Adressen, Fehler als Kennung",
+      "live_version": "v5",
+      "bedingung": "erst nach der Modus-Pruefung durch Fernando (FUER-FERNANDO §30 Schritt 0: Live oder Test, Webhook-Endpunkt, Preise) — vorher nicht ausliefern"
+    },
+    "stripe-restructure-pro-only": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v5"
+    },
+    "stripe-setup-webhook": {
+      "zustand": "live",
+      "grund": "laeuft live, in dieser Reparatur nicht geaendert — nichts auszuliefern",
+      "live_version": "v6"
+    },
+    "stripe-webhook": {
+      "zustand": "ausliefern",
+      "grund": "v33.63 vereint: Erstattung/Rueckbuchung entziehen eine Lifetime (Erstattung gibt den Launch-Platz frei), keine Verifikation per Zahlung, unbekannter Preis 500 bis er im Katalog steht, Zeitraum und Rechnung in beiden API-Formen, async_payment_succeeded, Lifetime beendet ein laufendes Abo zum Periodenende, processed=true, Modus-Satz; Abo-Ereignis eines geloeschten Kontos 200 + system_events",
+      "live_version": "v12",
+      "bedingung": "erst nach der Modus-Pruefung durch Fernando (FUER-FERNANDO §30 Schritt 0: Live oder Test, Webhook-Endpunkt, Preise) — vorher nicht ausliefern"
+    },
+    "weather-alert-checker": {
+      "zustand": "ausliefern",
+      "grund": "Push nur an bekannte Push-Dienste, Frist je Versand, gerundeter Ort",
+      "live_version": "v6"
+    }
+  }
+}

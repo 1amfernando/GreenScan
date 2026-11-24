@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-11-4a61",
+  "art": "frage",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/offen",
+  "stand": "v33.59",
+  "titel": "Was von hier nicht messbar war: laufen die Functions in Deno, tun die Migrationen live dasselbe wie im Nachbau, und halten die Telefon-Wege aus §30g?",
+  "text": "Keine Umgebung hier hat Deno, Netz zu Stripe/Anthropic/Push-Diensten, die Live-Seite oder ein Android-Geraet. Offen: (1) startet jede geaenderte Function in Deno, und was antworten Stripe, Anthropic und web-push 3.6.7 (url.parse?); misst Anthropic die 5-MB-Grenze am Base64 oder am Bild; (2) tun die 20261110_*-Migrationen live dasselbe wie im Nachbau (der Trigger auf auth.users fehlt in der Momentaufnahme); (3) die Liste in FUER-FERNANDO §30g: Scans mit gewoehnlichem Konto, grosses Handyfoto ohne „zu gross“, Stripe-Fenster schliesst sich (in Chromium unter der echten Kopfzeile gemessen; Safari und Firefox nicht), Fund-Rundung auf ~1 km, Feedback-Stimme umstimmen, Kompass/Sprachmodus, APK mit Google Fotos/Dateiauswahl (file:// abgewiesen), tel:/mailto:, Push kommt an; (4) ob die Übersetzungstabelle die Schlüssel notfall_sofort und notfall_hinweis auf Spanisch kennt — ohne sie kommt der richtige Notfall-Alarm für spanische Sätze auf Deutsch; (5) ob garden-scan-analyze eine abgeschnittene oder falsch geformte KI-Antwort nach garden_plans schreibt (plan-iterate prüft das seit v33.59 mit _shared/plan_antwort.mjs; nicht gemessen).",
+  "an": "alle",
+  "haengt_daran": "Ob die Reparatur nach dem Ausliefern wirklich greift; ein deno.lock fuer die Edge-Functions (braucht Deno und die Supabase-CLI); ob gsPlans.stempeln vor gsSyncUser umgestellt werden muss.",
+  "stichworte": [
+    "Deno",
+    "deno.lock",
+    "web-push",
+    "stripe-webhook",
+    "FUER-FERNANDO §30g",
+    "Android-Huelle",
+    "gsPlans.stempeln",
+    "rls_check",
+    "Live-Seite"
+  ]
+}

@@ -84,7 +84,13 @@ Dauer 15–25 Minuten. `perf_check` misst nur und urteilt nie.
 
 ## 7 · Bump
 
-Fuenf Marker, immer zusammen (`robust_check` Fall 24 haelt sie zusammen):
+**Vorher holen** (`git fetch`, `git log HEAD..origin/main`): eine andere Sitzung
+kann dieselben Dateien geaendert oder live ausgeliefert haben — in v33.59 waren
+es neun Function-Dateien und vier Stellen in `index.html`. Vereinen, nicht
+ersetzen, und die Pruefstaende beider Seiten an die vereinte Form anpassen,
+nicht ruhigstellen (CLAUDE.md §5, §7.1).
+
+Fuenf Marker, immer zusammen (`robust_check` „Changelog“ haelt sie zusammen):
 
 | Marker | wo |
 |---|---|
@@ -117,7 +123,9 @@ git push -u origin claude/<thema>-<id>
 
 Commit-Betreff `vXX.YY: <Satz>`, Rumpf mit Bereichs-Bullets. PR gegen `main`;
 **CI muss gruen sein** (`.github/workflows/pruefstaende.yml` faehrt alle mit
-Postgres). Ein gruener Lauf auf der eigenen Maschine ist keine Aussage ueber
+Postgres; Actions auf vollen Commit-SHAs, `npm ci` gegen das eingecheckte
+Lockfile — eine Pflichtdatei mit `git ls-files` nachsehen, `.gitignore` hat das
+Lockfile einmal still verschluckt, v33.59). Ein gruener Lauf auf der eigenen Maschine ist keine Aussage ueber
 den Runner (v33.x: 32 von 32 rot, weil ein Pfad fest verdrahtet war). Squash-
 Merge, dann den Branch nachziehen:
 
@@ -136,7 +144,11 @@ kostet nichts; der Merge buendelt sie ohnehin.
 
 Nie direkt auf `main`. Nie DDL auf der Produktivdatenbank — Migrationen
 liegen in `supabase/migrations/` und heissen „nicht angewandt", bis Fernando
-sie anwendet. Nie „live verifiziert" schreiben, ohne zu sagen womit — die
+sie anwendet; ebenso werden Edge-Functions aus dem Repo erst wirksam, wenn
+jemand sie ausliefert. Eine Server-Reparatur, die im Repo liegt, ist live
+OFFEN — und das Repo ist oeffentlich: eine offene Luecke wird so beschrieben,
+dass der Betreiber weiss, was zu tun ist, nie mit einer fertigen Anfrage, die
+sie ausnutzt (v33.59). Nie „live verifiziert" schreiben, ohne zu sagen womit — die
 Live-Seite ist aus einer Cloud-Sitzung nicht erreichbar (`CONNECT … 403`).
 
 ## 9b · Ein breiter Audit ist ein Workflow, nicht acht lose Agenten
@@ -174,3 +186,41 @@ gebaut", wird gegen `git show` gelesen, bevor es weitergeschrieben wird. Die
 Zusammenfassung zu v33.31 nannte drei Dinge als geliefert, die in keinem
 Commit standen; gefunden hat es ein Messender (v33.33). **Eine Zusammenfassung
 ist kein Diff.**
+
+## 11 · Wenn mehrere Agenten an einer Sache arbeiten (v33.60)
+
+Am 11.11.2026 haben zehn Agenten ueber ein Brett miteinander gesprochen — sieben
+davon haben in eigenen Arbeitsbaeumen gebaut, drei nur gelesen und Ideen
+geschrieben. Nach 66 Minuten hat das Nutzungslimit alle gestoppt: zwei Scheiben
+waren uebergeben, fuenf nicht, geprueft war keine. Was dabei galt, und was es gekostet hat:
+
+- **Der Befund eines Agenten ist eine Behauptung, bis ihn jemand nachmisst.**
+  Die Zahlungs-Scheibe kam mit einem Pruefstand, 40 von 40 gruen — gegen eine
+  Datenbank, die der Agent sich ausgedacht hatte (er durfte die echte nicht
+  lesen). Gegen die echte gehalten haette der neue Checkout jeden Lifetime-Kauf
+  abgelehnt. Wer zusammenfuehrt, faehrt den Pruefstand selbst, haelt die
+  Nachbildungen gegen die Wirklichkeit und macht mindestens zwei EIGENE
+  Gegenproben je Scheibe.
+- **Ein Agent ohne Zugriff auf die Wirklichkeit sagt, was er NICHT messen
+  konnte** — und der Zusammenfuehrende misst genau das nach (nur lesend).
+- **Unfertiges wird gesichert, nicht uebernommen.** Eine Scheibe ohne Code
+  (nur der rote Fall) bleibt auf ihrem Zweig; in STATUS §2 steht, was gemessen
+  ist und was fehlt.
+- **Zwei Kerne tragen keine acht Browser.** Unter Last haben vier Pruefstaende
+  den Anmeldebildschirm vermessen und gruen gemeldet (seit v33.60: „nicht
+  pruefbar", Exit 2). Die Suite laeuft auf einer RUHIGEN Maschine.
+- **Versionsmarken schreibt, wer ausliefert.** Die Agenten haben ihre Aenderung
+  mit der naechsten freien Nummer markiert — die inzwischen ein anderer PR
+  trug. Marken kommen beim Zusammenfuehren, nicht beim Bauen.
+- **Ein naechster Lauf ist kleiner.** Hoechstens drei bauende Agenten auf zwei
+  Kernen. Jeder uebergibt nach JEDER fertigen Scheibe (ein Commit mit Messung
+  und Gegenprobe), nicht am Ende — das Limit kuendigt sich nicht an. Was nur
+  der Zusammenfuehrende messen darf (die Live-Datenbank, nur lesend), wird VOR
+  dem Start gemessen und mitgegeben. Ideen-Agenten laufen getrennt vom Bauen:
+  ihre Zahlen sind Rohmaterial (`docs/ideen/`), bis sie jemand nachmisst.
+- **Der zweite Durchgang gehoert dem Zusammenfuehrenden allein.** Die meisten
+  Funde vom 11.11. kamen NACH dem Lauf, beim Lesen des eigenen Stands gegen
+  die Wirklichkeit: sechs Luecken im Zahlungsweg (gegen Stripes Referenz), der
+  Pruefstand, der einen Bildschirm je Tab mass, zwei tote Knoepfe im Kalender,
+  ein Pflegeverlauf mit Loch. Frage dabei: „und was, wenn es das schon gibt —
+  oder die Kennung nicht mehr stimmt — oder die andere Liste gemeint ist?"

@@ -1,0 +1,29 @@
+{
+  "id": "2026-11-19-a24a",
+  "art": "befund",
+  "datum": "2026-11-19",
+  "zeit": "10:49:24",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.61",
+  "titel": "Pilze: die Artenliste zeigt 10 Arten milder als das Pilz-Register (VAPKO) — Birken-Dachpilz „Ungiftig“, Grünling „Mässig giftig“ — und 34 giftige Register-Arten fehlen ihr ganz",
+  "text": "Wer einen dieser Pilze im Lexikon, in der Suche oder im Verlauf nachschlägt, liest eine mildere Stufe als die, mit der der Pilz-Scanner ihn zeigt. Der Scanner liest das Register, alles andere die Artenliste.",
+  "vorschlag": "Datenseite: die 10 Einträge mit einer Flora bzw. der VAPKO-Liste prüfen — „Mässig giftig“ kann im Einzelfall richtig sein, „Ungiftig, keine bekannten Risiken“ für einen psilocybinhaltigen Pilz nicht — und die 34 fehlenden aufnehmen oder bewusst auslassen. App-seitig denkbar: _gsArtAnzeige nimmt bei Pilzen die vorsichtigere Angabe aus dem Register (ein Eingriff in jede Anzeige einer Art, nur mit Entscheidung). Bis dahin trägt der Pilz-Scanner keine Ergebnisse in den Scan-Verlauf ein — der Verlauf liest die Liste.",
+  "beleg": [
+    "Nur lesend gemessen am 19.11.2026: mushroom_register (276 Arten, je edibility) gegen data/plants.v1.js nach Binomen (ohne var./ssp.), Anzeige-Regel der App (_gsArtAnzeige: höchste Stufe der Art, essbar nur, wenn ALLE Einträge es sagen). 175 Arten gefunden, 101 fehlen.",
+    "Register „giftig“, App unter Stufe 3 (TOX: 2 = „Mässig giftig“, 3 = „Giftig“): Caloboletus calopus 2 · Clitocybe phyllophila 2 · Chlorophyllum molybdites 2 · Gymnopus peronatus 2 · Hapalopilus nidulans 2 · Hygrophoropsis aurantiaca 2 · Mycena pura 2 · Tricholoma equestre 2 (Grünling, 5 Einträge) · Tricholoma terreum 2 (ein Eintrag F125 sagt essbar) · Pluteus salicinus 0 (PI384 Birken-Dachpilz: „Keine bekannten Risiken“).",
+    "34 Arten, die das Register als giftig oder tödlich führt, stehen gar nicht in der Liste — darunter 4 tödliche: Conocybe filaris, Cortinarius splendens, Lepiota helveola, Pholiotina rugosa; dazu Rubroboletus legaliae, Verpa bohemica, Scleroderma verrucosum, drei Täublinge, zwei Ritterlinge."
+  ],
+  "stichworte": [
+    "pilze",
+    "artenliste",
+    "mushroom_register",
+    "daten",
+    "giftig"
+  ],
+  "anker": [
+    {
+      "datei": "data/plants.v1.js",
+      "text": "{id:'PI384',name:'Birken-Dachpilz',lat:'Pluteus salicinus'"
+    }
+  ]
+}

@@ -75,7 +75,8 @@ const PROBEN = {
   'gs_garden_plans': '[{"id":"pl1"}]',
   'gs_garden_plan_current': '{"id":"pl1"}',
   'gs_gardens': '[{"id":"g1","name":"Hof"}]',
-  // v33.70: die Pflanzung in ihrer HEUTIGEN Form — mit `tasks`. Seit der Pull
+  'gs_geloescht': '{"ps_myplants":{"mp_alt":9999999999999}}',   // v33.65: Loeschmarken reisen im state-Blob (Zeit in der Zukunft: das 90-Tage-Fenster raeumt sie nicht weg)
+  // v33.59: die Pflanzung in ihrer HEUTIGEN Form — mit `tasks`. Seit der Pull
   // auch den Arbeitsspeicher auffrischt, ruestet `_gsPflanzungenNachruesten`
   // eine Pflanzung OHNE Aufgaben beim ersten Lesen nach (v32.47) und speichert
   // sie; der Probewert kaeme dann zu Recht veraendert zurueck. Dasselbe geschah
@@ -337,7 +338,10 @@ const melde = (frage, ok, wie) => {
         : k.ereignisse + ' Ereignis(se) bei drei Renderings, Felder: „' + k.felder + '“, im Vokabular: ' + k.imVokabular);
   }
 
-  // ── v33.70 · Der Pull frischt auch den ARBEITSSPEICHER auf ──────────────
+  // ── v33.59 · Der Pull frischt auch den ARBEITSSPEICHER auf ──────────────
+  // (Fall uebernommen vom Zweig ccr-dce5a17c-2xzhvi, Austausch-Runde parallel-b3;
+  // die Reparatur dort setzte die UNGESIEBTE Liste — hier geht sie durch
+  // _gsListeEinspielen: Sieb, Speicher UND Variable.)
   // Gemessen (Audit „robust", bestaetigt): der Login-Pull schrieb Gaerten und
   // Pflanzungen NUR in den Geraetespeicher. Die Variablen `gardens` und
   // `plantings` blieben, wie sie beim Parsen der Seite waren — auf einem
@@ -410,6 +414,210 @@ const melde = (frage, ok, wie) => {
             + (g.hoch.length ? ' · HOCHGESCHOBEN: ' + g.hoch.join(' | ') : '') + ' · zum Hochladen vorgemerkt: ' + g.vorgemerkt + ' · lokal ungesendet danach: „' + (g.lokalBleibt || []).join(',') + '"'));
   }
 
+  // ── v33.65 · Zwei Geräte, EIN Konto (Auftrag P-F, Hypothese H1) ──────────
+  // Fernando: „Zum Teil sieht man neu eingetragene Pflanzen oder Informationen nicht.
+  // Allgemein werden viele Informationen wieder gelöscht." Gemessen wird der Login-Abgleich
+  // (gsSyncUserDataOnLogin) mit ZWEI Ständen im selben Konto: der Speicher wird zwischen
+  // „Gerät A" und „Gerät B" umgeschaltet, der Server ist eine gestellte Cloud. Bis v33.64
+  // arbeitete der Abgleich mit GANZEN Listen: ungesendet lokal → die ganze lokale Liste
+  // gewinnt und überschreibt die Cloud (was ein anderes Gerät dort hinzugefügt hat, ist weg);
+  // sauber → die ganze Cloud-Liste ersetzt die lokale. Jetzt: je Eintrag, mit Löschmarken.
+  const z = await page.evaluate(async () => {
+    const raus = {};
+    const echtFetch = window.sbFetch, echtLogged = window.sbIsLoggedIn;
+    const warte = (ms) => new Promise(r2 => setTimeout(r2, ms));
+    const cloud = {};
+    let online = true;
+    const TAB = /\/rest\/v1\/(user_plants|user_gardens|user_app_state)/;
+    window.sbFetch = async function (pfad, opts) {
+      opts = opts || {}; const m = (opts.method || 'GET').toUpperCase();
+      const tab = (pfad.match(TAB) || [])[1];
+      if (tab && (m === 'POST' || m === 'PATCH')) {
+        try { cloud[tab] = { data: JSON.parse(opts.body).data, updated_at: new Date().toISOString() }; } catch (_) {}
+        return { data: [{}], error: null, status: 200 };
+      }
+      if (tab && m === 'GET') return cloud[tab] ? { data: [cloud[tab]], error: null, status: 200 } : { data: [], error: null, status: 200 };
+      return { data: [], error: null, status: 200 };
+    };
+    window.sbIsLoggedIn = () => online;
+    // Der Push direkt nach dem Abgleich geht ueber flushNow() — den Beacon-Weg mit ROHEM fetch (sync_check, Kopf).
+    const echtRaw = window.fetch, exp0 = localStorage.getItem('gs_sb_expires');
+    window.fetch = async function (url, opts) {
+      const tab = (String(url).match(TAB) || [])[1];
+      if (tab && opts && opts.body) { try { cloud[tab] = { data: JSON.parse(opts.body).data, updated_at: new Date().toISOString() }; } catch (_) {} return new Response('[{}]', { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+      return echtRaw.apply(this, arguments);
+    };
+    localStorage.setItem('gs_sb_expires', String(Date.now() + 3600e3));
+    const snap = () => { const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); o[k] = localStorage.getItem(k); } return o; };
+    const lade = (o) => {
+      window._gsSyncPullInProgress = true;
+      try {
+        localStorage.clear();
+        Object.keys(o).forEach(k => localStorage.setItem(k, o[k]));
+      } finally { window._gsSyncPullInProgress = false; }
+      ['gs_sync_dirty', 'gs_sync_dirty_at_plants', 'gs_sync_dirty_at_garden', 'gs_sync_dirty_at_state', 'gs_sync_synced_at_plants', 'gs_sync_synced_at_garden'].forEach(k => { if (k in o) localStorage.setItem(k, o[k]); else localStorage.removeItem(k); });
+      const rd = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+      myPlants = rd('ps_myplants'); gardens = rd('gs_gardens'); plantings = rd('gs_plantings');
+    };
+    const ids = (a) => (a || []).map(x => x.id).sort().join(',');
+    const lies = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+    const tasks = (t) => ({ water: { active: true, intervalDays: 3, lastDone: t } });
+    const T0 = '2026-11-01T08:00:00.000Z';
+    const login = async () => { online = true; window._gsInitialSyncDone = false; await gsSyncUserDataOnLogin(); await warte(1500); };
+    const sichern = async () => { window._gsInitialSyncDone = true; await warte(1500); };   // Flush (500 ms entprellt)
+    try {
+      localStorage.setItem('gs_sb_uid', 'nutzer-A'); localStorage.setItem('gs_last_active_uid', 'nutzer-A');
+      window.gsRequire = () => true;
+      // ══ H1a · Pflanzen: A trägt X ein, B (alter Stand, ungesendet durch Abhaken) meldet sich an ══
+      lade({ gs_sb_uid: 'nutzer-A', gs_last_active_uid: 'nutzer-A', gs_sb_token: localStorage.getItem('gs_sb_token') || '' });
+      window._gsInitialSyncDone = true;
+      myPlants = [{ id: 'mp_P1', name: 'Tomate', tasks: tasks(T0) }, { id: 'mp_Q1', name: 'Minze', tasks: tasks(T0) }];
+      savePlantsToStorage(); await sichern();
+      const a1 = snap();                                         // Stand nach dem ersten Hochladen — beide Geräte kennen ihn
+      const gerB = Object.assign({}, a1);
+      await warte(40);
+      myPlants.push({ id: 'mp_X', name: 'Neue Basilikum', tasks: tasks(T0) });   // Gerät A: NEU eingetragen
+      savePlantsToStorage(); await sichern();
+      const a2 = snap();
+      raus.h1a_cloudNachA = ids((cloud.user_plants.data || {}).plants);
+      lade(gerB);                                                // Gerät B: alter Stand
+      await warte(40);
+      online = false;                                            // … unterwegs ohne Netz: abhaken
+      myPlants.find(p => p.id === 'mp_P1').tasks.water.lastDone = '2026-11-18T07:00:00.000Z';
+      savePlantsToStorage(); await warte(800);
+      raus.h1a_bDirty = !!localStorage.getItem('gs_sync_dirty_at_plants');
+      await login();
+      raus.h1a_bIds = ids(lies('ps_myplants'));
+      raus.h1a_bVar = ids(myPlants);
+      raus.h1a_bAbgehakt = (lies('ps_myplants').find(p => p.id === 'mp_P1') || { tasks: { water: {} } }).tasks.water.lastDone;
+      raus.h1a_cloudIds = ids((cloud.user_plants.data || {}).plants);
+      raus.h1a_cloudAbgehakt = (((cloud.user_plants.data || {}).plants || []).find(p => p.id === 'mp_P1') || { tasks: { water: {} } }).tasks.water.lastDone;
+
+      // ══ H1b · sauberes Gerät, Cloud hat mehr: bekommt alles (Wächter gegen „lokal gewinnt immer") ══
+      lade(a1);
+      await login();
+      raus.h1b_ids = ids(lies('ps_myplants'));
+      raus.h1b_dirty = localStorage.getItem('gs_sync_dirty') || '';
+
+      // ══ H1c · Gärten und Pflanzungen: dieselbe Rechnung ══
+      for (const k of Object.keys(cloud)) delete cloud[k];
+      lade({ gs_sb_uid: 'nutzer-A', gs_last_active_uid: 'nutzer-A' });
+      window._gsInitialSyncDone = true;
+      gardens = [{ id: 'g_1', name: 'Hochbeet' }];
+      plantings = [{ id: 'pl_1', gardenId: 'g_1', name: 'Karotte', date: '2026-10-01', tasks: tasks(T0) }];
+      saveGardenData(); await sichern();
+      const g1 = snap();
+      await warte(40);
+      plantings.push({ id: 'pl_2', gardenId: 'g_1', name: 'Neue Zucchini', date: '2026-11-18', tasks: tasks(T0) });
+      gardens.push({ id: 'g_2', name: 'Balkon' });
+      saveGardenData(); await sichern();
+      lade(g1); await warte(40);
+      online = false;
+      plantings.find(p => p.id === 'pl_1').tasks.water.lastDone = '2026-11-18T07:00:00.000Z';
+      saveGardenData(); await warte(800);
+      await login();
+      raus.h1c_pfl = ids(lies('gs_plantings')); raus.h1c_gaerten = ids(lies('gs_gardens'));
+      raus.h1c_cloudPfl = ids((cloud.user_gardens.data || {}).plantings); raus.h1c_cloudGaerten = ids((cloud.user_gardens.data || {}).gardens);
+      raus.h1c_abgehakt = (lies('gs_plantings').find(p => p.id === 'pl_1') || { tasks: { water: {} } }).tasks.water.lastDone;
+
+      // ══ H1d · LÖSCHEN darf nicht wiederauferstehen ══
+      for (const k of Object.keys(cloud)) delete cloud[k];
+      lade({ gs_sb_uid: 'nutzer-A', gs_last_active_uid: 'nutzer-A' });
+      window._gsInitialSyncDone = true;
+      myPlants = [{ id: 'mp_P1', name: 'Tomate', tasks: tasks(T0) }, { id: 'mp_X', name: 'Basilikum', tasks: tasks(T0) }];
+      plantings = [{ id: 'pl_1', gardenId: 'g_1', name: 'Karotte', date: '2026-10-01', tasks: tasks(T0) }, { id: 'pl_2', gardenId: 'g_1', name: 'Zucchini', date: '2026-10-01', tasks: tasks(T0) }];
+      gardens = [{ id: 'g_1', name: 'Hochbeet' }];
+      savePlantsToStorage(); saveGardenData(); await sichern();
+      const d1 = snap();
+      await warte(40);
+      lade(d1);                                                   // Gerät B: ändert P1 und pl_1 (ohne Netz), VOR dem Löschen auf A
+      online = false;
+      myPlants.find(p => p.id === 'mp_P1').tasks.water.lastDone = '2026-11-18T06:00:00.000Z';
+      plantings.find(p => p.id === 'pl_1').tasks.water.lastDone = '2026-11-18T06:00:00.000Z';
+      myPlants.find(p => p.id === 'mp_X').name = 'Basilikum (B)';
+      savePlantsToStorage(); saveGardenData(); await warte(800);
+      const dB = snap();
+      await warte(60);
+      lade(d1); online = true; window._gsInitialSyncDone = true;  // Gerät A: LÖSCHT P1 und pl_1 — danach
+      myPlants = myPlants.filter(p => p.id !== 'mp_P1'); plantings = plantings.filter(p => p.id !== 'pl_1');
+      savePlantsToStorage(); saveGardenData(); await sichern();
+      raus.h1d_cloudNachA = ids((cloud.user_plants.data || {}).plants) + ' | ' + ids((cloud.user_gardens.data || {}).plantings);
+      raus.h1d_marken = localStorage.getItem('gs_geloescht') ? 'ja' : 'nein';
+      lade(dB); await login();
+      raus.h1d_bPfl = ids(lies('ps_myplants')); raus.h1d_bPlant = ids(lies('gs_plantings'));
+      raus.h1d_cloudPfl = ids((cloud.user_plants.data || {}).plants); raus.h1d_cloudPlant = ids((cloud.user_gardens.data || {}).plantings);
+      raus.h1d_bName = (lies('ps_myplants').find(p => p.id === 'mp_X') || {}).name;
+      // ══ H6 · eine Änderung WÄHREND eines laufenden Pushes geht nicht verloren ══
+      // (Bestandsaufnahme „Sofort sichern": `_flush` schrieb am Ende `_setDirty(stillDirty)` — den Stand
+      // vom BEGINN. Was in den Sekunden des Pushes vorgemerkt wurde, war danach „sauber".)
+      for (const k of Object.keys(cloud)) delete cloud[k];
+      lade({ gs_sb_uid: 'nutzer-A', gs_last_active_uid: 'nutzer-A' });
+      online = true; window._gsInitialSyncDone = true;
+      const schnell = window.sbFetch;
+      window.sbFetch = async function (pfad, opts) {
+        if (/user_plants/.test(pfad) && opts && (opts.method || '').toUpperCase() === 'POST') await warte(500);   // ein langsames Netz
+        return schnell.apply(this, arguments);
+      };
+      myPlants = [{ id: 'mp_A', name: 'Erste', tasks: tasks(T0) }];
+      savePlantsToStorage();
+      await warte(800);                                                // Push laeuft (ab 500 ms, dauert 500 ms)
+      myPlants.push({ id: 'mp_B', name: 'Zweite, waehrend des Pushes', tasks: tasks(T0) });
+      savePlantsToStorage();
+      await warte(4000);
+      window.sbFetch = schnell;
+      raus.h6_cloud = ids((cloud.user_plants.data || {}).plants);
+      raus.h6_dirty = localStorage.getItem('gs_sync_dirty') || '';
+      // ══ H7 · Beim Schliessen gehen ALLE Blobs hinaus, auch wenn ein Push noch laeuft ══
+      for (const k of Object.keys(cloud)) delete cloud[k];
+      const gestartet = [];
+      const rawStub = window.fetch;
+      window.fetch = async function (url, opts) {
+        const tab = (String(url).match(TAB) || [])[1];
+        if (tab && opts && opts.body) { gestartet.push(tab); await warte(250); cloud[tab] = { data: JSON.parse(opts.body).data, updated_at: new Date().toISOString() }; return new Response('[{}]', { status: 200 }); }
+        return rawStub.apply(this, arguments);
+      };
+      localStorage.setItem('gs_sb_token', 'x.y.z');
+      myPlants = [{ id: 'mp_A', name: 'Erste', tasks: tasks(T0) }]; gardens = [{ id: 'g_1', name: 'Beet' }];
+      savePlantsToStorage(); saveGardenData();
+      gsCloudSync.markDirty('state');
+      gsCloudSync.flushNow();                                         // wie pagehide: nicht abwarten
+      await warte(60);
+      raus.h7_gestartet = gestartet.slice().sort().join(',');         // alle drei SOFORT unterwegs?
+      await warte(900);
+      window.fetch = rawStub;
+      raus.h7_cloud = Object.keys(cloud).sort().join(',');
+    } catch (e) { raus.fehler = String(e && e.stack || e).split('\n').slice(0, 3).join(' | '); }
+    finally { window.sbFetch = echtFetch; window.sbIsLoggedIn = echtLogged; window.fetch = echtRaw; if (exp0 == null) localStorage.removeItem('gs_sb_expires'); else localStorage.setItem('gs_sb_expires', exp0); }
+    return raus;
+  });
+  {
+    const mk = (frage, ok, gut, schlecht) => melde(frage, ok && !z.fehler, ok && !z.fehler ? gut : (z.fehler ? 'Ausnahme: ' + z.fehler : schlecht));
+    mk('H1a · Gerät A trägt eine Pflanze ein, Gerät B (alter Stand, ungesendet) meldet sich an → die neue Pflanze steht auf B UND in der Cloud, Bs Abhaken auch',
+      z.h1a_bDirty && z.h1a_bIds === 'mp_P1,mp_Q1,mp_X' && z.h1a_cloudIds === 'mp_P1,mp_Q1,mp_X' && /^2026-11-18/.test(z.h1a_bAbgehakt || '') && /^2026-11-18/.test(z.h1a_cloudAbgehakt || ''),
+      'B: ' + z.h1a_bIds + ' · Cloud: ' + z.h1a_cloudIds + ' · Abhaken auf beiden',
+      'B ungesendet=' + z.h1a_bDirty + ' · Cloud nach A: ' + z.h1a_cloudNachA + ' · B danach: ' + z.h1a_bIds + ' (Arbeitsspeicher ' + z.h1a_bVar + ') · Cloud danach: ' + z.h1a_cloudIds + ' · Abhaken B/Cloud: ' + z.h1a_bAbgehakt + ' / ' + z.h1a_cloudAbgehakt);
+    mk('H1b · ein sauberes Gerät bekommt, was die Cloud mehr hat — und markiert dabei nichts als ungesendet',
+      z.h1b_ids === 'mp_P1,mp_Q1,mp_X' && !/plants/.test(z.h1b_dirty || ''),
+      'B: ' + z.h1b_ids + ' · nichts ungesendet',
+      'B: ' + z.h1b_ids + ' · gs_sync_dirty = ' + z.h1b_dirty);
+    mk('H1c · Gärten und Pflanzungen: neue Pflanzung und neuer Garten von A überleben Bs ungesendetes Abhaken',
+      z.h1c_pfl === 'pl_1,pl_2' && z.h1c_gaerten === 'g_1,g_2' && z.h1c_cloudPfl === 'pl_1,pl_2' && z.h1c_cloudGaerten === 'g_1,g_2' && /^2026-11-18/.test(z.h1c_abgehakt || ''),
+      'B und Cloud: Pflanzungen ' + z.h1c_pfl + ' · Gärten ' + z.h1c_gaerten + ' · Abhaken bleibt',
+      'B: Pflanzungen ' + z.h1c_pfl + ', Gärten ' + z.h1c_gaerten + ' · Cloud: ' + z.h1c_cloudPfl + ', ' + z.h1c_cloudGaerten + ' · Abhaken: ' + z.h1c_abgehakt);
+    mk('H6 · eine Änderung, die während eines laufenden Pushes vorgemerkt wird, geht nicht verloren',
+      z.h6_cloud === 'mp_A,mp_B',
+      'beide Pflanzen in der Cloud · nichts mehr ungesendet',
+      'Cloud: ' + z.h6_cloud + ' (die zweite fehlt) · ungesendet danach: „' + (z.h6_dirty || '(nichts)') + '“ — der Stand galt als gesichert');
+    mk('H7 · beim Schliessen der App (Sofort-Flush) gehen alle drei Blobs GLEICHZEITIG hinaus — nicht nacheinander',
+      z.h7_gestartet === 'user_app_state,user_gardens,user_plants' && z.h7_cloud === 'user_app_state,user_gardens,user_plants',
+      'drei Anfragen binnen 60 ms unterwegs · alle drei angekommen',
+      'nach 60 ms unterwegs: „' + z.h7_gestartet + '“ · angekommen: „' + z.h7_cloud + '“ — der zweite und dritte Blob warten auf eine Antwort, die nach dem Verbergen der App nie kommt');
+    mk('H1d · auf A gelöscht → kommt auf B (das die Pflanze noch änderte) nicht wieder, weder lokal noch in der Cloud — und Bs andere Änderung bleibt',
+      z.h1d_marken === 'ja' && z.h1d_bPfl === 'mp_X' && z.h1d_bPlant === 'pl_2' && z.h1d_cloudPfl === 'mp_X' && z.h1d_cloudPlant === 'pl_2' && z.h1d_bName === 'Basilikum (B)',
+      'Löschmarken auf A · B: ' + z.h1d_bPfl + ' / ' + z.h1d_bPlant + ' · Cloud: ' + z.h1d_cloudPfl + ' / ' + z.h1d_cloudPlant + ' · Bs Umbenennung bleibt',
+      'Löschmarken: ' + z.h1d_marken + ' · Cloud nach A: ' + z.h1d_cloudNachA + ' · B danach: ' + z.h1d_bPfl + ' / ' + z.h1d_bPlant + ' · Cloud danach: ' + z.h1d_cloudPfl + ' / ' + z.h1d_cloudPlant + ' · Name: ' + z.h1d_bName);
+  }
+
   await b.close();
 
   // ── Bericht ────────────────────────────────────────────────────────────
@@ -456,7 +664,7 @@ const melde = (frage, ok, wie) => {
       : 'ungeprüft, weil kein Probewert eingetragen: ' + ohneProbe.join(', '));
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 11 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 17 · davon rot: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (fehler.length ? fehler.slice(0, 3).join(' | ') : 'keine'));
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;
 })();

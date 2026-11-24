@@ -84,10 +84,10 @@ Allow: /
 Disallow: /docs/
 Disallow: /supabase/
 Disallow: /scripts/
-Disallow: /.claude/
 Disallow: /store/
-Disallow: /android/
 Disallow: /store-assets/
+Disallow: /android/
+Disallow: /.claude/
 Disallow: /.github/
 Disallow: /*.md$
 Disallow: /*.sql$

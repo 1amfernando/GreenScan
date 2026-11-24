@@ -19,6 +19,17 @@ gsLinaSend()                                index.html, grep "async function gsL
 Ohne Netz oder Schluessel antwortet `getSmartAnswer` (Offline-Chat) — seine
 Artkarte gilt nur, wenn `_gsArtenTreffer` dieselbe Art nennt.
 
+## Der Spiegel und wem eine Antwort gehört (v33.61)
+
+`gs_lina_verlauf` (in `GS_USER_KEYS`) hält das laufende Gespräch auf dem Gerät,
+höchstens 40 Nachrichten, geschrieben nur von `gsLinaRender`. Er trägt die `uid`
+(ohne Anmeldung wird nichts geschrieben, ein fremder Spiegel nie gelesen) und `ts` =
+das Alter des INHALTS (aus der Cloud geladen: deren `updated_at`; unverändert: die
+alte Zeit). Beim Öffnen gewinnt er nur, wenn er dasselbe Gespräch ist wie das
+neueste der Cloud — oder eines, das sie nicht hat — UND jünger. Nach jedem `await`
+fragen `gsOpenLina`, `gsLinaSend` und `gsLinaGespraechOeffnen`, ob noch dieselbe
+Person angemeldet ist (`_gsPerson`). *(sensor_check L9, L10, L11)*
+
 ## Was Lina SIEHT (Kontext, `gsLinaContext` + `gsLinaZahlen`)
 
 | Zeile | Quelle | Deckel |
@@ -56,7 +67,7 @@ keinen Weg. `sensor_check` prueft die lesenden Tools und ein erfundenes
 („Lina · handeln“), `add_calendar_note` (T1) und seit v33.39 auch die zwei
 alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
 
-## Die fuenf Regeln, die fuer jeden Freitext-Weg gelten
+## Die sechs Regeln, die fuer jeden Freitext-Weg gelten
 
 1. **Erdung ueber `_gsArtenTreffer`** — ganzer Name oder Binomen an Wortgrenzen;
    der Umgangsname zieht seine Familie mit (18 Sambucus bis tox 4); bei
@@ -72,6 +83,12 @@ alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
 5. **Keine Prompt-Zeile ist eine Garantie.** Was gelten soll, wird im Code
    gerechnet und im Pruefstand gemessen (§4a.2). Der Prompt darf keinen Weg
    in der App nennen, den es nicht gibt (`nutzersicht_check` E2).
+6. **Was aus Linas Antwort in die Oberflaeche geht, ist Fremdtext** — auch ein
+   Feld, das „nur ein Emoji" ist (`emoji` einer angelegten Pflanze): `_gsEmoji`
+   bzw. `escHtml` an der Senke (CLAUDE.md §3.6, v33.59). Und Linas Aufrufe
+   laufen ueber `ai-proxy`; mit dessen Tor (nicht ausgeliefert, §3.4) zaehlen
+   sie gegen das Tageskontingent des Plans, und eine Ablehnung kommt als fester
+   Satz des Servers (`GS_KI_PROXY_SAETZE`), nicht als geratener aus dem Status.
 
 ## Was Lina architektonisch NICHT kann (und was deshalb nicht versprochen wird)
 

@@ -22,7 +22,11 @@ jobs:
     # Eine bewegliche Marke ist eine Annahme über morgen. Wer das Abbild hebt, hebt Playwright mit
     # und sieht sich den Lauf an (dieselbe Lehre wie field_check: 32 von 32 Läufen rot, 08.09.2026).
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # 19.11.2026: 45 → 60. Gemessen an Lauf 44498377739 (PR #328): Abbruch nach 45 min 17 s, ohne dass ein
+    # Prüfstand scheiterte — die Installation (Android-Werkzeuge, Playwright) brauchte 19 min statt rund
+    # 30 s, die Prüfstände selbst brauchen ≥ 26 min. Ein Abbruch sieht aus wie Rot und ist keines.
+    # Die bessere Abhilfe (Downloads cachen) ist ein eigener Schritt; das Limit ist nur die Luft dafür.
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:16
@@ -37,8 +41,12 @@ jobs:
           --health-timeout 5s
           --health-retries 12
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # v33.59: Fremd-Actions auf den vollen Commit festgelegt, nicht auf ein Tag — ein Tag
+      # laesst sich verschieben, ein Commit nicht (SHAs per `git ls-remote` gelesen, 10.11.2026).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: 22
       - name: psql + python
@@ -56,7 +64,8 @@ jobs:
       - name: Playwright + ESLint (scripts/)
         working-directory: scripts
         run: |
-          npm install --no-audit --no-fund
+          # v33.59: `npm ci` gegen scripts/package-lock.json (Integritaets-Hashes) statt `npm install`.
+          npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium
       - name: Prüfstände
         env:

@@ -119,10 +119,11 @@ for fid, f in felder.items():
     else:
         verdaechtig.append(zeile)
 
-# v33.70 (brett:2026-11-11-ec73): der Pruefstand URTEILT. Bis dahin endete er
+# v33.60 (brett:2026-11-11-ec73): der Pruefstand URTEILT. Bis dahin endete er
 # immer mit 0 — „N Felder, die niemand liest" haette `pruefstaende.sh` als gruen
-# gemeldet, und die Zeile stand nur fuer den da, der den Bericht las (dieselbe
-# Luecke wie in contrast_check und render_check, im selben Schnitt geschlossen).
+# gemeldet (dieselbe Luecke wie in contrast_check und render_check). Zwei
+# Sitzungen haben das parallel geschlossen; v33.70 bringt dazu die Liste BEWUSST
+# und „nicht pruefbar", wenn kaum Felder gefunden werden.
 # Ein Treffer bleibt ein VERDACHT: wer ihn geprueft hat und das Feld fuer
 # richtig haelt, traegt es hier mit GRUND ein — dann zaehlt es nicht mehr, steht
 # aber weiter im Bericht. Die Liste ist leer, weil es heute keinen Treffer gibt.

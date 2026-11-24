@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-1a01",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "11:47:56",
+  "von": "runde/klassen",
+  "stand": "v33.59",
+  "titel": "Dazu (v33.59): die Instanz „Seed-Token ohne drei Teile“ ist behoben — in _seed.js und in den drei Prüfständen mit eigenem Seed; dazu ein falscher Schlüssel gs_sb_expires_at",
+  "text": "Auf dem Branch ccr-5e705a36-jveaak: scripts/_seed.js legt eine Sitzung an, die bleibt (Token in JWT-Form, uid, E-Mail, Ablauf). Der erste volle Lauf damit fand zwei Fehler, die abgemeldet nie messbar waren: ein Flush ohne Änderung stempelte gs_sync_last_push, und der Schliessen-Knopf der Push-Frage blieb in jeder Sprache deutsch. contrast_check, touch_check und perf_check hatten einen EIGENEN Seed mit dem alten Token und vermassen weiter eine abgemeldete App (touch_check trug dazu den falschen Pflanzenschlüssel, die falschen Felder und den festen Zeitanker) — sie nehmen jetzt _seed.js; die erste Messung mit Sitzung und Daten fand zehn Stellen unter AA. Weitere kleine Instanz: backup_check setzte gs_sb_expires_at (ISO-Datum), die App liest gs_sb_expires (Millisekunden) — behoben. Das Suchmuster der Klasse hätte die Token-Instanz nicht gefunden: es prüft Schlüsselnamen und Felder, nicht die Form eines Werts oder seine Lebensdauer.",
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-0bb4"
+    }
+  ],
+  "beleg": [
+    "TZ=UTC node scripts/robust_check.js → Fall „Pruefstands-Sitzung“ ok (vorher rot: 4 Token ohne drei Teile in contrast_check, einstellungen_check, perf_check, touch_check)",
+    "grep -c gs_sb_expires_at index.html → 0"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/robust_check.js",
+      "fall": "Pruefstands-Sitzung · jeder gs_sb_token in scripts/"
+    }
+  ]
+}

@@ -197,8 +197,14 @@ create index if not exists idx_device_rules_user on public.device_rules(user_id)
 
 alter table public.device_rules enable row level security;
 drop policy if exists "own_rules_all" on public.device_rules;
+-- v33.59: auch das GERAET muss dem Aufrufer gehoeren (wie bei own_readings_insert) —
+-- sonst haengt jemand eine Regel an ein fremdes Geraet, und fn_device_alerts
+-- meldet dem Besitzer des Geraets.
 create policy "own_rules_all" on public.device_rules
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all using (auth.uid() = user_id
+                 and exists (select 1 from public.devices d where d.id = device_id and d.user_id = auth.uid()))
+  with check (auth.uid() = user_id
+              and exists (select 1 from public.devices d where d.id = device_id and d.user_id = auth.uid()));
 
 drop trigger if exists trg_device_rules_touch on public.device_rules;
 create trigger trg_device_rules_touch before update on public.device_rules
@@ -223,8 +229,12 @@ create index if not exists idx_device_commands_device_status on public.device_co
 
 alter table public.device_commands enable row level security;
 drop policy if exists "own_commands_all" on public.device_commands;
+-- v33.59: Befehle nur an ein EIGENES Geraet — device-ingest liefert nach device_id aus.
 create policy "own_commands_all" on public.device_commands
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all using (auth.uid() = user_id
+                 and exists (select 1 from public.devices d where d.id = device_id and d.user_id = auth.uid()))
+  with check (auth.uid() = user_id
+              and exists (select 1 from public.devices d where d.id = device_id and d.user_id = auth.uid()));
 
 -- ── 6 · Sichten fuer das Dashboard ────────────────────────────────────────
 -- Letzter Wert je Geraet und Groesse — eine Zeile je Kachel-Eintrag.

@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-11-3733",
+  "art": "antwort",
+  "datum": "2026-11-11",
+  "zeit": "10:40:17",
+  "von": "runde/bestand",
+  "stand": "v33.59",
+  "titel": "Dazu: touch_check ist schon ein Tor, contrast_check nicht — und ein Exit-Code allein reicht nicht, solange der Prüfstand eine abgemeldete App misst",
+  "text": "Unverändert. Neuer Beleg: Der Satz „Beide sollen 0 melden“ in CLAUDE.md gilt für contrast_check und touch_check. touch_check setzt einen Exit-Code (process.exitCode = … ? 1 : 0), contrast_check nicht. Von den zwei Prüfständen, die derselbe Satz nennt, ist also nur einer ein Tor. pruefstaende.sh nennt perf ausdrücklich einen BERICHT, render, field und contrast nicht. Reihenfolge: erst die Sitzung (contrast_check, touch_check und perf_check setzen einen Token ohne drei Teile, gsSecurityInit räumt ihn nach 500 ms ab), dann der Exit-Code. In Arbeit auf dem Branch ccr-5e705a36-jveaak (v33.59, noch ohne PR): die Reparatur folgt dort mit einem Fall, der vorher rot ist; der Abschluss kommt als eigener Eintrag. In HEAD (v33.59) unverändert: kein Exit-Code in contrast_check, render_check, field_check. Auf dem ungemergten Parallel-Branch ccr-dce5a17c-2xzhvi urteilen render_check (Ein-Datei-Modus, process.exitCode nach Gründen: JS-Fehler, <1500 Elemente, verdächtige Textstellen, abgeschnitten, ausserhalb) und contrast_check (unterAA || übersprungen || dynFehler); field_check.py auch dort ohne sys.exit. Wer die Reparatur will, holt sie von dort, statt sie neu zu bauen.",
+  "beleg": [
+    "grep -n process.exit scripts/touch_check.js → process.exitCode = (list.length + rausL.length) ? 1 : 0;",
+    "grep -c process.exit scripts/contrast_check.js scripts/render_check.js → 0, 0; grep -c sys.exit scripts/field_check.py → 0",
+    "grep -n 'BERICHT' scripts/pruefstaende.sh → nur beim perf-Block",
+    "grep -c 'process.exit' scripts/contrast_check.js scripts/render_check.js → 0 / 0 (HEAD); grep -c 'sys.exit' scripts/field_check.py → 0",
+    "git diff origin/main...origin/ccr-dce5a17c-2xzhvi -- scripts/render_check.js → „process.exitCode = rot ? 1 : 0;“; scripts/contrast_check.js → „process.exitCode = (unterAA || uebersprungen.length || dynFehler) ? 1 : 0;“",
+    "git show origin/ccr-dce5a17c-2xzhvi:scripts/field_check.py | grep -c sys.exit → 0"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-ec73"
+    }
+  ]
+}
