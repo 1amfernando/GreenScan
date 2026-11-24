@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 17:36 UTC · `main` = `52a2b93` (**v33.74**, #347) · #349 Sicherheit (`255665c`, Baum gegen das neue main identisch, CI Lauf 45445512732 fertig ca. 17:48) → Merge-Commit bei grün · Hauptfunktionen pusht jetzt den gebündelten v33.76 (kc Suche 11 + kd Lina 11, Fast-Forward auf `happy-thompson`), PR + Leser (Giftig-Gegenprobe) folgen · danach v33.77 (ke Scanner 14) · #348 Audit zuletzt.
+**Stand:** 24.11.2026, 17:43 UTC · `main` = `52a2b93` (**v33.74**) · #349 Sicherheit (`255665c`, CI fertig ca. 17:48) → Merge-Commit bei grün · #350 Hauptfunktionen v33.76 (Kopf `b43d70a`, kc Suche 11 + kd Lina 11, Baum = Test-Merge `714d6b3`, CI seit ca. 17:40, fertig ca. 18:20; ein Leser misst die Giftig-Gegenprobe und die Bärlauch-Vorschläge) · danach v33.77 (ke Scanner 14) · #348 Audit zuletzt.
 
 ## 1 · Warum es schneller wird
 
@@ -45,7 +45,7 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | **v33.73** | (jw) | **GEMERGT** als Merge-Commit `bbb5b26` (#346; CI auf 24dd782 grün, Baum identisch); der Proxy-Teil gehört Fernando (FUER-FERNANDO §33) |
 | 4 | Hauptfunktionen · Lina · Einblick ehrlich + Scanner 12 + Pilz-Verwechsler (EIN Kopf) | `claude/happy-thompson-24l4uu` | v33.74 | (jx) · (jy) · (jz) · (ka) | **GEMERGT** als Merge-Commit `52a2b93` (#347; CI auf 5844cf6 grün, Baum identisch; zwei Leserfunde vor dem Merge behoben) |
 | 5 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.75 | (kb) | PR **#349**, Kopf **`255665c`** (enthält `5844cf6`; merge-tree gegen main und gegen #347 = Kopf-Baum `a4dc964`), CI Lauf 45445512732 seit 17:10; nichts unter supabase/.github/_headers/_redirects; offene Frage für Fernando: Brett e247 (kommt ein Offline-Foto live je im Speicher an?) |
-| 6 | Hauptfunktionen · Suche 11 (kc) + Lina 11 (kd), gebündelt | `claude/happy-thompson-24l4uu` | v33.76 | (kc) · (kd) | lokal Kopf `b43d70a` (Stapel auf `255665c`), Push als Fast-Forward nach dem Merge von #347 (17:36 freigegeben); PR folgt; Leser misst die Giftig-Gegenprobe (falsch-negativ darf nicht zunehmen); danach Scanner 14 (ke) als v33.77 |
+| 6 | Hauptfunktionen · Suche 11 (kc) + Lina 11 (kd), gebündelt | `claude/happy-thompson-24l4uu` | v33.76 | (kc) · (kd) | PR **#350**, Kopf **`b43d70a`** (enthält `255665c`; Baum = Test-Merge `714d6b3`), CI läuft; Leser (Workflow wf_a830bd81-fb7) misst: falsch-negativ darf nicht zunehmen; danach Scanner 14 (ke) als v33.77 |
 | 7 | Audit · Prüfstände (kein Bump) | `ccr-dce5a17c-2xzhvi` | – | (jv) Nachtrag | PR **#348**, Kopf `b199b6d` (docs + `!!`-Ausgabe), CI läuft; wird als LETZTER gemergt (dann main einziehen, CI neu) |
 | – | Brett (#341) | `ccr-b63433a4-d1xgyg` | – | – | enthält `.github/workflows/*` und `docs/AGENTEN-NETZ.md` → Fernando; der Werkzeug-Teil kommt als eigener PR |
 
