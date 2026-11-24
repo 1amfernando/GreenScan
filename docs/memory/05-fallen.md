@@ -366,3 +366,17 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   das Brett fuehrte seit dem Morgen den Befund „Spanisch ist die fuenfte".
   Regel: vor dem Bauen auf dem Brett nach der Klasse suchen, zu der das Neue
   gehoert.
+- **19.11.2026 (Tor, Brett 89ee)** Ein Tor, das aus einem Erfolg einen Fehler macht,
+  schiebt jeden Aufrufer in seinen `catch` — dort zeigte B danach Fehlerkarten zur
+  Anfrage von A, und wer im Fehlerfall EINREIHTE, reihte die Arbeit von A für B ein.
+  Regel: `catch` fragt zuerst `_gsPersonGewechselt(e)`; wer einreiht, fragt vorher.
+- **19.11.2026 (Tor)** Das Tor sieht nur Antworten, nicht Anfragen, die erst NACH dem
+  Wechsel losgehen: eine Schleife, die die uid je Runde neu liest, lud die Funde von A
+  mit genauen Koordinaten unter dem Konto von B hoch. Regel: uid EINMAL merken, vor
+  jeder Runde fragen.
+- **19.11.2026 (Abmelden)** Ein Satz beim Abmelden als Toast war nie sichtbar: der
+  Anmeldebildschirm liegt darüber. Regel: was beim Abmelden gesagt werden muss, steht
+  im Meldefeld des Anmeldebildschirms (`_gsAbmeldenSagen`).
+- **19.11.2026 (Prüfstand)** Ein Fall, dessen Grün davon abhing, dass NICHTS geschah
+  (der Deckel-Teil in 98_schluss_b: „0 ≤ 20“, weil gar nicht geparkt wurde), bleibt
+  grün, wenn die Regel umgestellt wird. Wer eine Regel ändert, sucht diese Fälle.

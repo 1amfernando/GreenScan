@@ -58,6 +58,13 @@ Tagebuch in `CLAUDE.md`.
    Satz. *(sensor_check L12)* — Die Prüfung reicht bis zum Zeichnen, auch durch eine
    aufgerufene Funktion, die selbst wartet: auf sie warten und die Prüfung hineinreichen
    (`gsMushroomRenderResult(j, gilt)`, wartet in fr/it/en/es auf Übersetzungen). *(scan_check PZ7)*
+   Seit 19.11.2026 ein TOR in `sbFetch` und `_gsAiAnfrage`: wechselt die Person, kommt
+   keine Antwort an (`_gsPersonGewechselt`, Fehler `person_gewechselt`). Das Tor sieht
+   nicht, was erst NACH dem Wechsel losgeht: die Person vor dem ERSTEN `await` merken,
+   ein rohes `fetch` vor dem Senden und danach fragen, eine Schleife die uid einmal
+   merken, ein `catch` zuerst `_gsPersonGewechselt(e)` fragen und still enden. Abmelden
+   heisst derselbe Bildschirm wie nach einem Neuladen (`_gsAbmeldenFenster`,
+   `_gsAbmeldenFelder`, `_gsAbmeldenStartseite`). *(sicherheit_check 71_person, 98_schluss_e)*
 
 6. **Fremder Text ist Text, nie Code.** `escHtml(s)` fuer Text/Attribut,
    `_gsOcStr(s)` fuer Werte in `onclick="…"`, `gsSanitizeHtml(html)` fuer

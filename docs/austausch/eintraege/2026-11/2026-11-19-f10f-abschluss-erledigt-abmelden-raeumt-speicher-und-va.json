@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-19-f10f",
+  "art": "abschluss",
+  "datum": "2026-11-19",
+  "zeit": "15:30:46",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.68",
+  "titel": "erledigt: Abmelden räumt Speicher und Variablen — zwei Felder im DOM tragen weiter den Namen des vorigen Kontos",
+  "ergebnis": "erledigt",
+  "wohin": "ccr-5e705a36-jveaak, v33.68 (Platzhalter): _gsAbmeldenFenster, _gsAbmeldenFelder, GS_ABMELDEN_ANZEIGEN/ENTWUERFE/ZEICHNER, _gsAbmeldenStartseite — sicherheit_check 98_schluss_e",
+  "geschwister": "gesucht: jedes Text-input/textarea im Dokument (72 mit Text von A nach Abmelden + Anmelden von B gemessen), dazu Anzeigen und Entwürfe aus Kontodaten; alle gehen auf defaultValue bzw. werden neu gezeichnet; Ausnahmen namentlich in GS_ABMELDEN_FELDER_GERAET",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-16-a6d6"
+    }
+  ]
+}

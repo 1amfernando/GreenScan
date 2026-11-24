@@ -80,7 +80,12 @@ const satzSichtbar = (p, re) => p.evaluate((src) => {
     return { text: el.textContent.slice(0, 80), sichtbar: !!(t && (t === el || el.contains(t) || t.contains(el))), traf: t ? (t.id || String(t.className).slice(0, 30) || t.tagName) : null };
   });
   return { ok: treffer.some(x => x.sichtbar), treffer };
-}, re.source);
+}, (() => {
+  // Gegenpruefung dom-plaene (19.11.2026): eine Zeichenkette hat kein .source — new RegExp(undefined)
+  // trifft JEDES Element, und der Fall waere mit irgendeinem sichtbaren Text gruen. Nur ein RegExp.
+  if (!(re instanceof RegExp)) throw new Error('satzSichtbar braucht einen RegExp, keine ' + typeof re);
+  return re.source;
+})());
 
 module.exports = [
   // ── d2#2 · die festen Saetze des KI-Proxys ─────────────────────────────
@@ -272,16 +277,25 @@ module.exports = [
         await new Promise(res => setTimeout(res, 600));
         const v2 = JSON.parse(localStorage.getItem('gs_plans_v2') || '[]');
         const offline = v2.find(e => e.title === 'Offline-Plan von A') || null;
-        // Deckel: 30 wartende Plaene eines Kontos ergeben hoechstens 20, ein 100 Tage alter geht
+        // Deckel: 29 nur lokale Plaene eines Kontos — hoechstens 20 warten, der Rest bleibt gestempelt
+        // in gs_plans_v2 (keiner geht verloren); und ein Plan, der seit 100 Tagen WARTET, geht.
+        // 19.11.2026 (Brett 7ebf): bis hier lag der 100 Tage alte Plan in gs_plans_v2 (angelegt vor
+        // 100 Tagen). Seit der Gesamtpruefung g1 zaehlt die Frist ab dem PARKEN — ein solcher Plan
+        // wird aufbewahrt (speicher_check „Deckel des Wartebereichs", Fall 1). Gruen war dieser Teil
+        // trotzdem, weil parken() bei 30 Plaenen GAR NICHTS schrieb (0 wartend ≤ 20, P0 „weg"):
+        // er mass seit g1 nichts. Jetzt: der Alte wartet schon seit 100 Tagen, die 29 kommen dazu.
         netz = false;
-        localStorage.setItem('gs_plans_v2', JSON.stringify(Array.from({ length: 30 }, (_, i) => ({ id: 'l' + i, localId: 'l' + i, type: 'garden', title: 'P' + i, uid: o.A, cloud: false, created: new Date(Date.now() - (i === 0 ? 100 : 1) * 86400000).toISOString() }))));
-        localStorage.removeItem('gs_plans_wartend');
+        const T = 86400000;
+        localStorage.setItem('gs_plans_v2', JSON.stringify(Array.from({ length: 29 }, (_, i) => ({ id: 'l' + (i + 1), localId: 'l' + (i + 1), type: 'garden', title: 'P' + (i + 1), uid: o.A, cloud: false, created: new Date(Date.now() - T).toISOString() }))));
+        localStorage.setItem('gs_plans_wartend', JSON.stringify([{ id: 'l0', localId: 'l0', type: 'garden', title: 'P0', uid: o.A, cloud: false, created: new Date(Date.now() - 200 * T).toISOString(), geparkt: new Date(Date.now() - 100 * T).toISOString() }]));
         gsClearUserDataKeys();
         const wart = JSON.parse(localStorage.getItem('gs_plans_wartend') || '[]');
+        const rest = JSON.parse(localStorage.getItem('gs_plans_v2') || '[]');
+        const verloren = Array.from({ length: 29 }, (_, i) => 'P' + (i + 1)).filter(t => !wart.concat(rest).some(e => e && e.title === t && e.uid === o.A));
         window.sbFetch = alt.f; window.gsSnapshotCreate = alt.s;
-        localStorage.removeItem('gs_plans_wartend');
+        localStorage.removeItem('gs_plans_wartend'); localStorage.removeItem('gs_plans_v2');
         localStorage.setItem('gs_sb_token', 'pruef.stand.token'); localStorage.setItem('gs_sb_uid', o.A);
-        return { vorA, nachLogout, sichtB, ladenB, sichtA, offline, postsA: posts.map(p => p.user_id + ':' + p.title), deckel: wart.length, alt100: wart.some(e => e.title === 'P0') };
+        return { vorA, nachLogout, sichtB, ladenB, sichtA, offline, postsA: posts.map(p => p.user_id + ':' + p.title), deckel: wart.length, alt100: wart.some(e => e.title === 'P0'), verloren };
       }, { A: UID_A, B: UID_B });
       await h.frisch();
       if (r.vorA.indexOf('Offline-Plan von A') < 0 || r.vorA.indexOf('Cloud-Plan von A☁') < 0) return { ok: false, warum: 'gutartig: A sieht seine Plaene nicht: ' + JSON.stringify(r.vorA) };
@@ -291,8 +305,10 @@ module.exports = [
       if (r.sichtA.indexOf('Offline-Plan von A') < 0) return { ok: false, warum: 'A wieder angemeldet: der offline gespeicherte Plan ist weg: ' + JSON.stringify(r.sichtA) };
       if (r.sichtA.indexOf('Cloud-Plan von A') >= 0) return { ok: false, warum: 'der Cloud-Plan blieb auf dem Geraet liegen (er kommt aus der Cloud)' };
       if (!r.offline || !r.offline.cloud || r.postsA.indexOf(UID_A + ':Offline-Plan von A') < 0) return { ok: false, warum: 'nicht nachgeschoben: ' + JSON.stringify({ e: r.offline, posts: r.postsA }) };
-      if (r.deckel > 20 || r.alt100) return { ok: false, warum: 'kein Deckel fuer das Wartende: ' + r.deckel + ' Eintraege, 100 Tage alter ' + (r.alt100 ? 'noch da' : 'weg') };
-      return { ok: true, info: 'Abmelden: Speicher leer · B sieht nichts · A zurueck: Plan da, POST mit uid A · Cloud-Plan nicht geparkt · Deckel ' + r.deckel };
+      if (r.deckel > 20 || r.alt100) return { ok: false, warum: 'kein Deckel fuer das Wartende: ' + r.deckel + ' Eintraege, seit 100 Tagen wartender ' + (r.alt100 ? 'noch da' : 'weg') };
+      if (r.deckel < 20) return { ok: false, warum: 'Deckel: nur ' + r.deckel + ' von 20 Plaetzen belegt — was passt, wird nicht geparkt' };
+      if (r.verloren.length) return { ok: false, warum: 'Deckel: ' + r.verloren.length + ' nur lokale Plaene verloren (' + r.verloren.slice(0, 5).join(',') + ')' };
+      return { ok: true, info: 'Abmelden: Speicher leer · B sieht nichts · A zurueck: Plan da, POST mit uid A · Cloud-Plan nicht geparkt · Deckel ' + r.deckel + ', 9 bleiben gestempelt, keiner verloren, der seit 100 Tagen wartende geht' };
     },
   },
 
@@ -366,6 +382,53 @@ module.exports = [
       const l = r.lesen;
       if (l.patch || !l.confirm) return { ok: false, warum: 'Zeile nicht lesbar + Nein: ' + (l.patch ? 'der PATCH ging ohne Foto-Pruefung hinaus (das Foto der Zeile bliebe mit Exif oeffentlich): ' + JSON.stringify(l.patch) : 'keine Rueckfrage') };
       return { ok: true, info: 'Zeile nicht lesbar → Rueckfrage · Exif → neue Adresse im PATCH, Bild ohne Exif, altes Objekt entfernt · sauber → unberuehrt · Holen scheitert: Nein → kein PATCH, Ja → photo_url:null' };
+    },
+  },
+  {
+    // Gegenpruefung dom-plaene (19.11.2026): die Saetze, die das Abmelden selbst sagt (Plaene, die
+    // nicht aufbewahrt werden konnten — Deckel, voller Speicher, Fehler; Gesamtpruefung g1 und
+    // Brett 7ebf), gingen als Toast hinaus — z-index 9999. sbLogout blendet gleich danach den
+    // Anmeldebildschirm ein, z-index 9999999. Gemessen gegen 0b930cf mit echtem sbLogout: der
+    // Toast „Mehr als 20 Plaene …" stand im DOM und war in 8 von 8 Proben vom Anmeldebildschirm
+    // verdeckt — die Person sah ihn nie. speicher_check zaehlt die Aufrufe von gsToast (gestellt):
+    // ein Zaehler, keine Wirkung. Gemessen wird hier, ob der Satz SICHTBAR oben liegt
+    // (elementFromPoint), und die Gegenrichtung: passt alles, steht kein Satz da und der
+    // Anmeldebildschirm bleibt auf seiner Startansicht.
+    name: 'Abmelden · der Satz ueber nicht aufbewahrte Plaene steht auf dem Bildschirm, der danach oben liegt — nicht unter dem Anmeldebildschirm (echtes sbLogout)',
+    lauf: async (seite, h) => {
+      const lage = async (anzahl) => {
+        const p = await h.frisch();
+        await p.evaluate(async (o) => {
+          const t0 = Date.now();
+          const plan = (id, i) => ({ localId: id, id: id, uid: o.A, type: 'garden', title: 'Plan ' + id, summary: '', payload: {}, created: new Date(t0 - i * 60000).toISOString(), starred: false, cloud: false });
+          localStorage.removeItem('gs_plans_wartend');
+          localStorage.setItem('gs_plans_v2', JSON.stringify(Array.from({ length: o.n }, (_, i) => plan('a' + i, i))));
+          localStorage.setItem('gs_last_active_uid', o.A);
+          // Ohne Empfang: nachschieben und Sicherung scheitern, die Plaene bleiben nur lokal.
+          window.sbFetch = async () => ({ data: null, error: { message: 'offline', status: 0 }, status: 0 });
+          window._gsFetch = async () => { throw new TypeError('Failed to fetch'); };
+          await sbLogout();
+          await new Promise(r => setTimeout(r, 400));
+        }, { A: UID_A, n: anzahl });
+        // Nur, was eine Flaeche hat — das <script> mit dem Quelltext enthaelt den Satz ebenfalls.
+        const roh = await satzSichtbar(p, /Mehr als 20 Pl/);
+        const sicht = { ok: roh.ok, treffer: roh.treffer.filter(t => 'traf' in t) };
+        const ansicht = await p.evaluate(() => {
+          const d = id => { const el = document.getElementById(id); return !!el && getComputedStyle(el).display !== 'none'; };
+          return { start: d('onb-start'), login: d('onb-login'), onb: d('gs-onboarding'), wartend: JSON.parse(localStorage.getItem('gs_plans_wartend') || '[]').length, v2: JSON.parse(localStorage.getItem('gs_plans_v2') || '[]').length };
+        });
+        return { sicht, ansicht };
+      };
+      const voll = await lage(23);
+      const passt = await lage(2);
+      await h.frisch();
+      if (!voll.ansicht.onb) return { ok: false, warum: 'Fall nicht hergestellt: nach sbLogout ist kein Anmeldebildschirm da' };
+      if (voll.ansicht.wartend !== 20 || voll.ansicht.v2 !== 3) return { ok: false, warum: 'Fall nicht hergestellt: ' + voll.ansicht.wartend + ' wartend, ' + voll.ansicht.v2 + ' in gs_plans_v2 (erwartet 20 und 3)' };
+      if (!voll.sicht.treffer.length) return { ok: false, warum: 'kein Satz ueber die Plaene, die nicht aufbewahrt werden konnten — weder Toast noch Anmeldebildschirm' };
+      if (!voll.sicht.ok) return { ok: false, warum: 'der Satz steht im DOM, aber verdeckt: ' + voll.sicht.treffer.map(t => '„' + t.text.slice(0, 50) + '…" (getroffen: ' + t.traf + ')').join(' · ') };
+      if (passt.sicht.treffer.length) return { ok: false, warum: 'Gegenrichtung: 2 Plaene passen, trotzdem steht ein Satz da (' + passt.sicht.treffer[0].text.slice(0, 60) + ')' };
+      if (!passt.ansicht.start || passt.ansicht.login) return { ok: false, warum: 'Gegenrichtung: ohne Satz verlaesst der Anmeldebildschirm seine Startansicht (' + JSON.stringify(passt.ansicht) + ')' };
+      return { ok: true, info: '23 Plaene: 20 wartend, 3 bleiben · Satz sichtbar oben („' + voll.sicht.treffer.find(t => t.sichtbar).text.slice(0, 50) + '…") · 2 Plaene: kein Satz, Startansicht' };
     },
   },
 ];
