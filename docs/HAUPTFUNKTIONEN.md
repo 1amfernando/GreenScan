@@ -167,6 +167,10 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     „Die Narzisse blüht im März und kann bedenkenlos im Garten bleiben." und „Der Fingerhut ist winterhart und kann unbedenklich
     draussen stehen bleiben." warnten. Jetzt zählt eine geerbte Art nicht vor einer Standort- oder Pflege-Handlung; „in kleinen
     Mengen unbedenklich" und „unbedenklich für Kinder" warnen weiter, und was die Basis warnt, bleibt.
+14. ✅ v33.82 (`sensor_check` „Lina 14 · Ort in der Frage (kn)", Brett 5929) — **Eine Frage nach einem Ort blieb ohne Warnung.**
+    „Kann ich die Beeren auf dem Balkon essen?" → „Ja, die kannst du essen." schwieg, obwohl dort eine Tollkirsche steht. Jetzt
+    warnt der Ort als letzter Rückfall: nur wenn Frage und Antwort keine Pflanze nennen — auch keine, die die Liste so nicht kennt
+    („des Bärlauchs"). Orakel mit Garten: keine Warnung weggenommen, bei harmlosen Namen keine neue.
 
 ## Offen — Suche
 

@@ -1,0 +1,17 @@
+{
+  "id": "2026-11-24-fab3",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "23:01:24",
+  "von": "sitzung/lokal/v3382",
+  "stand": "v33.81",
+  "titel": "erledigt: Lina: ein Ort in der Frage als Rückfall für die Gift-Gegenprobe („Kann ich die Beeren auf dem Balkon essen?“)",
+  "ergebnis": "erledigt",
+  "wohin": "v33.82 (kn), sensor_check „Lina 14 · Ort in der Frage (kn)“; Orakel mit Garten: nur ohne Ort 0, bei harmlosen Namen 0 neu",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-24-5929"
+    }
+  ]
+}

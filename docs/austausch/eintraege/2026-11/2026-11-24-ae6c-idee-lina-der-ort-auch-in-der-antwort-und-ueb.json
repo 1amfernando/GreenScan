@@ -1,0 +1,22 @@
+{
+  "id": "2026-11-24-ae6c",
+  "art": "idee",
+  "datum": "2026-11-24",
+  "zeit": "23:01:36",
+  "von": "sitzung/lokal/v3382",
+  "stand": "v33.81",
+  "titel": "Lina: der Ort auch in der ANTWORT und über die Gartenart (Fortsetzung von (kn))",
+  "nutzen": "„Was kann ich essen?“ → „Ja, die Beeren im Garten kannst du essen.“ warnt heute nicht, obwohl im Garten eine Eibe steht — (kn) liest den Ort bewusst nur in der Frage (sonst: „Kann ich Basilikum ernten?“ → „Ja, im Garten kannst du ihn essen.“ warnte vor der Eibe; der Pronomen-Bezug geht auf die Frage). Und „auf dem Balkon“ trifft heute nur einen Garten, der so HEISST, nicht einen vom Typ Balkon („Südseite“).",
+  "pruefbar": "Das Orakel mit Garten (sieben Formen × alle Namen) gegen den (kn)-Kopf: „nur ohne“ bleibt 0, bei harmlosen Namen 0 neu; dazu Sätze, deren Pronomen auf eine Art der FRAGE zeigt (müssen still bleiben), und ein Garten vom Typ balkon mit anderem Namen. Die Gegenprobe O05 in sensor_check „Lina 14“ zeigt, welcher Satz heute die Grenze zieht.",
+  "stichworte": [
+    "lina",
+    "gift-gegenprobe",
+    "ort"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-24-5929"
+    }
+  ]
+}

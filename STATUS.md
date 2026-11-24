@@ -12,6 +12,53 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (kn) - v33.82: Lina 14 — ein Ort in der Frage ist der letzte Rückfall der Gift-Gegenprobe
+
+**Auftrag:** Brett-Idee 5929, vom Koordinator als (kn) in v33.82 freigegeben. „Kann ich die Beeren auf dem Balkon essen?“ nennt
+keine Art und keine eigene Pflanze, nur einen Ort, an dem eine Tollkirsche steht. Auf „Ja, die kannst du essen.“ schwieg die
+Gift-Gegenprobe. Die erste Fassung (a130338) ging mit (kd) zurück; sie warnte bei 8 von 8 harmlosen Garten-Sätzen.
+Bedingungen: Der Ort nimmt nie eine Warnung weg, die ohne ihn käme, und das Orakel bleibt bei „nur Basis“ 0.
+
+**Gebaut** (`_gsLinaOrteInFrage`, `_gsLinaPflanzenInFrage(frage, max, ort)`, `_gsLinaGiftGenannt(text, opt)`, `_gsLinaNenntArt`,
+`_gsLinaOrtFrageFrei`, `_gsLinaOrtOhneNamen`, `GS_LINA_ORTE`, `GS_LINA_ORT_FREI`):
+- **Ein Ort** ist ein Raum, ein Gartenteil oder ein Gartenname nach einer Präposition („im Wohnzimmer“, „auf dem Balkon“). Dort
+  stehen die Pflanzungen eines Gartens dieses Namens und die eigenen Pflanzen, deren Notiz oder Spitzname den Ort nennt. Ihre
+  giftigen Arten tragen `ort`.
+- **Nur in der Frage**, und nur, wenn sie nichts Bestimmtes nennt: keine Art der Liste (auch in der Mehrzahl), keine eigene
+  Pflanze beim Namen, und nur Wörter aus `GS_LINA_ORT_FREI` (Funktionswörter, Essverben, Farbe und Reife, „Pflanze“, Pflanzenteile,
+  wer isst). Ein anderes Wort kann ein Name sein, den die Liste so nicht kennt („Gierschblätter“, klein getippt „bärlauche“).
+- **Nur in einem zustimmenden Teil, der selbst keine Art nennt**, und nur, wenn die Antwort bis dahin kein Wort gross schreibt,
+  das ein Name sein kann („Bärlauche“, „des Bärlauchs“, „Die Erdbeeren sind reif und …“). Ausgenommen ist eine giftige Art, die sie
+  selbst nennt: „Auf dem Balkon wächst eine Tollkirsche. Die Beeren sind essbar.“ warnt. Damit erbt der Teil auch kein Subjekt (F, K).
+- **Die Antwort liest nur Namen:** „Ja, im Garten kannst du ihn essen.“ auf „Kann ich Basilikum ernten?“ meint das Basilikum.
+- Hinter derselben Pflege-Sperre wie (km): „Die kannst du bedenkenlos auf dem Balkon stehen lassen.“ bleibt still.
+
+**Gemessen:**
+
+| Orakel MIT Garten (Balkon: Tollkirsche, Erdbeere · Wohnzimmer: Maiglöckchen), 3'138 Namen | ohne Ort | mit Ort | nur ohne Ort | neu bei harmlosen Namen |
+|---|---|---|---|---|
+| „Kann ich die Beeren auf dem Balkon essen?“ → „Ja, N kannst du essen.“ / „N ist essbar.“ / „Die Beeren der N …“ | 351 | 352 | **0** | **0** |
+| … → „Ja, N(Mehrzahl) kannst du essen.“ / „Die Blätter des Ns …“ | 327 / 315 | 328 / 316 | **0** | **0** |
+| „Kann ich N auf dem Balkon essen?“ / „Kann ich N(Mehrzahl) im Wohnzimmer essen?“ → „Ja, die kannst du essen.“ | 435 / 358 | 435 / 358 | **0** | **0** |
+
+Erläuterungen zur Tabelle:
+- **Die eine neue Warnung** je Form ist „Wüstenrose (kl.)“, eine giftige Art. Der Punkt der Abkürzung trennt den Satz; die Basis
+  warnt dort nie, der Ort jetzt schon.
+- **Die erste Fassung dieses Pakets** (ohne Wortliste und Namen-Test, gemessen) warnte bei harmlosen Namen neu: je 9 in „ja“,
+  „ist“ und „gen_f“, 1'426 in der Mehrzahl, 2'323 im Genitiv und 1'429 in der Wohnzimmer-Frage. „Ja, Bärlauche kannst du essen.“
+  nannte für die Liste keine Art.
+- **Orakel ohne Garten** (6 Formen, auf dem Kopf): gleich wie (km) und (kj). Ohne eigene Daten greift der Ort nie.
+
+**Prüfstand:** `sensor_check` „Lina 14 · Ort in der Frage (kn)“ — 6 Ort-Fragen warnen, 19 Sätze still (darunter die 8 aus a130338),
+„im Garten“ nennt genau die giftige Pflanzung, und über 716 Namen (alle giftigen, jeder siebte harmlose) in zwei Formen nimmt der
+Ort keine Warnung weg und warnt bei keinem harmlosen Namen neu; dazu der echte Weg über `gsLinaSend`. Fünf Gegenproben sind einzeln
+rot, je mit dem erwarteten Satz: Ort aus · die Frage darf etwas nennen · der Teil darf etwas nennen · Namen-Test ohne die genannte
+giftige Art · die Antwort liest Orte.
+
+**Offen:** brett:2026-11-24-ae6c (der Ort in der Antwort und die Gartenart; 5929 ist mit diesem Eintrag geschlossen).
+**Nicht geprüft:** echte KI-Antworten (gestellt); eine Gartenart statt eines Gartennamens („auf dem Balkon“ bei einem Garten
+„Südseite“ vom Typ Balkon) — der Ort greift dort nicht; eine Frage mit einem Wort ausserhalb der Liste greift bewusst nie.
+
 ### 2026-11-24 (km) - v33.82: Lina 13 — eine geerbte Art zählt nicht vor „bedenkenlos im Garten bleiben“
 
 **Auftrag:** Hold-out des Koordinators zu v33.81 (#355): 0 Regressionen, aber zwei neue Fehlalarme von F:
@@ -50,7 +97,7 @@ Erläuterungen zur Tabelle:
 über alle giftigen Namen. Vier Gegenproben sind einzeln rot, je mit dem erwarteten Satz: Regel aus · Lücke beliebig · ohne
 Ess-Wort-Sperre im Satz · Regel auch für die Basis.
 
-**Offen:** brett:2026-11-24-5929 (der Ort in der Frage, (kn) im selben Paket).
+**Offen:** nichts ((kn) im selben Paket schliesst brett:2026-11-24-5929).
 **Nicht geprüft:** echte KI-Antworten (gestellt); Pflege-Sätze, deren Handlung nicht in der Liste steht („… kann bedenkenlos
 draussen bleiben“ ja, „… verträgt bedenkenlos Frost“ nein) — dort warnt die geerbte Art weiter, wie in (kj).
 
