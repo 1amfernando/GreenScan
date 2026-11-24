@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 19:56 UTC · `main` = `072ee49` (**v33.78**) · #353 Hauptfunktionen v33.79 Lina 11 neu (kg) Kopf `ceea353` (CI seit 19:48, fertig ca. 20:26); **Hold-out des Koordinators bestanden**: Zusagen 39 → 71 von 88, Fehlalarme 18 → 11, die elf Rückschritte von (kd) weg, 1 formale „Regression“ = bestehende Lücke („aber ebenfalls essbar“, in Basis und Kopf still) · Orakel-Lauf über 3'138 Namen läuft noch · Merge bei grüner CI + sauberem Orakel · Sicherheit Scheibe 5 v33.80 (ki) baut lokal · Hauptfunktionen baut lokal v33.81 (kj) · Brett-Branch (kh).
+**Stand:** 24.11.2026, 20:05 UTC · `main` = `072ee49` (**v33.78**) · #353 Lina 11 neu v33.79 `ceea353` (CI seit 19:48, fertig ca. 20:26; Hold-out UND Orakel (3'138 Namen × 5 Formen, „nur Basis“ = 0) bestanden) → Merge-Commit bei grün · danach: Hauptfunktionen pusht v33.80 = Suche 12 (kk) + Prototypkette (kl) (lokal fertig) · Sicherheit Scheibe 5 = v33.81 (ki) stapelt auf deren Kopf (eigener Zweig, CI parallel) · Lina 12 = v33.82 (kj) · Brett-Branch (kh).
 
 ## 1 · Warum es schneller wird
 
@@ -49,8 +49,9 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | 8 | Hauptfunktionen · Scanner 14 (ke) | `claude/happy-thompson-24l4uu` | v33.78 | (ke) | **GEMERGT** als Merge-Commit `072ee49` (#352; CI auf `dcfb1d2` grün; Test-Merge unterschied sich nur um Audits sechs Dateien) |
 | 9 | Sicherheit · Scheibe 3 (Register GS_SPEICHER) | `ccr-5e705a36-jveaak` | v33.77 | (kf) | **GEMERGT** als Merge-Commit `378138c` (#351; CI auf `a8d5bff` grün; Test-Merge unterschied sich nur um Audits sechs Dateien) |
 | 10 | Hauptfunktionen · Lina 11 neu (kg) | `claude/happy-thompson-24l4uu` | v33.79 | (kg) | PR **#353**, Kopf **`ceea353`**, CI läuft; Hold-out bestanden (Basis 39 → 71 von 88 warnend; Fehlalarme 18 → 11; 1 formale Regression = bestehende Lücke); Orakel-Lauf des Koordinators läuft; Merge-Commit bei grün |
-| 11 | Sicherheit · Scheibe 5 (ruhiger Pull) | `ccr-5e705a36-jveaak` | v33.80 | (ki) | baut lokal auf frischem main; Push erst auf Signal mit der SHA des Vorgängers |
-| 12 | Hauptfunktionen · Lina 12 (kj) | `claude/happy-thompson-24l4uu` | v33.81 | (kj) | baut lokal: „aber ebenfalls essbar“ (Teil nicht vom Subjekt trennen), Warnung unter einer richtig verneinenden Antwort, vier Mehr-Warnungen; der Ort (Idee 5929) als separater kleiner Schritt; Push erst nach dem Merge von #353 |
+| 10b | Hauptfunktionen · Suche 12 (kk) + Prototypkette (kl) | `claude/happy-thompson-24l4uu` | **v33.80** | (kk) · (kl) | lokal fertig (`8952dc7` Suche 12: Stück < 4 Zeichen nur am Wortanfang, 2'440 falsche Vorschläge weg, davon 266 Giftarten; `69a282e` Prototypkette Brett 3cad: zwölf Nachschläge, u. a. „constructor“ nie mehr an die KI); Push als Fast-Forward auf `ceea353` nach dem Merge von #353 (Signal vom Koordinator) |
+| 11 | Sicherheit · Scheibe 5 (ruhiger Pull) | `ccr-5e705a36-jveaak` | **v33.81** | (ki) | baut lokal; stapelt auf den v33.80-Kopf von Hauptfunktionen (SHA kommt vom Koordinator, ca. 20:30), eigener Zweig → CI parallel |
+| 12 | Hauptfunktionen · Lina 12 (kj) | `claude/happy-thompson-24l4uu` | **v33.82** | (kj) | baut lokal (fünf Punkte: „aber ebenfalls essbar“, „Nein … Verzehr vermeiden“, Narzissen/Fingerhut-Geniess, Kerbel/Schierling-Gegensatz; je eine Differenzprobe + Gegenprobe; Orakel gegen ceea353); der Ort (5929) als eigener kleiner Schritt; stapelt auf Sicherheits Kopf |
 | 7 | Audit · Prüfstände (kein Bump) | `ccr-dce5a17c-2xzhvi` | – | (jv) Nachtrag | **GEMERGT** als Merge-Commit `577850e` (#348; CI auf `6cb8879` grün, Baum identisch) |
 | – | Brett (#341) | `ccr-b63433a4-d1xgyg` | – | **(kh)** (nicht (ke): die ist Scanner 14) | enthält `.github/workflows/*` und `docs/AGENTEN-NETZ.md` → Fernando; der Werkzeug-Teil kommt als eigener PR; Kennung vor dem Merge neu rechnen |
 
