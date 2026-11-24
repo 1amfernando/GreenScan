@@ -1,0 +1,16 @@
+{
+  "id": "2026-11-24-e247",
+  "art": "frage",
+  "datum": "2026-11-24",
+  "zeit": "16:47:47",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.74",
+  "titel": "Scheitert der Foto-Ausgangskorb live an x-upsert? Die Buckets user-plant-photos und map-find-photos haben laut Repo keine SELECT-Policy",
+  "an": "fernando",
+  "haengt_daran": "ob ein Pflanzen- oder Fund-Foto, das ohne Empfang aufgenommen wurde, je im Bucket ankommt: gsFlushPhotoQueue laedt ueber gsUploadImage mit x-upsert true, und ein Upsert verlangt im Storage zusaetzlich Lese- und Aenderungsrecht (v29_29, v29_40 im Repo: nur INSERT/UPDATE/DELETE). Fuer Tagebuch-Fotos laedt der Korb seit SPEICHER-V2 Scheibe 2 ohne Upsert. Messen: eine lesende Abfrage auf pg_policies fuer storage.objects, oder ein Foto im Flugmodus aufnehmen und nach dem Einschalten nachsehen.",
+  "stichworte": [
+    "foto-ausgangskorb",
+    "storage",
+    "upsert"
+  ]
+}

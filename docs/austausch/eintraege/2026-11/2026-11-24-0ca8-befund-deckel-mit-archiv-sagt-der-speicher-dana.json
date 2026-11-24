@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-24-0ca8",
+  "art": "befund",
+  "datum": "2026-11-24",
+  "zeit": "16:47:43",
+  "von": "sitzung/ccr-5e705a36-jveaak",
+  "stand": "v33.74",
+  "titel": "Deckel mit Archiv: sagt der Speicher danach Nein, ist der aelteste Eintrag schon archiviert und steht trotzdem wieder in der Liste",
+  "vorschlag": "Archivieren und Melden hinter das gelungene Speichern legen (eine Sammelstelle, die der Schreiber nach dem Speichern abschliesst oder verwirft); Fall in speicher_check: voller Speicher bei 200 Eintraegen, Archiv waechst nicht.",
+  "beleg": [
+    "Gelesen und von einem Widerleger bestaetigt (24.11.2026, Gegenpruefung SPEICHER-V2 Scheibe 2): gsCapWithArchive ruft gsArchiveDropped sofort und zeigt den Hinweis; gsQuickDone und gsAddDiaryEntry nehmen bei savePlantsToStorage()===false die alte Liste zurueck. Der Eintrag liegt dann im Archiv UND im Verlauf, und jeder weitere Versuch legt eine Kopie dazu. Nicht im Browser gemessen."
+  ],
+  "stichworte": [
+    "pflegeverlauf",
+    "archiv",
+    "voller-speicher"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "window.gsCapWithArchive = function(key, arr, cap, keep){"
+    }
+  ]
+}

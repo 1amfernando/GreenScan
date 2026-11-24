@@ -115,9 +115,17 @@ Gemessen, bevor gebaut wurde (alle drei Fälle rot gegen den Stand davor):
 - **Erst schreiben, dann melden:** der Tagebuch-Eintrag sagte „gespeichert", ohne den Speicher zu fragen. Bei
   vollem Speicher bleibt jetzt das Formular mit der Eingabe stehen, mit einem Satz. Prüfstand: `speicher_check`.
 
-Grenzen: das Hochladen selbst ist gestellt (kein Server von hier). Trägt der Flush eine Adresse nach und der
-Speicher ist in diesem Moment voll, liegt das Bild im Bucket, der Eintrag behält den Platzhalter — wie beim
-Pflanzenfoto seit v31.06. Die Fotos im Verlauf einer GARTEN-Pflanzung gibt es nicht (das Formular kennt nur
+Die Gegenprüfung (drei Linsen, je Fund ein Widerleger; 16 Funde, alle bestätigt, 14 eingearbeitet) hat die
+erste Fassung an der wichtigsten Stelle korrigiert: der Korb gab nach acht Anläufen auf, und jeder Netzfehler
+zählte als Anlauf — ein Foto, das vorher sicher im Eintrag lag, wäre nach acht Funklöchern aus dem Tagebuch
+verschwunden. Jetzt zählt nur ein Nein des Servers, ein Tagebuch-Foto geht beim Aufgeben zurück in seinen
+Eintrag, „Speicher voll" lässt es im Korb, das Nachtragen wartet auf den ersten Abgleich und hebt den
+Änderungsstempel nicht, Tagebuch-Fotos gehen ohne Überschreiben hinauf, die Backup-Datei trägt das Bild, und
+der Pflanzenfriedhof wird gefunden. Auf dem Brett: `2026-11-24-0ca8` (der Deckel archiviert vor dem
+Speichern) und `2026-11-24-e247` (Frage: kommt der Korb für Pflanzen- und Fund-Fotos live überhaupt durch?).
+
+Grenzen: das Hochladen selbst ist gestellt (kein Server von hier); die Storage-Policies sind live nicht
+nachgemessen. Die Fotos im Verlauf einer GARTEN-Pflanzung gibt es nicht (das Formular kennt nur
 „Meine Pflanzen").
 
 ## 4 · Backend

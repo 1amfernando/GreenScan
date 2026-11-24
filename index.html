@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.74.20261124">
+<meta name="app-version" content="33.75.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -80559,6 +80559,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.75', date: '24.11.2026',
+      headline: 'Was du aufzeichnest, bleibt — Track, Pflegeverlauf und das Tagebuch-Foto ohne Empfang',
+      summary: 'Zwei Scheiben aus „Speicher, Abgleich, Verdrahtung“. Erstens: ein gespeicherter GPS-Track wird für den Abgleich vorgemerkt, ein gelöschter Plan oder Track bleibt gelöscht (auch wenn ohne Empfang gelöscht wurde), ein ungesendeter Stand auf einem neuen Gerät wird je Schlüssel gemischt statt überschrieben, Punkte gehen bei einem ungelesenen Profil nicht verloren, und ein neu geschriebenes eigenes Rezept trägt sein Konto. Zweitens: der Pflegeverlauf einer Pflanze hat EINEN Deckel nach Zeit für alle drei Schreiber; ein Tagebuch-Foto ohne Empfang wartet im Ausgangskorb statt als base64 in der Pflanzenliste, der Altbestand zieht nach, und der Foto-Flush gibt bei einem Funkloch nicht mehr auf. Der Tagebuch-Eintrag meldet erst nach dem Schreiben.',
+      user_summary: 'Ein aufgezeichneter Track, dein Pflegeverlauf und ein Tagebuch-Foto ohne Empfang gehen nicht mehr verloren — und was du löschst, bleibt gelöscht.',
+      user_items: [
+        {emoji:'🥾', bold:'Track und Plan:', text:' ein aufgezeichneter Track bleibt nach dem nächsten Abgleich erhalten. Löschst du einen Track oder Plan ohne Empfang, kommt er später nicht zurück.'},
+        {emoji:'📓', bold:'Pflegeverlauf:', text:' ab 200 Einträgen je Pflanze wandert der älteste ins Archiv — bisher konnte dein neuester Eintrag hinausfallen.'},
+        {emoji:'📷', bold:'Tagebuch-Foto ohne Empfang:', text:' wartet auf dem Gerät und wird nachgetragen, sobald wieder Netz da ist. Ein Funkloch zählt nicht als Fehlversuch, und das Foto belegt nicht mehr den Speicher deiner Pflanzenliste.'},
+        {emoji:'💾', bold:'Speicher voll:', text:' ein Tagebuch-Eintrag sagt es jetzt und lässt deine Eingabe stehen, statt „gespeichert“ zu melden.'},
+        {emoji:'📦', bold:'Backup-Datei:', text:' enthält auch die Fotos, die noch auf das Hochladen warten.'},
+        {emoji:'⭐', bold:'Punkte:', text:' was du ohne Empfang sammelst, wird beim nächsten Abgleich vollständig gebucht.'},
+        {emoji:'🍲', bold:'Eigene Rezepte:', text:' ein neu geschriebenes Rezept sieht nur das Konto, das es angelegt hat.'}
+      ]
+    },
+  {
     v: 'v33.74', date: '24.11.2026',
       headline: 'Pilz-Verwechsler beim Namen, Vergleichsbilder im Scanner — und Lina hält, was ihr Schalter sagt',
       summary: 'Drei Pakete aus den Hauptfunktionen. Pilz-Scanner: die gefährlichen Doppelgänger stehen mit ihrem Namen und „TÖDLICH“ da — vorher nur als lateinisches Kürzel —, und „Mit Bildern vergleichen“ legt dein Foto neben die Art und ihre Verwechsler. Pflanzen-Scanner: derselbe Vergleich für die erkannte Art und ihre Alternativen. Lina: schaltest du den Einblick aus, bekommt sie nur noch deine Frage; der Schalter steht auch im laufenden Gespräch, notierte Schädlinge kommen an, und die Gift-Warnung kennt deine Pflanzen beim Spitznamen. Dazu zwei Fehler beim Abmelden.',
@@ -80956,23 +80971,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'offline_check 24 → 39 Fälle:', text:' ein echter multipart-POST aus dem share_target durch den echten Worker; 22 Brüche als Gegenprobe. contrast_check kennt jetzt die Stapelreihenfolge — kein Dialog am <body> war je vermessen.'}
       ]
   },
-  {
-    v: 'v33.54', date: '09.10.2026',
-      headline: 'Ein Stil im Text lädt keine fremde Adresse mehr',
-      summary: 'Übersetzte Texte und Chat-Zeilen dürfen ein wenig Auszeichnung tragen — und dazu ein style-Attribut. Der Filter dafür war eine Verbotsliste auf dem Rohtext: er suchte „url(“. CSS kennt aber Escapes (u\\72l( liest der Browser als url(), und image-set("…") lädt eine Adresse ganz ohne url(. Die gegnerische Prüfung zu v33.53 hat in Chromium gezeigt, dass ein Satz damit eine fremde Adresse laden konnte. Jetzt geht jeder Stil durch eine Erlaubnisliste: nur bekannte Eigenschaften, keine Escapes, keine Zeichenketten, keine Funktion ausser rgb/hsl/var/calc.',
-      user_summary: 'Eine Sicherheitslücke ist geschlossen: ein Text aus fremder Hand (eine Übersetzung, eine Antwort im Chat) konnte über eine versteckte Stil-Angabe ein Bild von einer fremden Adresse nachladen — und damit verraten, dass du die Seite geöffnet hast. Das geht nicht mehr; normale Formatierungen bleiben, wie sie sind.',
-      user_items: [
-        {emoji:'🛡️', bold:'Keine versteckten Nachlader mehr:', text:' ein Text aus fremder Hand kann über eine Stil-Angabe nichts mehr von einer fremden Adresse laden.'},
-        {emoji:'🧱', bold:'Kein Text legt sich über die App:', text:' Stil-Angaben, die einen Satz über den ganzen Bildschirm spannen könnten, fallen weg.'},
-        {emoji:'✅', bold:'Formatierungen bleiben:', text:' Farben, Fettdruck, Grösse und Abstände in den Texten sehen aus wie bisher.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen:', text:' sechs Stile (u\\72l, \\75rl, u\\rl, image-set im Hintergrund und im Rahmen, list-style) lösten durch gsSanitizeHtml je eine Anfrage an die fremde Adresse aus — 6 von 6.'},
-        {emoji:'🧾', bold:'Erlaubnisliste statt Verbotsliste:', text:' _gsStilSaeubern prüft jede Deklaration: kein Backslash, kein Anführungszeichen, kein Kommentar, kein @; nur Eigenschaften aus GS_SANITIZE_STIL; Funktionen nur rgb/rgba/hsl/hsla/var/calc; ein geschlossenes Alphabet. Was nicht passt, fällt allein.'},
-        {emoji:'📐', bold:'Was die Texte brauchen, bleibt:', text:' gemessen an den übersetzbaren Elementen — color (auch mit var()), display, font-size, font-weight, margin, margin-bottom. position, width und Co. fallen, sonst legt sich ein Satz über die App.'},
-        {emoji:'🧪', bold:'escape_check A10b:', text:' rendert die bösen Stile wirklich ins Dokument und zählt die Anfragen des Browsers (0), prüft die Überlagerung und acht gute Stile. Gegen v33.53 rot (6 Anfragen); drei Gegenproben einzeln rot.'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81183,7 +81181,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.74';
+var GS_VERSION = 'v33.75';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
