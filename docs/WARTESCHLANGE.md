@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 18:31 UTC · `main` = `1d1019b` (**v33.75**) · CI läuft für drei PRs: #348 Audit `6cb8879` (seit 17:53, fertig ca. 18:32), #350 Hauptfunktionen v33.76 `74baeb6` (nur Suche 11; seit 18:10, ca. 18:49), #351 Sicherheit v33.77 `a8d5bff` (seit ca. 18:31, ca. 19:10; Baum = Test-Merge `c0053c9`, stapelt auf #350) · Merge-Reihenfolge: #348 (wenn grün, Prüfung auf Disjunktheit) → #350 → #351 · danach Scanner 14 v33.78 (ke) auf `a8d5bff`, Push erst nach #350 · Lina 11 neu v33.79 (kg).
+**Stand:** 24.11.2026, 18:36 UTC · `main` = `577850e` (v33.75 + Audit-Nachtrag #348, kein Bump) · CI läuft für #350 Hauptfunktionen v33.76 `74baeb6` (nur Suche 11; seit 18:10, fertig ca. 18:49) und #351 Sicherheit v33.77 `a8d5bff` (seit ca. 18:31, fertig ca. 19:10) — beide Test-Merges unterscheiden sich seit #348 genau um Audits sechs Dateien (CLAUDE.md, STATUS.md, docs/AUDIT-2026-11-11.md, field_check/contrast_check/render_check); Kombination lokal gefahren (austausch_check 17/0, field_check 0) → vertretbar · Merge-Reihenfolge #350 → #351 · danach Scanner 14 v33.78 (ke) auf `a8d5bff`, Push erst nach #350 · Lina 11 neu v33.79 (kg).
 
 ## 1 · Warum es schneller wird
 
@@ -49,7 +49,7 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | 8 | Hauptfunktionen · Scanner 14 (ke) | `claude/happy-thompson-24l4uu` | v33.78 | (ke) | lokal fertig (PV7); stapelt auf `a8d5bff`; Push erst nach dem Merge von #350 (Zweig = #350-Kopf) |
 | 9 | Sicherheit · Scheibe 3 (Register GS_SPEICHER) | `ccr-5e705a36-jveaak` | v33.77 | (kf) | PR **#351**, Kopf **`a8d5bff`** (auf `74baeb6` gestapelt; Baum = Test-Merge `c0053c9`), CI läuft (fertig ca. 19:10); 8 Dateien, nichts Riskantes; Gegenprüfung (14 Funde, 6 bestätigt, eingearbeitet) → Merge-Commit nach #350 |
 | 10 | Hauptfunktionen · Lina 11 neu (kg) | `claude/happy-thompson-24l4uu` | v33.79 | (kg) | Orakel = Basis `255665c` über alle DB-Namen in zwei Satzformen + Mehrzahl/Genitiv, „nur Basis warnt“ leer; die elf Leser-Sätze als Fälle; jede Heuristik einzeln mit Gegenprobe; Hold-out des Koordinators vor dem Merge |
-| 7 | Audit · Prüfstände (kein Bump) | `ccr-dce5a17c-2xzhvi` | – | (jv) Nachtrag | PR **#348**, Kopf **`6cb8879`** (= `b199b6d` + main `1d1019b` per GitHub eingezogen, Baum = Test-Merge `49e6a2b`), CI läuft seit ca. 17:55 → Merge-Commit bei grün, BEVOR Hauptfunktionen den Fix-Kopf von #350 pusht (damit dessen CI ihn schon enthält); sonst zuletzt |
+| 7 | Audit · Prüfstände (kein Bump) | `ccr-dce5a17c-2xzhvi` | – | (jv) Nachtrag | **GEMERGT** als Merge-Commit `577850e` (#348; CI auf `6cb8879` grün, Baum identisch) |
 | – | Brett (#341) | `ccr-b63433a4-d1xgyg` | – | **(kh)** (nicht (ke): die ist Scanner 14) | enthält `.github/workflows/*` und `docs/AGENTEN-NETZ.md` → Fernando; der Werkzeug-Teil kommt als eigener PR; Kennung vor dem Merge neu rechnen |
 
 **Lehre vom 24.11., 14:50 UTC:** eine Sitzung, die der Koordinator nicht erreicht (Cowork-Sitzung „Linas Wünsche", `untrusted device`), kann sich selbst mergen und die Reihe verschieben. Darum gilt vor JEDEM Merge: `git fetch origin main` und nachsehen, ob `main` noch der Stand ist, auf dem der PR gebaut wurde — sonst zuerst umnummerieren lassen. Die CI auf einem überholten Kopf gilt nicht.
@@ -62,6 +62,7 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 
 | main | Version | Was |
 |---|---|---|
+| `577850e` | – | #348 Audit — eine Seite für Fernando, und ein rotes Tor sagt in der CI, wo (MERGE-COMMIT; CI auf 6cb8879 grün, Baum identisch; kein Bump) |
 | `1d1019b` | v33.75 | #349 Sicherheit — Track, Pflegeverlauf und das Tagebuch-Foto ohne Empfang (MERGE-COMMIT; CI auf 255665c grün, Baum identisch) |
 | `52a2b93` | v33.74 | #347 Hauptfunktionen — Pilz-Verwechsler beim Namen, Bildvergleich, Lina-Einblick ehrlich, zwei Abmelde-Funde (MERGE-COMMIT; CI auf 5844cf6 grün, Baum identisch; drei unabhängige Leser fanden vor dem Merge zwei echte Mängel — Bindestrich-Slugs im Pilz-Register, falscher „Lina bekommt nur deine Frage“-Satz —, beide behoben) |
 | `bbb5b26` | v33.73 | #346 KI-Modelle — eine Modellwahl je Verwendung (MERGE-COMMIT; CI auf 24dd782 grün, Baum identisch mit dem PR-Kopf) |
