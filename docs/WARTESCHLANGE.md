@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 21:46 UTC · `main` = `caca20b` (**v33.80**, #354 Suche 12 + Prototypkette) · offen: **#355** Lina 12 (kj) = v33.81, kein Konflikt, CI-Lauf 45494200367 auf `c79bc80` gestartet 21:45 UTC (Ende ~22:25) · mein Hold-out: Regressionen 0, Klasse 2 = 10 (kg 11), Klasse 3 = 1, 3 neue Fehlalarme gegenüber Basis (2 × Pflege-Satz durch F, 1 × Efeu-Geranie), Orakel läuft · Sicherheit Scheibe 5 (ki) blockiert (Fable-Monatslimit, Fernando muss das Modell wechseln) · Hauptfunktionen baut brett:5929 lokal als v33.82, Push erst nach Merge von #355 · Brett-Branch (kh).
+**Stand:** 24.11.2026, 22:51 UTC · `main` = `caca20b` (**v33.80**, #354 Suche 12 + Prototypkette) · offen: **#355** Lina 12 (kj) = v33.81, Kopf `c79bc80`, kein Konflikt · CI-Lauf 45494200367 wurde um 22:45 UTC vom 60-Minuten-Zeitlimit des Jobs abgebrochen (`offline_check` begann 22:21:59 und kam in 23 min nicht zurück; in #354 dauerte er 2,5 min; alle 47 Prüfstände davor EXIT=0) — `offline_check` lokal auf `c79bc80`: 49 Fragen, 0 rot, EXIT=0 → Re-Lauf EINMAL angestoßen 22:52 UTC (Ende ~23:35) · mein Hold-out und Orakel sauber (Regressionen 0, „nur Basis“ = 0) · Sicherheit Scheibe 5 (ki) blockiert (Fable-Monatslimit; Fernando muss das Modell wechseln) · Hauptfunktionen baut (km) Pflege-Sätze + (kn) Ort in der Frage lokal als v33.82, Push erst nach Merge von #355 · Brett-Branch (kh).
 
 ## 1 · Warum es schneller wird
 
