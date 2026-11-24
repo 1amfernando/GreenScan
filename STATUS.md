@@ -12,6 +12,33 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (kl) - v33.80: Prototypkette — der Wächter sieht auch Tabellen mit Unterstrich, und Linas Garten-Zeile zeigt keinen Funktionstext mehr
+
+**Auftrag:** Beim Bau von Suche 12 nachgezählt (Brett-Klasse 3cad). `_GS_SUG_CATLABEL[cat]` fiel durch BEIDE Lücken des Wächters
+`robust_check` „Prototypkette“: Er suchte nur Tabellen mit einem Grossbuchstaben vorn (`\b[A-Z]…`) und nur Schlüssel mit Punkt
+(`TAB[x.feld]`).
+
+**Gebaut:** Das Muster sieht jetzt auch Tabellen mit Unterstrich vorn (`(?<![\w$])_?[A-Z]…`). Gefunden hat es zwölf Nachschläge;
+alle zwölf gehen über `_gsNachschlag`:
+- Tagebuch: `_GS_TB_EMOJI[e.cat]` und `[e.action]`; `e.action` kommt aus dem Spiegel des Cloud-Tagebuchs.
+- Kalender und Tagesplan: `_GS_KAL_ART`, `_GS_DP_KAL_ARTEN`, `_GS_DP_ICON`, dreimal `_GS_DP_VERB`.
+- Lina: `_GS_LINA_LICHT[g.light]`, `_GS_LINA_BODEN[g.soil]`. Licht und Boden kommen aus Cloud oder Backup.
+
+Für echte Schlüssel ist das Ergebnis dasselbe. Dazu kommt eine lebende Probe an Linas Garten-Zeile, nach dem Vorbild der Probe an `TASK_DEFS`.
+
+**Gemessen:** Auf v33.79 stand in Linas Kontext für einen Garten mit Licht „constructor“ und Boden „__proto__“ der Text „Gärten: Probe
+[Freiland-Beet, function Object() { [native code] }, [object Object]]“; seither steht dort nur „Freiland-Beet“. Ein Garten mit
+`full_sun`/`loam` steht weiter als „volle Sonne, lehmig“ da (Gegenrichtung im Fall).
+
+**Prüfstand:** `robust_check` „Prototypkette“ (38/0). Drei Gegenproben:
+- K1, ein Nachschlag roh: rot („30232: `_GS_TB_EMOJI[e.cat]`“).
+- K2, Lina roh: rot, mit dem Funktionstext oben.
+- K3, K1 mit dem ALTEN Muster: grün. Das belegt die Lücke.
+
+**Offen:** brett:2026-11-11-3cad (die vierte Schreibweise, `TAB[k]` mit einer einfachen Variablen: 96 Bauformen, darunter
+`GS_MARKER_CATS[cat]` der Karte mit `cat` aus gespeicherten Funden — kein Muster sieht sie; Nachtrag 2026-11-24-1ee9).
+**Nicht geprüft:** ob ein Backup oder die Cloud solche Werte heute liefert (das Sieb `_gsSiebEintrag` kennt `light`/`soil` nicht).
+
 ### 2026-11-24 (kk) - v33.80: Suche 12 — ein kurzes Wortstück trifft nur am Wortanfang: „grüner tä“ schlägt nicht mehr den Grünen Knollenblätterpilz vor
 
 **Auftrag:** Nachlese zu Suche 11 (Prüfung von #350): „grüner tä“ schlug in „Pflanze hinzufügen“ den Grünen

@@ -3135,7 +3135,14 @@ einem untergeschobenen Token. 188 Fälle in 23 Dateien (Stand 16.11.2026).
 > sich als Beschriftung ausgibt. `_gsNachschlag(tabelle, schluessel, rueckfall)`
 > nimmt nur EIGENE Einträge (`hasOwnProperty`). Die Gegenprüfung fand danach
 > dieselbe Bauform als Objekt-Literal (`{…}[wert]`), die die erste Suche nicht
-> kannte — **eine Bauform hat mehr als eine Schreibweise**.
+> kannte — **eine Bauform hat mehr als eine Schreibweise**. Die dritte fand
+> Suche 12 (v33.80, (kl)): Tabellen mit Unterstrich vorn. Das Muster des
+> Wächters (`robust_check` „Prototypkette“) begann mit `\b[A-Z]` und sah zwölf
+> Nachschläge wie `_GS_TB_EMOJI[e.cat]` nicht; in Linas Kontext stand für einen
+> Garten mit Licht „constructor“ der Text „function Object() { [native code] }“.
+> Ohne Muster bleibt die vierte Schreibweise: `TAB[k]` mit einer einfachen Variablen
+> (96 Bauformen). `_GS_SUG_CATLABEL[cat]` war eine davon; sie wird an der Stelle
+> selbst geprüft (`scan_check` SU10).
 >
 > **Ein Fall, der eine Senke UND ihre Quellen absichert, prüft oft nur die
 > Quellen** (Gegenprüfung k1): die Mitteilungs-Glocke setzt `_gsEmoji(n.icon)`

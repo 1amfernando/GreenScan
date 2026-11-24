@@ -1071,7 +1071,9 @@ const FAELLE = [
       const a = idx.indexOf('window.GS_RELEASES = ['), b = a >= 0 ? idx.indexOf('\n];', a) : -1;
       const text = (a >= 0 && b > a) ? idx.slice(0, a) + '\n'.repeat(idx.slice(a, b).split('\n').length - 1) + idx.slice(b) : idx;
       const funde = [], gesehen = new Set();
-      const muster = [/\b[A-Z][A-Z0-9_]{2,}\[[\w$]+(?:\.[\w$]+)+\]/g, /\}\)?\[[\w$]+(?:\.[\w$]+)+\]/g];
+      // (kl, 24.11.2026): auch Tabellen mit Unterstrich vorn (`_GS_TB_EMOJI[e.cat]`, `_GS_LINA_LICHT[g.light]`) — das
+      // alte Muster begann mit \b[A-Z] und sah keine davon: zwölf Nachschläge, vier mit einem Schlüssel aus Cloud oder Backup.
+      const muster = [/(?<![\w$])_?[A-Z][A-Z0-9_]{2,}\[[\w$]+(?:\.[\w$]+)+\]/g, /\}\)?\[[\w$]+(?:\.[\w$]+)+\]/g];
       text.split('\n').forEach((z, i) => {
         const t = z.trim(); if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return;
         muster.forEach(re => { (z.match(re) || []).forEach(m => {
@@ -1089,6 +1091,17 @@ const FAELLE = [
         finally { myPlants.splice(myPlants.indexOf(pl), 1); }
       });
       if (lebend.length) return { ok: false, warum: 'Aufgabe „constructor" aus p.tasks erscheint als fällig: ' + lebend.join(', ') + ' — TASK_DEFS[k] trifft die Prototypkette' };
+      // (kl): dieselbe Probe an Linas Garten-Zeile — Licht und Boden eines Gartens kommen aus Cloud oder Backup
+      const garten = await __seite.evaluate(() => {
+        if (typeof _gsLinaGaertenZeile !== 'function' || !Array.isArray(gardens)) return { fehlt: true };
+        const g = { id: 'proto-garten', name: 'Probe', light: 'constructor', soil: '__proto__' }, h = { id: 'proto-garten-2', name: 'Probe 2', light: 'full_sun', soil: 'loam' };
+        gardens.unshift(g, h);
+        try { return { text: String(_gsLinaGaertenZeile() || '') }; }
+        finally { gardens.splice(gardens.indexOf(g), 1); gardens.splice(gardens.indexOf(h), 1); }
+      });
+      if (garten.fehlt) return { ok: false, warum: '_gsLinaGaertenZeile oder gardens fehlt — die Probe misst nichts' };
+      if (/native code|function |\[object/.test(garten.text)) return { ok: false, warum: 'Linas Garten-Zeile zeigt für Licht „constructor"/Boden „__proto__": „' + garten.text.slice(0, 160) + '"' };
+      if (!/Probe 2 \[[^\]]*volle Sonne, lehmig\]/.test(garten.text)) return { ok: false, warum: 'die Gegenrichtung fehlt: der Garten mit „full_sun"/„loam" steht nicht als „volle Sonne, lehmig" in der Zeile („' + garten.text.slice(0, 200) + '") — die Probe misst nichts' };
       const ueberholt = Object.keys(BEWUSST).filter(k => !gesehen.has(k));
       if (funde.length) return { ok: false, warum: funde.length + ' Nachschlag(e) an _gsNachschlag vorbei, ohne Grund in der Liste: ' + funde.slice(0, 8).join(' | ') };
       if (ueberholt.length) return { ok: false, warum: 'Eintraege ohne Treffer (ueberholt, aus der Liste nehmen): ' + ueberholt.join(', ') };

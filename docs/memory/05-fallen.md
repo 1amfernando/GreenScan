@@ -338,6 +338,12 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
 - **v33.59** Ein Nachschlag `EMOJI[zeile.kategorie]` mit dem Wert „constructor“
   zeigte den Quelltext einer Funktion. Regel:
   `_gsNachschlag(tabelle, schluessel, rueckfall)` — nur eigene Eintraege.
+- **v33.80 · (kl)** Der Waechter „Prototypkette" (`robust_check`) suchte nur
+  Tabellen mit Grossbuchstaben vorn; zwoelf Nachschlaege in `_GS_…`-Tabellen
+  sah er nicht. In Linas Kontext stand fuer einen Garten mit Licht
+  „constructor" Funktions-Quelltext. Regel: ein Suchmuster wird an JEDER
+  Schreibweise der Bauform geprueft; die verbliebene Luecke (`TAB[k]` mit
+  einfacher Variable) steht beim Waechter.
 - **v33.59** COOP `same-origin-allow-popups` macht `window.opener` auf der
   Rueckkehrseite aus Stripe zu `null` — der Handler wartete darauf, das
   Fenster schloss sich nie. Regel: wer eine Kopfzeile setzt, sucht die Stellen

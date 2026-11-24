@@ -30229,7 +30229,7 @@ function gsTagebuchAlle() {
       }
       var ts = e.ts || null;
       if (!pid && e.pflanze_id) pid = e.pflanze_id;
-      out.push({ id: e.id, ts: ts, datum: _gsKalTag(ts), text: e.text || '', note: '', emoji: e.emoji || _GS_TB_EMOJI[e.cat] || '📝',
+      out.push({ id: e.id, ts: ts, datum: _gsKalTag(ts), text: e.text || '', note: '', emoji: e.emoji || _gsNachschlag(_GS_TB_EMOJI, e.cat, null) || '📝',
         cat: e.cat || 'note', plant: e.plant || '', pflanze_id: pid, photo: e.photo || null, weather: e.weather || '',
         date: e.date || (ts ? new Date(ts).toLocaleDateString(gsLocale()) : ''), herkunft: 'garten', quelle: e.quelle || 'hand',
         bestaetigt_am: e.bestaetigt_am || null });   // v33.39: der Grund im Kalender nennt den Tag der Bestaetigung
@@ -30243,7 +30243,7 @@ function gsTagebuchAlle() {
       if (!p || !Array.isArray(p.diary)) return;
       p.diary.forEach(function (e) {
         if (!e || !e.ts) return;
-        var em = _GS_TB_EMOJI[e.action] || '📝';
+        var em = _gsNachschlag(_GS_TB_EMOJI, e.action, null) || '📝';
         out.push({ id: 'pd:' + p.id + ':' + e.ts, ts: e.ts, datum: _gsKalTag(e.ts), text: _gsTbTitel(e) || (em + ' Eintrag'), note: e.note || '', emoji: em,
           cat: e.action || 'note', plant: p.name || '', pflanze_id: p.id, photo: e.photo || null, weather: '',
           date: new Date(e.ts).toLocaleDateString(gsLocale()), herkunft: 'pflanze', quelle: _gsTbAbgehakt(e) ? 'regel' : 'hand' });
@@ -31187,7 +31187,7 @@ function _gsKalRender() {
     else kasten = '<span class="gs-kal-box info" aria-hidden="true"></span>';
     var sub = (e.art === 'aufgabe')
       ? ((typeof _gsDayPlanWhen === 'function') ? _gsDayPlanWhen(e.faellig_seit) : '') + (e.status === 'verschoben' ? ' · ' + _t('kal_verschoben', 'verschoben') : '')
-      : ((e.zeit ? e.zeit + ' · ' : '') + (e.pflanze && e.pflanze.name ? e.pflanze.name : (_GS_KAL_ART[e.art] || e.art)));
+      : ((e.zeit ? e.zeit + ' · ' : '') + (e.pflanze && e.pflanze.name ? e.pflanze.name : (_gsNachschlag(_GS_KAL_ART, e.art, null) || e.art)));
     // v33.34 (KALENDER-V2): verletzte Hinweise als EINE Zeile darunter (Warnfarbe
     // als TEXT, nie als Fuellung); nicht pruefbare stehen im Grund; „lange
     // ueberfaellig" ist eine zweite Klasse, keine zweite Farbe.
@@ -31697,7 +31697,7 @@ function gsPlanHinweisAus() {
 function _gsDayPlanKalender(esc) {
   try {
     var h = gsHeuteTag();
-    var ev = (gsKalenderEreignisse(h, h) || []).filter(function (e) { return e && _GS_DP_KAL_ARTEN[e.art]; });
+    var ev = (gsKalenderEreignisse(h, h) || []).filter(function (e) { return e && _gsNachschlag(_GS_DP_KAL_ARTEN, e.art, false); });
     if (!ev.length) return '';
     var namen = ev.slice(0, 3).map(function (e) { return (e.emoji ? _gsEmoji(e.emoji, '') + ' ' : '') + esc(e.titel || ''); });   // v33.59: emoji aus Tagebuch/Ernte
     var rest = ev.length - namen.length;
@@ -31768,7 +31768,7 @@ window.gsRenderDayPlan = function(){
     var call = "gsDayPlanCheck(this,'" + _gsOcStr(t.plant.id) + "','" + _gsOcStr(t.key) + "')";   // v33.59: JS-String im onclick
     var title = esc(t.plant.name) + ' ' + esc(_gsDayPlanVerb(t.key, t.def));
     return '<div class="gs-dp-row">' +
-        '<div class="gs-dp-ico" aria-hidden="true">' + ico(_GS_DP_ICON[t.key] || 'leaf') + '</div>' +
+        '<div class="gs-dp-ico" aria-hidden="true">' + ico(_gsNachschlag(_GS_DP_ICON, t.key, null) || 'leaf') + '</div>' +
         '<div class="gs-dp-body">' +
           '<div class="gs-dp-title">' + title + '</div>' +
           '<div class="gs-dp-sub">' + _gsDayPlanWhen(t.days) +
@@ -42311,7 +42311,7 @@ function scheduleAllNotifications(){
   alle = alle.filter(function(x){ return x && x.plant && !disabled[x.plant.id]; });
   var heute = alle.filter(function(x){ return x.days <= 0; }), morgen = alle.filter(function(x){ return x.days === 1; });
   function _text(liste){
-    var namen = liste.slice(0, 4).map(function(x){ return (x.plant.name || '?') + ' ' + ((typeof _GS_DP_VERB !== 'undefined' && _GS_DP_VERB[x.key]) || String((x.def && x.def.name) || x.key).toLowerCase()) + (x.sensor ? ' \ud83d\udcf6' : ''); });
+    var namen = liste.slice(0, 4).map(function(x){ return (x.plant.name || '?') + ' ' + ((typeof _GS_DP_VERB !== 'undefined' && _gsNachschlag(_GS_DP_VERB, x.key, null)) || String((x.def && x.def.name) || x.key).toLowerCase()) + (x.sensor ? ' \ud83d\udcf6' : ''); });
     if (liste.length > 4) namen.push('+' + (liste.length - 4) + ' weitere');
     return namen.join(' \u00b7 ');
   }
@@ -91964,7 +91964,7 @@ function gsLinaZahlen(){
     var faellig = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks().filter(function(x){ return x && x.plant && x.days <= 0; }) : [];
     if (faellig.length) {
       teile.push('Fällig: ' + faellig.slice(0, 5).map(function(x){
-        var verb = (typeof _GS_DP_VERB !== 'undefined' && _GS_DP_VERB[x.key]) || String((x.def && x.def.name) || x.key).toLowerCase();
+        var verb = (typeof _GS_DP_VERB !== 'undefined' && _gsNachschlag(_GS_DP_VERB, x.key, null)) || String((x.def && x.def.name) || x.key).toLowerCase();
         return (x.plant.name || '?') + ' ' + verb + (x.days < 0 ? ' (seit ' + (-x.days) + ' Tag' + (x.days === -1 ? '' : 'en') + ')' : ' (heute)') + (x.sensor ? ' [Sensor]' : '');
       }).join('; ') + (faellig.length > 5 ? '; +' + (faellig.length - 5) + ' weitere' : '') + '.');
     } else teile.push('Fällig: keine Aufgaben heute.');
@@ -92683,7 +92683,7 @@ function gsPflanzenHilfe() {
     var due = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks() : [];
     due.forEach(function (x) {
       if (!x || !x.plant || !(x.days <= -GS_HILFE_UEBERFAELLIG_TAGE)) return;
-      var verb = (typeof _GS_DP_VERB !== 'undefined' && _GS_DP_VERB[x.key]) || String((x.def && x.def.name) || x.key).toLowerCase();
+      var verb = (typeof _GS_DP_VERB !== 'undefined' && _gsNachschlag(_GS_DP_VERB, x.key, null)) || String((x.def && x.def.name) || x.key).toLowerCase();
       merk(x.plant, verb + ' seit ' + (-x.days) + ' Tagen überfällig', 100 + (-x.days));
     });
   } catch (_) {}
@@ -92798,8 +92798,10 @@ function _gsLinaGaertenZeile() {
       var e = [];
       try { e.push(gsGartenArt(g).label); } catch (_) {}
       if (g.width && g.length) e.push(g.width + ' × ' + g.length + ' m');
-      if (_GS_LINA_LICHT[g.light]) e.push(_GS_LINA_LICHT[g.light]);
-      if (_GS_LINA_BODEN[g.soil]) e.push(_GS_LINA_BODEN[g.soil]);
+      // (kl): Licht und Boden eines Gartens kommen aus Cloud oder Backup — nur EIGENE Einträge der Tabelle (Brett 3cad)
+      var _licht = _gsNachschlag(_GS_LINA_LICHT, g.light, null), _boden = _gsNachschlag(_GS_LINA_BODEN, g.soil, null);
+      if (_licht) e.push(_licht);
+      if (_boden) e.push(_boden);
       var drin = pl.filter(function (p) { return p && p.gardenId === g.id && p.name; });
       var namen = drin.slice(0, GS_LINA_PFLANZUNGEN_NENNEN).map(function (p) {
         var d = _gsLinaTag(p.date);
