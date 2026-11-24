@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 18:12 UTC · `main` = `1d1019b` (**v33.75**) · #350 (v33.76, NUR Suche 11 kc; Lina 11 zurückgenommen) Revert-Kopf **`74baeb6`**, Baum = Test-Merge `0723e27`, CI Lauf 45456673667 seit 18:10, fertig ca. 18:49 · #348 Audit `6cb8879` CI seit 17:53, fertig ca. 18:32 · Sicherheit v33.77 (kf) stapelt auf `74baeb6` (Signal 18:12) · danach v33.78 (ke Scanner 14) · v33.79 (kg Lina 11 neu) · Brett-Branch heisst jetzt (kh).
+**Stand:** 24.11.2026, 18:31 UTC · `main` = `1d1019b` (**v33.75**) · CI läuft für drei PRs: #348 Audit `6cb8879` (seit 17:53, fertig ca. 18:32), #350 Hauptfunktionen v33.76 `74baeb6` (nur Suche 11; seit 18:10, ca. 18:49), #351 Sicherheit v33.77 `a8d5bff` (seit ca. 18:31, ca. 19:10; Baum = Test-Merge `c0053c9`, stapelt auf #350) · Merge-Reihenfolge: #348 (wenn grün, Prüfung auf Disjunktheit) → #350 → #351 · danach Scanner 14 v33.78 (ke) auf `a8d5bff`, Push erst nach #350 · Lina 11 neu v33.79 (kg).
 
 ## 1 · Warum es schneller wird
 
@@ -46,8 +46,8 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | 4 | Hauptfunktionen · Lina · Einblick ehrlich + Scanner 12 + Pilz-Verwechsler (EIN Kopf) | `claude/happy-thompson-24l4uu` | v33.74 | (jx) · (jy) · (jz) · (ka) | **GEMERGT** als Merge-Commit `52a2b93` (#347; CI auf 5844cf6 grün, Baum identisch; zwei Leserfunde vor dem Merge behoben) |
 | 5 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.75 | (kb) | **GEMERGT** als Merge-Commit `1d1019b` (#349; CI auf 255665c grün, Baum identisch); offene Frage für Fernando: Brett e247 (Offline-Foto live im Speicher?) |
 | 6 | Hauptfunktionen · Suche 11 (kc) — (kd) zurückgenommen | `claude/happy-thompson-24l4uu` | v33.76 | (kc) | PR **#350**, Kopf **`74baeb6`** (Revert von `abd1495`; index.html gegenüber `255665c` ohne eine Lina-Zeile, sensor_check byte-gleich; Baum = Test-Merge `0723e27`), CI Lauf 45456673667 läuft (fertig ca. 18:49) → Merge-Commit bei grün |
-| 8 | Hauptfunktionen · Scanner 14 (ke) | `claude/happy-thompson-24l4uu` | v33.78 | (ke) | lokal fertig (PV7); stapelt auf Sicherheits Kopf; Push erst nach dem Merge von #350 (Zweig = #350-Kopf) |
-| 9 | Sicherheit · Scheibe 3 (Register GS_SPEICHER) | `ccr-5e705a36-jveaak` | v33.77 | (kf) | Stand `2a40540` (ohne Bump, kein PR); Signal 18:12: stapelt auf `74baeb6`, Bump von Hand, dann Kopf melden → PR; Gegenprüfung (zwei Linsen) vor dem Bump einarbeiten |
+| 8 | Hauptfunktionen · Scanner 14 (ke) | `claude/happy-thompson-24l4uu` | v33.78 | (ke) | lokal fertig (PV7); stapelt auf `a8d5bff`; Push erst nach dem Merge von #350 (Zweig = #350-Kopf) |
+| 9 | Sicherheit · Scheibe 3 (Register GS_SPEICHER) | `ccr-5e705a36-jveaak` | v33.77 | (kf) | PR **#351**, Kopf **`a8d5bff`** (auf `74baeb6` gestapelt; Baum = Test-Merge `c0053c9`), CI läuft (fertig ca. 19:10); 8 Dateien, nichts Riskantes; Gegenprüfung (14 Funde, 6 bestätigt, eingearbeitet) → Merge-Commit nach #350 |
 | 10 | Hauptfunktionen · Lina 11 neu (kg) | `claude/happy-thompson-24l4uu` | v33.79 | (kg) | Orakel = Basis `255665c` über alle DB-Namen in zwei Satzformen + Mehrzahl/Genitiv, „nur Basis warnt“ leer; die elf Leser-Sätze als Fälle; jede Heuristik einzeln mit Gegenprobe; Hold-out des Koordinators vor dem Merge |
 | 7 | Audit · Prüfstände (kein Bump) | `ccr-dce5a17c-2xzhvi` | – | (jv) Nachtrag | PR **#348**, Kopf **`6cb8879`** (= `b199b6d` + main `1d1019b` per GitHub eingezogen, Baum = Test-Merge `49e6a2b`), CI läuft seit ca. 17:55 → Merge-Commit bei grün, BEVOR Hauptfunktionen den Fix-Kopf von #350 pusht (damit dessen CI ihn schon enthält); sonst zuletzt |
 | – | Brett (#341) | `ccr-b63433a4-d1xgyg` | – | **(kh)** (nicht (ke): die ist Scanner 14) | enthält `.github/workflows/*` und `docs/AGENTEN-NETZ.md` → Fernando; der Werkzeug-Teil kommt als eigener PR; Kennung vor dem Merge neu rechnen |
