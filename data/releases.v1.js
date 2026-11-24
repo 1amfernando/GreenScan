@@ -30,6 +30,27 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.55', date: '20.10.2026',
+      headline: 'Ein Foto teilen — GreenScan zeigt es und bestimmt es auf Antippen',
+      summary: 'Bis v33.54 nahm das Teilen-Ziel der installierten App nur Text und Links an (GET, keine Dateien); Android bot GreenScan für ein Foto gar nicht an, und wer einen Link teilte, las „Bild geteilt“, obwohl nie ein Bild ankam. Jetzt: POST /teilen mit dem Foto, der Service Worker legt es ab und leitet um, die App zeigt eine Vorschau und bestimmt erst nach dem Antippen — mit denselben Schritten wie die Galerie. Eine gegnerische Prüfung des Entwurfs und eine des fertigen Diffs haben sieben Lücken gezeigt, die vor dem Ausliefern geschlossen sind (Update beim Start, die App schliesst die Vorschau selbst, Anmeldebildschirm, fremde Seiten, kein Empfang, Kamera-Marke, Frist).',
+      user_summary: 'In der installierten App steht GreenScan jetzt im Teilen-Menü der Galerie: ein geteiltes Foto erscheint als Vorschau, und mit „Dieses Foto bestimmen“ wird es bestimmt — ohne dass die Kamera angeht. Ohne Empfang sagt die App, dass sie Netz braucht, und das Foto bleibt. In der Android-App kommt das Teilen als Nächstes.',
+      user_items: [
+        {emoji:'📤', bold:'Teilen → GreenScan:', text:' ein Foto aus der Galerie oder einer anderen App kommt als Vorschau an; bestimmt wird erst, wenn du tippst.'},
+        {emoji:'📷', bold:'Ohne Kamera:', text:' der Scanner öffnet sich für das geteilte Foto, die Kamera bleibt aus.'},
+        {emoji:'📡', bold:'Ohne Empfang:', text:' die Vorschau bleibt offen und sagt, dass zum Bestimmen Netz nötig ist — das Foto geht nicht verloren.'},
+        {emoji:'🛡️', bold:'Nichts Fremdes:', text:' ein Foto, das nicht zu diesem Teilen gehört, wird verworfen statt angeboten; die Vorschau sagt, woher es kam.'},
+        {emoji:'💬', bold:'Ehrliche Sätze:', text:' ein geteilter Link, eine Datei, die kein Foto ist, oder ein HEIC-Foto bekommen je einen eigenen Satz statt „Bild geteilt“.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' manifest.json share_target war GET mit title/text/url, sw.js kannte kein Teilen (0 Treffer), _gsShareTargetInit sagte „Bild geteilt“ ohne Bild, CLAUDE.md nannte ein file_handlers, das es nie gab.'},
+        {emoji:'🔁', bold:'Der Weg:', text:' POST /teilen (multipart, Feld „bild“) → sw.js teilenAntwort legt das erste Foto unter einem Schlüssel in gs-geteilt ab (Zeit, Anzahl, Einmal-Schlüssel) → 303 auf /#teilen=<grund>; ohne Worker leitet _redirects auf /?teilen=ohne-sw. activate lässt gs-geteilt stehen.'},
+        {emoji:'🖼️', bold:'Die Seite:', text:' liest den Grund beim Parsen, räumt die Adresse auf, prüft die ersten Bytes (_gsBildTyp: JPEG, PNG, GIF, WebP; HEIC mit eigenem Satz) und zeigt die Vorschau; gsScanDatei ist der eine Weg von einer Bilddatei zum Scan (Galerie und Teilen).'},
+        {emoji:'🤝', bold:'Entscheiden tut die Person:', text:' schliesst die App die Vorschau (ein switchTab), kommt sie wieder; ein Tipp daneben schliesst nichts; hinter dem Anmeldebildschirm wartet sie; das Foto bleibt bis zum Ergebnis (showScanResult), _gsAppRuhig meldet „teilen“.'},
+        {emoji:'🔑', bold:'Ein Foto, eine Navigation:', text:' gemessen — eine fremde Seite mit no-referrer schickt Origin null wie ein echtes Teilen. Deshalb nur Navigationen der obersten Ebene, ein ehrlicher Satz in der Vorschau und ein Einmal-Schlüssel je Tab.'},
+        {emoji:'🧪', bold:'offline_check 24 → 39 Fälle:', text:' ein echter multipart-POST aus dem share_target durch den echten Worker; 22 Brüche als Gegenprobe. contrast_check kennt jetzt die Stapelreihenfolge — kein Dialog am <body> war je vermessen.'}
+      ]
+  },
+  {
     v: 'v33.54', date: '09.10.2026',
       headline: 'Ein Stil im Text lädt keine fremde Adresse mehr',
       summary: 'Übersetzte Texte und Chat-Zeilen dürfen ein wenig Auszeichnung tragen — und dazu ein style-Attribut. Der Filter dafür war eine Verbotsliste auf dem Rohtext: er suchte „url(“. CSS kennt aber Escapes (u\\72l( liest der Browser als url(), und image-set("…") lädt eine Adresse ganz ohne url(. Die gegnerische Prüfung zu v33.53 hat in Chromium gezeigt, dass ein Satz damit eine fremde Adresse laden konnte. Jetzt geht jeder Stil durch eine Erlaubnisliste: nur bekannte Eigenschaften, keine Escapes, keine Zeichenketten, keine Funktion ausser rgb/hsl/var/calc.',

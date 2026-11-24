@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.75.20261124">
+<meta name="app-version" content="33.76.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -40177,6 +40177,10 @@ function _gsSucheRang(text, pass, info){
   // Wie viele Treffer über Name, Binomen oder Familie (ohne Vertipper und Fliesstext) — sie stehen,
   // nach Relevanz geordnet, vorn. Die Menü-Suche zeigt nur sie, wenn Menüeinträge passen.
   if (info) info.namensTreffer = scored.filter(function (x) { return !x.tipp && x.sc >= 150; }).length;
+  // Suche 11: wie viele Treffer ein NAMENSFELD vorschlagen darf — über Name, Binomen, Familie, Synonym oder einen
+  // Vertipper; nicht die, die nur im Fliesstext stehen. Nach der Sortierung stehen sie vorn (Namen ab 150, Vertipper
+  // 110–130, Fliesstext höchstens 100).
+  if (info) info.vorschlaege = scored.filter(function (x) { return x.tipp || x.sc >= 150; }).length;
   // v31.91: Bei GLEICHER Relevanz kommt der geprüfte Eintrag zuerst.
   //
   // „Ampfer" trifft 28 Einträge mit demselben Trivialnamen, „Brennnessel"
@@ -41390,6 +41394,7 @@ window.gsPlantSuggest = function(inputEl) {
 // v26.88: shared Render einer Arten-Liste (lokal ODER online-gemergt) ins Dropdown.
 // list = Array von Arten-Objekten {name, lat, emoji, cat, toxic, [_remote], [_sid], ...}
 function _gsRenderSugList(list, q, dropdown){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
   if (!list || !list.length) {
     dropdown.style.display = 'block';
     dropdown.innerHTML = '<div style="padding:14px 14px;color:var(--muted);font-size:var(--fs-sm);text-align:center;">Keine Vorschläge zu „' + escHtml(q) + '". Tippe trotzdem weiter und klick „Speichern" für eigenen Eintrag.</div>';
@@ -41402,8 +41407,25 @@ function _gsRenderSugList(list, q, dropdown){
     var lat = s.lat || '';
     var cat = (s.cat || '').toLowerCase();
     var tag = _GS_SUG_CATLABEL[cat] || '';
-    var tox = s.toxic ? '<span style="color:var(--c-danger);font-size:var(--fs-sm);font-weight:700;margin-left:6px;" title="Giftig">⚠️ giftig</span>' : '';
-    var cloud = s._remote ? '<span style="font-size:var(--fs-sm);margin-left:5px;opacity:.6;" title="Online-Treffer (tippfehler-tolerant)">☁️</span>' : '';
+    // Suche 11: „giftig“ fragt dasselbe wie der Filter „☠️ Giftig“ (gsIstGiftig, an der ART über _gsArtAnzeige), und
+    // das Wort kommt aus der Giftskala der App (toxInfo, wie im Artendetail) — als feste Farbpaarung, damit es in beiden
+    // Modi lesbar bleibt. Ein Online-Treffer ist kein Eintrag der Liste: er geht über gsMatchScanToDb zu seiner Art;
+    // sagt der Server „giftig“, gilt das auch ohne Art. Vorher zählte das Feld `toxic` des einen Eintrags: 58 Einträge
+    // giftiger Arten standen ohne Warnung da (gemessen 24.11.2026: 675 statt 617 markiert, keiner verliert seine), und ein
+    // langer Name schnitt die Warnung ab („Echter Monstera Thai Constellation“: sie stand im gekürzten Namen). Jetzt
+    // steht sie neben dem Namen — gekürzt wird der Name, nie die Warnung.
+    var _gift = !!(s._remote && s.toxic), _stufe = 0;
+    try {
+      var _db = s._remote ? ((typeof gsMatchScanToDb === 'function') ? gsMatchScanToDb(s.name, s.lat) : null) : s;
+      if (_db) {
+        var _a = (typeof _gsArtAnzeige === 'function') ? (_gsArtAnzeige(_db) || _db) : _db;
+        _stufe = Math.max(0, Math.min(5, Math.round(Number(_a.tox) || 0)));
+        _gift = _gift || ((typeof gsIstGiftig === 'function') ? gsIstGiftig(_db) : !!(_a.toxic || _stufe >= 2));
+      }
+    } catch (_) { _gift = _gift || !!s.toxic; }
+    var _ti = (_gift && typeof toxInfo === 'function') ? toxInfo(_stufe >= 1 ? _stufe : 3) : null;
+    var tox = _ti ? '<span class="gs-sug-gift" style="flex:0 0 auto;white-space:nowrap;padding:1px 7px;border-radius:var(--r-sm);font-size:var(--fs-xs);font-weight:700;background:' + _ti.bg + ';color:' + _ti.color + ';">' + escHtml((_stufe >= 1 ? _ti.sym + ' ' + _ti.label : '⚠️ ' + _t('badge_giftig', 'Giftig'))) + '</span>' : '';
+    var cloud = s._remote ? '<span style="flex:0 0 auto;font-size:var(--fs-sm);opacity:.6;" title="Online-Treffer (tippfehler-tolerant)">☁️</span>' : '';
     return '<div role="option" tabindex="0" data-sug-idx="' + idx + '"' +
       ' onmousedown="event.preventDefault(); _gsApplyPlantSuggestion(' + idx + ')"' +
       ' onkeydown="if(event.key===\'Enter\'){_gsApplyPlantSuggestion(' + idx + ');}"' +
@@ -41412,7 +41434,9 @@ function _gsRenderSugList(list, q, dropdown){
       ' onmouseout="this.style.background=\'transparent\'">' +
       '<div style="font-size:var(--fs-2xl);width:30px;text-align:center;">' + emoji + '</div>' +
       '<div style="flex:1;min-width:0;">' +
-        '<div style="font-size:var(--fs-md);font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(name) + tox + cloud + '</div>' +
+        '<div style="display:flex;align-items:center;gap:6px;min-width:0;">' +
+          '<div style="font-size:var(--fs-md);font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escHtml(name) + '</div>' + tox + cloud +
+        '</div>' +
         (lat ? '<div style="font-size:var(--fs-sm);font-style:italic;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(lat) + '</div>' : '') +
       '</div>' +
       (tag ? '<span style="font-size:var(--fs-xs);font-weight:700;padding:3px 7px;border-radius:var(--r-sm);background:var(--surface2);color:var(--text2);white-space:nowrap;">' + tag + '</span>' : '') +
@@ -41430,30 +41454,18 @@ function _gsRenderSuggestions(q, dropdown, seq){
   if (typeof DB === 'undefined' || !Array.isArray(DB) || !DB.length) {
     dropdown.style.display = 'none'; return;
   }
-  var qLow = q.toLowerCase();
-  // Score: 100 = exakter Name-Prefix, 80 = Name-Contains, 60 = Latein-Prefix, 40 = Latein-Contains, 20 = Common-Name-Translation
-  var scored = [];
-  for (var i = 0; i < DB.length; i++) {
-    var s = DB[i]; if (!s) continue;
-    var nm = (s.name || '').toLowerCase();
-    var lt = (s.lat || '').toLowerCase();
-    var en = (s.common_name_en || s.cn_en || '').toLowerCase();
-    var es = (s.common_name_es || s.cn_es || '').toLowerCase();
-    var score = 0;
-    if (nm === qLow) score = 110;
-    else if (nm.indexOf(qLow) === 0) score = 100;
-    else if (nm.indexOf(qLow) > -1) score = 80;
-    else if (lt.indexOf(qLow) === 0) score = 60;
-    else if (lt.indexOf(qLow) > -1) score = 40;
-    else if (en.indexOf(qLow) > -1 || es.indexOf(qLow) > -1) score = 20;
-    if (score > 0) {
-      // Bonus für kürzere Namen (relevantere Treffer)
-      score -= Math.min(20, (s.name || '').length / 4);
-      scored.push({ s: s, score: score });
-    }
-  }
-  scored.sort(function(a,b){ return b.score - a.score; });
-  scored = scored.slice(0, 8);
+  // Suche 11 (Brett 66d7): dieselbe Rechnung wie die Artensuche und die Menü-Suche (_gsSucheRang) — Umlaute,
+  // Vertipper, Synonyme, mehrere Wörter, „geprüft vor ungeprüft“. Vorher toLowerCase + indexOf: „barlauch“,
+  // „brennessel“, „lowenzahn“ fanden ohne Netz nichts, die Artensuche alle drei. (Der Zweig für englische und
+  // spanische Namen war tot: kein Eintrag trägt einen — gemessen 24.11.2026, 0 von 4'342 in data/plants.v1.js.)
+  var _liste = [], _info = {};
+  try { _liste = (typeof _gsSucheRang === 'function') ? (_gsSucheRang(String(q || '').trim(), null, _info) || []) : []; } catch (_) { _liste = []; }
+  // Ein Namensfeld schlägt NAMEN vor — Treffer über Name, Binomen, Familie, Synonym oder einen Vertipper, in der
+  // Reihenfolge der Suche. Die Suche hängt danach Treffer aus dem Fliesstext an, und dort nennen sich Verwechsler
+  // gegenseitig: „maigl“ hätte auf Platz 3 den Bärlauch vorgeschlagen, „bärlauch“ auf Platz 8 das Maiglöckchen
+  // (gemessen 24.11.2026). Wer eine Pflanze anlegt, bekommt keinen Namen vorgeschlagen, der nur in einem Text steht.
+  var _n = (typeof _info.vorschlaege === 'number') ? _info.vorschlaege : _liste.length;
+  var scored = _liste.slice(0, Math.min(8, _n)).map(function (sp) { return { s: sp }; });
   // 1) lokale Treffer sofort rendern (instant, offline-fähig)
   _gsRenderSugList(scored.map(function(x){ return x.s; }), q, dropdown);
   // 2) v26.88: online Fuzzy-Boost (tippfehler-tolerant via pg_trgm Edge-Fn) — Vorrang vor lokal
@@ -80563,6 +80575,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.76', date: '24.11.2026',
+      headline: 'Pflanze anlegen auch mit Tippfehlern — und mit der Giftstufe der Art',
+      summary: 'Suche 11: die Vorschläge unter „Art / Name“ rechnen wie die Artensuche (Umlaute, Vertipper, Synonyme) und schlagen nur Namen vor — im Fliesstext nennen sich Verwechsler gegenseitig, „maigl“ hätte den Bärlauch vorgeschlagen; „giftig“ fragt wie der Filter an der Art und nennt die Stufe der Skala (58 Einträge mehr gewarnt, keiner weniger).',
+      user_summary: 'Beim Anlegen einer Pflanze findest du die Art auch mit Tippfehlern — und siehst sofort, wie giftig sie ist.',
+      user_items: [
+        {emoji:'🔍', bold:'Pflanze anlegen:', text:' „barlauch“, „brennessel“ oder „lowenzahn“ finden die richtige Art, auch ohne Netz — vorgeschlagen werden nur Pflanzen, deren Name passt.'},
+        {emoji:'⚠️', bold:'Wie giftig:', text:' giftige Arten tragen in den Vorschlägen ihre Stufe („Mässig giftig“, „Tödlich giftig“), auch bei langen Namen.'},
+      ]
+  },
+  {
     v: 'v33.75', date: '24.11.2026',
       headline: 'Was du aufzeichnest, bleibt — Track, Pflegeverlauf und das Tagebuch-Foto ohne Empfang',
       summary: 'Zwei Scheiben aus „Speicher, Abgleich, Verdrahtung“. Erstens: ein gespeicherter GPS-Track wird für den Abgleich vorgemerkt, ein gelöschter Plan oder Track bleibt gelöscht (auch wenn ohne Empfang gelöscht wurde), ein ungesendeter Stand auf einem neuen Gerät wird je Schlüssel gemischt statt überschrieben, Punkte gehen bei einem ungelesenen Profil nicht verloren, und ein neu geschriebenes eigenes Rezept trägt sein Konto. Zweitens: der Pflegeverlauf einer Pflanze hat EINEN Deckel nach Zeit für alle drei Schreiber; ein Tagebuch-Foto ohne Empfang wartet im Ausgangskorb statt als base64 in der Pflanzenliste, der Altbestand zieht nach, und der Foto-Flush gibt bei einem Funkloch nicht mehr auf. Der Tagebuch-Eintrag meldet erst nach dem Schreiben.',
@@ -80954,27 +80976,6 @@ window.GS_RELEASES = [
         {emoji:'🧭', bold:'Bewusst nicht:', text:' setFilterTouchesWhenObscured — es schützte vor einer App mit Overlay-Recht, machte GreenScan aber für jede App mit Bildschirmfilter unbedienbar. Steht in android/README.md.'}
       ]
   },
-  {
-    v: 'v33.55', date: '20.10.2026',
-      headline: 'Ein Foto teilen — GreenScan zeigt es und bestimmt es auf Antippen',
-      summary: 'Bis v33.54 nahm das Teilen-Ziel der installierten App nur Text und Links an (GET, keine Dateien); Android bot GreenScan für ein Foto gar nicht an, und wer einen Link teilte, las „Bild geteilt“, obwohl nie ein Bild ankam. Jetzt: POST /teilen mit dem Foto, der Service Worker legt es ab und leitet um, die App zeigt eine Vorschau und bestimmt erst nach dem Antippen — mit denselben Schritten wie die Galerie. Eine gegnerische Prüfung des Entwurfs und eine des fertigen Diffs haben sieben Lücken gezeigt, die vor dem Ausliefern geschlossen sind (Update beim Start, die App schliesst die Vorschau selbst, Anmeldebildschirm, fremde Seiten, kein Empfang, Kamera-Marke, Frist).',
-      user_summary: 'In der installierten App steht GreenScan jetzt im Teilen-Menü der Galerie: ein geteiltes Foto erscheint als Vorschau, und mit „Dieses Foto bestimmen“ wird es bestimmt — ohne dass die Kamera angeht. Ohne Empfang sagt die App, dass sie Netz braucht, und das Foto bleibt. In der Android-App kommt das Teilen als Nächstes.',
-      user_items: [
-        {emoji:'📤', bold:'Teilen → GreenScan:', text:' ein Foto aus der Galerie oder einer anderen App kommt als Vorschau an; bestimmt wird erst, wenn du tippst.'},
-        {emoji:'📷', bold:'Ohne Kamera:', text:' der Scanner öffnet sich für das geteilte Foto, die Kamera bleibt aus.'},
-        {emoji:'📡', bold:'Ohne Empfang:', text:' die Vorschau bleibt offen und sagt, dass zum Bestimmen Netz nötig ist — das Foto geht nicht verloren.'},
-        {emoji:'🛡️', bold:'Nichts Fremdes:', text:' ein Foto, das nicht zu diesem Teilen gehört, wird verworfen statt angeboten; die Vorschau sagt, woher es kam.'},
-        {emoji:'💬', bold:'Ehrliche Sätze:', text:' ein geteilter Link, eine Datei, die kein Foto ist, oder ein HEIC-Foto bekommen je einen eigenen Satz statt „Bild geteilt“.'}
-      ],
-      items: [
-        {emoji:'📏', bold:'Gemessen:', text:' manifest.json share_target war GET mit title/text/url, sw.js kannte kein Teilen (0 Treffer), _gsShareTargetInit sagte „Bild geteilt“ ohne Bild, CLAUDE.md nannte ein file_handlers, das es nie gab.'},
-        {emoji:'🔁', bold:'Der Weg:', text:' POST /teilen (multipart, Feld „bild“) → sw.js teilenAntwort legt das erste Foto unter einem Schlüssel in gs-geteilt ab (Zeit, Anzahl, Einmal-Schlüssel) → 303 auf /#teilen=<grund>; ohne Worker leitet _redirects auf /?teilen=ohne-sw. activate lässt gs-geteilt stehen.'},
-        {emoji:'🖼️', bold:'Die Seite:', text:' liest den Grund beim Parsen, räumt die Adresse auf, prüft die ersten Bytes (_gsBildTyp: JPEG, PNG, GIF, WebP; HEIC mit eigenem Satz) und zeigt die Vorschau; gsScanDatei ist der eine Weg von einer Bilddatei zum Scan (Galerie und Teilen).'},
-        {emoji:'🤝', bold:'Entscheiden tut die Person:', text:' schliesst die App die Vorschau (ein switchTab), kommt sie wieder; ein Tipp daneben schliesst nichts; hinter dem Anmeldebildschirm wartet sie; das Foto bleibt bis zum Ergebnis (showScanResult), _gsAppRuhig meldet „teilen“.'},
-        {emoji:'🔑', bold:'Ein Foto, eine Navigation:', text:' gemessen — eine fremde Seite mit no-referrer schickt Origin null wie ein echtes Teilen. Deshalb nur Navigationen der obersten Ebene, ein ehrlicher Satz in der Vorschau und ein Einmal-Schlüssel je Tab.'},
-        {emoji:'🧪', bold:'offline_check 24 → 39 Fälle:', text:' ein echter multipart-POST aus dem share_target durch den echten Worker; 22 Brüche als Gegenprobe. contrast_check kennt jetzt die Stapelreihenfolge — kein Dialog am <body> war je vermessen.'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81185,7 +81186,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.75';
+var GS_VERSION = 'v33.76';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

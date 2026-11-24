@@ -34,6 +34,11 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   Einzel-Abhaken (`quick_done`) — der Leser kannte nur einen, die Woche
   zaehlte solche Eintraege als Notizen. Regel: abhaken heisst `gsQuickDone`,
   „wurde abgehakt" fragt `_gsTbAbgehakt(e)`, den Titel liest `_gsTbTitel(e)`.
+- **v33.76 · Suche 11** Die Vorschlagsliste „Pflanze hinzufuegen" suchte selbst (ohne
+  Umlaute und Vertipper) und las „giftig" am Eintrag: 58 Eintraege giftiger
+  Arten ohne Warnung. Die Suche 1:1 zu nehmen waere falsch gewesen — im
+  Fliesstext nennen sich Verwechsler („maigl" → Baerlauch). Regel: ein
+  Namensfeld nimmt `_gsSucheRang` bis `info.vorschlaege`, giftig ist `gsIstGiftig`.
 
 ## B · Eine Ansicht, die nie etwas zeigen konnte
 
