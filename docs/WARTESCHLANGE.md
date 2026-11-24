@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 17:53 UTC · `main` = `1d1019b` (**v33.75**) · **#350 (v33.76) darf NICHT gemergt werden, wie er steht:** der unabhängige Leser fand elf Zusagen, die die Basis warnt und Lina 11 (kd) nicht mehr (Namens-Veto durch Buch-Import-Rümpfe, Kontrast-Filter, engere Stämme, `auch`-Regel, Ort); Hauptfunktionen baut EINEN Folge-Commit (F1–F5, Basis als Orakel) oder revertiert (kd) · danach v33.77 (ke Scanner 14) · v33.78 (kf Sicherheit Scheibe 3) · #348 Audit zuletzt.
+**Stand:** 24.11.2026, 17:58 UTC · `main` = `1d1019b` (**v33.75**) · **#350 (v33.76) darf NICHT gemergt werden, wie er steht:** der unabhängige Leser fand elf Zusagen, die die Basis warnt und Lina 11 (kd) nicht mehr (Namens-Veto durch Buch-Import-Rümpfe, Kontrast-Filter, engere Stämme, `auch`-Regel, Ort); Hauptfunktionen baut EINEN Folge-Commit (F1–F5, Basis als Orakel) oder revertiert (kd) · danach v33.77 (kf Sicherheit Scheibe 3, parallel gestapelt) · v33.78 (ke Scanner 14) · #348 Audit zuletzt.
 
 ## 1 · Warum es schneller wird
 
@@ -46,8 +46,8 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | 4 | Hauptfunktionen · Lina · Einblick ehrlich + Scanner 12 + Pilz-Verwechsler (EIN Kopf) | `claude/happy-thompson-24l4uu` | v33.74 | (jx) · (jy) · (jz) · (ka) | **GEMERGT** als Merge-Commit `52a2b93` (#347; CI auf 5844cf6 grün, Baum identisch; zwei Leserfunde vor dem Merge behoben) |
 | 5 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.75 | (kb) | **GEMERGT** als Merge-Commit `1d1019b` (#349; CI auf 255665c grün, Baum identisch); offene Frage für Fernando: Brett e247 (Offline-Foto live im Speicher?) |
 | 6 | Hauptfunktionen · Suche 11 (kc) + Lina 11 (kd), gebündelt | `claude/happy-thompson-24l4uu` | v33.76 | (kc) · (kd) | PR **#350**, Kopf `b43d70a` (CI seit 17:35 läuft als Basislinie, wird durch den Folge-Commit ersetzt). **Leserbefund (17:58): (kd) hat elf Rückschritte an der Sicherheitslinie** (Aronstab, Narzisse, Liguster, Hahnenfuß, Besenginster, Kuhschelle, Kreuzdorn, Eibe-Aril, Tollkirsche-Teilsatz, „Geniess“, „verspeisen“) — Fix F1–F5 in EINEM Commit mit Differenzprobe gegen die Basis `255665c`, oder (kd) revertieren und als v33.77 nachliefern; erst dann Merge |
-| 8 | Hauptfunktionen · Scanner 14 (ke) | `claude/happy-thompson-24l4uu` | v33.77 | (ke) | lokal fertig (PV7); Push erst nach dem Merge von #350 |
-| 9 | Sicherheit · Scheibe 3 (Register: Deklaration + Prüfung) | `ccr-5e705a36-jveaak` | v33.78 | (kf) | baut lokal auf frischem main; Push erst auf Signal mit der SHA des Vorgängers |
+| 8 | Hauptfunktionen · Scanner 14 (ke) | `claude/happy-thompson-24l4uu` | **v33.78** | (ke) | lokal fertig (PV7); stapelt auf Sicherheits Kopf; Push erst nach dem Merge von #350 (Zweig = #350-Kopf) |
+| 9 | Sicherheit · Scheibe 3 (Register GS_SPEICHER) | `ccr-5e705a36-jveaak` | **v33.77** | (kf) | Stand `033e6c7` (ohne Bump, kein PR); stapelt auf den FIX-Kopf von #350 (SHA kommt vom Koordinator, ca. 18:40), eigener Push-Zweig → CI parallel zu #350 |
 | 7 | Audit · Prüfstände (kein Bump) | `ccr-dce5a17c-2xzhvi` | – | (jv) Nachtrag | PR **#348**, Kopf **`6cb8879`** (= `b199b6d` + main `1d1019b` per GitHub eingezogen, Baum = Test-Merge `49e6a2b`), CI läuft seit ca. 17:55 → Merge-Commit bei grün, BEVOR Hauptfunktionen den Fix-Kopf von #350 pusht (damit dessen CI ihn schon enthält); sonst zuletzt |
 | – | Brett (#341) | `ccr-b63433a4-d1xgyg` | – | – | enthält `.github/workflows/*` und `docs/AGENTEN-NETZ.md` → Fernando; der Werkzeug-Teil kommt als eigener PR |
 
