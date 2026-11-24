@@ -282,6 +282,24 @@ aufgelöst:
   Prüfstand ab. `npm audit` meldet dazu zwei mittlere Lücken in `minimatch`
   (über ESLint); ESLint läuft nur als Parser in den Prüfständen, nie in der App.
 
+**Den Merge gegengelesen (24.11.2026):** vier Leser (index.html, Prüfstände,
+stille Verluste, Doku), je ein Gegenprüfer — 20 Funde bestätigt, alle behoben.
+Die wichtigsten: zwei Stichworte zu den vertraulichen Befunden standen in diesem
+Eintrag wörtlich (entfernt); `initDefaultGarden` setzte die Gärten ungesiebt
+(Klassenwächter von `main` rot) — die erste Reparatur über `_gsListeEinspielen`
+hätte bei vollem Speicher „Mein Garten" über die Gärten geschrieben, jetzt wird
+nur gesiebt und nichts geschrieben; `contrast_check` wartete auf ein Banner, das
+`main` entfernt hat, und hielt einen Öffner mit Server-Frage für „nicht
+aufgegangen"; `escape_check` hiess „fremder Fund" und fuhr den eigenen Zweig;
+`robust_check` hatte zwei „Web-Root"-Fälle; das Garten-Scan-Detail hatte die
+`[].concat`-Absicherung von `main` verloren (neuer Fall, Gegenprobe rot). Der
+Vorlauf der Suite auf 741ad31 (48 Prüfstände) war rot: 5 — `storage`, `apk`,
+`sicherheit`, `contrast` aus diesen Nähten, `sensor` (65 von 65) nur, weil das
+Bump-Skript mitten in seinem Lauf `index.html` umschrieb; einzeln 65 von 65 grün.
+Nach den Reparaturen einzeln grün: `storage`, `apk` (106), `sicherheit`
+(`schluss_e`), `contrast`, `sensor`, `escape` (18), `robust` (38), `sync` (19),
+`statik`, `austausch`.
+
 **Nachgetragen am 16.11.2026 — der Hinweis des Sicherheits-Branches galt auch
 hier:** der Garten-Pull dieser Scheibe übernahm die geholte Liste UNGESIEBT
 (`gardens = d.gardens`). Ein `null`, eine Zeichenkette oder eine Liste in der
