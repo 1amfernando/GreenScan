@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 16:25 UTC · `main` = `06daf91` (**v33.72**) · #346 KI-Modelle (Kopf `24dd782`, CI seit 15:55) und #347 Hauptfunktionen (Kopf `9e0cc7a`, CI seit 16:17) laufen parallel; Merge in dieser Reihenfolge als MERGE-COMMIT bei grün · danach Sicherheit v33.75 (kb) · danach Hauptfunktionen „Suche 11“ v33.76 (kc).
+**Stand:** 24.11.2026, 16:42 UTC · `main` = `bbb5b26` (**v33.73**, #346) · #347 Hauptfunktionen (Kopf `9e0cc7a`, Baum gegen das neue main unverändert → die CI seit 16:17 gilt 1:1) wartet auf grün + Leser, Merge als MERGE-COMMIT · danach Sicherheit v33.75 (kb) · danach Hauptfunktionen „Suche 11“ v33.76 (kc).
 
 ## 1 · Warum es schneller wird
 
@@ -42,7 +42,7 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 |---|---|---|---|---|---|
 | 1 | Hauptfunktionen (Pilz · Wissen · Lina 9) | `claude/happy-thompson-24l4uu` | **v33.71** | (js) · (jt) · (ju) | **GEMERGT** als `7ca6a19` (#343) |
 | 2 | Audit | `ccr-dce5a17c-2xzhvi` | **v33.72** | (jv) | **GEMERGT** als Merge-Commit `06daf91` (#344; CI auf 440f9e5 grün, Baum identisch) |
-| 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | v33.73 | (jw) | PR **#346**, Kopf **`24dd782`** (`22422eb` + main per GitHub eingezogen), CI läuft; sieben Pins + Prüffall `GS_ROLLE_SCHNELL_BEWUSST`; der Proxy-Teil gehört Fernando (Patch-Text in FUER-FERNANDO §33) |
+| 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | **v33.73** | (jw) | **GEMERGT** als Merge-Commit `bbb5b26` (#346; CI auf 24dd782 grün, Baum identisch); der Proxy-Teil gehört Fernando (FUER-FERNANDO §33) |
 | 4 | Hauptfunktionen · Lina · Einblick ehrlich + Scanner 12 + Pilz-Verwechsler (EIN Kopf) | `claude/happy-thompson-24l4uu` | v33.74 | (jx) · (jy) · (jz) · (ka) | PR **#347**, Kopf **`9e0cc7a`** (eingefroren), CI läuft seit 16:17; lokale Prüfstände grün; drei Leser prüfen read-only (Scanner/Pilz · Lina „Aus“ · Regression) |
 | 5 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.75 | (kb) | Scheibe 1 fertig; stapelt auf `9e0cc7a` (Kopf von Nr. 4), Bump von Hand (`_bump.js` trippt auf dem Stapel) |
 | 6 | Hauptfunktionen · Suche 11 (Vorschläge beim Anlegen wie die Artensuche, „⚠️ giftig“ je Art) | `claude/happy-thompson-24l4uu` | v33.76 | (kc) | baut lokal; pusht erst auf den Kopf von Nr. 5, wenn der Koordinator ihn meldet; Bärlauch/Maiglöckchen-Gegenprobe Pflicht |
@@ -58,6 +58,7 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 
 | main | Version | Was |
 |---|---|---|
+| `bbb5b26` | v33.73 | #346 KI-Modelle — eine Modellwahl je Verwendung (MERGE-COMMIT; CI auf 24dd782 grün, Baum identisch mit dem PR-Kopf) |
 | `06daf91` | v33.72 | #344 Audit — der grosse Durchgang (MERGE-COMMIT; CI auf 440f9e5 grün, Baum identisch mit dem PR-Kopf 9ac3f5e) |
 | `7ca6a19` | v33.71 | #343 Pilz-Scanner · Wissen-Tab · Lina 9 (Hauptfunktionen) |
 | `8a2f16e` | v33.70 | #340 Lina · Einblick (selbst gemergt von der Cowork-Sitzung „Linas Wünsche“; Nachprüfung als Kommentar auf dem PR) |
