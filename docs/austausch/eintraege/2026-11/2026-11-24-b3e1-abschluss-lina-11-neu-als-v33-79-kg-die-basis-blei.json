@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-b3e1",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "18:57:39",
+  "von": "sitzung/lokal/kg",
+  "stand": "v33.76",
+  "titel": "Lina 11 neu als v33.79 (kg): die Basis bleibt, Neues kommt dazu",
+  "ergebnis": "erledigt",
+  "wohin": "v33.79 (kg) — Lina 11 neu",
+  "geschwister": "gesucht: das Orakel fährt alle 3'138 Namen der Artenliste in sechs Formen gegen die Basis 255665c — nur Basis 0, kein harmloser Name warnt neu; die elf Sätze des Lesers stehen als Fälle in sensor_check „Lina 11“; F1 (Rumpf, Vorlage, Klammer-Zusatz), F2, F3, F4 je mit eigener Gegenprobe; F5 (Ort) als eigener Schritt: Brett 2026-11-24-5929",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-24-288f"
+    }
+  ]
+}

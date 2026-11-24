@@ -115,6 +115,11 @@ alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
    ausgeschaltetem Einblick: die Pruefung laeuft auf dem Geraet), und eine giftige Art, die
    erst in der ANTWORT steht — dort nur mit ganzem Namen oder Binomen im selben Satz
    (sonst warnte „Ja, Petersilie ist essbar." vor der Hunds-Petersilie; gemessen).
+   Seit v33.79 (Lina 11 neu) kommt NEUES nur DAZU: deklinierte Giftnamen
+   (`_gsLinaGiftGenannt`) und alle eigenen Pflanzen der Frage; die Erkennung der Basis
+   bleibt. Eine Warnung nehmen nur zwei enge Ausnahmen weg: ein Pflegesatz in drei
+   Formen und ein Gegensatz-Satz, dessen zustimmender Teil eine ANDERE Art nennt.
+   Das Mass ist ein Orakel über alle Namen der Liste: Was die Basis warnt, warnt weiter.
 3. **Der Notfall kommt VOR dem Sende-Riegel** und nimmt die Antwort nicht weg.
 4. **Zahlen im Kontext sind Rohwerte aus einem Datensatz** — `sensor_check`
    „Lina" haelt jede Prozent-/Gradzahl gegen den Speicher. Eine Zahl, die in

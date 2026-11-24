@@ -12,6 +12,67 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (kg) - v33.79: Lina 11 neu — die Gift-Gegenprobe liest Namen, wie Sätze sie schreiben, und die Basis bleibt das Mass
+
+**Auftrag:** Lina 11 neu nach dem Revert von (kd) (Brett 288f, Koordinator 24.11.2026). Bedingungen: Die Basis `255665c` ist das
+Orakel über ALLE Namen der Artenliste; die Liste „nur die Basis warnt“ ist leer. Jede neue Heuristik wird einzeln gemessen und hat
+eine eigene Gegenprobe. Wo eine Heuristik nicht sicher ist, bleibt die Regel der Basis.
+
+**Gebaut:** `_gsLinaSicherheit` behält die Teile, Stämme und die Erkennung der Basis (`imSatz`) unverändert. Neu kommt dazu:
+**A** — die Arten des Teils zusätzlich aus `_gsLinaGiftGenannt` (deklinierte Namen: Mehrzahl, Fälle, „…blätter/…beeren“, ein
+fehlender Bindestrich) und ALLE eigenen Pflanzen der Frage (`_gsLinaPflanzenInFrage(…, 50)`, vorher zwei). Ein Namensmuster
+sperrt nur ein geprüfter Eintrag mit genau diesem Namen (F1), nie ein Einlese-Rumpf (auch nicht mit Vorlage aus
+`gsAutoFillLookalikes`) und nie ein Klammer-Zusatz; „Birken-Reizker“ und „Birkenreizker“ sind ein Name. Ein Muster in einem
+längeren harmlosen Namen („narzissen“ in „Narzissen-Scheidling“) zählt nicht (Hülle). **B** — ein schwacher Stamm (geniess,
+bedenkenlos, unbedenklich) ist in drei Formen keine Zusage, und nur ohne jedes Ess-Wort IM GANZEN SATZ: „bedenkenlos“ vor einer
+Pflegehandlung; „unbedenklich“ mit einem Pflegemittel als Satzgegenstand (oder „das“, aber nur nach einer Pflegehandlung im
+selben Teil), ohne dass der Teil eine Art nennt; „geniesst“ mit Licht oder Sonne. „Das ist unbedenklich, auch beim Umtopfen.“ auf
+eine Essfrage und „bedenkenlos klein schneiden und roh essen“ warnen (beide vor dem Push in der Gegenprüfung gefunden: die
+Teile werden an „und“ getrennt, und „das“ zeigte sonst auf die Frage). **C** — in einem Gegensatz-Satz zählen die Klauseln einzeln. Eine Art fällt nur aus der Warnung,
+wenn JEDER zustimmende Teil selbst eine andere Art nennt und ein anderer Teil sie giftig nennt; „nicht giftig“ ist keine
+Warnung. **D** — „Lilli auch.“ nach einer Zusage ist eine Zusage, aber nur kurz (bis vier Wörter), ohne eigenes Prädikat und ohne
+Warnwort. Dazu wie in (kd) der Spiegel: Die drei Schreiber ins Cloud-Tagebuch legen ihren Eintrag sofort hinein. Doku:
+CLAUDE.md (Kasten „An der Sicherheitslinie zählt kein Nettogewinn“), `docs/memory/07-lina.md`, `docs/HAUPTFUNKTIONEN.md` Lina 11.
+
+**Gemessen** (Basis `255665c` gegen (kg), im Zustand NACH `gsAutoFillLookalikes`; Werkzeug: das Orakel über 3'138 Namen und ein
+Korpus; die Frage ist „Was kann ich essen?“, wo nichts anderes steht):
+
+| Gruppe | soll | Basis | (kg) | nur Basis |
+|---|---|---|---|---|
+| „Ja, N kannst du essen.“ (3'138 Namen) | warnen bei giftigen | 334 | 349 | 0 |
+| „N ist essbar.“ | warnen bei giftigen | 334 | 349 | 0 |
+| Mehrzahl „Ja, Ne(n) kannst du essen.“ | warnen bei giftigen | 98 | 327 | 0 |
+| Genitiv „Die Beeren der N …“ / „Die Blätter des Ns …“ | warnen bei giftigen | 334 / 35 | 349 / 315 | 0 / 0 |
+| Frage „Kann ich N essen?“ → „Ja, die kannst du essen.“ | warnen bei giftigen | 434 | 435 | 0 |
+| neue Warnung bei einem harmlosen Namen (Art-Stufe < 3) | keine | — | 0 | — |
+| die elf Sätze des Lesers an #350 (dazu „ohne Bedenken verspeisen“) | warnen | 12 von 12 | 12 von 12 | 0 |
+| Zusagen aus (kd), W-Gruppe | warnen | 6 von 11 | 11 von 11 | 0 |
+| giftige / harmlose Lebensmittel | warnen / still | 4 von 8 / 0 von 28 | 8 von 8 / 0 von 28 | 0 |
+| Vorlagen je giftigem Namen (312): naschen · geniess · Gegensatz ohne eigene Art · „unbedenklich“ über die Pflanze · Schnittlauch | warnen | 310 · 296 · 310 · 310 · 310 | 311 · 311 · 312 · 311 · 311 | 0 |
+| „Ja, Basilikum … N auch.“ (312) / Verwechsler-Warnung „Auch N wächst …, und es ist giftig“ (312) | warnen / still | 1 / 1 | 307 / 1 | 0 |
+| Pflegesätze aus (kd) (11) / „Du kannst N bedenkenlos umtopfen.“ (312) | still | 11 / 310 warnten | 1 / 36 | 10 / 275 = B |
+| Gegensatz-Sätze aus (kd) (5) / „Basilikum ist essbar, N hingegen ist sehr giftig.“ (312) | still | 4 / 310 warnten | 0 / 36 | 4 / 274 = C |
+
+„Nur Basis“ gibt es nur in den beiden benannten Ausnahmen B und C, und dort ist jeder Satz einer, den die Antwort selbst widerlegt
+(eine Pflegehandlung; eine andere Art ist essbar, diese giftig). Zwei giftige Namen warnen in der Basis wie in (kg) nicht und stehen
+im Fall mit Grund: „Wüstenrose (kl.)“ (der Punkt der Abkürzung trennt den Satz) und „Rote Rosskastanie“ (eine harmlose Fassung
+desselben Namens geht vor). Kosten: Im Mittel über 18'828 Sätze braucht eine Gegenprobe 17 ms statt 10 ms.
+
+**Prüfstände:** `sensor_check` „Lina 11 · Gift-Gegenprobe (kg)“: 34 Zusagen warnen, 22 Sätze bleiben still, 28 harmlose und 8
+giftige Lebensmittel, das Orakel im Kleinen (312 giftige Namen in zwei Formen), über `gsLinaSend` drei Spitznamen,
+„Tollkirschen“, „nicht giftig … dagegen“ und ein Pflegesatz, dazu der Spiegel (Scanner, Formular, ein nie geladener Spiegel).
+Vierundzwanzig Gegenproben sind einzeln rot: ohne Basis-Erkennung (das Orakel im Kleinen meldet Holunder (Roth),
+Amaryllis (Ritterstern), Birken-Reizker, Marzipanpilz, Grosser Schirmling (Brauner)) · ohne Muster im Teil · Frage ohne Muster
+und Pflanzen · Deckel 2 · Rumpf sperrt · Vorlage zählt als Angabe · Klammer-Zusatz sperrt · ohne Hülle · Bindestrich trennt
+Namen · Pflege nie · Pflege ohne Ess-Wort-Prüfung · Ess-Wort nur im Teil · „das“ ohne vorherige Pflege · Pflege ohne Satzgegenstand · Gegensatz ohne eigene Art · „nicht giftig“ als
+Warnung · Gegensatz ohne Klauseln · Gegensatz nie · „auch“ nie · „auch“ mit Prädikat · „auch“ im Warnsatz · drei Spiegel-Proben.
+Ein Nebenfund aus dem Bau: Der erste Messlauf lief VOR `gsAutoFillLookalikes` und mass einen anderen Zustand als die App; ein
+Rumpf sah danach aus wie ein geprüfter Eintrag. Das Orakel wartet jetzt auf `_lookalike_tpl`.
+
+**Offen:** brett:2026-11-24-5929 (der Ort in der Frage als eigener, kleiner Schritt; der Bau liegt lokal in `a130338`)
+**Nicht geprüft:** echte KI-Antworten (gestellt) und der Hold-out-Satzsatz des Koordinators (folgt vor dem Merge); Umlaut-Mehrzahlen
+(„Aronstäbe“); Namen, die nur in einer anderen Sprache stehen.
+
 ### 2026-11-24 (ke) - v33.78: Scanner 14 — der Pilz-Vergleich zeigt die gefährlichsten Verwechsler, und ein fehlendes Register wird gesagt
 
 **Auftrag:** die Punkte 5 und 6 aus der Prüfung von #347 (Koordinator-Liste vom 24.11.2026), gemessen vor dem Bau.
@@ -69,6 +130,7 @@ brett:2026-11-24-5d5b (unverändert) · Scheiben 4–9 aus `docs/SPEICHER-V2.md`
 stehen weiter von Hand da — der Fall macht eine vergessene Stelle rot, er nimmt sie niemandem ab.
 **Nicht geprüft:** ob `regel: 'ganz'` je Schlüssel stimmt, hält kein Fall (gebunden sind nur die Stempel- und Marken-Liste); ein
 echter Server, ein zweites Gerät; `backup_check` lief lokal ohne Postgres nur teilweise (Exit 2) — die CI hat eines.
+
 
 ### 2026-11-24 (kd) - v33.76: Lina 11 vor dem Merge zurückgenommen, kommt neu als v33.79 (kg) — elf Zusagen, die die Basis warnte, waren still
 

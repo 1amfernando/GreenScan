@@ -1,0 +1,22 @@
+{
+  "id": "2026-11-24-5929",
+  "art": "idee",
+  "datum": "2026-11-24",
+  "zeit": "18:57:26",
+  "von": "sitzung/lokal/kg",
+  "stand": "v33.76",
+  "titel": "Lina: ein Ort in der Frage als Rückfall für die Gift-Gegenprobe („Kann ich die Beeren auf dem Balkon essen?“)",
+  "nutzen": "Eine Frage, die keine Art und keine eigene Pflanze nennt, sondern einen Ort („auf dem Balkon“, „im Wohnzimmer“, ein Gartenname), bekommt eine Warnung, wenn dort eine giftige Pflanze steht und die Antwort zustimmt („Ja, die kannst du essen.“). Der Bau liegt lokal vor (a130338 auf dem zurückgenommenen Stand): Der Ort gilt nur in der FRAGE, nur ohne Art und ohne eigene Pflanze dort, und nur für einen zustimmenden Teil, der selbst keine Art nennt; die Antwort-Seite liest nur Namen. Vorher warnten 8 von 8 harmlosen Garten-Sätzen („Kann ich die Erdbeeren im Garten essen?“ vor der Eibe daneben).",
+  "pruefbar": "Auf (kg) setzen und mit dem Orakel (alle Namen, sechs Formen) gegen den Kopf ohne Ort fahren: „nur ohne Ort warnt“ muss leer sein. Die Gruppen „Ort ohne Fehlalarm“ (8) und „Ort warnt weiter“ (4) aus a130338 übernehmen, je Regel eine Gegenprobe. Danach den Hold-out des Koordinators fahren.",
+  "stichworte": [
+    "lina",
+    "gift-gegenprobe",
+    "ort"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-24-288f"
+    }
+  ]
+}

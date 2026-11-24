@@ -2314,6 +2314,22 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > Saetzen, Brett 6bbf). **Wer eine Warnung erweitert, misst sie zuerst an harmlosen
 > Saetzen.**
 
+> **An der Sicherheitslinie zählt kein Nettogewinn — die Basis ist das Orakel** (v33.79, Lina 11 neu;
+> Brett 288f). Die erste Fassung von Lina 11 (v33.76, vor dem Merge zurückgenommen) gewann viel: die Zusagen
+> stiegen von 44 % auf 68 %, die Fehlalarme fielen von 18 auf 5. Elf Zusagen aber, die die Basis warnte, waren still
+> („Ja, Aronstab kannst du essen.", „Geniess die Beeren der Eibe!"), denn ihr eigenes Mass „15 von 15“ stammte aus
+> den eigenen Sätzen. Jetzt gilt: Die Erkennung der Basis (`imSatz`) bleibt, und alles Neue kommt DAZU — deklinierte
+> Namen (`_gsLinaGiftGenannt`) und alle eigenen Pflanzen der Frage. Gemessen wird mit einem Orakel über ALLE Namen der
+> Artenliste in sechs Formen; die Liste „nur die Basis warnt“ ist leer. Eine Warnung wegnehmen darf nur eine enge,
+> benannte Ausnahme (Pflege in drei Formen; ein Gegensatz-Satz, dessen zustimmender Teil eine andere Art nennt). Drei
+> Fallen aus dem Bau: (1) Ein Namensmuster darf nur ein GEPRÜFTER Eintrag mit genau diesem Namen sperren, nie ein
+> Einlese-Rumpf und nie ein Klammer-Zusatz. „Kreuzdorn“ und „Hahnenfuß“ waren so gesperrt. (2) `gsAutoFillLookalikes`
+> füllt `lookalike` zur Laufzeit mit Vorlagen (`_lookalike_tpl`). Wer „Rumpf“ an leeren Feldern erkennt, misst vor der
+> Füllung etwas anderes als danach. Ein Messlauf wartet auf `_lookalike_tpl`. (3) Ein kurzes Giftmuster IN einem
+> längeren harmlosen Namen („narzissen“ in „Narzissen-Scheidling“, „tintling“ in „Schopf-Tintling“) meint nicht die
+> giftige Art. Die Hülle des harmlosen Namens deckt es ab, und die Basis warnte dort auch nicht. `sensor_check`
+> „Lina 11 · Gift-Gegenprobe (kg)“ trägt das Orakel im Kleinen (312 giftige Namen in zwei Formen).
+
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
 > lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer
