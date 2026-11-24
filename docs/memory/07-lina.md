@@ -115,6 +115,11 @@ alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
    ausgeschaltetem Einblick: die Pruefung laeuft auf dem Geraet), und eine giftige Art, die
    erst in der ANTWORT steht — dort nur mit ganzem Namen oder Binomen im selben Satz
    (sonst warnte „Ja, Petersilie ist essbar." vor der Hunds-Petersilie; gemessen).
+   Seit Lina 11 liest EIN Leser die Giftnamen in Frage und Antwort: `_gsLinaGiftGenannt`
+   (Mehrzahl, Fälle, „…blätter"; ein Name nur, wenn jeder Eintrag dieses Namens giftig ist;
+   alle eigenen Pflanzen der Frage, auch über einen Ort). Pflegesätze („bedenkenlos
+   zurückschneiden") sind keine Zusage, und in einem Gegensatz-Satz fällt eine Art aus der
+   Warnung, die ein anderer Teil selbst giftig nennt („nicht giftig" zählt nicht).
 3. **Der Notfall kommt VOR dem Sende-Riegel** und nimmt die Antwort nicht weg.
 4. **Zahlen im Kontext sind Rohwerte aus einem Datensatz** — `sensor_check`
    „Lina" haelt jede Prozent-/Gradzahl gegen den Speicher. Eine Zahl, die in

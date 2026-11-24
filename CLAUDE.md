@@ -2300,6 +2300,21 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > warnte „Ja, Petersilie ist essbar." vor der Hunds-Petersilie (gemessen an 22
 > Saetzen, Brett 6bbf). **Wer eine Warnung erweitert, misst sie zuerst an harmlosen
 > Saetzen.**
+>
+> **Und sie liest Namen, wie Sätze sie schreiben — und Pflege ist keine Zusage**
+> (Lina 11, Prüfung von #347). Gemessen an einem Korpus: 5 von 13 Zusagen über giftige
+> Arten kamen ohne Warnung durch („Tollkirschen kannst du essen.", „die Blätter des
+> Gefleckten Schierlings", „Oleanderblätter"), und 10 von 13 harmlosen Sätzen warnten
+> („Du kannst Lilli bedenkenlos zurückschneiden.", „Basilikum ist essbar, das
+> Maiglöckchen hingegen ist sehr giftig."). Jetzt: EIN Leser für Frage und Antwort,
+> `_gsLinaGiftGenannt` (Mehrzahl, Fälle, „…blätter", ein fehlender Bindestrich; ein Name
+> zählt nur, wenn JEDER Eintrag dieses Namens giftig ist — „Holunder (Roth)" heisst ohne
+> Zusatz wie der Schwarze); „bedenkenlos/unbedenklich/geniessen" zählen nur ohne
+> Pflegewort; ein Gegensatz-Satz wird an Kommas getrennt, und eine Art, die ein anderer
+> Teil giftig nennt, fällt aus der Warnung — „nicht giftig" ist dabei keine Warnung. Die
+> Gegenprobe prüft ALLE eigenen Pflanzen der Frage (vorher zwei) und löst einen Ort auf
+> („die Pflanze im Wohnzimmer": Notiz, Spitzname, Gartenname). `sensor_check` „Lina 11 ·
+> Gift-Gegenprobe": 12 Zusagen, 14 harmlose Sätze, 28 harmlose und 8 giftige Lebensmittel.
 
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen

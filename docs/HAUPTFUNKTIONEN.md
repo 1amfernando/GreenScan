@@ -142,6 +142,14 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    `_gsOrtNameFuerKi`; `gsSchaedlingeNotiert` (eigene Zeile, „kein Schädling" nur mit geladenem Tagebuch);
    `_gsLinaTrefferMitPflanzen` und Arten der Antwort mit ganzem Namen. Den Wortlaut der Datenschutzerklärung
    entscheidet Fernando (FUER-FERNANDO §33).
+11. ✅ v33.76 (`sensor_check` „Lina 11 · Gift-Gegenprobe", Prüfung von #347, gebaut 24.11.) — **Die Gift-Gegenprobe
+    warnte bei Pflege und schwieg bei Mehrzahl.** Gemessen: 5 von 13 Zusagen über giftige Arten ohne Warnung
+    („Tollkirschen kannst du essen.", „des Gefleckten Schierlings", „Oleanderblätter", ein deklinierter Name in
+    der Frage), 10 von 13 harmlosen Sätzen mit Warnung (Pflegesätze mit „bedenkenlos", Gegensatz-Sätze). Die
+    Gegenprobe sah nur zwei eigene Pflanzen der Frage, „die Pflanze im Wohnzimmer" löste nichts auf, und ein eben
+    notierter Schädling kam erst nach einem Neustart bei Lina an. Jetzt EIN Leser für Frage und Antwort
+    (`_gsLinaGiftGenannt`), Pflegewörter heben die schwachen Stämme auf, Gegensatz-Sätze werden getrennt, alle
+    eigenen Pflanzen und ein Ort zählen, und die drei Cloud-Schreiber legen ihren Eintrag sofort in den Spiegel.
 
 ## Offen — Suche
 

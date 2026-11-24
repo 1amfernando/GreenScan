@@ -12,6 +12,45 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (kd) - v33.76: Lina 11 — die Gift-Gegenprobe liest Namen, wie Sätze sie schreiben, und Pflege ist keine Zusage
+
+**Auftrag:** die Punkte 1–4 aus der Prüfung von #347 (Koordinator-Liste vom 24.11.2026), gemessen vor dem Bau.
+
+**Gemessen** (26 Sätze, eigene Pflanzen Lilli = Maiglöckchen, Basi, Hecke = Eibe, Olli = Oleander): 5 von 13 Zusagen über giftige
+Arten kamen ohne Warnung durch — „Tollkirschen kannst du essen.", „Die Blätter des Gefleckten Schierlings sind essbar.", „Ja,
+Herbstzeitlosen kannst du roh essen.", „Ja, Oleanderblätter sind essbar." und „Kann ich Tollkirschen essen?" → „Ja, die kannst du
+essen." (`_gsArtenTreffer` sucht ganze Namen). 10 von 13 harmlosen Sätzen warnten: Pflegesätze („Lilli geniesst die Morgensonne.",
+„Du kannst Lilli bedenkenlos zurückschneiden." — „geniess", „bedenkenlos", „unbedenklich" galten allein als Zusage) und
+Gegensatz-Sätze („Basilikum ist essbar, das Maiglöckchen hingegen ist sehr giftig."). Dazu: die Gegenprobe prüfte nur zwei eigene
+Pflanzen einer Frage (`GS_LINA_DETAIL_PFLANZEN`, gedacht für die Detailzeilen), „die Pflanze im Wohnzimmer" löste nichts auf, und
+die drei Schreiber ins Cloud-Tagebuch (Schädlings-Scanner, Dünge-Coach, Tagebuch-Formular) legten nichts in den Spiegel, den Lina
+liest — ein eben notierter Schädling kam erst nach einem Neustart an, und „kein Schädling" stand als geprüft da.
+
+**Gebaut:** EIN Leser für Frage und Antwort, `_gsLinaGiftGenannt`: die giftigen Arten (Stufe ≥ 3 an der Art, `_gsLinaGiftArten`,
+198 Arten) als Muster mit Mehrzahl, Fällen, Adjektiv-Endungen, „…blätter/…beeren" und ohne Bindestrich; ein Name zählt nur, wenn
+JEDER Eintrag dieses Namens giftig ist („Holunder (Roth)" ohne Zusatz heisst wie der Schwarze — sonst warnte „Holunderblüten kannst
+du essen."), das letzte Wort allein nur ab zehn Zeichen und wenn alle Arten damit giftig sind; dazu ALLE eigenen Pflanzen, auch
+über einen Ort (Notiz, Spitzname, Gartenname; `_gsLinaOrteInFrage`). In `_gsLinaSicherheit`: starke Stämme und ein Verzehr-Verb
+mit Zustimmung wie bisher, die schwachen nur ohne Pflegewort; ein Satz mit dagegen/hingegen/jedoch/während … wird auch an Kommas
+getrennt, und eine Art, die ein ANDERER Teil giftig nennt oder verneint, fällt aus der Warnung — „nicht giftig" ist dabei keine
+Warnung (damit warnt „Lilli ist nicht giftig, Basilikum dagegen kannst du auch essen." jetzt, vorher nicht); die Arten der Frage
+und des Teils zählen zusammen; „Lilli auch." nach einer Zusage ist eine Zusage. Der Spiegel: `_gsCloudTagebuchSpiegelNeu` nach
+jedem erfolgreichen Schreiben (das Formular schickt dafür `return=representation`), nur in einen Spiegel, den es schon gibt.
+Doku: CLAUDE.md (Kasten zur Gegenprobe), `docs/memory/07-lina.md`, `docs/HAUPTFUNKTIONEN.md` Lina 11.
+
+**Prüfstände:** `sensor_check` „Lina 11 · Gift-Gegenprobe": 12 Zusagen warnen, 14 Pflege-/Gegensatz-Sätze bleiben still, 28
+harmlose Lebensmittel und Wildkräuter still, 8 giftige warnen; über `gsLinaSend` drei Spitznamen in einer Frage, „Tollkirschen",
+ein Ort, ein Pflegesatz; der Ort in der Detailzeile; ein Schädling über den echten Schreiber sofort im Kontext (Scanner und
+Formular), ein nie geladener Spiegel bleibt es. Gegen den Stand davor rot (30 Gründe); vierzehn Gegenproben einzeln rot, je mit
+ihrem Grund (schwache Stämme allein · Gegensatz ohne Ausschluss · „nicht giftig" als Warnung · nur die Arten der Frage · ohne
+„auch" · keine Namen im Satz · ohne Endungen · ohne Pflanzenteil · Name auch, wenn nicht alle giftig · Deckel 2 · kein Ort ·
+Scanner ohne Spiegel · Spiegel aus dem Nichts · Formular ohne Spiegel).
+
+**Offen:** nichts aus diesen Punkten.
+**Nicht geprüft:** echte KI-Antworten (gestellt) — ein Modell kann Zusagen formulieren, die der Korpus nicht kennt; Umlaut-Mehrzahlen
+(„Bäume") und Namen, die nur in einer anderen Sprache stehen; ob `garden_diary` live `created_at` in der Antwort trägt (die
+Abfrage des Spiegels liest es, gestellt ist es mit).
+
 ### 2026-11-24 (kc) - v33.76: Suche 11 — „Pflanze hinzufügen": die Vorschläge suchen wie die Suche, schlagen nur Namen vor und warnen nach der Art
 
 **Auftrag:** Hauptfunktionen, Suche (Brett 66d7, gemessen 24.11.2026 — Fernando: „Die Agenten müssen die App auf ein next höheres
