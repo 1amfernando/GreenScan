@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-11-5bef",
+  "art": "frage",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Datenschutzerklärung: sollen Google Fonts und Wikipedia als Empfänger in §4 stehen, und welche Frist gilt für Nutzungsdaten?",
+  "an": "fernando",
+  "text": "privacy.html §4 nennt Supabase, Anthropic, Stripe, Cloudflare und Karten/Wetter. Die App lädt ausserdem Schriften von fonts.googleapis.com (übertragen wird die IP-Adresse) und das Artbild über die Wikipedia-Schnittstelle (übertragen wird der Artname); Netlify ist zweiter Hoster. §8 nennt eine Frist nur für Fehler-Logs (30 Tage), keine für Nutzungsdaten — die Aufbewahrungs-Migration ist nicht angewandt. Das Stand-Datum steht auf „17. Juni 2026\", obwohl v33.59 einen Satz berichtigt hat („anonym\" → „mit deinem Konto verknüpft\"). Ein Rechtstext gehört vom Betreiber entschieden.",
+  "haengt_daran": "ob die Erklärung vollständig ist — und ob das Stand-Datum mitgezogen werden soll",
+  "stichworte": [
+    "privacy.html",
+    "datenschutz",
+    "google-fonts",
+    "wikipedia",
+    "netlify"
+  ]
+}

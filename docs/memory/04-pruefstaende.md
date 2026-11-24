@@ -16,6 +16,8 @@ Siebzehn der Playwright-Pruefstaende teilen die Beispieldaten in
 
 | Pruefstand | Die Frage, die er stellt |
 |---|---|
+| `statik_check` | was sagt ein PARSER ueber die App? (seit v33.72) ESLint nur als Parser: doppelte Funktionen, Namen, die es nirgends gibt, tote `typeof`-Schuetze, Korrektheitsregeln, Funktionen ohne Aufrufer ausser sich selbst, undefinierte CSS-Variablen, sw.js, `calc()` ohne Leerraum (S8), nicht geschlossene Tags (S9). Laeuft als ERSTER; ohne ESLint „nicht pruefbar" |
+| `datum_check` | stimmt der TAG, wenn es in der Schweiz nach Mitternacht ist? (seit v33.72) Europe/Zurich mit gestellter Uhr — alle anderen laufen in UTC; T0 deckelt die UTC-Tagesschnitte, T7 haelt die Kalenderwoche gegen eine eigene ISO-Rechnung |
 | `render_check` | sieht jeder der elf Tabs aus wie vorher? Vergleich zweier Staende (Radius, Schrift, Groesse, Farbe), verdaechtige Texte (`undefined`, `NaN`) muessen 0 sein |
 | `render_check` | aktuellen Stand vermessen. **Seit v33.60 ein Tor:** im Lauf ueber EINEN Stand Exit 1 bei JS-Fehlern, verdaechtigen Texten, Abgeschnittenem — bis dahin endete er immer mit 0. Der Vergleich zweier Staende bleibt eine Messung |
 | `a11y_check` | bedienbar ohne Augen und ohne Maus? `onclick` auf einem `div` ohne `tabindex`/`role`, Namen der Bedienelemente, Fokusrahmen; elf Tabs und Fenster (seit v32.16) |

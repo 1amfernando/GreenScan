@@ -1,0 +1,27 @@
+{
+  "id": "2026-11-11-9d96",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "plan-iterate: die Antwort wird nicht auf Abbruch geprüft, ersetzt den Plan ohne Formprüfung, und die Kosten werden mit 0 gebucht",
+  "text": "Der ganze Plan soll in 8000 Ausgabe-Tokens zurückkommen (entstanden mit bis zu 14000); stop_reason wird nie gelesen — ein abgeschnittener Plan endet nach langer Wartezeit in „Failed to parse JSON response\", bei jedem Versuch wieder. Parst die Antwort, ersetzt sie ai_analysis ohne Strukturprüfung; fn_log_ai_usage läuft ohne p_model und bucht 0. Ein Limit wie in den Geschwister-Functions gibt es hier nicht. main (v33.58) hat nur die Modellwahl umgestellt.",
+  "beleg": [
+    "grep -cE 'stop_reason|fn_check_rate_limit|p_model' supabase/functions/plan-iterate/index.ts → 0; grep -n max_tokens → 8000",
+    "docs/AUDIT-2026-11-11.md edge-8 (teilweise: max_tokens NICHT erhöhen)"
+  ],
+  "vorschlag": "stop_reason max_tokens → 502 mit einem klaren Satz, nichts schreiben; Formprüfung vor dem Update; p_model mitgeben; dasselbe Limit wie garden-scan-analyze. Die Prüfung als reine Funktion antwortPruefen(…) → ok · zu_lang · kein_json · struktur in _shared/, Node-Fall mit vier Antworten.",
+  "stichworte": [
+    "plan-iterate",
+    "edge-function",
+    "stop_reason",
+    "ai_usage"
+  ],
+  "anker": [
+    {
+      "datei": "supabase/functions/plan-iterate/index.ts",
+      "text": "newAnalysis = JSON.parse(cleaned);"
+    }
+  ]
+}

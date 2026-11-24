@@ -349,10 +349,20 @@ const FAELLE = [
       if (falsch.length) return { ok: false, warum: falsch.length + ' feste Stelle(n) mit falscher Zahl oder falschem Wort: ' + falsch.slice(0, 5).join(' · ') };
 
       // ── 2 · die LIVE gerechneten Anzeigen ────────────────────────────────
-      const live = await __seite.evaluate(() => {
+      const live = await __seite.evaluate(async () => {
         const holen = (id) => { const el = document.getElementById(id); return el ? el.textContent.replace(/[^\d]/g, '') : null; };
         try { if (typeof gsUpdateStats === 'function') gsUpdateStats(); } catch (_) {}
         try { if (typeof loadSettings === 'function') loadSettings(); } catch (_) {}
+        // Die Startkachel zaehlt hoch (gsAnimateCounter, 1,4 s, ab dem Aufbau der Startseite) und
+        // ueberschreibt dabei auch, was gsUpdateStats gerade gesetzt hat. Lief E9 allein — also
+        // frueh —, las er 3'129 … 3'134 statt 3'136: eine Zwischenzahl der Animation, kein Fehler.
+        // Gelesen wird, wenn die Zahl zweimal hintereinander gleich ist (hoechstens 5 s).
+        for (let i = 0, vorher = null; i < 20; i++) {
+          const jetzt = holen('stat-total');
+          if (jetzt && jetzt === vorher) break;
+          vorher = jetzt;
+          await new Promise(r => setTimeout(r, 250));
+        }
         return {
           splash: holen('splash-count'),
           statTotal: holen('stat-total'),
@@ -415,9 +425,76 @@ const FAELLE = [
       }
       if (blockKlagen.length) return { ok: false, warum: blockKlagen.join(' · ') };
 
+      // ── 4 · Wissen-Tab: Kopf-Chip und Lexikon-Kacheln (Home 3 / Brett 4d79) ──
+      // Bis zum 19.11.2026 zaehlte der Wissen-Tab mit eigenen Regeln: „4'337 Arten" (DB.length) im
+      // Kopf und auf der Kachel, „Essbar" 1'130 neben 1'062 auf der Startseite und im Filter (die
+      // ungeprueften Eintraege zaehlten mit), „Giftig" 598 neben 675 im Filter (die Eintraege der
+      // Stufe 1 mit `toxic` fehlten). Die Zahl steht nicht als Literal im Quelltext, also sah Teil 1
+      // sie nie, und Teil 2 kannte die Elemente nicht. Gemessen wird wie eine Person: das Lexikon
+      // ueber seinen Knopf oeffnen, die Kachel lesen, sie ANTIPPEN und die Trefferzahl der Liste
+      // lesen, die sich oeffnet — eine Zahl auf einer Kachel ist ein Versprechen ueber diese Liste.
+      const wissen = await __seite.evaluate(async () => {
+        const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+        const ziffern = (t) => { const z = String(t || '').replace(/[^\d]/g, ''); return z ? parseInt(z, 10) : null; };
+        const o = { kacheln: [] };
+        try { switchTab('wissen'); } catch (e) { o.fehler = 'switchTab(wissen): ' + e.message; return o; }
+        await warte(300);
+        const hero = document.getElementById('wissen-hero');
+        o.chip = (hero ? [...hero.querySelectorAll('span')].map(s => s.textContent.trim()).find(t => /Arten/.test(t) && /\d/.test(t)) : null) || null;
+        const WORT = /^(Arten|Essbar|Giftig|Heilkraft)$/i;
+        const lexikon = async () => {
+          try { switchTab('wissen'); } catch (_) {}
+          const knopf = [...document.querySelectorAll('#wissen-nav .recipe-cat')].find(b => /Lexikon/.test(b.textContent));
+          if (!knopf) return [];
+          knopf.click(); await warte(300);
+          const box = document.getElementById('wissen-content');
+          return box ? [...box.querySelectorAll('div')].filter(d => d.children.length === 2 && WORT.test((d.lastElementChild.textContent || '').trim())) : [];
+        };
+        const anzahl = (await lexikon()).length;
+        for (let i = 0; i < anzahl; i++) {
+          const k = (await lexikon())[i];
+          if (!k) break;
+          const e = { wort: k.lastElementChild.textContent.trim().toLowerCase(), zahl: ziffern(k.firstElementChild.textContent) };
+          k.click(); await warte(400);
+          const aktiv = document.querySelector('.screen.active');
+          const st = document.getElementById('search-status');
+          e.bildschirm = aktiv ? aktiv.id : null;
+          e.status = st ? st.textContent.trim() : '';
+          o.kacheln.push(e);
+        }
+        try { if (typeof gsUpdateStats === 'function') gsUpdateStats(); } catch (_) {}
+        o.homeEssbar = ziffern((document.getElementById('stat-edible') || {}).textContent);
+        try { gsSucheMitFilter(''); } catch (_) {}            // keinen Filter fuer die naechsten Faelle stehen lassen
+        return o;
+      });
+      const wKlagen = [];
+      if (wissen.fehler) wKlagen.push(wissen.fehler);
+      const chipZahl = wissen.chip ? parseInt(wissen.chip.replace(/[^\d]/g, ''), 10) : null;
+      if (chipZahl == null) wKlagen.push('Kopf des Wissen-Tabs: kein Chip „N Arten" — der Fall misst dort nichts');
+      else if (chipZahl !== ARTEN) wKlagen.push('Kopf des Wissen-Tabs zeigt „' + wissen.chip + '" (echt ' + ARTEN + ' Arten' + (chipZahl === EINTRAEGE ? ', das sind die Einträge' : '') + ')');
+      const kachel = {};
+      for (const k of wissen.kacheln) kachel[k.wort] = k;
+      for (const w of ['arten', 'essbar', 'giftig', 'heilkraft']) {
+        const k = kachel[w];
+        if (!k) { wKlagen.push('Lexikon: keine Kachel „' + w + '" gefunden'); continue; }
+        if (k.bildschirm !== 'screen-search') { wKlagen.push('Kachel „' + w + '" öffnet keine Liste (danach: ' + k.bildschirm + ')'); continue; }
+        if (w === 'arten') {
+          if (k.zahl !== ARTEN) wKlagen.push('Kachel „Arten" zeigt ' + k.zahl + ' (echt ' + ARTEN + (k.zahl === EINTRAEGE ? ', das sind die Einträge' : '') + ')');
+          continue;
+        }
+        const m = /^([\d'’.]+)\s/.exec(k.status);           // „1062 Treffer · ✅ Essbar"
+        const treffer = m ? parseInt(m[1].replace(/[^\d]/g, ''), 10) : null;
+        if (treffer == null) wKlagen.push('Kachel „' + w + '": Statuszeile danach „' + k.status + '" ohne Trefferzahl');
+        else if (treffer !== k.zahl) wKlagen.push('Kachel „' + w + '" sagt ' + k.zahl + ', die Liste, die sie öffnet, hat ' + treffer);
+      }
+      if (kachel.essbar && wissen.homeEssbar != null && kachel.essbar.zahl !== wissen.homeEssbar) {
+        wKlagen.push('„Essbar": Lexikon ' + kachel.essbar.zahl + ', Startseite ' + wissen.homeEssbar);
+      }
+      if (wKlagen.length) return { ok: false, warum: wKlagen.join(' · ') };
+
       const gemessen = [live.splash, live.statTotal, live.settings, live.dbTotal, live.modalAbout].filter(x => x != null && x !== '').length;
       if (!gemessen) return { ok: false, warum: 'keine einzige Live-Anzeige gerendert — der Fall misst nichts' };
-      return { ok: true, info: ARTEN + ' Arten / ' + EINTRAEGE + ' Einträge selbst gezählt · ' + gemessen + ' Live-Anzeigen stimmen · Aufschlüsselung und Suchkopf benannt · feste Texte in index.html, install.html und manifest.json geprüft' };
+      return { ok: true, info: ARTEN + ' Arten / ' + EINTRAEGE + ' Einträge selbst gezählt · ' + gemessen + ' Live-Anzeigen stimmen · Aufschlüsselung und Suchkopf benannt · Wissen-Tab: Kopf und vier Kacheln = die Listen, die sie öffnen · feste Texte in index.html, install.html und manifest.json geprüft' };
     },
   },
   {
@@ -518,6 +595,82 @@ const FAELLE = [
     }),
   },
   {
+    // v33.72. „erinnere mich …" beantwortete der Sprachmodus mit „Ich habe deinen
+    // Wunsch gespeichert … Schau im Tagebuch oder Mein-Garten-Tab nach für die
+    // Erinnerung." Gespeichert wurde NICHTS: der einzige Schreiber war
+    // `gsBrain.observe`, und gsBrain gibt es seit v28.75 nicht mehr.
+    // versprechen_check sieht so etwas nicht — er sucht eine Meldung neben
+    // einem sbFetch, und hier gab es gar keinen Schreibvorgang.
+    name: 'E17 · Der Sprachmodus verspricht nichts, was er nicht tut: wer „Ich habe … gespeichert" sagt, hat danach etwas gespeichert',
+    lauf: async () => __seite.evaluate(async () => {
+      if (typeof gsVoiceProcess !== 'function') return { ok: false, warum: 'gsVoiceProcess fehlt' };
+      const bild = () => { const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); o[k] = localStorage.getItem(k); } return JSON.stringify(o); };
+      const echtAI = window.callAI; let kiRufe = 0;
+      window.callAI = async function () { kiRufe++; return 'KI-Antwort'; };
+      try {
+        const saetze = ['Erinnere mich morgen ans Giessen', 'erinner mich bitte am Samstag an die Tomaten', 'Kannst du mich an den Rückschnitt erinnern?'];
+        const klagen = []; const antworten = [];
+        for (const satz of saetze) {
+          const vor = bild();
+          const a = String(await gsVoiceProcess(satz) || '');
+          const nach = bild();
+          antworten.push(a);
+          const verspricht = /\b(?:habe|hab)\b[^.!?]*\b(?:gespeichert|eingetragen|notiert|angelegt|vorgemerkt|gemerkt)\b/i.test(a);
+          if (verspricht && vor === nach) klagen.push('„' + satz + '" → „' + a.slice(0, 70) + '…" — und im Speicher hat sich NICHTS geändert');
+          if (!a.trim()) klagen.push('„' + satz + '" → keine Antwort');
+        }
+        if (klagen.length) return { ok: false, warum: klagen[0] + (klagen.length > 1 ? ' (+' + (klagen.length - 1) + ' weitere)' : '') };
+        // Gegenrichtung: die Antwort muss sagen, WO es geht — Schweigen waere auch „kein Versprechen".
+        if (!/Lina/.test(antworten[0])) return { ok: false, warum: 'die Antwort nennt keinen Weg, auf dem es geht: „' + antworten[0].slice(0, 90) + '"' };
+        if (kiRufe) return { ok: false, warum: 'für „erinnere mich" wurde die KI gerufen (' + kiRufe + '×) — das kostet Kontingent für eine Antwort, die feststeht' };
+        return { ok: true, info: saetze.length + ' Sätze · keine Zusage ohne Speichern · die Antwort nennt Lina · 0 KI-Aufrufe' };
+      } finally { window.callAI = echtAI; }
+    }),
+  },
+  {
+    // v33.72. Die Kalibrierung des Lichtmessers las `gsUserPosition` — einen
+    // Namen, den es nie gab. Mit gespeichertem Standort stand dort „Aktiviere
+    // GPS für astronomische Referenz-Kalibrierung"; die Referenz selbst ist
+    // kein einziges Mal erschienen.
+    name: 'E18 · Die Lichtmesser-Kalibrierung sagt, was stimmt: mit Standort steht die astronomische Referenz da, ohne Standort heisst es „ohne Standort" — nie „Aktiviere GPS", wenn es an ist',
+    lauf: async () => __seite.evaluate(async () => {
+      if (typeof gsLuxCalibrate !== 'function' || typeof gsSunLuxEstimate !== 'function') return { ok: false, warum: 'gsLuxCalibrate/gsSunLuxEstimate fehlt' };
+      const val = document.getElementById('lux-value'), box = document.getElementById('lux-calib-sun');
+      if (!val || !box) return { ok: false, warum: '#lux-value oder #lux-calib-sun fehlt' };
+      const ort0 = localStorage.getItem('gs_user_location'), val0 = val.textContent, echtSonne = window.gsSunLuxEstimate;
+      // Der Sonnenstand haengt an der Uhr; nachts gibt es zu Recht keine Referenz.
+      // Gestellt wird der Zeitpunkt der RECHNUNG (21. Juni, 12:30 Ortszeit) — nicht die Uhr der Seite.
+      window.gsSunLuxEstimate = function (lat, lng) { return echtSonne(lat, lng, new Date('2026-06-21T10:30:00Z')); };
+      const zu = () => { try { closeModal('modal-lux-calib'); } catch (_) {} const m = document.getElementById('modal-lux-calib'); if (m) { m.classList.remove('open', 'active'); } };
+      try {
+        val.textContent = '1200';
+        localStorage.setItem('gs_user_location', JSON.stringify({ lat: 47.3769, lng: 8.5417, lon: 8.5417, name: 'Zürich' }));
+        gsLuxCalibrate();
+        const mit = box.textContent.replace(/\s+/g, ' ').trim(), mitSichtbar = box.style.display !== 'none';
+        zu();
+        localStorage.removeItem('gs_user_location');
+        gsLuxCalibrate();
+        const ohne = box.textContent.replace(/\s+/g, ' ').trim();
+        zu();
+        const klagen = [];
+        // Die Referenz erkennt man an ihrer ZAHL — das Wort „astronomische Referenz" steht auch im Hinweis ohne Standort.
+        const hatReferenz = (t) => /Lux/.test(t) && /Sonnenhöhe/.test(t);
+        if (!mitSichtbar || !hatReferenz(mit)) klagen.push('mit Standort steht keine Referenz da: „' + mit.slice(0, 80) + '"');
+        const lux = parseInt((mit.match(/([\d'’.,\s]+)\s*Lux/) || ['', ''])[1].replace(/[^\d]/g, ''), 10);
+        if (hatReferenz(mit) && !(lux >= 30000 && lux <= 120000)) klagen.push('Referenz für Zürich am 21. Juni mittags: ' + lux + ' Lux (erwartet 30\'000–120\'000)');
+        if (/Aktiviere GPS/i.test(mit)) klagen.push('mit gespeichertem Standort steht „Aktiviere GPS" da');
+        if (hatReferenz(ohne)) klagen.push('OHNE Standort steht eine Referenz da — woher?');
+        if (!/Standort/i.test(ohne)) klagen.push('ohne Standort fehlt der Satz, der das sagt: „' + ohne.slice(0, 80) + '"');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'mit Standort: Referenz ' + lux.toLocaleString('de-CH') + ' Lux (Zürich, 21. Juni mittags) · ohne Standort: „' + ohne.slice(0, 44) + '…"' };
+      } finally {
+        window.gsSunLuxEstimate = echtSonne; val.textContent = val0;
+        if (ort0 == null) localStorage.removeItem('gs_user_location'); else localStorage.setItem('gs_user_location', ort0);
+        zu();
+      }
+    }),
+  },
+  {
     name: 'E12 · Saatgut-Inventar: der Knopf zum Erfassen spricht Deutsch („+ Hinzufügen"), sein Text geht durch die Sprachschicht, er steht unter den Feldern statt daneben — und im Fenster steht kein englisches „Add"',
     lauf: async () => __seite.evaluate(async () => {
       // GARTEN, 11.11.2026: der Knopf hiess „+ Add" — der einzige englische in einer deutschen
@@ -559,6 +712,126 @@ const FAELLE = [
         if (alt == null) localStorage.removeItem('gs_seed_inventory'); else localStorage.setItem('gs_seed_inventory', alt);
         try { closeModal('gs-nl-modal'); } catch (_) {}
       }
+    }),
+  },
+  {
+    // v33.72. „Zu meinen Pflanzen" las `EMOJI_BY_CAT` — eine Tabelle, die es nie
+    // gab. Jede aus einem Scan uebernommene Pflanze ohne eigenes Symbol bekam
+    // 🌿, auch ein Pilz. Die Scan-Karte daneben zeigte laengst 🍄 (eigene Tabelle).
+    name: 'E19 · Eine aus dem Scan übernommene Pflanze trägt das Symbol ihrer Kategorie — dasselbe wie die Scan-Karte; ein eigenes Symbol bleibt, eine unbekannte Kategorie ergibt 🌿',
+    lauf: async () => __seite.evaluate(async () => {
+      if (typeof gsAddScanToMyPlants !== 'function') return { ok: false, warum: 'gsAddScanToMyPlants fehlt' };
+      const mp0 = JSON.stringify(myPlants), roh0 = localStorage.getItem('ps_myplants');
+      const r0 = (typeof _lastScanResult !== 'undefined') ? _lastScanResult : null;
+      const t0 = (typeof _lastScanThumb !== 'undefined') ? _lastScanThumb : null;
+      const echtTab = window.switchTab; window.switchTab = function () {};
+      // Die Uebernahme fragt zuerst „Wohnung oder Garten?" und WARTET auf einen
+      // Tipp — ohne diese Antwort haengt der Fall (so geschehen beim ersten Lauf).
+      const echtOrt = window.gsPickScanLocation; window.gsPickScanLocation = async function () { return 'indoor'; };
+      const faelle = [
+        [{ name: 'Fliegenpilz Prüfstand', latin: 'Amanita muscaria pruefstand', category: 'pilz', confidence: 91 }, '🍄'],
+        [{ name: 'Rotbuche Prüfstand', latin: 'Fagus sylvatica pruefstand', category: 'Baum', confidence: 88 }, '🌳'],
+        [{ name: 'Eigene Prüfstand', latin: 'Rosa pruefstand', category: 'wildpflanze', emoji: '🌺', confidence: 80 }, '🌺'],
+        [{ name: 'Unbekannte Prüfstand', latin: 'Ignota pruefstand', category: 'qqq', confidence: 70 }, '🌿'],
+      ];
+      const klagen = []; const gesehen = [];
+      try {
+        for (const [r, soll] of faelle) {
+          _lastScanResult = r; try { _lastScanThumb = ''; } catch (_) {}
+          const vorher = myPlants.length;
+          await gsAddScanToMyPlants();
+          const neu = myPlants.length > vorher ? myPlants[myPlants.length - 1] : null;
+          if (!neu) { klagen.push('„' + r.name + '" wurde nicht übernommen — der Fall misst nichts'); continue; }
+          gesehen.push(neu.emoji);
+          if (neu.emoji !== soll) klagen.push(r.category + (r.emoji ? ' (eigenes ' + r.emoji + ')' : '') + ' → ' + neu.emoji + ' statt ' + soll);
+        }
+        await new Promise(res => setTimeout(res, 450));   // der Tab-Wechsel nach 350 ms — abgefangen, aber abwarten
+        // dieselbe Tabelle wie die Scan-Karte
+        if (typeof _gsScanKatEmoji !== 'function') klagen.push('_gsScanKatEmoji fehlt — Karte und Übernahme haben wieder zwei Tabellen');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'pilz → 🍄 · Baum → 🌳 · eigenes Symbol bleibt · unbekannt → 🌿 (' + gesehen.join(' ') + ')' };
+      } finally {
+        window.switchTab = echtTab; window.gsPickScanLocation = echtOrt;
+        try { myPlants = JSON.parse(mp0); } catch (_) {}
+        if (roh0 == null) localStorage.removeItem('ps_myplants'); else localStorage.setItem('ps_myplants', roh0);
+        try { _lastScanResult = r0; _lastScanThumb = t0; } catch (_) {}
+        try { if (typeof renderMyPlants === 'function') renderMyPlants(); } catch (_) {}
+      }
+    }),
+  },  {
+    name: 'E20 · Ein Rezept zeigt seine Warnung, ein Heilmittel seine Gegenanzeigen und seine Dosierung — und die Schwierigkeit steht als Etikett da, nicht als rohes Wort',
+    lauf: async () => __seite.evaluate(async () => {
+      // v33.72 (Audit „Datenform"). Gemessen wird der TEXT des geoeffneten Fensters
+      // gegen die Daten des Rezepts — nicht eine neue Funktion. Gegen den Stand
+      // davor: die Warnung eines Rezepts fehlte (die Bedingung hiess isRemedy),
+      // Gegenanzeigen und Dosierung hatte keine Anzeige, und auf den Karten stand
+      // „einfach" statt „🟢 Einfach".
+      const warte = (ms) => new Promise((res) => setTimeout(res, ms));
+      const alle = recipesData.concat(remediesData);
+      const rez = recipesData.find((r) => r.type !== 'remedies' && r.warning && /verwechs|giftig|t(ö|oe)dlich/i.test(r.warning));
+      const heil = remediesData.find((r) => r.contraindications && r.dosage);
+      const ohne = recipesData.find((r) => r.type !== 'remedies' && !r.warning && !r.contraindications && !r.dosage);
+      if (!rez || !heil || !ohne) return { ok: false, warum: 'die Daten tragen den Fall nicht: Rezept mit Warnung ' + !!rez + ' · Heilmittel mit Gegenanzeigen und Dosierung ' + !!heil + ' · Rezept ohne Warnung ' + !!ohne };
+      const kern = (t) => String(t).replace(/^[^A-Za-zÄÖÜäöü]+/, '').replace(/\s+/g, ' ').slice(0, 45);
+      const lies = async (id) => {
+        openRecipeDetail(id); await warte(300);
+        const el = document.getElementById('recipe-detail-body');
+        return { text: (el.textContent || '').replace(/\s+/g, ' '), bloecke: [...el.querySelectorAll('[style*="--bg-danger-soft"]')].length };
+      };
+      const f = [];
+      try {
+        const a = await lies(rez.id);
+        if (a.text.indexOf(kern(rez.warning)) < 0) f.push('Rezept „' + rez.title + '": die Warnung „' + kern(rez.warning) + '…" steht nicht im Fenster');
+        const b = await lies(heil.id);
+        if (b.text.indexOf(kern(heil.contraindications)) < 0) f.push('Heilmittel „' + heil.title + '": die Gegenanzeigen „' + kern(heil.contraindications) + '…" stehen nicht im Fenster');
+        if (b.text.indexOf(kern(heil.dosage)) < 0) f.push('Heilmittel „' + heil.title + '": die Dosierung „' + kern(heil.dosage) + '…" steht nicht im Fenster');
+        const c = await lies(ohne.id);
+        if (c.bloecke) f.push('Gegenrichtung: „' + ohne.title + '" hat keine Warnung, zeigt aber ' + c.bloecke + ' rote Kästen');
+        // Schwierigkeit: jede eingebaute Angabe hat ein Etikett, und die Karte zeigt es
+        const stufen = {}; alle.forEach((r) => { const d = r.diff || r.difficulty; if (d) stufen[d] = (stufen[d] || 0) + 1; });
+        const mit = alle.find((r) => (r.diff || r.difficulty) === 'einfach') || alle.find((r) => r.diff || r.difficulty);
+        const karte = document.createElement('div'); karte.innerHTML = buildRecipeCard(mit);
+        const kt = (karte.textContent || '').replace(/\s+/g, ' ');
+        const roh = Object.keys(stufen).filter((d) => new RegExp('(^|[^A-Za-zÄÖÜäöü])' + d + '([^A-Za-zäöü]|$)').test(kt));
+        if (roh.length) f.push('die Karte „' + mit.title + '" zeigt die Schwierigkeit als rohes Wort „' + roh[0] + '" (in den Daten: ' + Object.keys(stufen).map((d) => d + ' ' + stufen[d]).join(', ') + ')');
+        if (!/[🟢🟡🔴]/u.test(kt)) f.push('die Karte „' + mit.title + '" trägt kein Schwierigkeits-Etikett');
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: '„' + rez.title + '" zeigt seine Warnung · „' + heil.title + '" Gegenanzeigen und Dosierung · „' + ohne.title + '" keinen roten Kasten · ' + Object.keys(stufen).length + ' Schwierigkeits-Werte, alle mit Etikett' };
+      } finally { try { closeModal('modal-recipe-detail'); } catch (_) {} await warte(250); }
+    }),
+  },
+  {
+    name: 'E21 · Der Filter „Giftig" zeigt jede Art ab Giftstufe 2 — und „Ungiftig" nur Stufe 0; gefragt wird die ART, nicht der Eintrag',
+    lauf: async () => __seite.evaluate(async () => {
+      // v33.72 (Audit „Datenform"). `toxic` und `tox` sind zwei Felder fuer dieselbe
+      // Frage; bei acht Eintraegen der Stufe 2 stand `toxic:false` — sie fehlten in
+      // BEIDEN Filtern. Massstab ist hier die Stufe, nicht das Feld, das der Filter liest.
+      const alt = currentFilter;
+      try {
+        if (!Array.isArray(DB) || DB.length < 3000) return { ok: false, warum: 'die Artenliste ist nicht geladen (' + (DB && DB.length) + ')' };
+        currentFilter = 'giftig';
+        const fehltGiftig = DB.filter((sp) => (sp.tox | 0) >= 2 && !_gsPassCat(sp));
+        const nGiftig = DB.filter((sp) => _gsPassCat(sp)).length;
+        currentFilter = 'ungiftig';
+        const falschUngiftig = DB.filter((sp) => _gsPassCat(sp) && (sp.tox | 0) > 0);
+        const nUngiftig = DB.filter((sp) => _gsPassCat(sp)).length;
+        // Und die ART entscheidet: „Wacholder" (T018) traegt selbst Stufe 0, dieselbe Art
+        // (Juniperus communis) fuehrt die Liste dreimal mit Stufe 2. Massstab hier: die
+        // Eintraege mit genau demselben Binomen — nicht die Funktion, die der Filter ruft.
+        const binomen = (sp) => String(sp.lat || '').toLowerCase().trim();
+        const w = DB.find((sp) => sp.id === 'T018');
+        const wGeschwister = w ? DB.filter((sp) => binomen(sp) === binomen(w) && (sp.tox | 0) >= 2).length : 0;
+        currentFilter = 'giftig'; const wGiftig = w ? _gsPassCat(w) : null;
+        currentFilter = 'ungiftig'; const wUngiftig = w ? _gsPassCat(w) : null;
+        const f = [];
+        if (!w || wGeschwister < 1 || (w.tox | 0) !== 0) f.push('die Probe stimmt nicht mehr: T018 ' + (w ? 'Stufe ' + w.tox + ', ' + wGeschwister + ' Geschwister ab Stufe 2' : 'fehlt') + ' — der Fall stellt seinen Zustand nicht her');
+        else if (!wGiftig || wUngiftig) f.push('„Wacholder" (T018, Stufe 0; ' + wGeschwister + ' Einträge derselben Art ab Stufe 2) steht ' + (wUngiftig ? 'unter „Ungiftig"' : 'nicht unter „Giftig"') + ' — der Filter fragt den Eintrag, nicht die Art');
+        if (fehltGiftig.length) f.push(fehltGiftig.length + ' Einträge der Giftstufe ≥ 2 fehlen unter „Giftig": ' + fehltGiftig.slice(0, 5).map((sp) => sp.name + ' (Stufe ' + sp.tox + ')').join(', '));
+        if (falschUngiftig.length) f.push(falschUngiftig.length + ' Einträge mit Giftstufe > 0 stehen unter „Ungiftig": ' + falschUngiftig.slice(0, 3).map((sp) => sp.name).join(', '));
+        if (nGiftig < 300 || nUngiftig < 1000) f.push('die Filter liefern ' + nGiftig + ' / ' + nUngiftig + ' Einträge — der Fall misst offenbar etwas anderes');
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        return { ok: true, info: '„Giftig" ' + nGiftig + ' Einträge, darunter jeder ab Stufe 2 · „Ungiftig" ' + nUngiftig + ', alle Stufe 0 · in keinem der beiden: ' + (DB.length - nGiftig - nUngiftig) + ' · „Wacholder" (T018, Stufe 0) nach seiner Art unter „Giftig"' };
+      } finally { currentFilter = alt; }
     }),
   },
   {

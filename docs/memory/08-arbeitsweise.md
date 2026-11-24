@@ -113,14 +113,15 @@ Welche Nummer frei ist: `node scripts/austausch.mjs naechste` (nach `holen`) —
 rechnet die Branches mit, die noch nicht auf main sind. „Die naechste nach main"
 trugen am 16.11.2026 vier Branches zugleich.
 
-Fuenf Marker, immer zusammen (`robust_check` „Changelog“ haelt sie zusammen):
+Vier Marker, immer zusammen (`robust_check` „Changelog“ haelt sie zusammen) — gesetzt mit
+`node scripts/_bump.js --von vA.B --nach vC.D [--kennung alt:neu] [--basis <ref>]` (seit v33.72; der Kopf der
+Datei sagt, was beim Stapeln auf einen Vorgaenger gilt):
 
 | Marker | wo |
 |---|---|
 | `<meta name="app-version" content="33.33.20260915">` | `index.html` `<head>` |
 | `var GS_VERSION = 'v33.34';` | `index.html` |
 | `const VERSION = 'gs-v33.34';` | `sw.js` |
-| `# GreenScan — Cloudflare Pages Security Headers (v33.34)` | `_headers` Zeile 1 |
 | neuer Eintrag GANZ OBEN in `window.GS_RELEASES` | `index.html` |
 
 Der Eintrag: `{v, date, headline, summary, user_summary, user_items: [{emoji, bold, text}], items: []}`.
@@ -173,6 +174,34 @@ OFFEN — und das Repo ist oeffentlich: eine offene Luecke wird so beschrieben,
 dass der Betreiber weiss, was zu tun ist, nie mit einer fertigen Anfrage, die
 sie ausnutzt (v33.59). Nie „live verifiziert" schreiben, ohne zu sagen womit — die
 Live-Seite ist aus einer Cloud-Sitzung nicht erreichbar (`CONNECT … 403`).
+
+## 9b · Ein breiter Audit ist ein Workflow, nicht acht lose Agenten
+
+Seit v33.72 liegt er im Repo: `.claude/workflows/greenscan-audit.js` — acht
+Blickwinkel (`robust` · `escape` · `datum` · `edge` · `sw` · `css` · `daten` ·
+`android`), je ein Auditor (nur lesend) und ein Gegenpruefer, der jeden Fund zu
+widerlegen versucht. `args.linsen` waehlt aus, `args.scratch` sagt, wohin die
+Agenten schreiben (nie ins Repo). Fuer EINEN Auftrag gibt es zwei Rollen:
+`.claude/agents/gs-auditor.md` und `gs-gegenpruefer.md`. Das ist Werkzeug von
+Claude Code; eine andere KI liest die Dateien als Auftragstext — die Regeln
+darin gelten fuer jede.
+
+Warum ein Workflow: acht lose Agenten rissen am 11.11.2026 zweimal am
+Nutzungslimit, bevor einer berichtet hatte. Ein Workflow merkt sich jeden
+fertigen Agenten und laesst sich fortsetzen. Und jeder Auditor schreibt seine
+Funde ZUERST in eine Datei. Was der Audit findet, wird NICHT ungeprueft
+behoben: ein Fund ist erst einer, wenn ein Fall ihn gegen den alten Stand rot
+zeigt (`docs/AUDIT-2026-11-11.md`: 70 Funde aus zwei Laeufen, 49 bestaetigt,
+21 teilweise, keiner widerlegt).
+
+Drei Dinge aus dem ersten Gebrauch (11.11.2026): **(1)** ein Workflow, der in
+der laufenden Sitzung entsteht, ist unter seinem NAMEN noch nicht bekannt —
+`Workflow({ scriptPath: '.claude/workflows/greenscan-audit.js', args: … })`
+geht immer. **(2)** Vor dem Lauf `git fetch origin main` und nachziehen: der
+zweite Lauf las einen Stand, den `main` schon ueberholt hatte, und drei seiner
+Funde waren dort laengst behoben. **(3)** Was offen bleibt, kommt mit einem
+Anker aufs Brett (`node scripts/austausch.mjs einspielen <stapel.json>`) —
+ein Sicherheitsfund nur mit Titel, Stichworten und `details_bei`.
 
 ## 10 · Was eine Zusammenfassung ist
 

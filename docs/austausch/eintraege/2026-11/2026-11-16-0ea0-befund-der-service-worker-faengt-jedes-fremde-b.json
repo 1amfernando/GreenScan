@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-16-0ea0",
+  "art": "befund",
+  "datum": "2026-11-16",
+  "zeit": "07:23:15",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Der Service Worker fängt jedes fremde Bild ab und holt es mit fetch() — für Hosts ausserhalb von connect-src scheitert das im Worker",
+  "vorschlag": "Vor Regel 4: fremde Bilder nur abfangen, wenn ihr Host in connect-src steht (IMAGE_HOSTS / KACHEL_HOSTS), sonst return — dann lädt der Browser selbst unter img-src. Prüfbar in offline_check mit einem Bild von einem nicht gelisteten Host.",
+  "beleg": [
+    "sw.js Regel 4 (isImageRequest → staleWhileRevalidate) prüft keinen Host; ein fetch() im Worker gilt gegen connect-src aus _headers, nicht gegen img-src der Seite (Spezifikation gelesen, im Browser nicht gemessen). v33.59 hat connect-src um Schriften, cdnjs und upload.wikimedia.org ergänzt — Bild-Hosts aus fremder Hand (Community-Fotos, Kartenkacheln anderer Anbieter) stehen dort nicht. Rest von Audit sw-2, docs/AUDIT-2026-11-11.md"
+  ],
+  "stichworte": [
+    "sw.js",
+    "connect-src",
+    "staleWhileRevalidate",
+    "IMAGE_CACHE"
+  ],
+  "anker": [
+    {
+      "datei": "sw.js",
+      "text": "  if (isImageRequest(req)) {"
+    }
+  ]
+}

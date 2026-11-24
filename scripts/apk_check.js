@@ -553,7 +553,8 @@ function paket() {
      'B3 · Die Version ist EINE Zahl — GS_VERSION steht im Paket',
      'B4 · targetSdk laesst sich auf einem aktuellen Telefon installieren',
      'B5 · Im gebauten Paket nimmt die App SEND und SEND_MULTIPLE an — mit genau den Typen der PWA',
-     B6_NAME].forEach(n => F.push({ name: n, r: w }));
+     B6_NAME,
+     'B7 · Ein Uebersetzungsfehler bricht den Bau ab — kein Paket ohne MainActivity, kein „FERTIG"'].forEach(n => F.push({ name: n, r: w }));
     return null;
   }
   const bau = spawnSync('bash', [path.join(ANDROID, 'build.sh')], { encoding: 'utf8', cwd: WURZEL, timeout: 600000 });
@@ -667,6 +668,36 @@ function paket() {
       : b6.length ? { ok: false, warum: b6.length + ' von ' + lizenzen.length + ' fehlen im Paket oder weichen ab: ' + b6.join(', ') }
       : { ok: true, info: lizenzen.length + ' Lizenztexte byte-gleich an ihrem Web-Pfad: ' + lizenzen.join(', ') },
   });
+
+  // B7 — v33.72 (Audit „Android-Huelle"). build.sh liess die Ausgabe von javac
+  // durch einen Filter mit `|| true` laufen: ein Uebersetzungsfehler in
+  // MainActivity ergab „1 error", javac schrieb trotzdem 17 von 40 Klassen, und
+  // das Skript baute und signierte ein Paket OHNE MainActivity mit Exit 0.
+  // Der Fall FAEHRT das: eine Kopie von android/ mit einem Fehler in
+  // MainActivity, daneben das Wurzelverzeichnis als Verweise — der Bau muss
+  // abbrechen, und es darf kein Paket daliegen.
+  let b7;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gs-apk-bruch-'));
+  try {
+    fs.cpSync(ANDROID, path.join(tmp, 'android'), { recursive: true, filter: (q) => !/[\\/]android[\\/](build|\.keystore-dev)([\\/]|$)/.test(q) });
+    for (const e of fs.readdirSync(WURZEL)) { if (e === 'android' || e === '.git' || e === 'node_modules') continue; fs.symlinkSync(path.join(WURZEL, e), path.join(tmp, e)); }
+    const mj = path.join(tmp, 'android/src/ch/greenscan/app/MainActivity.java');
+    const vorher = fs.readFileSync(mj, 'utf8');
+    const kaputt = vorher.replace('web.canGoBack()', 'web.canGoBackX()');
+    if (kaputt === vorher) b7 = { ok: false, warum: 'die Bruchstelle (web.canGoBack()) steht nicht mehr in MainActivity — der Fall stellt seinen Fehler nicht her' };
+    else {
+      fs.writeFileSync(mj, kaputt);
+      const lauf = spawnSync('bash', [path.join(tmp, 'android/build.sh')], { encoding: 'utf8', cwd: tmp, timeout: 600000 });
+      const aus = String(lauf.stdout) + String(lauf.stderr);
+      const pakete = fs.existsSync(path.join(tmp, 'android/build')) ? fs.readdirSync(path.join(tmp, 'android/build')).filter(n => /\.apk$/.test(n)) : [];
+      if (lauf.status === 0) b7 = { ok: false, warum: 'build.sh endet mit Exit 0, obwohl MainActivity nicht uebersetzt (' + (/1 error/.test(aus) ? 'javac meldete „1 error"' : 'javac-Meldung nicht gefunden') + ')' + (pakete.length ? ' — und legt ' + pakete[0] + ' ab' : '') };
+      else if (pakete.length) b7 = { ok: false, warum: 'build.sh bricht ab (Exit ' + lauf.status + '), aber es liegt ein Paket da: ' + pakete.join(', ') };
+      else if (!/canGoBackX/.test(aus)) b7 = { ok: false, warum: 'der Bau bricht ab (Exit ' + lauf.status + '), nennt aber den Fehler nicht: ' + aus.split('\n').filter(Boolean).slice(-2).join(' | ') };
+      else b7 = { ok: true, info: 'ein Fehler in MainActivity → Exit ' + lauf.status + ', javac nennt die Stelle, kein Paket' };
+    }
+  } catch (e) { b7 = { ok: false, warum: 'Ausnahme: ' + (e && e.message) }; }
+  finally { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (_) {} }
+  F.push({ name: 'B7 · Ein Uebersetzungsfehler bricht den Bau ab — kein Paket ohne MainActivity, kein „FERTIG"', r: b7 });
   return apk;
 }
 
@@ -1057,6 +1088,37 @@ function rand() {
   F.push({
     name: 'R21 · Nach draussen nur erlaubte Schemata, mit CATEGORY_BROWSABLE, ohne Komponente — und keine Ausnahme beendet die App',
     r: r21.length ? { ok: false, warum: r21.join(' · ') } : { ok: true, info: 'Pfade.darfNachDraussen vor startActivity · BROWSABLE · catch RuntimeException → kein_ziel' },
+  });
+
+  // R22 — v33.72 (Audit „Android-Huelle", vier bestaetigte Funde).
+  const r22 = [];
+  const wahl = (MAINACT_OHNE.match(/public boolean onShowFileChooser\([\s\S]*?\n      \}/) || [''])[0];
+  if (!wahl) r22.push('onShowFileChooser nicht gefunden');
+  else {
+    // Wer den Rueckruf beantwortet, gibt true zurueck — sonst antwortet die WebView ein zweites Mal.
+    const faenge = wahl.split(/\bcatch\s*\(/).slice(1);
+    if (!faenge.length) r22.push('onShowFileChooser faengt nichts — eine Ausnahme liesse den Rueckruf offen');
+    faenge.forEach(c => { if (/onReceiveValue\(null\)/.test(c) && /return false;/.test(c)) r22.push('onShowFileChooser beantwortet den Rueckruf UND gibt false zurueck (die WebView antwortet dann ein zweites Mal)'); });
+    if (!/catch\s*\(\s*RuntimeException\b/.test(wahl)) r22.push('onShowFileChooser faengt nur einen Ausnahmetyp — eine SecurityException liesse den Rueckruf offen');
+  }
+  // Die Rueckgabe von restoreState wird gelesen und fuehrt zu loadUrl.
+  if (!/if \(zustand == null \|\| web\.restoreState\(zustand\) == null\) \{\s*web\.loadUrl\(/.test(MAINACT_OHNE)) r22.push('die Rueckgabe von restoreState wird nicht gelesen — scheitert die Wiederherstellung, bleibt die App leer');
+  if (/^\s*web\.restoreState\(zustand\);/m.test(MAINACT_OHNE)) r22.push('restoreState steht als nackte Anweisung da');
+  // build.sh: der Status von javac geht nicht hinter einem Filter verloren.
+  const bs = BUILDSH.split('\n').filter(z => !/^\s*#/.test(z)).join('\n');
+  if (/\bjavac\b[^\n]*(\\\n[^\n]*)*\|\s*grep/.test(bs)) r22.push('build.sh schickt javac durch eine Pipe — der Status geht verloren');
+  if (!/\|\| JAVAC=\$\?/.test(bs) || !/\[ "\$JAVAC" -eq 0 \] \|\| \{[^}]*exit 1/.test(bs)) r22.push('build.sh haelt den Status von javac nicht fest oder prueft ihn nicht');
+  if (!/MainActivity\.class/.test(bs)) r22.push('build.sh prueft nicht, dass MainActivity.class entstanden ist');
+  // build.sh: das Release-Passwort steht nicht auf der Kommandozeile.
+  const sign = (bs.match(/apksigner sign[^\n]*(\\\n[^\n]*)*/) || [''])[0];
+  if (/pass:\$/.test(sign)) r22.push('apksigner sign traegt das Passwort woertlich auf der Kommandozeile (pass:$…)');
+  // Seit dem Merge mit main (v33.59) gibt es EINE Signierstelle fuer beide Zweige: apksigner liest
+  // das Passwort immer aus der Umgebung, und der Release-Zweig verlangt die Variable.
+  if (!/--ks-pass env:GS_APK_KS_PASS --key-pass env:GS_APK_KS_PASS/.test(sign)) r22.push('apksigner liest das Passwort nicht aus der Umgebung (env:)');
+  if (!/if \[ "\$RELEASE" = "1" \]; then[\s\S]{0,240}GS_APK_KS_PASS:\?/.test(bs)) r22.push('der Release-Zweig verlangt GS_APK_KS_PASS nicht');
+  F.push({
+    name: 'R22 · Vier kleine Zusagen: die Dateiwahl antwortet genau einmal, eine gescheiterte Wiederherstellung laedt die App, der Bau haelt den Status von javac fest, das Release-Passwort steht nicht auf der Kommandozeile',
+    r: r22.length ? { ok: false, warum: r22.join(' · ') } : { ok: true, info: 'onShowFileChooser: catch RuntimeException → true · restoreState gelesen · JAVAC-Status + MainActivity.class · Release: env:GS_APK_KS_PASS' },
   });
 
   // R8 — die LISTE ist die Pruefung: ein Eintrag ohne Durchsetzung waere eine

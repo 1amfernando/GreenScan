@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-19-d5c9",
+  "art": "abschluss",
+  "datum": "2026-11-19",
+  "zeit": "15:59:29",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.67",
+  "titel": "erledigt: Wissen-Tab zählt mit eigenen Regeln: „Arten“ ist DB.length (4'337 statt 3'136), „Essbar“ 1'130 statt 1'062 wie Startkachel und Filter, „Giftig“ 598 s…",
+  "ergebnis": "erledigt",
+  "wohin": "v33.6x (Branch claude/happy-thompson-24l4uu, Home 3) — nutzersicht_check E9 Teil 4",
+  "geschwister": "gesucht: jede Zählung und jeder Filter auf edible/tox/toxic in index.html (DB.filter, gsWissenDBCount, tox>=2, filter(… edible|tox|toxic)). Dieselbe Frage, umgestellt: Lexikon-Kacheln, Kopf-Chip des Wissen-Tabs, Filter „☠️ Giftig“ (jetzt EINE Funktion gsIstGiftig). Eine andere Frage, bewusst nicht umgestellt: Plakette „Giftig“ auf der Karte (Stufe ≥ 3), Sammlung „☠️ Giftige“ (≥ 4), Farbe des Kartenrands (Stufe) und die Ladekorrektur der uses-Texte (am Eintrag). Eine andere Liste: der Wissens-Hub der Bibliothek zählt tox > 0 über die Buch-Zeilen des Servers — von hier ohne Netz nicht gemessen.",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-16-4d79"
+    }
+  ]
+}

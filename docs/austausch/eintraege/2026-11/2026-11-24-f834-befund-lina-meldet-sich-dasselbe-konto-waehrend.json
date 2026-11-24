@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-24-f834",
+  "art": "befund",
+  "datum": "2026-11-24",
+  "zeit": "15:00:14",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.72",
+  "titel": "Lina: meldet sich dasselbe Konto während des Wartens ab und wieder an, steht die Antwort allein im neuen Gespräch — und geht als Vorgeschichte mit der nächsten Frage an die KI",
+  "vorschlag": "gsOnLogout ruft _gsLinaGespraechWechsel() (eine Zeile neben dem Räumen). Fall in sensor_check L12 als (h): Abmelden und Wiederanmelden desselben Kontos während des Wartens → die Antwort steht nicht im neuen Gespräch, die nächste Frage geht ohne sie an die KI; in der Cloud steht sie bei conv-X.",
+  "beleg": [
+    "Gemessen 24.11.2026 auf 747813a (Playwright, gestellte KI und Cloud): Gespräch conv-X, Frage A gesendet; während des Wartens gsOnLogout() (räumt _gsLinaMsgs und _gsLinaConvId), dieselbe uid bleibt angemeldet (= Wiederanmelden desselben Kontos, _gsPerson() gleich). _gsLinaGespraechNr vorher 0, nachher 0 — gsOnLogout zählt den Wechsel nicht. Die Antwort kommt: _hier() ist wahr, window._gsLinaMsgs = [assistant:ANTWORT-A] (ohne Frage). Die nächste Frage B geht mit hist [assistant:ANTWORT-A | user:FRAGE-B] an die KI — dieselbe Klasse, die Lina 9 (v33.70, sensor_check L12) für „＋ Neu“ geschlossen hat. Abmelden soll derselbe Bildschirm sein wie nach einem Neuladen (CLAUDE.md §3.6); nach einem Neuladen gäbe es diese Antwort nicht. Code von #343 (claude/happy-thompson-24l4uu), nicht aus der Mischung mit v33.72."
+  ],
+  "stichworte": [
+    "gsOnLogout",
+    "lina",
+    "lina-9",
+    "_gsLinaGespraechNr",
+    "abmelden"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "try { window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaInhaltZeit = null; } catch(_){}"
+    }
+  ]
+}

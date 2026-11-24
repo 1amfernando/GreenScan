@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-bf2f",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "WEEKLY_SEASONAL_FACTS: 180 der 521 Einträge sind wörtliche Kopien der Vorwoche — 18 Kalenderwochen zeigen dieselben zehn Fakten wie die Woche davor",
+  "text": "In KW 20, 21, 24, 25, 28, 29, 32, 33, 34, 38, 39, 42, 43, 46, 47, 50, 51 und 52 sind zehn von zehn Einträgen zeichengleich mit der Vorwoche. Eindeutig sind 341 Einträge, nicht 521 — die Zahl 521 steht so in CLAUDE.md und docs/RISIKEN.md. Seit v33.59 teilen beide Anzeigen der Startseite einen Rückfall (_gsWochenFakten), der die Nachbarwoche nimmt — die Kopien liessen sich also löschen, ohne dass eine Woche leer bleibt.",
+  "beleg": [
+    "Literal aus index.html ausgeführt: 521 Einträge, new Set(titel + text).size → 341 (nachgezählt am 11.11.2026 auf dem Stand mit main v33.58)"
+  ],
+  "vorschlag": "Die 180 Kopien durch eigene Texte ersetzen (Redaktion) oder löschen und den Rückfall nutzen; Fall in risiko_check: die Zahl der eindeutigen Einträge.",
+  "stichworte": [
+    "WEEKLY_SEASONAL_FACTS",
+    "_gsWochenFakten",
+    "risiko_check",
+    "redaktion"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "const WEEKLY_SEASONAL_FACTS = ["
+    }
+  ]
+}

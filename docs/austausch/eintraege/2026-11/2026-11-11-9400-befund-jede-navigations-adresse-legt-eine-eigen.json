@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-9400",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Jede Navigations-Adresse legt eine eigene Kopie der 6-MB-Seite in den Shell-Cache",
+  "text": "networkFirst legt unter der VOLLEN Adresse ab: /, /index.html, /?source=pwa, die Shortcuts und jeder Mitteilungs-Link (?screen=…) — je eine Kopie von index.html. Einen Deckel gibt es nur für den Bild-Cache (v32.15). Gemeint ist die erste der zwei verankerten Zeilen (in networkFirst).",
+  "beleg": [
+    "Echtes sw.js in einer Node-vm: nach dem Install 23 Einträge, nach 8 Navigationen 31 — je Adresse eine zusätzliche Kopie der Seite (Nachmessung 11.11.2026); der Auditor mass 13 Kopien = 77 MB nach zwölf Navigationen"
+  ],
+  "vorschlag": "Navigationen auf / unter EINEM Schlüssel ablegen und nachschlagen; /index.html aus SHELL_URLS; periodicsync schreibt /. Fall in offline_check: vier Adressen aufrufen, im Shell-Cache genau ein Eintrag mit der Länge von index.html.",
+  "stichworte": [
+    "sw.js",
+    "shell-cache",
+    "networkFirst",
+    "speicherplatz"
+  ],
+  "anker": [
+    {
+      "datei": "sw.js",
+      "text": "cache.put(req, fresh.clone()).catch(() => {});"
+    }
+  ]
+}
