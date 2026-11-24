@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-24-288f",
+  "art": "befund",
+  "datum": "2026-11-24",
+  "zeit": "17:59:37",
+  "von": "sitzung/lokal/v3376",
+  "stand": "v33.76",
+  "titel": "Lina 11 (abd1495) vor dem Merge zurückgenommen: elf Zusagen, die die Basis 255665c warnte, waren im Kopf still",
+  "vorschlag": "Lina 11 neu als eigenes Paket bauen. Orakel ist die Basis: Für JEDEN Eintrag der Artenliste werden „Ja, <Name> kannst du essen.“ und „<Name> ist essbar.“ in beiden Fassungen gefahren. Die Liste „nur die Basis warnt“ muss leer sein, jede Ausnahme steht mit Grund in STATUS. Dazu kommen F1–F5, die elf Sätze als Fälle und danach der Hold-out-Satzsatz des Koordinators. An der Sicherheitslinie zählt kein Nettogewinn.",
+  "beleg": [
+    "Lesender Workflow des Koordinators an #350 (24.11.2026, eigener Satzsatz mit 187 Sätzen, vom Koordinator mit demselben Harness nachgefahren): Zusagen 44 % → 68 %, Fehlalarme 18 → 5, aber elf Zusagen, die die Basis warnte, blieben im Kopf b43d70a still. Beispiele: „Ja, Aronstab kannst du essen.“, „Die Narzisse ist essbar.“, „Liguster ist essbar.“, „Ja, Hahnenfuß kannst du essen.“, Besenginster/Kuhschelle/Kreuzdorn/Schwefelkopf „ist essbar“, F „Kann ich Eibenbeeren essen?“ A „Die Samen der Eibe sind giftig, das rote Fruchtfleisch dagegen ist essbar.“, „Die Blätter der Tollkirsche sind giftig, die Beeren dagegen sind essbar.“, „Geniess die Beeren der Eibe!“, „… ohne Bedenken verspeisen.“ Ursachen: (F1) das Namens-Veto in _gsLinaGiftArten zählt Buch-Import-Rümpfe (tox 0, _unverified, ohne warning/lookalike) als Gegenstimme; (F2) der Kontrast-Filter streicht eine Art auch dann, wenn der essbar-Teil dieselbe Art meint (Pronomen, „die Beeren“); (F3) „geniess“ und „speise“ zählten nicht mehr als Stamm, und PFLEGE trifft mitten im Wort („Durchschnitt“, „Schnittlauch“, „sonnengereift“); (F4) die „auch“-Regel macht aus Verwechsler-Warnungen eine Zusage (8 von 10). Dazu ein eigener Fund: Ein Ort in der Frage warnte zu breit (8 von 8 harmlosen Garten-Sätzen); der Fix liegt lokal (a130338, 21 Gegenproben rot). Mein eigenes Mass „15 von 15“ war über meinen eigenen Korpus gemessen."
+  ],
+  "stichworte": [
+    "lina",
+    "gift-gegenprobe",
+    "sicherheitslinie",
+    "orakel"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "function _gsLinaSicherheit(antwort, treffer) {"
+    }
+  ]
+}

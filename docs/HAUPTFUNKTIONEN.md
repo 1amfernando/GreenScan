@@ -147,6 +147,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 
 > **Geliefert mit v33.61** (16.11.2026): Punkte 1, 2, 3, 4, 5, 6, 7 und die toten Reste aus 9.
 > Prüfstand: `scan_check` SU1–SU8. Dazu 8 (Menü-Suche, SU7) und 10 (Rangfolge, SU8) — die Suche hat keinen offenen Punkt mehr.
+> Dazu 11 (Pflanzen-Vorschläge, SU9, v33.76).
 
 1. ✅ v33.61 (dazu: die Kategorie-Einträge im Menü warfen einen Fehler; das ✕ im Suchfeld nahm
    den Filter weg und liess den Knopf markiert) — **Filter und Suchtext schliessen sich aus.** `gsFilter` löscht `searchText`; es gibt nur
@@ -166,6 +167,12 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 9. ✅ v33.61 (die toten Reste) — Tote Reste: `_origGetFiltered`, `_gsSearchDebounce`; `getFiltered` setzt nebenbei
    `_listPage = 1`.
 10. ✅ v33.61 (Rangfolge SU8; Umlaute SU3, Synonyme SU2, Tippfehler SU1, `loadMoreList` SU6, Menü SU7) — Kein Prüffall für Ranking, Umlaute, Synonyme, Tippfehler, `loadMoreList`.
+11. ✅ v33.76 (`scan_check` SU9, Brett 2026-11-24-66d7, gebaut 24.11.) — **„Pflanze hinzufügen": die Vorschlagsliste hatte
+    eine eigene Suche** (`_gsRenderSuggestions`: `toLowerCase` + `indexOf`) — „barlauch", „brennessel", „lowenzahn" fanden ohne Netz
+    nichts. Jetzt `_gsSucheRang`, aber nur Treffer über Name, Binomen, Familie, Synonym oder Vertipper (`info.vorschlaege`): im
+    Fliesstext nennen sich Verwechsler gegenseitig („maigl" → Bärlauch, „giersch" → Herbstzeitlose). Die Marke „giftig" las das
+    Feld des Eintrags (58 Einträge giftiger Arten ohne Warnung) und stand im gekürzten Namen; jetzt `gsIstGiftig` mit dem Wort der
+    Skala, neben dem Namen, und Online-Treffer gehen über `gsMatchScanToDb` zu ihrer Art.
 
 ## Offen — Home
 
