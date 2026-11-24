@@ -30,6 +30,22 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.48', date: '17.09.2026',
+      headline: 'Die Artenliste hat einen zweiten Versuch',
+      summary: 'Das Script-Tag der 2,1-MB-Artenliste hatte kein onerror und keinen Rückfall: fiel die Datei aus, lief die App mit einer leeren Liste weiter und sagte beim Start nichts. Jetzt gibt es einen zweiten Ladeversuch mit Cache-Umgehung — und wenn auch der danebengeht, steht es auf der Startseite.',
+      user_summary: 'Wenn die Artenliste beim Laden einmal ausfällt, holt die App sie von selbst nach. Klappt auch das nicht, sagt sie es dir auf der Startseite — mit einem Knopf zum Nochmal-Versuchen, statt dass Suche und Bestimmung einfach leer bleiben.',
+      user_items: [
+        {emoji:'🔄', bold:'Zweiter Versuch von selbst:', text:' die häufigste Ursache ist ein abgebrochener Download, und der ist beim zweiten Mal weg.'},
+        {emoji:'⚠️', bold:'Und wenn nicht, steht es da:', text:' „Die Artenliste konnte nicht geladen werden" auf der Startseite, mit „Neu laden" daneben.'}
+      ],
+      items: [
+        {emoji:'🧩', bold:'Gemessen an v33.47:', text:' <script src="data/plants.v1.js?v=1"> ohne onerror. Mit blockierter Datei: DB.length = 0, und die Startseite sagte nichts — man merkte es erst beim Öffnen von etwas, das die Liste braucht.'},
+        {emoji:'🧮', bold:'Ein Weg, nicht zwei:', text:' die Datei trägt 4342 Einträge, die App läuft mit 4337 — deduplicateDB war eine anonyme IIFE und lief nur beim normalen Laden. Jetzt ist sie eine benannte Funktion, die der Nachlade-Weg GENAUSO ruft; sonst liefe die App nach einem Nachladen mit fünf Duplikaten weiter.'},
+        {emoji:'🚦', bold:'gsArtenStand():', text:' drei Zustände — ok · laedt · fehlt MIT Grund. Gemessen wird die Liste selbst (DB.length), nicht der gemerkte Ladeversuch: kommt sie über einen anderen Weg doch an, gibt es nichts zu melden.'},
+        {emoji:'🧪', bold:'offline_check 22 → 24 Fragen:', text:' der erste Versuch wird wirklich abgebrochen und der zweite durchgelassen (muss sich erholen, auf dieselbe Artenzahl), dann beide (muss es sagen) — mit der Gegenrichtung „im guten Fall keine Zeile". Drei Gegenproben, jede einzeln rot.'}
+      ],
+    },
+  {
     v: 'v33.47', date: '17.09.2026',
       headline: '„Nicht geprüft" ist keine Entwarnung',
       summary: 'Fällt die Artenliste beim Laden aus, konnte der Scanner nichts gegenprüfen — und sagte trotzdem „Nichts spricht dagegen", unter der Überschrift „Gegengeprüft mit unserer Artenliste". Für einen Knollenblätterpilz, den das Modell als essbar meldet, stand damit eine Entwarnung auf dem Bildschirm. Das Prüfwerk hat jetzt einen vierten Zustand.',

@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.68.20261119">
+<meta name="app-version" content="33.69.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -79720,6 +79720,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.69', date: '24.11.2026',
+      headline: 'Gelöscht bleibt gelöscht — und der Abgleich mischt, statt zu ersetzen',
+      summary: 'Nachzug zu v33.68 aus der Schlussprüfung des zusammengeführten Diffs: vier Funde im Abgleich zwischen Gerät und Cloud, alle behoben. Einer war durch v33.68 selbst entstanden — die neue Zusammenführung je Eintrag holte einen ohne Empfang gelöschten Garten-Plan oder Track aus der Cloud zurück. Pläne und Tracks bekommen deshalb eine Löschmarke. Dazu drei ältere Lücken an derselben Stelle: ein frisch angemeldetes Gerät konnte Favoriten und Stimmen der Cloud ersetzen, Punkte wurden nach einem Start ohne Empfang doppelt gezählt, und ein beim Start nicht lesbares Profil blieb die ganze Sitzung ungelesen.',
+      user_summary: 'Was du ohne Empfang löschst, kommt nicht mehr zurück — und ein neues Gerät überschreibt deine Favoriten nicht.',
+      user_items: [
+         {emoji:'🗑️', bold:'Gelöscht bleibt gelöscht:', text:' ein Garten-Plan oder ein Track, den du ohne Empfang löschst, kommt beim nächsten Abgleich nicht mehr zurück.'},
+         {emoji:'⭐', bold:'Favoriten bleiben vollständig:', text:' meldest du dich auf einem neuen Gerät an und das Netz wackelt, kommen deine Favoriten und Stimmen aus der Cloud dazu, statt ersetzt zu werden.'},
+         {emoji:'🏅', bold:'Punkte zählen einmal:', text:' nach einem Start ohne Empfang werden deine Punkte nicht mehr doppelt gezählt.'}
+      ],
+      items: [
+         {emoji:'🪦', bold:'Löschmarken für Pläne und Tracks:', text:' GS_GELOESCHT_LISTEN erweitert die drei gestempelten Listen um gs_garden_plans und gs_gpx_tracks; _gsLoeschmarke setzt die Marke an den zwei Stellen, an denen die Person löscht (gsPPdeletePlan, gsTrackDelete), und merkt den Garten-Bereich vor. Der Abgleich und „Meine Garten-Pläne“ lesen sie.'},
+         {emoji:'🧩', bold:'state wird gemischt:', text:' trifft ein ungesendeter state auf ein Gerät, das ihn für dieses Konto noch nie abgeglichen hat (kein gs_sync_synced_at_state), führt _gsStateMischen je Schlüssel zusammen: Listen vereinigt, Objekte ergänzt, Zahl und Text bleiben lokal. Ein schon abgeglichenes Gerät behält seinen Stand — dort ist ein entfernter Favorit eine Entscheidung.'},
+         {emoji:'👤', bold:'Ein ungelesenes Profil ist kein Cloud-Stand:', text:' gsXpBootSync bucht bei _ungelesen nichts mehr (vorher galt xp 0 als Cloud-Stand und die lokale XP ging noch einmal durch fn_add_xp); _gsProfilNachlesen holt das Profil nach dem ersten gelungenen Abgleich nach.'},
+         {emoji:'🧪', bold:'Prüfstände:', text:' sync_check 22 Fragen (neu H10 gelöscht bleibt gelöscht, H11 state mischen in beide Richtungen, H12 XP und Nachlesen) — jeder Fall gegen den Stand von v33.68 rot. Offen auf dem Brett: 2026-11-24-f70e.'}
+      ]
+  },
+  {
     v: 'v33.68', date: '19.11.2026',
       headline: 'Eine Antwort nach dem Abmelden landet nie mehr im nächsten Konto',
       summary: 'Fehlerklasse 2026-11-16-89ee, zu Ende gebaut, und ein Datenverlust, den die Gegenprüfung fand: eine Antwort nach einem await gehört der Person, die gefragt hat. Statt rund 210 Einzelstellen steht ein Tor an den zwei Stellen, durch die jede Antwort muss — sbFetch und _gsAiAnfrage merken die Person beim Eintritt und liefern nach einem Wechsel keine Daten (Fehler person_gewechselt, _gsPersonGewechselt). Dazu die Wege am Tor vorbei: rohe Aufrufe an Edge-Functions und Stripe, Warteschlangen, Funde und Fotos, ein später Token-Refresh, und die 19 KI-Wege, deren catch-Zweig nach einem Wechsel still endet. Abmelden heisst derselbe Bildschirm wie nach einem Neuladen (Fenster, Textfelder, Anzeigen, Startseite); der Plan-Wartebereich zählt je Konto; der Garten-Zwilling gehört seinem Konto. Und ein gescheitertes Lesen gilt nirgends mehr als „leer“: gsCloudSync lädt einen Blob erst hoch, wenn seine Zeile in dieser Sitzung gelesen wurde (_gsBlobGelesen) — ein Start-Abgleich, der scheiterte, liess vorher einen fast leeren lokalen Garten-, Pflanzen- oder Status-Blob die Cloud ersetzen; dasselbe beim Plan-Speichern, im Profil und bei den Was-Wenn-Läufen. Prüfstände: sicherheit_check 71_person (neu), 98_schluss_e, sync_check H8/H9, save_check.',
@@ -79731,8 +79748,7 @@ window.GS_RELEASES = [
         {emoji:'📍', bold:'Deine Funde bleiben deine:', text:' wer sich während des Hochladens von Funden oder Fotos abmeldet, hält es an — nichts wird unter einem anderen Konto abgelegt.'},
         {emoji:'🗂️', bold:'Pläne beim Abmelden:', text:' jedes Konto bekommt seine eigenen 20 Plätze für nur auf dem Gerät gespeicherte Pläne; was nicht hineinpasst, bleibt auf dem Gerät, und die App sagt es dir im Anmeldefenster.'},
         {emoji:'🌳', bold:'Garten-Zwilling:', text:' er gehört dem Konto, das ihn angelegt hat, und ist für andere auf demselben Gerät nicht sichtbar.'},
-        {emoji:'☁️', bold:'Deine Gärten bleiben in der Cloud:', text:' konnte die App deine Daten bei einem schwachen Netz nicht laden, hätte ein Speichern danach Gärten, Pflanzen oder Profilwerte in der Cloud überschreiben können. Jetzt lädt sie erst hoch, was sie vorher gelesen hat, und ein neuer Plan bleibt bis dahin auf dem Gerät.'},
-         {emoji:'🗑️', bold:'Gelöscht bleibt gelöscht:', text:' ein Garten-Plan oder ein Track, den du ohne Empfang löschst, kommt beim nächsten Abgleich nicht mehr zurück. Und deine Punkte werden nach einem Start ohne Empfang nicht doppelt gezählt.'}
+        {emoji:'☁️', bold:'Deine Gärten bleiben in der Cloud:', text:' konnte die App deine Daten bei einem schwachen Netz nicht laden, hätte ein Speichern danach Gärten, Pflanzen oder Profilwerte in der Cloud überschreiben können. Jetzt lädt sie erst hoch, was sie vorher gelesen hat, und ein neuer Plan bleibt bis dahin auf dem Gerät.'}
       ],
       items: [
         {emoji:'🚪', bold:'Ein Tor statt 210 Stellen:', text:' sbFetch gibt nach einem Wechsel {error:{code:person_gewechselt}} zurück, callAI und callVisionAI werfen _gsPersonAusnahme(); eine Anfrage, die ohne Person startet (Anmeldung), bleibt unberührt. Fragen: _gsPersonGewechselt, _gsPersonAnders, _gsPersonJetzt; Satz GS_PERSON_GEWECHSELT_SATZ über _gsFehlerText.'},
@@ -79741,8 +79757,7 @@ window.GS_RELEASES = [
         {emoji:'🤖', bold:'19 KI-Wege:', text:' ein catch-Zweig fragt zuerst _gsPersonGewechselt und endet still — ein Tor, das Erfolg zu Fehler macht, schob die Aufrufer sonst in Fehlerkarten für die nächste Person. Die Person wird vor dem ERSTEN await gemerkt (FileReader, Verkleinern, Wetter sind auch awaits).'},
         {emoji:'🖥️', bold:'Abmelde-Bildschirm:', text:' _gsAbmeldenFenster, _gsAbmeldenFelder, _gsAbmeldenStartseite; Sätze beim Abmelden stehen im Meldefeld des Anmeldebildschirms (_gsAbmeldenSagen) — ein Toast lag darunter und war nie sichtbar.'},
         {emoji:'🗄️', bold:'Erst lesen, dann schreiben:', text:' gsCloudSync._flush lädt plants, garden und state nur hoch, wenn _gsInitialSyncDone gilt oder die Zeile in dieser Sitzung für diese Person gelesen wurde (_gsBlobGelesen); ungesendete Pläne, current und Tracks werden beim Abgleich je Eintrag zusammengeführt; _gsGartenBlobLesen kennt da · leer · fehler · gewechselt; sbLoadProfile markiert ein ungelesenes Ersatzprofil (_ungelesen), das nichts zurückschreibt.'},
-         {emoji:'🧩', bold:'Schlussprüfung des Ganzen:', text:' vier Funde im Abgleich, alle behoben. Pläne und Tracks bekommen eine Löschmarke (_gsLoeschmarke, GS_GELOESCHT_LISTEN) — ohne sie holte die neue Zusammenführung je Eintrag einen offline gelöschten Plan zurück. Ein ungesendeter state auf einem Gerät, das ihn nie abgeglichen hat, wird je Schlüssel gemischt (_gsStateMischen) statt die Cloud zu ersetzen. gsXpBootSync bucht bei einem ungelesenen Profil nichts, und _gsProfilNachlesen holt das Profil nach dem ersten gelungenen Abgleich nach.'},
-        {emoji:'🧪', bold:'Prüfstände:', text:' sicherheit_check 227 Fälle in 24 Dateien (neu 71_person: Tor a–t, KI a–h), sync_check 22 (neu H8–H12), save_check 29, speicher_check 27, edge_check 82; jede Reparatur mit einem Fall, der vorher rot war, und einer gegnerischen Gegenprüfung, die selbst nachgebessert hat.'},
+        {emoji:'🧪', bold:'Prüfstände:', text:' sicherheit_check 227 Fälle in 24 Dateien (neu 71_person: Tor a–t, KI a–h), sync_check H8/H9, save_check 29, speicher_check 27, edge_check 82; jede Reparatur mit einem Fall, der vorher rot war, und einer gegnerischen Gegenprüfung, die selbst nachgebessert hat.'},
         {emoji:'🧯', bold:'Nicht von hier messbar:', text:' ein echter Kontowechsel auf einem Telefon und die echten Stripe-Fenster; gemessen ist Chromium mit gestellten Antworten.'}
       ]
   },
@@ -80116,23 +80131,7 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'apk_check (28 Fälle, 18 Gegenproben):', text:' Pfade.java wird übersetzt und AUSGEFÜHRT (Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:), das Paket wird wirklich gebaut und aufgemacht (index.html byte-gleich), und die App läuft zweimal — mit und ohne die Kennung der Hülle.'},
         {emoji:'📵', bold:'Grenze:', text:' hier läuft kein Android. Geprüft sind Bau, Rechnung und Entscheidung — nicht, wie sich ein Telefon verhält.'}
       ]
-  },
-  {
-    v: 'v33.48', date: '17.09.2026',
-      headline: 'Die Artenliste hat einen zweiten Versuch',
-      summary: 'Das Script-Tag der 2,1-MB-Artenliste hatte kein onerror und keinen Rückfall: fiel die Datei aus, lief die App mit einer leeren Liste weiter und sagte beim Start nichts. Jetzt gibt es einen zweiten Ladeversuch mit Cache-Umgehung — und wenn auch der danebengeht, steht es auf der Startseite.',
-      user_summary: 'Wenn die Artenliste beim Laden einmal ausfällt, holt die App sie von selbst nach. Klappt auch das nicht, sagt sie es dir auf der Startseite — mit einem Knopf zum Nochmal-Versuchen, statt dass Suche und Bestimmung einfach leer bleiben.',
-      user_items: [
-        {emoji:'🔄', bold:'Zweiter Versuch von selbst:', text:' die häufigste Ursache ist ein abgebrochener Download, und der ist beim zweiten Mal weg.'},
-        {emoji:'⚠️', bold:'Und wenn nicht, steht es da:', text:' „Die Artenliste konnte nicht geladen werden" auf der Startseite, mit „Neu laden" daneben.'}
-      ],
-      items: [
-        {emoji:'🧩', bold:'Gemessen an v33.47:', text:' <script src="data/plants.v1.js?v=1"> ohne onerror. Mit blockierter Datei: DB.length = 0, und die Startseite sagte nichts — man merkte es erst beim Öffnen von etwas, das die Liste braucht.'},
-        {emoji:'🧮', bold:'Ein Weg, nicht zwei:', text:' die Datei trägt 4342 Einträge, die App läuft mit 4337 — deduplicateDB war eine anonyme IIFE und lief nur beim normalen Laden. Jetzt ist sie eine benannte Funktion, die der Nachlade-Weg GENAUSO ruft; sonst liefe die App nach einem Nachladen mit fünf Duplikaten weiter.'},
-        {emoji:'🚦', bold:'gsArtenStand():', text:' drei Zustände — ok · laedt · fehlt MIT Grund. Gemessen wird die Liste selbst (DB.length), nicht der gemerkte Ladeversuch: kommt sie über einen anderen Weg doch an, gibt es nichts zu melden.'},
-        {emoji:'🧪', bold:'offline_check 22 → 24 Fragen:', text:' der erste Versuch wird wirklich abgebrochen und der zweite durchgelassen (muss sich erholen, auf dieselbe Artenzahl), dann beide (muss es sagen) — mit der Gegenrichtung „im guten Fall keine Zeile". Drei Gegenproben, jede einzeln rot.'}
-      ],
-    }
+  }
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -80343,7 +80342,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.68';
+var GS_VERSION = 'v33.69';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
