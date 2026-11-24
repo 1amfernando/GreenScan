@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-24-b350",
+  "art": "antwort",
+  "datum": "2026-11-24",
+  "zeit": "13:16:44",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.70",
+  "titel": "Nachtrag: der Wächter heisst jetzt nutzersicht_check E21",
+  "text": "Beim Merge mit main v33.67 (24.11.2026) war die Nummer E15 dort schon vergeben (Notfall in der Menü-Suche). Die Fälle E11–E15 dieses Branches heissen jetzt E17–E21; der Fall aus diesem Eintrag ist E21. Die Regel selbst gilt unverändert — _gsPassCat fragt auf main seit v33.61 ebenfalls die Art (_gsArtAnzeige), dort gilt jetzt deren Fassung mit _gsAktiveFilter.",
+  "beleg": [
+    "nutzersicht_check: name 'E21 · Der Filter „Giftig\" zeigt jede Art ab Giftstufe 2 …' — 17 Fälle, grün auf e55d193"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/nutzersicht_check.js",
+      "fall": "E21"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-61ed"
+    }
+  ]
+}

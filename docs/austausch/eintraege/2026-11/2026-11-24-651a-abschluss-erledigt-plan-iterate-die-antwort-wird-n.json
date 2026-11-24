@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-651a",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "13:18:24",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.70",
+  "titel": "erledigt: plan-iterate: die Antwort wird nicht auf Abbruch geprüft, ersetzt den Plan ohne Formprüfung, und die Kosten werden mit 0 gebucht",
+  "ergebnis": "erledigt",
+  "wohin": "main v33.59 (_shared/plan_antwort.mjs, kiTor) — hier eingemergt am 24.11.2026, NICHT ausgeliefert",
+  "geschwister": "gesucht: stop_reason/plan_antwort in plan-iterate → 4 Stellen (vorher 0), p_model 2×, kiTor 2×; offen bleibt nur das Budget von 8000 Token (STATUS §2 „Budget von plan-iterate“, Entscheidung bei Fernando)",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-9d96"
+    }
+  ]
+}

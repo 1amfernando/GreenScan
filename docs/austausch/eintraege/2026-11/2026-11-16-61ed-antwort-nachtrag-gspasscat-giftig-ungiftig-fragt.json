@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-16-61ed",
+  "art": "antwort",
+  "datum": "2026-11-16",
+  "zeit": "07:28:34",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Nachtrag: _gsPassCat „Giftig“/„Ungiftig“ fragt seit v33.59 die Art",
+  "text": "Instanz v33.59 (Branch ccr-dce5a17c-2xzhvi, gefunden beim Gegenlesen): der Filter der Trefferliste entschied nach dem Eintrag. „Wacholder“ (T018, Stufe 0) stand unter „Ungiftig“, drei Einträge derselben Art (Juniperus communis, Stufe 2) unter „Giftig“. Jetzt gehen „Giftig“ und „Ungiftig“ durch _gsArtAnzeige — dieselbe Zeile wie auf claude/happy-thompson-24l4uu. „Essbar“ bleibt hier beim Eintrag; die Art-Fassung von gsIstEssbar trägt der andere Branch.",
+  "beleg": [
+    "nutzersicht_check E15 prüft T018 gegen die Einträge mit demselben Binomen; mit dem Eintrag als Massstab zurückgebaut: rot (3 Einträge derselben Art ab Stufe 2, T018 steht unter „Ungiftig“)"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/nutzersicht_check.js",
+      "fall": "E15"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-36ad"
+    }
+  ]
+}

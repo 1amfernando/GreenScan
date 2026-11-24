@@ -277,11 +277,16 @@ public class MainActivity extends Activity {
         try {
           startActivityForResult(p.createIntent(), ANFRAGE_DATEI);
           return true;
-        } catch (ActivityNotFoundException e) {
+        } catch (RuntimeException e) {
           // Kein stilles Haengenbleiben: das Feld bekommt seine Absage.
+          // v33.72: `return true`, nicht false — true heisst „der Rueckruf ist
+          // beantwortet". Mit false sagte die WebView dem Feld ein ZWEITES Mal
+          // ab („Duplicate showFileChooser result"). Und gefangen wird jede
+          // RuntimeException: auch eine SecurityException liesse den Rueckruf
+          // sonst offen, und das Feld oeffnete nie wieder. (apk_check R22)
           offeneDateiwahl = null;
           rueckruf.onReceiveValue(null);
-          return false;
+          return true;
         }
       }
     });
@@ -298,12 +303,14 @@ public class MainActivity extends Activity {
       setIntent(new Intent(Intent.ACTION_MAIN));
     }
 
-    if (zustand == null) {
+    // v33.72: `restoreState` gibt null zurueck, wenn es nichts wiederherstellen
+    // konnte (der Zustand wurde gesichert, bevor die erste Navigation stand, oder
+    // die System-WebView wurde inzwischen aktualisiert). Die Rueckgabe las
+    // niemand — die App blieb dann eine leere weisse Seite. (apk_check R22)
+    if (zustand == null || web.restoreState(zustand) == null) {
       // `source=app` statt `source=pwa`: dieselbe Datei, aber die Herkunft ist
       // in der Statistik unterscheidbar.
       web.loadUrl(AssetServer.ORIGIN + "/?source=app");
-    } else {
-      web.restoreState(zustand);
     }
   }
 

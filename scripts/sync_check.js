@@ -360,7 +360,9 @@ const melde = (frage, ok, wie) => {
     const hoch = [];
     window.sbFetch = async function (pfad, opts) {
       opts = opts || {}; const m = (opts.method || 'GET').toUpperCase();
-      if (/\/rest\/v1\/user_gardens/.test(pfad) && m === 'GET') return { data: [{ data: { gardens: G, plantings: PL }, updated_at: new Date().toISOString() }], error: null, status: 200 };
+      // v33.72: die Cloud-Liste traegt auch Unrat (`null`, eine Zeichenkette, eine Liste) —
+      // was von dort kommt, ist fremde Eingabe und geht gesiebt in Speicher UND Variable.
+      if (/\/rest\/v1\/user_gardens/.test(pfad) && m === 'GET') return { data: [{ data: { gardens: G.concat([null, 'kaputt', ['x']]), plantings: PL.concat([null, 7]) }, updated_at: new Date().toISOString() }], error: null, status: 200 };
       if (/\/rest\/v1\/user_gardens/.test(pfad)) { try { hoch.push(JSON.parse(opts.body).data); } catch (_) {} return { data: [{}], error: null, status: 200 }; }
       return { data: [], error: null, status: 200 };
     };
@@ -380,10 +382,12 @@ const melde = (frage, ok, wie) => {
       window._gsInitialSyncDone = false;
       await gsSyncUserDataOnLogin();
       await new Promise(r => setTimeout(r, 1800));   // renderGarden + ein moeglicher Flush (500 ms entprellt)
-      raus.speicher = lies('gs_gardens').map(x => x.name);
-      raus.arbeit = gardens.map(x => x.name);
+      const objekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
+      raus.speicher = lies('gs_gardens').map(x => objekt(x) ? x.name : '<' + JSON.stringify(x) + '>');
+      raus.arbeit = gardens.map(x => objekt(x) ? x.name : '<' + JSON.stringify(x) + '>');
       raus.pflSpeicher = lies('gs_plantings').length;
       raus.pflArbeit = plantings.length;
+      raus.unrat = lies('gs_plantings').concat(plantings).filter(x => !objekt(x)).length;
       raus.hoch = hoch.map(d => ((d && d.gardens) || []).map(x => x.name).join('+') + ' / ' + (((d && d.plantings) || []).length) + ' Pfl.');
       raus.vorgemerkt = localStorage.getItem('gs_sync_dirty_at_garden') ? 'ja' : 'nein';
       // Gegenrichtung: UNGESENDETE lokale Aenderungen gewinnen weiter (v24.23) —
@@ -401,12 +405,12 @@ const melde = (frage, ok, wie) => {
   });
   {
     const soll = 'Hochbeet Süd,Balkon West';
-    const ok = !g.fehler && g.speicher.join(',') === soll && g.arbeit.join(',') === soll && g.pflSpeicher === 2 && g.pflArbeit === 2
+    const ok = !g.fehler && g.speicher.join(',') === soll && g.arbeit.join(',') === soll && g.pflSpeicher === 2 && g.pflArbeit === 2 && g.unrat === 0
       && !g.hoch.some(h => /Mein Garten/.test(h)) && g.vorgemerkt === 'nein' && g.lokalBleibt.join(',') === 'Nur hier';
     melde('Der Pull frischt Gärten und Pflanzungen auch im ARBEITSSPEICHER auf — ein frisch angemeldetes Gerät überschreibt sie nicht mit „Mein Garten"', ok,
-      ok ? '2 Gärten und 2 Pflanzungen im Speicher UND im Arbeitsspeicher · nichts mit „Mein Garten" hochgeschoben · ungesendete lokale Änderung bleibt (' + g.lokalBleibt.join(',') + ')'
+      ok ? '2 Gärten und 2 Pflanzungen im Speicher UND im Arbeitsspeicher (Unrat aus der Cloud gesiebt: 3 + 2) · nichts mit „Mein Garten" hochgeschoben · ungesendete lokale Änderung bleibt (' + g.lokalBleibt.join(',') + ')'
         : (g.fehler ? 'Ausnahme: ' + g.fehler
-          : 'Cloud hatte „' + soll + '" + 2 Pflanzungen → Speicher: „' + g.speicher.join(',') + '" (' + g.pflSpeicher + ' Pfl.) · Arbeitsspeicher: „' + g.arbeit.join(',') + '" (' + g.pflArbeit + ' Pfl.)'
+          : 'Cloud hatte „' + soll + '" + 2 Pflanzungen (dazu 3 + 2 Eintraege Unrat) → Speicher: „' + g.speicher.join(',') + '" (' + g.pflSpeicher + ' Pfl.) · Arbeitsspeicher: „' + g.arbeit.join(',') + '" (' + g.pflArbeit + ' Pfl.) · Unrat bei den Pflanzungen: ' + g.unrat
             + (g.hoch.length ? ' · HOCHGESCHOBEN: ' + g.hoch.join(' | ') : '') + ' · zum Hochladen vorgemerkt: ' + g.vorgemerkt + ' · lokal ungesendet danach: „' + (g.lokalBleibt || []).join(',') + '"'));
   }
 

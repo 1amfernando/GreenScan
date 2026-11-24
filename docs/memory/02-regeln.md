@@ -182,6 +182,45 @@ Tagebuch in `CLAUDE.md`.
     steht in `scripts/sicherheit/97_empfaenger.js` UND in beiden
     Datenschutztexten. *(§3.7; sicherheit_check 90_datenschutz, 97_empfaenger)*
 
+## Zehn Regeln aus v33.72 (CLAUDE.md §4f)
+
+- **Ein Pull frischt auch den Arbeitsspeicher auf.** Speicher UND Variable
+  gehen zusammen durch `_gsListeEinspielen` (§3.3) — sonst sieht das naechste
+  Rendern eine leere Variable, und `initDefaultGarden` legt „Mein Garten" ueber
+  das Geholte. Zwei Sitzungen haben das parallel gefunden (v33.59 auf `main`,
+  v33.72 hier); es gilt der Eingang von `main`. *(sync_check)*
+- **Eine Aufbereitung im Arbeitsspeicher haengt nie an einem Schalter im
+  Geraetespeicher.** Die Artenliste wird bei jedem Start frisch gebaut; jeder
+  Pruefstand beginnt mit leerem Speicher und misst die ERSTE Sitzung.
+  *(robust_check „Zweite Sitzung")*
+- **Beim Parsen wird formsicher gelesen:** `_gsListeLesen(key)`,
+  `_gsObjektLesen(key)`, `safeGetItem(key, vorgabe)` haelt die Form der
+  Vorgabe. `JSON.parse(x || '[]')` faengt weder `null` noch `{}`.
+  *(robust_check „Kaputter Speicher")*
+- **Jede benutzte CSS-Variable ist definiert.** `var(--x, rueckfall)` ohne
+  Definition ist eine feste Farbe, die im Dunkelmodus nicht kippt.
+  *(statik_check S6, contrast_check Durchgang 3)*
+- **Lokal gemeint heisst `_gsDayKey()` / `_gsKalTag(d)`** — nie
+  `toISOString().slice(0, 10)`; das ist in der Schweiz nachts der Vortag, und
+  in UTC (hier, in CI) sieht man es nie. *(datum_check)*
+- **Ein Pruefstand urteilt oder heisst Bericht.** `contrast_check`,
+  `render_check` und `field_check` endeten immer mit 0 und urteilen seit
+  v33.60 (parallel auch hier gefunden); nur `perf_check` ist bewusst ein
+  Bericht.
+- **`calc()` braucht Leerraum um + und −.** `calc(var(--a)+var(--b))` ist
+  ungueltig, die Eigenschaft faellt still weg (Kopfleiste 39 statt 56 px; ein
+  Knopf 10'499 px unter dem Bildschirm). *(statik_check S8)*
+- **Was auf dem Anmeldebildschirm gebraucht wird, wohnt nicht in `#app`.** Wer
+  von dort ein Fenster oeffnet, fragt `_gsAnmeldungSteht()` und haengt es an
+  den `<body>` (Vorbild `openLegalModal`). *(robust_check „Rechtstexte vor der
+  Anmeldung", statik_check S9)*
+- **Die Kalenderwoche ist `gsIsoKW()`**, die Fakten einer Woche holt
+  `_gsWochenFakten(kw)` — nie Sieben-Tage-Bloecke ab dem 1. Januar, nie ein
+  eigener Rueckfall. *(datum_check T7)*
+- **Vor dem Bump die Nummer gegen `main` halten** (`git fetch origin main`),
+  und einen Fund gegen den Stand nachmessen, in den er einfliesst — diese
+  Scheibe hiess v33.57, bis `main` die Nummer vergeben hatte.
+
 ## Und drei Regeln ueber das Arbeiten selbst
 
 - **Beispieldaten sind die Messgrundlage von allem.** `scripts/_seed.js` wird

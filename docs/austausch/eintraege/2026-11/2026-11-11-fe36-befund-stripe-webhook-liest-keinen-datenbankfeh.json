@@ -1,0 +1,33 @@
+{
+  "id": "2026-11-11-fe36",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "stripe-webhook liest keinen Datenbankfehler: 200 und processed_at, auch wenn nichts verbucht wurde",
+  "text": "supabase-js wirft bei einem DB-Fehler nicht, es gibt { error } zurück. Kein Schreibaufruf der Function sieht seine Antwort an; lehnt die Datenbank ab, läuft der Handler weiter, setzt processed_at und antwortet 200 — Stripe wiederholt dann nie. resolveTier macht aus einem Lesefehler die Stufe „free\" mit Status „active\". Sechs .catch() hängen direkt an einer Builder-Kette. Nachgemessen am 11.11.2026 gegen den Stand mit main v33.58: main hat die Datei nicht berührt.",
+  "beleg": [
+    "grep -cE '\\.(upsert|insert|update)\\(' supabase/functions/stripe-webhook/index.ts → 16; Zuweisungen der Form { …error… } = await admin → 0; grep -c '\\.catch(' → 6",
+    "docs/AUDIT-2026-11-11.md edge-1 (bestätigt vom Gegenprüfer, Datei ganz gelesen)"
+  ],
+  "vorschlag": "Ein Helfer muss(q, was), der error liest und wirft, um die Pflicht-Schreibwege und in resolveTier — der Fehler landet dann im vorhandenen catch (500, Stripe wiederholt, processed_at bleibt leer). Die sechs .catch() durch gelesene { error } ersetzen. Dazu ein statischer Fall und ein Node-Fahrer mit gestelltem admin.",
+  "stichworte": [
+    "stripe-webhook",
+    "edge-function",
+    "stripe",
+    "error-nicht-gelesen"
+  ],
+  "anker": [
+    {
+      "datei": "supabase/functions/stripe-webhook/index.ts",
+      "text": "return data?.stripe_products?.tier ?? \"free\";"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-8ead"
+    }
+  ]
+}

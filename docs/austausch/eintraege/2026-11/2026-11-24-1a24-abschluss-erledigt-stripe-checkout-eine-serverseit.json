@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-1a24",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "13:19:37",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.70",
+  "titel": "erledigt: stripe-checkout: eine serverseitige Prüfung greift nicht",
+  "ergebnis": "erledigt",
+  "wohin": "main v33.59/v33.63 (Zahlungsweg in einer Fassung) — hier eingemergt am 24.11.2026, NICHT ausgeliefert: live gilt die alte Function, bis Fernando ausliefert (AUSLIEFERUNG.json)",
+  "geschwister": "abgeglichen mit den Einzelheiten, die bewusst nicht im Repo stehen: die gemeinte Lücke ist im Repo-Stand geschlossen, auf Server- UND App-Seite; die Regel steht in _shared/zahlung_regeln.mjs und wird von stripe_check/edge_check gefahren",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-5ee2"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "2026-11-11-2748",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "stripe-expert-checkout prüft den Aufrufer mit getUser() ohne Token — die Bauform, die main in drei Geschwistern schon ersetzt hat",
+  "text": "mushroom-identify, pest-identify und plant-doctor-diagnose rufen seit v33.58 getUser(userToken) am Service-Client. stripe-expert-checkout baut weiter einen Client mit dem Nutzer-Token als Schlüssel und ruft getUser() ohne Argument; marketplace-publish nennt genau das im Kopf als Ursache eines 401 (B-007). WICHTIG: diese Reparatur nur ZUSAMMEN mit dem Sicherheitsbefund zu derselben Datei ausliefern (siehe den Eintrag „stripe-expert-checkout: eine serverseitige Prüfung fehlt\").",
+  "beleg": [
+    "grep -rnF 'createClient(SUPABASE_URL, userToken' --include=index.ts supabase/functions → 1 Treffer (stripe-expert-checkout)",
+    "docs/AUDIT-2026-11-11.md edge-2; nachgemessen am 11.11.2026: drei von vier durch main behoben"
+  ],
+  "vorschlag": "sbAdmin.auth.getUser(userToken) wie in marketplace-publish; statischer Fall über alle Functions: 0× createClient(SUPABASE_URL, userToken.",
+  "stichworte": [
+    "stripe-expert-checkout",
+    "edge-function",
+    "getUser",
+    "auth"
+  ],
+  "anker": [
+    {
+      "datei": "supabase/functions/stripe-expert-checkout/index.ts",
+      "text": "createClient(SUPABASE_URL, userToken, { auth: { persistSession: false } })"
+    }
+  ]
+}

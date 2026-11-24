@@ -1,0 +1,33 @@
+{
+  "id": "2026-11-11-6f90",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "daily-push-checker warnt vor dem Frost von heute früh statt vor dem der kommenden Nacht — und sperrt damit den richtigen Alarm",
+  "text": "forecast_days=1 mit timezone=auto beginnt um 00:00 Ortszeit; slice(0, 12) sind also 00–11 Uhr des laufenden Tages. Um 18 Uhr meldet die Function den Frost von 04 Uhr früh. Beide Sender teilen die Dedup-Kategorie „frost\": der veraltete Push sperrt den richtigen Abend-Alarm von weather-alert-checker (dort seit v30.36 richtig gerechnet, windowMetrics).",
+  "beleg": [
+    "Vom Gegenprüfer mit den echten Rümpfen beider Sender, gestellter Datenbank, gestelltem Wetterdienst und gestellter Uhr ausgeführt: 18 Uhr, Frost war 04 Uhr → Push; Frost erst in der Nacht → kein Push bzw. als Dublette unterdrückt",
+    "grep -nE 'forecast_days|slice\\(0, *12\\)' supabase/functions/daily-push-checker/index.ts → forecast_days=1 und slice(0, 12)"
+  ],
+  "vorschlag": "windowMetrics in ein gemeinsames _shared/wetter_fenster.mjs ziehen (in Node prüfbar), daily-push-checker ruft dieselbe Rechnung mit forecast_days=2 ab jetzt. Den Frost-Block nicht ersatzlos entfernen.",
+  "stichworte": [
+    "daily-push-checker",
+    "weather-alert-checker",
+    "frost",
+    "push"
+  ],
+  "anker": [
+    {
+      "datei": "supabase/functions/daily-push-checker/index.ts",
+      "text": "const next12 = temps.slice(0, 12);"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-df51"
+    }
+  ]
+}

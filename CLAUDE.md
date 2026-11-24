@@ -165,7 +165,7 @@ GreenScan/
 ├── android/             # Android-Huelle (seit v33.49): nackte WebView, liefert die App AUS DEM PAKET
 │                        unter https://green-scan.ch aus · `bash android/build.sh` → APK · README.md
 ├── scripts/             # Prüfstände (§7.1) + pruefstaende.sh (fährt alle, seit v32.94 mit perf; wie viele: STATUS.md §1) + package.json
-│                        UND package-lock.json (Playwright, NICHT im Root; das Lockfile ist seit v33.59 eingecheckt — CI fährt `npm ci`)
+│                        UND package-lock.json (Playwright + ESLint, NICHT im Root; das Lockfile ist seit v33.59 eingecheckt — CI fährt `npm ci`)
 │                        scripts/apk/ = drei Java-Fahrer fuer apk_check (ExportFahrer, KanalFahrer — seit v33.53; GeteiltFahrer seit v33.56)
 │                        scripts/sicherheit/, scripts/edge/, scripts/rls/ = die Fall-Dateien von sicherheit_check,
 │                        edge_check und rls_check (seit v33.59; eine Datei mit `_` vorn ist ein Helfer, kein Fall)
@@ -173,8 +173,10 @@ GreenScan/
 │                        Fremd-Actions auf vollen Commit-SHAs (nicht Tags); `pruefstaende.yml`: `persist-credentials: false`,
 │                        `npm ci` gegen das Lockfile, nur `contents: read`; `weekly-cleanup.yml` ohne Rechte auf
 │                        Workflow-Ebene (nur am Job) — es BEHÄLT die Zugangsdaten bewusst (`git push --delete`)
+├── .claude/             # workflows/greenscan-audit.js (acht Audit-Blickwinkel, jeder Fund gegengeprüft — seit v33.72) · workflows/austausch-runde.js (§5) ·
+│                        agents/gs-auditor.md + gs-gegenpruefer.md (nur lesend) · launch.json
 ├── docs/austausch/      # das Brett: ein Eintrag je Datei, über das sich alle KI-Sitzungen austauschen (§5) · Werkzeug scripts/austausch.mjs
-├── docs/                # lebende Doku · docs/_archiv/ = 55 historische Aufträge/Audits (seit v32.69 aus dem Root)
+├── docs/                # lebende Doku · docs/_archiv/ = 55 historische Aufträge/Audits (seit v32.69 aus dem Root) · docs/AUDIT-2026-11-11.md = 70 gegengeprüfte Funde aus zwei Läufen; die offenen stehen mit Anker auf dem Brett
 ├── AGENTS.md            # Zeiger für Werkzeuge, die CLAUDE.md nicht von selbst laden
 ├── CLAUDE.md            # ← diese Datei
 ├── STATUS.md            # Aktueller Stand (was läuft, was nicht)
@@ -206,7 +208,12 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 ### 3.1 · Versionierung
 - Versions-Format: `vMAJOR.MINOR` (z.B. `v30.79`). Aktuell: siehe `GS_VERSION`
   in `index.html` und `CACHE_VERSION` in `sw.js`. Bei Bumps **immer beide
-  syncen** + `meta name="app-version"` im `<head>`.
+  syncen** + `meta name="app-version"` im `<head>`. Seit v33.72 ein Skript:
+  `node scripts/_bump.js --von vA.B --nach vC.D` setzt alle vier Marker, hält
+  den Changelog-Deckel und prüft das Ergebnis — sein Kopf sagt, was beim
+  Stapeln auf einen noch nicht gemergten Vorgänger gilt (`--basis` = dessen
+  Kopf, erst umnummerieren, dann einziehen). `_headers` Zeile 1 steht seit
+  v33.59 fest und ist kein Marker mehr.
 - Commit-Message-Format: `vXX.YY: <kurze Aussage>` + Markdown-Body mit
   Bullets pro Bereich (Sicherheit / UX / Feature). Beispiel siehe letzte
   Commits auf `main`.
@@ -335,6 +342,9 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 | Gespeicherte Pläne (seit v33.59) | `gs_plans_v2` (in `GS_USER_KEYS`, geht beim Abmelden) über `gsPlans`; nur lokal gespeicherte warten mit `uid` gestempelt in `gs_plans_wartend` (`GS_KEEP_ON_LOGOUT`, 20 je Konto, 90 Tage ab dem PARKEN — `e.geparkt`, seit der Gesamtprüfung vom 16.11.2026), bis DASSELBE Konto wiederkommt; `gsPlans.parken` parkt seit dem 19.11.2026 JE KONTO, was unter dessen Deckel (20) passt — ein schon wartender Plan behält seinen Platz, neue füllen freie Plätze, die neuesten zuerst; −1 heisst „`gs_plans_v2` bleibt liegen“ (Schreibversuch gescheitert, Fehler oder ein Teil passt nicht), `gsPlans.parkGrund()` sagt `speicher_voll` · `fehler` · `deckel` · `deckel_anderes_konto`, und der Satz beim Abmelden (`_gsAbmeldenSagen`) nennt den Grund; dann räumt `gsClearUserDataKeys` zuerst alles andere, parkt ein zweites Mal und lässt sonst nur liegen, was `gsPlans.bewahrbar()` zulässt (jeder Eintrag trägt eine uid) — und davon nur die lokalen, ohne das eben Geparkte (`gsPlans.nurLokalBehalten`). `writeLS` kürzt nur Einträge, die auch in der Cloud liegen (`kuerzen`): ein nur lokaler Plan bleibt immer | einen Plan ohne Eigentümer einem anderen Konto zeigen; beim Abmelden wegwerfen, was noch nicht oben ist; die einzige Kopie löschen, bevor der Rettungsweg „geschrieben“ gemeldet hat; eine Liste „zur Not“ kürzen, in der die einzige Kopie eines Plans liegt |
 | Eigene Listen aus fremder Hand (seit v33.59) | `_gsListeEinspielen(schluessel, liste, opts)` mit der Tabelle `GS_LISTEN_EINGANG` — Sieb, Speicher UND Variable in einem Schritt; die Variable wird nur gesetzt, wenn der Schreibversuch gelang. Backup-Import, Login-Abgleich (alle Zweige), Snapshot (`_gsRestoreKey`), `gsGardenSync.pullAll` und „Meine Garten-Pläne“ (`gsPPopenSavedPlans`: siebt die Cloud-Listen VOR dem Mischen, sonst stehen gesiebte und rohe Fassung nebeneinander) gehen hindurch. **Dieselbe Tabelle sagt, was beim Abmelden geht:** `gsClearUserDataKeys` setzt jede Variable und jeden Cache aus `GS_LISTEN_EINGANG` zurück, dazu die Spiegel ausserhalb (`favs`, `myVotes`, `marketChats`, `myBids`, `myPurchases`, `weatherCache`, `socialUserName`); und der Login-Abgleich liest `favs`/`myVotes` nach dem Holen neu — wer einen Eintrag hinzufügt, hat beide Richtungen | eine Liste (`gs_gardens`, `gs_plantings`, `ps_myplants`, `gs_gartentagebuch`, `gs_ernte_log`, `gs_garden_plans`, `gs_dead_plants`) aus Cloud, Snapshot oder Datei direkt schreiben — oder nur die Variable setzen (`gardens = d.gardens`); `sicherheit_check` 98_schluss_e findet jeden Schreiber |
 | Bild eines ANDEREN Nutzers (seit v33.59) | `_gsFremdBild(u)` — nur der eigene Supabase-Speicher (`SB_URL_DEFAULT` + `/storage/v1/object/public/`) oder `data:image`; serverseitig dieselbe Regel in `fn_gs_bild_url_ok` (Migration `20261110_sicherheit_community_markt.sql`, nicht angewandt) | `_gsSafeUrl` für fremde Bilder — es prüft nur das Schema, und ein fremder Host zählt jeden Betrachter mit |
+| Kalenderwoche | `gsIsoKW(d)` — ISO 8601 (Montag bis Sonntag, KW 1 = die Woche mit dem ersten Donnerstag); `gsGetKW()` ist dieselbe Rechnung fuer heute | nie Sieben-Tage-Bloecke ab dem 1. Januar (2026 lag das Montag bis Mittwoch eine Woche zurueck) |
+| Fakten einer Woche | `_gsWochenFakten(kw)` — die Eintraege der Woche, sonst der Nachbarwoche (zuerst die davor), sonst die ersten zehn | kein eigener Rueckfall je Anzeige (die Liste kennt KW 1–52, die ISO-Woche 53 hat keinen Eintrag) |
+| „Steht der Anmeldebildschirm?" | `_gsAnmeldungSteht()` — `html.gs-preauth` ODER `#gs-onboarding` sichtbar | nie nur eine der beiden Bedingungen; `_gsTeilenBereit()` ist ihre Verneinung |
 
 ### 3.4 · KI-Calls
 **IMMER** über `callAI(messages, systemPrompt, maxTokens, opts)` oder
@@ -560,7 +570,7 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   | Kontext | Helfer | Warum nicht der andere |
   |---|---|---|
   | Text oder Attributwert in HTML | `escHtml(s)` (kennt seit v32.66 auch `'`) | — |
-  | Wert in einem einfach zitierten JS-String in `onclick="…"` | `_gsOcStr(s)` | der Wert durchläuft ZWEI Parser: `escHtml` allein lässt ein `'` den String beenden, `_gsOcArg` allein lässt ein `&#39;` im Wert vom HTML-Parser zu `'` werden |
+  | Wert in einem einfach zitierten JS-String in `onclick="…"` | `_gsOcStr(s)` (seit v33.72 ist `_gsOcArg` derselbe — der alte halbe Helfer liess `&#39;` stehen) | der Wert durchläuft ZWEI Parser: `escHtml` allein lässt ein `'` den String beenden, `_gsOcArg` allein lässt ein `&#39;` im Wert vom HTML-Parser zu `'` werden |
   | Fragment, das Auszeichnung TRAGEN darf (Übersetzung mit `<br>`, Chat-Zeile mit `<strong>`) | `gsSanitizeHtml(html)` — Allowlist in einem `<template>`; ein `style` nur über `_gsStilSaeubern` (Erlaubnisliste je Deklaration, seit v33.54) | `escHtml` zerstört die Auszeichnung, `innerHTML = fremd` führt sie aus |
   | Adresse aus fremder Hand | `_gsSafeUrl(u)` für Bilder (https/data:image), `_gsSafeLink(l)` für Navigation (eigener Ursprung oder https), `swSafeUrl` im Service Worker (nur eigener Ursprung) | `javascript:` ist eine gültige URL |
   Seit v33.59 ist `window._gsOcArg` nur noch ein Name für `_gsOcStr` — die
@@ -903,8 +913,11 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 > `gsOpenLina` lädt die letzte Konversation aus der Cloud, `gsLinaSend` persistiert).
 > Pflanzen-/Garten-Kontext kommt aus `myPlants`/`gardens` (bereits cloud-synced).
 >
-> Die historischen No-Op-`gsBrain.observe`-Call-Sites können bei Gelegenheit
-> ersatzlos entfernt werden (reine Hygiene, kein funktionaler Effekt).
+> **v33.72: die Aufrufstellen sind entfernt** (14 Bloecke). Die fuenfzehnte war
+> kein No-Op, sondern ein Versprechen: der Sprachmodus sagte „Ich habe deinen
+> Wunsch gespeichert", und der einzige Schreiber war `gsBrain.observe`.
+> `statik_check` S3 meldet jeden neuen `typeof`-Schutz vor einem Namen, den es
+> nicht gibt.
 
 ## 4a · Garten-Zwilling und Planer — die zwei Fallen
 
@@ -1292,6 +1305,102 @@ Zwei Fallen aus dem Bau von v31.75, damit sie niemand neu findet:
   und waehlt Schwarz oder Weiss — fuer jede Stelle, an der Text auf einer
   Farbe aus einer Antwort steht.
 
+## 4f · Zehn Regeln aus dem Audit vom 11.11.2026 (v33.72)
+
+Pruefstaende: `statik_check` (S0–S9), `datum_check` (T0–T7), `robust_check`
+(„Zweite Sitzung", „Kaputter Speicher", „Rechtstexte vor der Anmeldung",
+„Web-Root"), `sync_check` (Garten-Pull), `contrast_check` (Durchgang 3),
+`nutzersicht_check` (E17–E21), `apk_check` (B7, R22).
+
+> **v33.72 — zehn Regeln aus einem Durchgang mit 18 Agenten in drei Laeufen**
+> (das Protokoll: `docs/AUDIT-2026-11-11.md`, 70 Funde, jeder gegengeprueft).
+>
+> **1 · Ein Pull frischt auch den ARBEITSSPEICHER auf.** Der Login-Pull schrieb
+> `gardens`/`plantings` nur in den Geraetespeicher; `renderGarden()` am Ende des
+> Pulls rief `initDefaultGarden()`, sah eine leere Variable, legte „Mein Garten"
+> an und speicherte ihn UEBER das Geholte — auf jedem frischen Geraet, auch in
+> der Android-App. Fuer Pflanzen stand die Zuweisung seit v28.22 da, fuer Gaerten
+> nie. Wer einen Pull-Zweig baut, schreibt Speicher UND Variable in EINEM Schritt —
+> seit dem Merge mit v33.59 ueber `_gsListeEinspielen` (§3.3; dort auch gesiebt),
+> nie mit einer eigenen Zuweisung (`gardens = d.gardens` meldet der Klassenwaechter
+> in `sicherheit_check` 98_schluss_e). `sync_check` stellt dafuer ein LEERES Geraet
+> her (die Beispieldaten hatten den Fehler verdeckt).
+>
+> **2 · Eine Aufbereitung im Arbeitsspeicher haengt nie an einem Schalter im
+> Geraetespeicher.** Die Artenliste wird bei jedem Start frisch gebaut; zwei
+> Aufbereitungen setzten nach dem ersten Lauf `gs_…_filled` und stiegen danach
+> aus. Erste Sitzung 160 generische Symbole, jede spaetere 1'971. **Jeder
+> Pruefstand beginnt mit leerem Speicher und misst die erste Sitzung** —
+> `robust_check` „Zweite Sitzung" laedt zweimal im selben Speicher. Eine
+> Einmal-Migration aendert etwas GESPEICHERTES; alles andere laeuft immer.
+>
+> **3 · Was beim PARSEN gelesen wird, wird formsicher gelesen.** Ein
+> `JSON.parse(stored)` auf oberster Ebene ohne Halt beendet das ganze Skript:
+> der Ladebildschirm bleibt stehen. Wer eine Liste braucht, ruft
+> `_gsListeLesen(key)` (bzw. `_gsListeLesen(key, true)` fuer Zeichenketten), wer
+> ein Objekt braucht `_gsObjektLesen(key)`; `safeGetItem(key, vorgabe)` haelt
+> seit v33.72 die FORM der Vorgabe. `JSON.parse(x || '[]')` faengt weder `null`
+> noch `{}`. Die Integritaetspruefung laeuft VOR dem Hauptskript.
+>
+> **4 · `var(--x, rueckfall)` mit einem Namen, den niemand definiert, ist eine
+> feste Farbe.** `color:var(--fg,#1a1a1a)` machte den zentralen Rueckfrage-Dialog
+> im Dunkelmodus unlesbar (1,06:1) — 49 Aufrufstellen, nie vermessen, weil er
+> Parameter braucht. `statik_check` S6 haelt jede benutzte Variable gegen ihre
+> Definition; `contrast_check` stellt Dialoge mit Parametern von Hand und oeffnet
+> jeden, der sich selbst an den `<body>` haengt (Durchgang 3).
+>
+> **5 · Ein Pruefstand, der nie rot werden kann, ist ein Bericht — und das muss
+> dastehen.** `contrast_check`, `render_check` und `field_check` endeten IMMER
+> mit 0; „N unter AA" haette die Suite als gruen gemeldet. Alle drei urteilen
+> jetzt (`field_check` mit einer Liste `BEWUSST`: ein gepruefter Verdacht
+> bekommt dort seinen Grund). Nur `perf_check` ist bewusst ein Bericht — und
+> so steht es in seinem Kopf.
+>
+> **6 · Alle Pruefstaende laufen in UTC, die Nutzer nicht.** Ein
+> `toISOString().slice(0, 10)` ist in der Schweiz nachts der Vortag, und in UTC
+> sieht man es nie. Lokal gemeint: `_gsDayKey()` / `_gsKalTag(d)`. Bewusst UTC
+> (Quiz-Tag, Dateinamen): dann den Deckel in `datum_check` T0 mit Grund erhoehen.
+>
+> **7 · `calc()` braucht Leerraum um + und −, sonst gibt es die Deklaration
+> nicht.** `height:calc(var(--st)+var(--top-h))` ist ungueltig; mit `var()` darin
+> faellt die Eigenschaft erst beim Berechnen weg, ohne Meldung. Sieben Stellen,
+> seit jeher: die Kopfleiste war 39 statt 56 px hoch, die Bottom-Sheets hatten
+> keinen Fuss — und der Knopf „Rezept hinzufuegen" stand 10'499 px unter dem
+> Bildschirm (`bottom:auto`). Eigene Rezepte liessen sich nie anlegen, und
+> **ein Bedienelement, das nie jemand gesehen hat, meldet niemand als Fehler.**
+> `statik_check` S8 haelt jeden Ausdruck gegen die Regel (und die Regel gegen
+> acht gueltige und sechs ungueltige Formen).
+>
+> **8 · Was auf dem Anmeldebildschirm gebraucht wird, darf nicht in `#app`
+> wohnen.** `#app` ist ohne Anmeldung `display:none!important`, und
+> `#gs-onboarding` liegt auf z-index 9999999. Die zwei Links „Datenschutz-
+> erklaerung & Nutzungsbedingungen" im Registrierformular oeffneten ein Fenster,
+> das `.open` trug, das Scrollen sperrte und NICHT ZU SEHEN war. Wer von dort
+> etwas oeffnet, fragt `_gsAnmeldungSteht()` und haengt das Fenster an den
+> `<body>` (Vorbild `openLegalModal`). Dahinter lag ein Strukturfehler:
+> `<div id="app">` wurde nie geschlossen (`statik_check` S9).
+>
+> **9 · Eine Kalenderwoche ist die ISO-Woche: `gsIsoKW()`.** Zwei Rechnungen
+> zaehlten Sieben-Tage-Bloecke ab dem 1. Januar — richtig nur in Jahren, die an
+> einem Montag beginnen. 2026 lag die Woche von Montag bis Mittwoch um eins
+> zurueck (Startseite und Planer-Kalender). Und wer die Fakten einer Woche
+> braucht, ruft `_gsWochenFakten(kw)` — ein Rueckfall fuer alle Anzeigen
+> (`datum_check` T7).
+>
+> **10 · Eine Versionsnummer gehoert dem, der sie auf `main` hat — und ein
+> Audit misst den Stand, den er liest.** Diese Scheibe hiess v33.57, bis
+> `git fetch origin main` zeigte, dass `main` v33.57 UND v33.58 inzwischen
+> vergeben hatte: 121 Nennungen umnummeriert, 28 Konfliktstellen aufgeloest.
+> Und der zweite Agenten-Lauf pruefte den Stand VOR dem Nachziehen: drei seiner
+> Funde hatte `main` schon behoben (Rezept-Verknuepfung, doppelte Rezept-ids,
+> die Zutaten-Karte), bei einem vierten drei von vier Stellen. **Vor jedem
+> Arbeitsschritt `git fetch origin main`; vor dem Bump die Nummer gegen `main`
+> halten; und einen Fund gegen den Stand nachmessen, in den er einfliesst.**
+>
+> Und zum Werkzeug selbst: **acht lose Agenten rissen zweimal am Nutzungslimit,
+> bevor einer berichtet hatte.** Ein Workflow mit Zwischenspeicher je Agent
+> ueberlebt das; und jeder Auditor schreibt seine Funde ZUERST in eine Datei.
+
 ## 5 · Multi-Agent-Sync — das Brett
 
 Mehrere Sitzungen arbeiten parallel an diesem Repo (Cloud-Sitzungen, geplante
@@ -1553,6 +1662,8 @@ node scripts/risiko_check.js     # was geht SPÄTER schief? Jahreszahlen in wied
 node scripts/apk_check.js        # ist die Android-App dieselbe App? (seit v33.49) Vier Haelften: RECHNUNG (Pfade.java wird UEBERSETZT UND AUSGEFUEHRT — Ausbruchsversuche roh/%2f/doppelt kodiert, die Weiche blob:/data:, der geschlossene MIME-Katalog, die Kopfzeilen aus dem echten _headers) · PAKET (build.sh laeuft wirklich, das APK wird aufgemacht: index.html byte-gleich, Version aus GS_VERSION, targetSdk hoch genug fuer Android 14/15) · RAND (nie null fuer den eigenen Ursprung, 0x addJavascriptInterface, dieselbe Marke, jede Berechtigung mit Anlass, der Zurueck-Knopf am Verlauf, kein Schluessel im Repo) · APP (Playwright ueber HTTP, zweimal: mit und ohne die Kennung der Huelle). Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen; seit v33.53 der KANAL fuer Export und Drucken: Export.java gegen android.jar 23 uebersetzt und mit Grenzfaellen ausgefuehrt (X0–X11, scripts/apk/ExportFahrer.java), R12–R16 am Rand (Weiche, Druckansicht, „Speichern unter", zwei evaluateJavascript, die Naht Java↔JS), und die Huelle-Fahrt laeuft unter https://green-scan.ch mit der CSP aus _headers gegen einen ECHTEN Java-Sammler (scripts/apk/KanalFahrer.java): zehn Exporte ueber ihre echte Funktion (E1–E10), drei Netz-Faelle (N1–N3), K1–K10 (Abbruch, Fehler, viele Teile, Grenzen, 0 Downloads in der Huelle, byte-gleich mit dem Browser, KI-Text im Druck); seit v33.56 das TEILEN in der Huelle: Geteilt.java gegen android.jar 23 und mit Grenzfaellen ausgefuehrt (G1–G9, scripts/apk/GeteiltFahrer.java — Quelle, Typ an den Bytes, Deckel, Nummern, zwei Kopien, 8 Faeden, Fristen auf die Millisekunde, Weiche mit eigenem Kopfzeilen-Wert, jede Ausnahme der Quelle), R17 (die Naht des Teilens) und R18 (der Rand: dieselben vier Typen wie die PWA, ClipData zuerst, eigener Faden, nie eine Datei selbst gelesen), B5 (die Filter im GEBAUTEN Paket, aus `aapt dump xmltree`), R8 auch in der Gegenrichtung (keine Kennung ohne Eintrag), und T0–T13 gegen ein ECHTES Geteilt.Fach im KanalFahrer (Kaltstart, langsame Kopie, Wiederkehr, ein neueres Foto waehrend eines Scans, Frist, jeder Grund ein Satz, Abmelden, 0 Griffe in den Cache der PWA, kein zweites Angebot waehrend des eigenen Scans, der Kanal antwortet nicht wie die Huelle, Aufgeben raeumt nichts, die Versuche zaehlen je Teilen); Typ und Kopfzeilen der Antwort kommen aus Geteilt.Antwort — derselben Methode, die AssetServer nimmt
 node scripts/rezept_link_check.js # zeigt ein Rezept auf die gemeinte Art — und nie auf eine giftige? (seit v33.58, reines Node: 524 Eintraege gegen data/plants.v1.js; doppelte Rezept-Ids, Ids ohne Art, Giftstufe, essbar)
 node scripts/modell_check.js     # antwortet die KI noch, wenn Anthropic ein Modell abschaltet? (seit v33.58) Drei Haelften: RECHNUNG (_shared/modelle.mjs in Node — Ketten, Secret, Freigabe, Zusatz je Modell, Denk-Bloecke, Rueckfall) · RAND (der ECHTE Handler von ai-proxy, Typen entfernt, Deno/Supabase/Anthropic gestellt: Stufen, Sperre, Notschalter, Groesse, Schluessel, CORS) · QUELLTEXT (kein Modellname in einer Edge-Function; App und Server meinen dieselben Modelle und denselben Zusatz). Ohne stripTypeScriptTypes: „nicht pruefbar" (Exit 2)
+node scripts/statik_check.js     # was sagt ein PARSER ueber die App? (seit v33.72) ESLint nur als Parser mit Geltungsbereichen: alles parst · keine Funktion doppelt deklariert · kein Name, den es nirgends gibt · kein typeof-Schutz vor etwas, das es nie gibt · 41 Korrektheitsregeln mit null Treffern · keine Funktion, deren Nennungen alle im EIGENEN Rumpf stehen · jede benutzte CSS-Variable ist definiert · sw.js mit den Namen eines Workers · S8: jedes calc() hat Leerraum um + und − · S9: jedes statische Tag wird geschlossen. Ohne ESLint: „nicht pruefbar" (Exit 2). Laeuft als ERSTER (14 s)
+node scripts/datum_check.js      # stimmt der TAG, wenn es in der Schweiz nach Mitternacht ist? (seit v33.72) Europe/Zurich, Uhr auf 01:30 gestellt — alle anderen laufen in UTC, wo lokaler und UTC-Tag dasselbe sind: Vorgabe in Datumsfeldern, EXIF-Datum, Tagebuch-Serie, Ernte-Tracker, Ernte ohne erfundene Uhrzeit, Giess-Banner, T7: die Kalenderwoche ist die ISO-Woche (acht Probetage gegen eine eigene Rechnung, KW 53); T0 deckelt die UTC-Tagesschnitte (32)
 node scripts/sicherheit_check.js # kommt Fremdes als TEXT an, ueber ALLE Wege? (seit v33.59) Fall-Dateien in scripts/sicherheit/ (je Themengruppe EINE Datei, `_`-Dateien sind Helfer), je Datei eine FRISCH geladene App mit einer angemeldeten Sitzung; jeder Fall rendert die echte Funktion mit h.BOESE / h.OC / h.OCQ / h.ATTR und misst ZWEI Dinge: window.__pwned bleibt unberuehrt UND der Wert steht sichtbar da; dazu die Empfaenger-Liste (97_empfaenger), die onclick-Bauform als Klasse (92_onclick), die Schlusspruefung (98/99). `node scripts/sicherheit_check.js scan markt` faehrt nur passende Dateien
 node scripts/stripe_check.js     # kommt an, was bezahlt wurde — und nur das? (seit v33.63, aus PR #329) die ECHTEN Handler von stripe-checkout/-portal/-webhook gegen eine gestellte Welt, SQL-Haelfte im lokalen Postgres, Quelltext; misst die Regeln von main (STATUS (jk), W1–W11) — und die Attrappe in scripts/edge/_zahlung_stripe.mjs lehnt seither einen unbekannten Checkout-Parameter ab (400 parameter_unknown), wie Stripe
 node scripts/edge_check.js       # halten die Edge-Functions, was sie ueber ihre Tore sagen? (seit v33.59) Ohne Deno: die Rechnung der _shared/*.mjs (ki_tor, zahlung_regeln, push_helfer, markt_regeln …) wird in Node AUSGEFUEHRT, der Rand (index.ts) am Quelltext geprueft — fuer die Zahlungs-Functions laeuft die ECHTE index.ts in Node 22 (Typen gestrichen, npm:/jsr:/esm.sh auf gestellte Module umgelenkt) gegen eine Supabase-Attrappe, die sich wie PostgREST verhaelt (scripts/edge/_live_schema.mjs: Live-Spalten und -Fremdschluessel, PGRST200 / 42703); 40_lieferkette: jede Import-Angabe exakt versioniert, ein Paket ueberall dieselbe Version

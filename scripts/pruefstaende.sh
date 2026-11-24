@@ -7,6 +7,7 @@
 # Playwright: $GS_PW (Pfad zum playwright-Modul) — in CI scripts/node_modules/playwright,
 # in der Claude-Cloud /opt/node22/lib/node_modules/playwright (Vorgabe in den Pruefstaenden).
 # Android (apk_check): aapt/apksigner/zipalign/dalvik-exchange + android.jar (Ubuntu-Archiv, NICHT dl.google.com).
+# ESLint (statik_check, nur als Parser): $GS_ESLINT, sonst scripts/node_modules/eslint (CI), sonst /opt/node22/lib/node_modules/eslint.
 # Postgres (quiz_check, schluessel_check, nutzung_check, backup_check, quiz_gen_check, naht_check, admin_check, stripe_check):
 # $GS_PG_URL, sonst 127.0.0.1:54329 (scripts/_pg_local.sh). Ohne Postgres melden sie „nicht pruefbar" (Exit 2) — hier
 # gilt das als Warnung, nicht als rot. (Bis v33.59 stand hier „diese beiden" und fuenf Namen; es sind acht.)
@@ -31,6 +32,11 @@ run() {
   if [ "$rc" = 2 ]; then WARN=$((WARN+1)); echo "EXIT=2 (nicht pruefbar)"; elif [ "$rc" != 0 ]; then ROT=$((ROT+1)); echo "EXIT=$rc  <<< ROT"; else echo "EXIT=0"; fi
 }
 SCHNELL=${1:-}
+# v33.72: statik_check zuerst — er LIEST die App als Programm (14 s) und meldet
+# einen Syntaxfehler, eine doppelte Funktion oder einen Namen, den es nicht gibt,
+# bevor 39 andere eine halbe Stunde lang eine kaputte Seite vermessen.
+# Ohne ESLint: „nicht pruefbar" (Exit 2), nie gruen.
+TAILN=12 run statik     node scripts/statik_check.js
 TAILN=10 run render       node scripts/render_check.js
 run wiring       node scripts/wiring_check.js
 run a11y         node scripts/a11y_check.js
@@ -78,6 +84,10 @@ run android      node scripts/android_check.js
 # Ohne die Android-Werkzeuge: „nicht pruefbar" (Exit 2), nie gruen.
 run apk          node scripts/apk_check.js
 run risiko       node scripts/risiko_check.js
+# v33.72: datum_check laeuft in Europe/Zurich mit gestellter Uhr (01:30 nachts) —
+# alle anderen laufen in der Zeitzone der Maschine (hier und in CI: UTC), wo
+# „lokaler Tag" und „UTC-Tag" dasselbe sind.
+TAILN=10 run datum      node scripts/datum_check.js
 # v33.59: drei Pruefstaende aus der Sicherheitspruefung vom 10.11.2026. Jeder laedt seine
 # Faelle aus einem eigenen Verzeichnis (Dateien mit `_` am Anfang sind Helfer, keine Faelle).
 #   sicherheit — kommt Fremdes als Text an? (Playwright, scripts/sicherheit/)

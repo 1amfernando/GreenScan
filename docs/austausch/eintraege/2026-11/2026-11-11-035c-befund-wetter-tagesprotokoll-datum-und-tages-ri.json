@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-11-035c",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Wetter-Tagesprotokoll: Datum und Tages-Riegel sind der UTC-Tag, die Werte der Zürcher Tag",
+  "text": "loadGardenWeather schreibt date = toISOString().slice(0,10) und den Riegel gs_weather_logged_<UTC-Tag>, während die Tageswerte mit timezone=Europe/Zurich angefragt werden. Zwischen 00:00 und 02:00 Ortszeit trägt die Zeile den Vortag. Der Riegel gehört zugleich zu den Schlüsselfamilien ohne Speicherliste (brett:2026-11-11-030e).",
+  "beleg": [
+    "TZ=Europe/Zurich, Zeilen ausgeschnitten: 16.07.2026 00:30 → date 2026-07-15 und Riegel …_2026-07-15, daily[0] ist der 16.07. (Nachmessung 11.11.2026)"
+  ],
+  "vorschlag": "_gsDayKey() an beiden Stellen; der Deckel UTC_TAG_DECKEL in datum_check sinkt um zwei.",
+  "stichworte": [
+    "loadGardenWeather",
+    "gs_weather_logged_",
+    "datum_check",
+    "_gsDayKey"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var todayDateIso = new Date().toISOString().slice(0,10);"
+    }
+  ]
+}

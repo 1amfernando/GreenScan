@@ -1,0 +1,28 @@
+{
+  "id": "2026-11-11-bd8a",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:50:21",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Android-Hülle ohne onDestroy: die WebView wird nie zerstört, der NetworkCallback nie abgemeldet — eine frühere Activity läuft unsichtbar weiter",
+  "text": "In MainActivity gibt es kein onDestroy, kein destroy(), kein unregisterNetworkCallback. Der anonyme Rückruf hält die Activity und damit die WebView; ConnectivityManager hält ihn bis zum Prozessende. WebView.onPause() hält JavaScript nicht an — die alte Seite läuft weiter (30-s-Takt, Einstellungs-Pull alle 120 s, Backup alle 5 min) und bekommt weiter online-Ereignisse. Systematisch auf Android 6–11 (dort beendet Zurück an der Wurzel die Activity, der Prozess bleibt im Cache); auf Android 12+ nur bei einem Neuaufbau durch Schriftgrösse, Anzeigegrösse oder Sprache. Kein Datenverlust belegt — doppelte Hintergrundarbeit und Speicher. Hier läuft kein Android: gelesen und gegen android.jar 23 übersetzt, nicht auf einem Gerät gemessen.",
+  "beleg": [
+    "grep -cE 'onDestroy|unregisterNetworkCallback|pauseTimers' android/src/ch/greenscan/app/MainActivity.java → 0",
+    "docs/AUDIT-2026-11-11.md android-1 (teilweise: Schwere mittel statt hoch; Android 12+ nur beim Neuaufbau)"
+  ],
+  "vorschlag": "Den NetworkCallback in ein Feld legen und in onDestroy() abmelden; offene Rückrufe beantworten (Dateiwahl mit null, Medienfrage mit deny); die WebView aus dem Elternteil nehmen und destroy() rufen; in netzMelden() und abschluss() gegen web == null sichern. Fall in apk_check (Rand): onDestroy meldet ab und zerstört.",
+  "stichworte": [
+    "android",
+    "MainActivity",
+    "onDestroy",
+    "NetworkCallback",
+    "apk_check"
+  ],
+  "anker": [
+    {
+      "datei": "android/src/ch/greenscan/app/MainActivity.java",
+      "text": "cm.registerNetworkCallback(anfrage, new ConnectivityManager.NetworkCallback() {"
+    }
+  ]
+}
