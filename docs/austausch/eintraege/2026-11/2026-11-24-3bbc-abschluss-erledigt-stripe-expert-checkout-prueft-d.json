@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-3bbc",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "13:18:32",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.70",
+  "titel": "erledigt: stripe-expert-checkout prüft den Aufrufer mit getUser() ohne Token — die Bauform, die main in drei Geschwistern schon ersetzt hat",
+  "ergebnis": "erledigt",
+  "wohin": "main v33.59 (getUser(userToken) am Service-Client) — hier eingemergt am 24.11.2026, NICHT ausgeliefert",
+  "geschwister": "gesucht: grep -rnF 'createClient(SUPABASE_URL, userToken' --include=index.ts supabase/functions → 0 (vorher 1)",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-2748"
+    }
+  ]
+}

@@ -1464,6 +1464,302 @@ const FAELLE = [
       return { ok: true, info: 'unbekannt: keine Marke · Edelweiss: keine Marke · Schnittlauch: „🍽️ essbar"' };
     },
   },
+
+  // ── Scanner 12 (24.11.2026): „Mit Bildern vergleichen" ──────────────────────────────────
+  // Gemessen vorher: Referenzbilder gab es nur in der Artenansicht und im Verlauf — dort, wo man die
+  // Bestimmung liest, keines. Jeder Fall stellt Wikipedia und die Community-Fotos selbst (_gsFetch,
+  // sbFetch) und räumt danach auf; geprüft wird, was im FENSTER steht und welche Anfragen hinausgehen.
+  {
+    name: 'VG1 · Vergleich · der Knopf zeigt dein Foto, die Art und ihre Alternativen mit derselben Marke wie der Streifen — vor dem Antippen fragt niemand Wikipedia',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch, rufe = [];
+      const c = document.createElement('canvas'); c.width = c.height = 8;
+      // gezählt werden nur Anfragen an Wikipedia — über _gsFetch laufen auch sbFetch-Aufrufe (fn_achievements_bump)
+      window._gsFetch = function (u) {
+        if (/wikipedia\.org/.test(String(u))) rufe.push(String(u));
+        const n = rufe.length;
+        return Promise.resolve(new Response(JSON.stringify({ thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Bild_' + n + '.jpg/320px-Bild_' + n + '.jpg' }, content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/Bild_' + n } } }), { status: 200 }));
+      };
+      window.sbFetch = async function (pfad) { if (/fn_species_images/.test(pfad)) return { data: [], error: null }; return es.apply(this, arguments); };
+      try {
+        _wCache = {}; _wMeta = {}; _spImgCache = {};
+        window._gsLastScanB64 = c.toDataURL('image/jpeg').split(',')[1]; window._gsLastScanMt = 'image/jpeg';
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 72, toxicity: 0, description: 'x',
+          diagnostic_features: ['breite Blätter', 'weisse Doldenblüte'], alternatives: [
+          { name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 18, toxicity: 4, distinguishing_feature: 'kein Knoblauchgeruch' },
+          { name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 10, toxicity: 5, distinguishing_feature: 'Blätter ohne Stiel' },
+          // nur `toxic`, keine Zahl, nicht in der Liste: die Marke kommt allein aus der rohen Antwort
+          { name: 'Zzz Giftkraut', latin: 'Zzzus toxicus', confidence: 5, toxic: true } ] });
+        const knopf = document.querySelector('#scan-result .gs-vgl-knopf');
+        if (!knopf) return { ok: false, warum: 'kein Knopf „Mit Bildern vergleichen" im Ergebnis' };
+        const streifen = [...document.querySelectorAll('#scan-result .sr2-alt-card .sr2-alt-name')].map(e => (e.textContent || '').replace(/\s+/g, ' ').trim());
+        if (rufe.length) return { ok: false, warum: 'vor dem Antippen schon ' + rufe.length + ' Anfrage(n): ' + rufe.join(' · ') };
+        knopf.click();
+        const dlg = document.getElementById('gs-vergleich');
+        if (!dlg) return { ok: false, warum: 'der Knopf öffnet kein Fenster' };
+        await new Promise(r => setTimeout(r, 200));
+        const klagen = [];
+        const karten = [...dlg.querySelectorAll('.gs-vgl-karte')];
+        const namen = karten.map(k => k.getAttribute('data-vgl') + ':' + ((k.querySelector('.gs-vgl-name') || {}).textContent || ''));
+        if (namen.join('|') !== 'haupt:Bärlauch|alt1:Maiglöckchen|alt2:Herbstzeitlose|alt3:Zzz Giftkraut') klagen.push('Karten: ' + namen.join(' · '));
+        const foto = dlg.querySelector('img[alt="Dein Foto"]');
+        if (!foto || String(foto.getAttribute('src') || '').indexOf('data:image/jpeg;base64,' + window._gsLastScanB64) !== 0) klagen.push('dein Foto fehlt oder ist ein anderes');
+        // dieselbe Marke wie im Streifen — eine Rechnung, zwei Anzeigen
+        [1, 2, 3].forEach(i => {
+          const m = karten[i] && karten[i].querySelector('.gs-vgl-marke');
+          const mt = m ? m.textContent.trim() : '';
+          const st = streifen[i - 1] || '';
+          if (!mt || st.indexOf(mt) < 0) klagen.push('Alternative ' + i + ': Marke im Vergleich „' + mt + '", im Streifen „' + st + '"');
+        });
+        const erwartet = ['Allium ursinum', 'Convallaria majalis', 'Colchicum autumnale', 'Zzzus toxicus'];
+        const gefragt = erwartet.filter(l => rufe.some(u => u.indexOf(encodeURIComponent(l)) >= 0));
+        if (gefragt.length !== 4 || rufe.length !== 4) klagen.push('Wikipedia gefragt nach ' + gefragt.length + ' von 4 Arten, ' + rufe.length + ' Anfragen');
+        const bilder = karten.map(k => { const im = k.querySelector('.gs-vgl-bild img'); return im ? im.getAttribute('src') : ''; });
+        if (bilder.filter(b => /^https:\/\/upload\.wikimedia\.org\/.*\/400px-Bild_\d\.jpg$/.test(b)).length !== 4) klagen.push('Referenzbilder: ' + bilder.join(' · '));
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '0 Anfragen vor dem Antippen · danach 4 (je Art eine) · Karten ' + namen.join(' · ') + ' · Marken wie im Streifen (auch „nur toxic")' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
+  {
+    name: 'VG2 · Vergleich · ein Wikipedia-Bild trägt seinen Nachweis (Dateiseite mit Urheber und Lizenz) — ein Bild von einem fremden Host wird nicht gezeigt',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch;
+      window._gsFetch = function (u) {
+        const fremd = /Convallaria/.test(String(u));
+        const src = fremd ? 'https://zaehler.example/pixel.jpg' : 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Allium_ursinum_Blatt.jpg/320px-Allium_ursinum_Blatt.jpg';
+        return Promise.resolve(new Response(JSON.stringify({ thumbnail: { source: src }, content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/Allium_ursinum' } } }), { status: 200 }));
+      };
+      window.sbFetch = async function (pfad) { if (/fn_species_images/.test(pfad)) return { data: [], error: null }; return es.apply(this, arguments); };
+      try {
+        _wCache = {}; _wMeta = {}; _spImgCache = {};
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 72, toxicity: 0, description: 'x', alternatives: [
+          { name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 18, toxicity: 4 } ] });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 200));
+        const dlg = document.getElementById('gs-vergleich');
+        if (!dlg) return { ok: false, warum: 'kein Fenster' };
+        const k0 = dlg.querySelector('[data-vgl="haupt"]'), k1 = dlg.querySelector('[data-vgl="alt1"]');
+        const klagen = [];
+        const a0 = k0 && k0.querySelector('.gs-vgl-nachweis a');
+        if (!a0) klagen.push('Bärlauch: kein Bildnachweis');
+        else if (a0.getAttribute('href') !== 'https://commons.wikimedia.org/wiki/File:Allium_ursinum_Blatt.jpg') klagen.push('Bärlauch: Nachweis zeigt auf ' + a0.getAttribute('href'));
+        if (a0 && a0.getAttribute('rel') !== 'noopener') klagen.push('Nachweis ohne rel=noopener');
+        const im1 = k1 && k1.querySelector('.gs-vgl-bild img');
+        if (im1) klagen.push('Maiglöckchen: ein Bild von ' + im1.getAttribute('src') + ' wird gezeigt — nur upload.wikimedia.org ist erlaubt');
+        const t1 = k1 ? (k1.querySelector('.gs-vgl-bild') || {}).textContent || '' : '';
+        if (!/Kein Vergleichsbild/.test(t1)) klagen.push('Maiglöckchen: statt eines Satzes steht „' + t1.trim() + '"');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Nachweis → commons File:Allium_ursinum_Blatt.jpg · fremder Host: kein Bild, „' + t1.trim() + '"' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
+  {
+    name: 'VG3 · Vergleich · ein freigegebenes Community-Foto aus dem eigenen Speicher geht vor Wikipedia — eines von einem fremden Host nicht',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch, rufe = [];
+      const baer = gsMatchScanToDb('Bärlauch', 'Allium ursinum'), maig = gsMatchScanToDb('Maiglöckchen', 'Convallaria majalis');
+      if (!baer || !maig) return { ok: false, warum: 'Aufbau: Bärlauch oder Maiglöckchen fehlt in der Artenliste' };
+      const eigen = SB_URL_DEFAULT + '/storage/v1/object/public/species-images/vg3.jpg';
+      window._gsFetch = function (u) { rufe.push(String(u)); return Promise.resolve(new Response(JSON.stringify({ thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/X.jpg/320px-X.jpg' } }), { status: 200 })); };
+      window.sbFetch = async function (pfad, opt) {
+        if (/fn_species_images/.test(pfad)) {
+          const id = JSON.parse((opt && opt.body) || '{}').p_species_id;
+          if (id === baer.id) return { data: [{ url: eigen, is_primary: true, attribution: 'Anna Muster' }], error: null };
+          if (id === maig.id) return { data: [{ url: 'https://zaehler.example/m.jpg', is_primary: true, attribution: 'X' }], error: null };
+          return { data: [], error: null };
+        }
+        return es.apply(this, arguments);
+      };
+      try {
+        _wCache = {}; _wMeta = {}; _spImgCache = {};
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 72, toxicity: 0, description: 'x', alternatives: [
+          { name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 18, toxicity: 4 } ] });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 200));
+        const dlg = document.getElementById('gs-vergleich');
+        const klagen = [];
+        const im0 = dlg && dlg.querySelector('[data-vgl="haupt"] .gs-vgl-bild img');
+        if (!im0 || im0.getAttribute('src') !== eigen) klagen.push('Bärlauch zeigt ' + (im0 ? im0.getAttribute('src') : 'kein Bild') + ' statt des Community-Fotos');
+        const nw0 = dlg && dlg.querySelector('[data-vgl="haupt"] .gs-vgl-nachweis');
+        if (!nw0 || nw0.textContent.indexOf('Anna Muster') < 0) klagen.push('Bärlauch: Nachweis „' + (nw0 ? nw0.textContent : '') + '" nennt die Fotografin nicht');
+        if (rufe.some(u => /Allium/.test(u))) klagen.push('für Bärlauch wurde trotz Community-Foto Wikipedia gefragt');
+        const im1 = dlg && dlg.querySelector('[data-vgl="alt1"] .gs-vgl-bild img');
+        if (!im1 || !/^https:\/\/upload\.wikimedia\.org\//.test(im1.getAttribute('src') || '')) klagen.push('Maiglöckchen: das fremde Community-Foto wird nicht übergangen (Bild: ' + (im1 ? im1.getAttribute('src') : 'keines') + ')');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'eigener Speicher vor Wikipedia (Nachweis „Anna Muster", 0 Wikipedia-Anfragen dafür) · fremder Host → Wikipedia' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
+  {
+    name: 'VG4 · Vergleich · ohne Empfang stehen Namen, Marken und Merkmale da und ein Satz statt eines Bildes — und mit Empfang kommt das Bild beim nächsten Öffnen',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch;
+      let netz = false;
+      window._gsFetch = function () {
+        if (!netz) return Promise.reject(new TypeError('Failed to fetch'));
+        return Promise.resolve(new Response(JSON.stringify({ thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Y.jpg/320px-Y.jpg' } }), { status: 200 }));
+      };
+      window.sbFetch = async function (pfad) { if (/fn_species_images/.test(pfad)) return netz ? { data: [], error: null } : { data: null, error: { message: 'Failed to fetch' } }; return es.apply(this, arguments); };
+      try {
+        _wCache = {}; _wMeta = {}; _spImgCache = {};
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 72, toxicity: 0, description: 'x', alternatives: [
+          { name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 18, toxicity: 4, distinguishing_feature: 'kein Knoblauchgeruch' } ] });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 200));
+        let dlg = document.getElementById('gs-vergleich');
+        const klagen = [];
+        const k1 = dlg && dlg.querySelector('[data-vgl="alt1"]');
+        const t1 = k1 ? k1.textContent : '';
+        if (!/Maiglöckchen/.test(t1) || !/kein Knoblauchgeruch/.test(t1) || !(k1 && k1.querySelector('.gs-vgl-marke'))) klagen.push('ohne Empfang fehlt Name, Merkmal oder Marke: „' + t1.replace(/\s+/g, ' ').trim() + '"');
+        if (dlg && dlg.querySelector('.gs-vgl-bild img')) klagen.push('ohne Empfang steht ein Bild da');
+        const satz = dlg ? ((dlg.querySelector('[data-vgl="haupt"] .gs-vgl-bild') || {}).textContent || '') : '';
+        if (!/Vergleichsbild/.test(satz)) klagen.push('statt eines Satzes: „' + satz.trim() + '"');
+        try { gsDismissOverlay(dlg); } catch (_) {}
+        netz = true;
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 200));
+        dlg = document.getElementById('gs-vergleich');
+        const n = dlg ? dlg.querySelectorAll('.gs-vgl-bild img').length : 0;
+        if (n !== 2) klagen.push('mit Empfang wieder geöffnet: ' + n + ' von 2 Bildern — ein Netzfehler wurde als „kein Bild" gemerkt');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'ohne Empfang: „' + satz.trim() + '", Name · Marke · Merkmal da · danach 2 von 2 Bildern' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
+  {
+    name: 'VG5 · Vergleich · eine späte Bildantwort landet nie im Vergleich eines neuen Ergebnisses — und wer schliesst, bevor die Community-Abfrage zurück ist, schickt Wikipedia nichts mehr',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch, offen = {}, rufe = [];
+      let sbHalt = null;
+      window._gsFetch = function (u) {
+        u = String(u); rufe.push(u);
+        return new Promise(res => { offen[u] = () => res(new Response(JSON.stringify({ thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/' + (/Allium/.test(u) ? 'ALT' : 'NEU') + '.jpg/320px-' + (/Allium/.test(u) ? 'ALT' : 'NEU') + '.jpg' } }), { status: 200 })); });
+      };
+      window.sbFetch = async function (pfad) {
+        if (/fn_species_images/.test(pfad)) { if (sbHalt) return sbHalt; return { data: [], error: null }; }
+        return es.apply(this, arguments);
+      };
+      try {
+        _wCache = {}; _wMeta = {}; _spImgCache = {};
+        const klagen = [];
+        // (a) alte Antwort, neues Ergebnis
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 72, toxicity: 0, description: 'x' });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 120));
+        try { gsDismissOverlay(document.getElementById('gs-vergleich')); } catch (_) {}
+        showScanResult({ name: 'Löwenzahn', latin: 'Taraxacum officinale', category: 'wildpflanze', confidence: 80, toxicity: 0, description: 'x' });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 120));
+        Object.keys(offen).filter(u => /Allium/.test(u)).forEach(u => offen[u]());
+        await new Promise(r => setTimeout(r, 120));
+        const dlg = document.getElementById('gs-vergleich');
+        const vorher = dlg ? [...dlg.querySelectorAll('.gs-vgl-bild img')].map(i => i.getAttribute('src')) : [];
+        if (vorher.some(s => /ALT/.test(s))) klagen.push('das Bild des Bärlauchs steht im Vergleich des Löwenzahns');
+        Object.keys(offen).filter(u => /Taraxacum/.test(u)).forEach(u => offen[u]());
+        await new Promise(r => setTimeout(r, 120));
+        const nachher = dlg ? [...dlg.querySelectorAll('.gs-vgl-bild img')].map(i => i.getAttribute('src')) : [];
+        if (!(nachher.length === 1 && /NEU/.test(nachher[0]))) klagen.push('der Löwenzahn bekommt sein eigenes Bild nicht (' + nachher.join(' · ') + ')');
+        try { gsDismissOverlay(dlg); } catch (_) {}
+        // (b) schliessen, bevor die Community-Abfrage zurück ist → kein Wikipedia-Aufruf mehr
+        let lass = null;
+        sbHalt = new Promise(res => { lass = () => res({ data: [], error: null }); });
+        _wCache = {};
+        const vorB = rufe.length;
+        showScanResult({ name: 'Brennnessel', latin: 'Urtica dioica', category: 'wildpflanze', confidence: 80, toxicity: 0, description: 'x' });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 60));
+        try { gsDismissOverlay(document.getElementById('gs-vergleich')); } catch (_) {}
+        lass();
+        await new Promise(r => setTimeout(r, 150));
+        const nachB = rufe.slice(vorB).filter(u => /Urtica/.test(u)).length;
+        if (nachB) klagen.push('nach dem Schliessen ging noch ' + nachB + ' Anfrage an Wikipedia (Urtica dioica)');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'alte Antwort verworfen · neues Bild kommt an · nach dem Schliessen 0 Anfragen an Wikipedia' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
+  {
+    name: 'VG6 · Vergleich · „Das ist es" wählt die Alternative wie ein Tipp im Streifen und schliesst den Vergleich',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch;
+      window._gsFetch = () => Promise.reject(new TypeError('Failed to fetch'));
+      window.sbFetch = async function (pfad) { if (/fn_species_images/.test(pfad)) return { data: [], error: null }; return es.apply(this, arguments); };
+      try {
+        showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', category: 'wildpflanze', confidence: 72, toxicity: 0, description: 'x', alternatives: [
+          { name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 18, toxicity: 4 } ] });
+        const id0 = _lastScanResult && _lastScanResult._scanId;
+        gsScanVergleichOeffnen();
+        const k = document.querySelector('#gs-vergleich [data-vgl="alt1"] .gs-vgl-wahl');
+        if (!k) return { ok: false, warum: 'kein Knopf „Das ist es" an der Alternative' };
+        k.click();
+        await new Promise(r => setTimeout(r, 120));
+        const klagen = [];
+        if (document.getElementById('gs-vergleich')) klagen.push('der Vergleich bleibt offen');
+        const r = _lastScanResult || {};
+        if (r.name !== 'Maiglöckchen' || r._userPicked !== true || r._geaendert !== 'wahl') klagen.push('Ergebnis danach: ' + r.name + ' · gewählt ' + r._userPicked + ' · ' + r._geaendert);
+        if (r._scanId !== id0) klagen.push('es entstand eine neue Aufnahme (' + r._scanId + ') statt derselben');
+        const kopf = (document.querySelector('#scan-result .sr2-hero-name') || {}).textContent || '';
+        if (kopf !== 'Maiglöckchen') klagen.push('die Karte zeigt „' + kopf + '"');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Maiglöckchen gewählt · dieselbe Aufnahme · Vergleich zu · Karte neu gezeichnet' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
+  {
+    name: 'VG7 · Vergleich · Namen, Merkmale und Nachweise aus fremder Hand kommen als Text an, nie als Code',
+    lauf: async () => {
+      try { switchTab('scanner'); } catch (_) {}
+      const ef = window._gsFetch, es = window.sbFetch;
+      const BOESE = '<img src=x onerror="window.__pwned=1">';
+      window.__pwned = 0;
+      window._gsFetch = () => Promise.resolve(new Response(JSON.stringify({ thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Z.jpg/320px-Z.jpg' }, content_urls: { desktop: { page: 'javascript:window.__pwned=1' } } }), { status: 200 }));
+      window.sbFetch = async function (pfad) { if (/fn_species_images/.test(pfad)) return { data: [], error: null }; return es.apply(this, arguments); };
+      try {
+        _wCache = {}; _wMeta = {}; _spImgCache = {};
+        showScanResult({ name: 'Kraut ' + BOESE, latin: 'Zzzus ' + BOESE, category: 'wildpflanze', confidence: 50, toxicity: 0, description: 'x',
+          diagnostic_features: ['Merkmal ' + BOESE], alternatives: [ { name: 'Alt ' + BOESE, latin: 'Zzzus altera', confidence: 20, distinguishing_feature: 'Merkmal ' + BOESE } ] });
+        gsScanVergleichOeffnen();
+        await new Promise(r => setTimeout(r, 400));
+        const dlg = document.getElementById('gs-vergleich');
+        const klagen = [];
+        if (window.__pwned) klagen.push('window.__pwned wurde gesetzt');
+        const txt = dlg ? dlg.textContent : '';
+        if (txt.indexOf('Kraut ' + BOESE) < 0 || txt.indexOf('Alt ' + BOESE) < 0 || txt.indexOf('Merkmal ' + BOESE) < 0) klagen.push('der Wert steht nicht als Text da');
+        const js = dlg ? [...dlg.querySelectorAll('a')].filter(a => /^javascript:/i.test(a.getAttribute('href') || '')) : [];
+        if (js.length) klagen.push(js.length + ' Nachweis-Link(s) mit javascript:');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '__pwned unberührt · Name, Merkmal, Alternative als Text · kein javascript:-Link' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+      }
+    },
+  },
   // ── v32.11 · Netz, Fokuszonen, Phasen, Enthüllung ────────────────────
   {
     name: 'Netz · Linien und Fokuszonen kommen aus dem echten Bild',
@@ -2423,12 +2719,22 @@ const FAELLE = [
     // Die Untergrenze war Absicht („gering" zaehlt nicht), die Obergrenze nicht:
     // 131 Eintraege mit Stufe 4 und 5 fehlten — genau die stark giftigen und die
     // toedlichen. Gemessen wird die GERENDERTE Zahl, nicht die Rechnung.
-    name: 'D1g · Die Lexikon-Zahl „Giftig" schliesst Stufe 4 und 5 ein',
+    // Home 3 / Brett 4d79 (19.11.2026): die Kachel zaehlt jetzt wie der Filter „☠️ Giftig", den sie
+    // oeffnet — Stufe 2 und mehr ODER `toxic`. Die Eintraege der Stufe 1, die `toxic` tragen
+    // (Spitzmorchel roh, Stinktaeubling, Gelbe Teichrose), zaehlen mit; Stufe 1 OHNE Giftangabe
+    // weiterhin nicht. Bis dahin verlangte dieser Fall „nur Stufe 2 und mehr" (598), waehrend
+    // nutzersicht_check E9 die Zahl des Filters verlangte (675) — zwei Faelle, zwei Regeln fuer
+    // dieselbe Kachel (dieselbe Klasse wie E3/E9, v33.08). Gerechnet wird weiter mit eigenem Massstab.
+    name: 'D1g · Die Lexikon-Zahl „Giftig" schliesst Stufe 4 und 5 ein — und zählt wie der Filter, den sie öffnet (Stufe ≥ 2 oder Giftangabe)',
     lauf: async () => {
       if (typeof renderLexikon !== 'function') return { ok: false, warum: 'renderLexikon fehlt' };
-      const erwartet = DB.filter(s => s && ((typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(s) : s).tox | 0) >= 2).length;
-      const toedlich = DB.filter(s => s && ((typeof _gsArtAnzeige === 'function' ? _gsArtAnzeige(s) : s).tox | 0) >= 4).length;
+      const A = (s) => (typeof _gsArtAnzeige === 'function' ? (_gsArtAnzeige(s) || s) : s);
+      const erwartet = DB.filter(s => { if (!s) return false; const a = A(s); return !!a.toxic || (a.tox | 0) >= 2; }).length;
+      const nurStufe = DB.filter(s => s && (A(s).tox | 0) >= 2).length;
+      const mitAngabe = erwartet - nurStufe;
+      const toedlich = DB.filter(s => s && (A(s).tox | 0) >= 4).length;
       if (!toedlich) return { ok: false, warum: 'keine Art mit Stufe 4+ in der Liste — der Fall misst nichts' };
+      if (!mitAngabe) return { ok: false, warum: 'kein Eintrag unter Stufe 2 mit Giftangabe — der Fall misst die Regel des Filters nicht' };
       // renderLexikon GIBT das HTML ZURUECK (es haengt es nicht ein) — der erste
       // Anlauf suchte im Dokument und traf eine fremde Plakette „Giftig"; er
       // waere gruen gewesen, sobald die Zahl zufaellig gepasst haette.
@@ -2439,11 +2745,13 @@ const FAELLE = [
       const eltern = kacheln[0].parentElement;
       const zahl = parseInt(((eltern && eltern.firstElementChild && eltern.firstElementChild.textContent) || '').replace(/\D/g, ''), 10);
       if (!zahl) return { ok: false, warum: 'keine Zahl neben „Giftig" gefunden' };
+      const alt = DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length;
       if (zahl !== erwartet) {
-        const alt = DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length;
-        return { ok: false, warum: 'Kachel zeigt ' + zahl + ', erwartet ' + erwartet + ' (alte Regel tox 2|3 waere ' + alt + ' — ' + toedlich + ' Eintraege mit Stufe 4+ fehlten)' };
+        return { ok: false, warum: 'Kachel zeigt ' + zahl + ', erwartet ' + erwartet
+          + (zahl === nurStufe ? ' — das ist „nur Stufe ≥ 2": die ' + mitAngabe + ' Einträge darunter mit Giftangabe fehlen, der Filter zeigt sie' : '')
+          + ' (alte Regel tox 2|3 waere ' + alt + ' — ' + toedlich + ' Eintraege mit Stufe 4+ fehlten)' };
       }
-      return { ok: true, info: 'Kachel „Giftig" zeigt ' + zahl + ' · davon ' + toedlich + ' mit Stufe 4 oder 5 (alte Regel tox 2|3: ' + DB.filter(s => s && (s.tox === 2 || s.tox === 3)).length + ')' };
+      return { ok: true, info: 'Kachel „Giftig" zeigt ' + zahl + ' · davon ' + toedlich + ' mit Stufe 4 oder 5 und ' + mitAngabe + ' unter Stufe 2 mit Giftangabe (nur Stufe ≥ 2: ' + nurStufe + ' · alte Regel tox 2|3: ' + alt + ')' };
     },
   },
 
@@ -4711,6 +5019,257 @@ const FAELLE = [
       return { ok: true, info: 'Kopfzeile Speisepilz · kein Vollbild · Zubereitung · Kontrollstelle · Hinweis „ersetzt keine Pilzkontrolle"' };
     },
   },
+  // ── Pilz-Scanner (19.11.2026): ein Ergebnis gehört zu seinem Foto. Gemessen auf v33.66: ein neues Foto liess das
+  // Ergebnis des vorigen stehen; nach Schliessen und neuem Öffnen stand der Knopf auf „⏳ Identifiziere…", und die
+  // Antwort zum alten Foto erschien unter dem neuen — bei einem Giftpilz mit Vollbild-Warnung; nach dem Schliessen
+  // legte sich die Warnung später über die App. Stehen hier VOR PZ4 (die Fälle hinter PZ4 gehören zu #336).
+  {
+    name: 'PZ5 · Pilz-Scan: ein Ergebnis gehört zu seinem Foto — ein neues Foto räumt das alte Ergebnis, Schliessen und neues Öffnen lösen die laufende Bestimmung ab, ihre Antwort kommt nicht unter das neue Foto',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      const knopf = () => document.getElementById('mushroom-submit-btn');
+      if (!box || !knopf() || typeof gsMushroomLoadPhoto !== 'function') return { ok: false, warum: 'Pilz-Fenster, Knopf oder gsMushroomLoadPhoto fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);   // ein haengender Lauf meldet sich als Befund
+      const s = { f: window._gsFetch, tok: window._gsFreshToken, toast: window.showProfileToast, ohne: window._gsFotoOhneMeta, ov: window.gsShowMushroomDangerOverlay, kt: knopf().textContent };
+      const klagen = [], loeser = [];
+      let vollbild = 0;
+      const speise = { matched_slug: 'boletus_edulis', confidence: 92, mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green', vapko_required: false };
+      const tod = { matched_slug: 'amanita_phalloides', confidence: 95, mushroom: { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' }, edibility: 'toedlich', safety_color: 'red', vapko_required: true };
+      const antwort = (body) => ({ ok: true, status: 200, json: async () => body });
+      const foto = async (n) => { await gsMushroomLoadPhoto({ files: [new File([new Uint8Array([255, 216, 255, n])], 'pilz' + n + '.jpg', { type: 'image/jpeg' })] }); };
+      const text = () => (box.textContent || '').replace(/\s+/g, ' ');
+      const ohneVollbild = () => { const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove(); };
+      try {
+        window._gsFreshToken = async () => 'tok';
+        window.showProfileToast = () => {};
+        window._gsFotoOhneMeta = async (f) => 'data:image/jpeg;base64,FOTO' + String(f.name).replace(/\D/g, '');
+        window.gsShowMushroomDangerOverlay = function () { vollbild++; return s.ov.apply(this, arguments); };
+        window._gsFetch = (url, o, t) => (/mushroom-identify/.test(String(url)) ? new Promise((res) => loeser.push(res)) : s.f(url, o, t));
+        // 1 · ein fertiges Ergebnis, dann ein neues Foto: das alte Urteil bleibt nicht unter dem neuen Pilz stehen
+        openMushroomModal(); await foto(1);
+        const l1 = gsMushroomRunScan(); await warte(50);
+        if (loeser.length !== 1) return { ok: false, warum: 'die Bestimmung hat den Server nicht gefragt — der Fall misst nichts' };
+        loeser[0](antwort(speise)); await fertig(l1);
+        if (!/Speisepilz/.test(text())) return { ok: false, warum: 'das erste Ergebnis erscheint nicht — der Fall stellt den Zustand nicht her' };
+        await foto(2);
+        if (/Speisepilz/.test(text())) klagen.push('1: nach einem neuen Foto steht „Speisepilz" des vorigen weiter da');
+        // 2 · eine Bestimmung läuft, dann ein neues Foto im selben Fenster
+        await foto(3);
+        const l2 = gsMushroomRunScan(); await warte(50);
+        await foto(4);
+        if (knopf().disabled) klagen.push('2: nach dem neuen Foto ist der Knopf gesperrt („' + knopf().textContent.trim() + '")');
+        loeser[1](antwort(speise)); await fertig(l2); await warte(50);
+        if (/Speisepilz/.test(text())) klagen.push('2: die Antwort zum vorigen Foto („Speisepilz") steht unter dem neuen');
+        if (knopf().disabled) klagen.push('2: nach der verworfenen Antwort ist der Knopf gesperrt');
+        // Gegenprobe: die Bestimmung des neuen Fotos kommt an — tödlich, mit Vollbild
+        const l3 = gsMushroomRunScan(); await warte(50);
+        loeser[2](antwort(tod)); await fertig(l3);
+        if (!/TÖDLICH/.test(text()) || vollbild !== 1) klagen.push('Gegenprobe: die Bestimmung des neuen Fotos kommt nicht an (Vollbild ' + vollbild + '×) — der Fall misst nichts');
+        ohneVollbild();
+        // 3 · läuft, Fenster zu, neu öffnen, neues Foto: Knopf frei — und kommt die alte (tödliche) Antwort, während
+        // schon die NEUE Bestimmung läuft: keine Karte, kein Vollbild, und der Knopf bleibt gesperrt
+        await foto(5);
+        const l4 = gsMushroomRunScan(); await warte(50);                       // loeser[3]
+        closeModal('modal-mushroom'); openMushroomModal(); await foto(6);
+        if (knopf().disabled || /Identifiziere/.test(knopf().textContent)) klagen.push('3: nach dem neuen Öffnen steht der Knopf auf „' + knopf().textContent.trim() + '" (gesperrt: ' + knopf().disabled + ')');
+        const l4b = gsMushroomRunScan(); await warte(50);                      // loeser[4]
+        const vb = vollbild;
+        loeser[3](antwort(tod)); await fertig(l4); await warte(50);
+        if (/TÖDLICH|Knollenblätterpilz/.test(text())) klagen.push('3: die Antwort zum alten Foto steht unter dem neuen');
+        if (vollbild !== vb) klagen.push('3: die alte Antwort legt eine Vollbild-Warnung über das neue Foto');
+        if (!knopf().disabled) klagen.push('3: die alte Antwort gibt den Knopf frei, während die neue Bestimmung läuft');
+        loeser[4](antwort(speise)); await fertig(l4b);
+        if (!/Speisepilz/.test(text())) klagen.push('3: die neue Bestimmung kommt danach nicht an');
+        ohneVollbild();
+        // 3b · läuft, und das Fenster wird neu geöffnet, OHNE vorher zu schliessen und OHNE neues Foto (sonst
+        // deckte dessen Schutz den Fall mit — eine Gegenprobe ohne den Schutz am Öffnen blieb so grün)
+        const l5a = gsMushroomRunScan(); await warte(50);                      // loeser[5]
+        openMushroomModal();
+        if (knopf().disabled) klagen.push('3b: neu geöffnet ohne Schliessen — der Knopf steht auf „' + knopf().textContent.trim() + '"');
+        const vb3 = vollbild;
+        loeser[5](antwort(tod)); await fertig(l5a); await warte(50);
+        if (/TÖDLICH|Knollenblätterpilz/.test(text()) || vollbild !== vb3) klagen.push('3b: neu geöffnet ohne Schliessen — die alte Antwort kommt in das frische Fenster');
+        ohneVollbild();
+        // 4 · läuft, Fenster zu (ohne neues Öffnen): später keine Vollbild-Warnung über der App
+        openMushroomModal(); await foto(7);
+        const l5 = gsMushroomRunScan(); await warte(50);                       // loeser[6]
+        closeModal('modal-mushroom');
+        const vb2 = vollbild;
+        loeser[6](antwort(tod)); await fertig(l5); await warte(50);
+        if (vollbild !== vb2 || document.getElementById('gs-mushroom-danger')) klagen.push('4: nach dem Schliessen legt sich die Vollbild-Warnung über die App');
+        // 5 · geschlossen, während noch der Zugangsschlüssel geholt wird: die Anfrage geht gar nicht hinaus
+        openMushroomModal(); await foto(9);
+        let tokLos = null;
+        window._gsFreshToken = () => new Promise((res) => { tokLos = res; });
+        const l7 = gsMushroomRunScan(); await warte(50);
+        const vorher = loeser.length;
+        closeModal('modal-mushroom');
+        if (tokLos) tokLos('tok'); await fertig(l7); await warte(50);
+        if (loeser.length !== vorher) klagen.push('5: abgebrochen, bevor die Anfrage hinausging — sie ging trotzdem an den Server');
+      } finally {
+        window._gsFetch = s.f; window._gsFreshToken = s.tok; window.showProfileToast = s.toast; window._gsFotoOhneMeta = s.ohne; window.gsShowMushroomDangerOverlay = s.ov;
+        ohneVollbild(); box.innerHTML = '';
+        try { closeModal('modal-mushroom'); } catch (_) {}
+        window._gsMushroomPhotoB64 = null;
+        const k = knopf(); if (k) { k.disabled = false; k.style.opacity = '1'; k.textContent = s.kt; }
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'neues Foto: altes Urteil weg · läuft + neues Foto: Knopf frei, alte Antwort verworfen · neu geöffnet: Knopf frei, die alte tödliche Antwort während der neuen Bestimmung ohne Karte, ohne Vollbild, Knopf bleibt gesperrt · neu geöffnet ohne Schliessen: ebenso · geschlossen: kein Vollbild · Gegenprobe: die neue Bestimmung kommt an' };
+    },
+  },
+  {
+    name: 'PZ6 · Pilz-Scan: nach der Bestimmung trägt der Knopf wieder SEINE Beschriftung — nicht fest „🔍 Pilz identifizieren" in jeder Sprache',
+    lauf: async () => {
+      const k = document.getElementById('mushroom-submit-btn');
+      if (!k) return { ok: false, warum: 'Knopf fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const s = { f: window._gsFetch, tok: window._gsFreshToken, toast: window.showProfileToast, kt: k.textContent, foto: window._gsMushroomPhotoB64 };
+      const box = document.getElementById('mushroom-result');
+      let waehrend = '', nachher = '';
+      try {
+        window._gsFreshToken = async () => 'tok'; window.showProfileToast = () => {};
+        window._gsFetch = async () => { waehrend = k.textContent.trim(); return { ok: true, status: 200, json: async () => ({ matched_slug: null, confidence: 20, mushroom: null }) }; };
+        // so setzt die Sprachschicht die Beschriftung auf Französisch
+        k.textContent = '🔍 Identifier le champignon';
+        window._gsMushroomPhotoB64 = 'data:image/jpeg;base64,AAAA';
+        await Promise.race([gsMushroomRunScan(), warte(3000)]);
+        nachher = k.textContent.trim();
+      } finally {
+        window._gsFetch = s.f; window._gsFreshToken = s.tok; window.showProfileToast = s.toast; window._gsMushroomPhotoB64 = s.foto;
+        k.disabled = false; k.style.opacity = '1'; k.textContent = s.kt; if (box) box.innerHTML = '';
+      }
+      if (!/Identifiziere/.test(waehrend)) return { ok: false, warum: 'während der Bestimmung stand „' + waehrend + '" — der Fall misst nichts' };
+      if (nachher !== '🔍 Identifier le champignon') return { ok: false, warum: 'nach der Bestimmung steht „' + nachher + '" statt der Beschriftung von vorher' };
+      return { ok: true, info: 'während: „' + waehrend + '" · danach wieder „' + nachher + '"' };
+    },
+  },
+  // ── Pilz-Scanner, Nachtrag (gegnerische Prüfung, 24.11.2026). PZ5 lief nur auf Deutsch — und nur dort
+  // zeichnet gsMushroomRenderResult ohne Warten. In fr/it/en/es wartet es auf die Übersetzung (bis zu zwei
+  // Abfragen), NACH der Prüfung in gsMushroomRunScan, und RunScan wartete nicht auf die Anzeige: unter einem
+  // neuen Foto erschien „✅ Speisepilz" des alten, sogar über einem neueren „TÖDLICH". Dazu drei Ränder, die
+  // kein Fall sah: der catch-Zweig einer abgelösten Bestimmung, zwei sich überholende Foto-Ladevorgänge, und
+  // das stille Schliessen (ein Tipp auf den dunklen Rand brach ab, ohne dass etwas es sagte).
+  {
+    name: 'PZ7 · Pilz-Scan in einer anderen Sprache: wer auf die Übersetzung wartet, zeichnet nur, wenn die Bestimmung noch gilt — ein älteres „Speisepilz" kommt nie über ein neueres „TÖDLICH"; ein abgelöster Fehler bleibt still; ein langsames älteres Foto verdrängt kein neueres; Schliessen sagt, dass abgebrochen ist',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      const knopf = () => document.getElementById('mushroom-submit-btn');
+      if (!box || !knopf() || !window.gsI18n) return { ok: false, warum: 'Pilz-Fenster, Knopf oder Sprachschicht fehlt' };
+      const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+      const fertig = (pr) => Promise.race([pr, warte(3000)]);
+      const s = { f: window._gsFetch, tok: window._gsFreshToken, toast: window.showProfileToast, ohne: window._gsFotoOhneMeta, ov: window.gsShowMushroomDangerOverlay,
+        merge: window._gsMergeMushI18n, lang: gsI18n.getLang, t: gsI18n.t, sf: window.sbFetch, kt: knopf().textContent };
+      const klagen = [], loeser = [], mergeLoeser = [], toasts = [];
+      const speise = { matched_slug: 'boletus_edulis', confidence: 92, mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green', vapko_required: false };
+      const tod = { matched_slug: 'amanita_phalloides', confidence: 95, mushroom: { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' }, edibility: 'toedlich', safety_color: 'red', vapko_required: true };
+      const antwort = (body) => ({ ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(body)) });
+      const text = () => (box.textContent || '').replace(/\s+/g, ' ');
+      const ohneVollbild = () => { const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove(); };
+      const foto = async (n) => { await gsMushroomLoadPhoto({ files: [new File([new Uint8Array([255, 216, 255, n])], 'pilz' + n + '.jpg', { type: 'image/jpeg' })] }); };
+      try {
+        window._gsFreshToken = async () => 'tok';
+        window.showProfileToast = (t, typ) => toasts.push({ t: String(t), typ });
+        window._gsFotoOhneMeta = async (f) => 'data:image/jpeg;base64,FOTO' + String(f.name).replace(/\D/g, '');
+        window.gsShowMushroomDangerOverlay = function () { return s.ov.apply(this, arguments); };
+        window._gsFetch = (url, o, t) => (/mushroom-identify/.test(String(url)) ? new Promise((res, rej) => loeser.push({ res, rej })) : s.f(url, o, t));
+        // die Anzeige auf Französisch: sie wartet auf die Übersetzung des Pilzes (gestellt, freigegeben vom Fall)
+        gsI18n.getLang = () => 'fr';
+        window._gsMergeMushI18n = (m) => new Promise((res) => mergeLoeser.push(() => res(m)));
+        window.sbFetch = async () => ({ data: [], error: null });
+        gsI18n.t = (k, f) => (k === 'mush_identifiziere' ? '⏳ Identification…' : s.t(k, f));
+
+        // 1 · Gegenrichtung zuerst: ohne Wechsel kommt das Ergebnis an — und der Knopf bleibt gesperrt, solange es wartet
+        openMushroomModal(); await foto(1);
+        const l0 = gsMushroomRunScan(); await warte(40);
+        if (!/Identification/.test(knopf().textContent)) klagen.push('5: der Knopf trägt während der Bestimmung „' + knopf().textContent.trim() + '" — nicht die Sprachschicht');
+        loeser[0].res(antwort(speise)); await warte(60);
+        if (!mergeLoeser[0]) return { ok: false, warum: 'die Anzeige wartet nicht auf die Übersetzung — der Fall misst den deutschen Weg' };
+        if (!knopf().disabled) klagen.push('1: während die Anzeige auf die Übersetzung wartet, ist der Knopf schon frei');
+        mergeLoeser[0](); await fertig(l0);
+        if (!/Speisepilz|Steinpilz/.test(text())) return { ok: false, warum: 'ohne Wechsel kommt das Ergebnis nicht an — der Fall misst nichts' };
+
+        // 2 · ein neues Foto, während die Anzeige wartet: das alte Ergebnis kommt nicht darunter
+        await foto(2);
+        const l1 = gsMushroomRunScan(); await warte(40);
+        loeser[1].res(antwort(speise)); await warte(60);
+        await foto(3);
+        mergeLoeser[1](); await fertig(l1); await warte(30);
+        if (/Speisepilz|Steinpilz/.test(text())) klagen.push('2: nach dem neuen Foto steht „Speisepilz" des vorigen darunter');
+
+        // 3 · das ältere „Speisepilz" wartet noch, das neuere Foto kommt als TÖDLICH zurück — und bleibt TÖDLICH
+        const l2 = gsMushroomRunScan(); await warte(40);                 // Foto 3
+        loeser[2].res(antwort(speise)); await warte(60);                  // wartet auf mergeLoeser[2]
+        await foto(4);
+        const l3 = gsMushroomRunScan(); await warte(40);                 // Foto 4
+        loeser[3].res(antwort(tod)); await warte(60);
+        mergeLoeser[3](); await fertig(l3); await warte(30);
+        if (!/TÖDLICH|Knollenblätterpilz/.test(text())) klagen.push('3: das tödliche Ergebnis des neuen Fotos kommt nicht an — der Fall misst nichts');
+        mergeLoeser[2](); await fertig(l2); await warte(30);
+        if (/Speisepilz/.test(text()) || !/TÖDLICH|Knollenblätterpilz/.test(text())) klagen.push('3: ein älteres „Speisepilz" überschreibt das neuere „TÖDLICH" („' + text().slice(0, 80) + '")');
+        ohneVollbild();
+
+        // 4 · der catch-Zweig: eine abgelöste Bestimmung scheitert am Netz — unter dem neuen Foto steht kein Fehler
+        await foto(5);
+        const l4 = gsMushroomRunScan(); await warte(40);
+        await foto(6);
+        toasts.length = 0;
+        loeser[4].rej(new TypeError('Failed to fetch')); await fertig(l4); await warte(30);
+        if (toasts.some(x => x.typ === 'error')) klagen.push('4: die abgelöste Bestimmung meldet ihren Netzfehler unter dem neuen Foto („' + toasts.map(x => x.t).join(' | ') + '")');
+
+        // 5 · zwei Foto-Ladevorgänge überholen sich: das zuerst gewählte, langsamer kodierte Foto verdrängt das neuere nicht
+        const ladeLos = [];
+        window._gsFotoOhneMeta = (f) => new Promise((res) => ladeLos.push(() => res('data:image/jpeg;base64,FOTO' + String(f.name).replace(/\D/g, ''))));
+        const la = foto(7); await warte(20);
+        const lb = foto(8); await warte(20);
+        ladeLos[1](); await lb;
+        ladeLos[0](); await la; await warte(20);
+        if (!/FOTO8$/.test(String(window._gsMushroomPhotoB64 || ''))) klagen.push('5: nach dem späten Foto 7 ist „' + String(window._gsMushroomPhotoB64 || '').slice(-6) + '" das Foto — nicht das zuletzt gewählte 8');
+        const vb = document.querySelector('#mushroom-photo-preview img');
+        if (!vb || !/FOTO8/.test(vb.getAttribute('src') || '')) klagen.push('5: die Vorschau zeigt nicht das zuletzt gewählte Foto');
+        window._gsFotoOhneMeta = async (f) => 'data:image/jpeg;base64,FOTO' + String(f.name).replace(/\D/g, '');
+
+        // 6 · Schliessen sagt, dass abgebrochen ist — nach dem Absenden mit „kann zählen", davor ohne; ohne Lauf still
+        const l6 = gsMushroomRunScan(); await warte(40);                 // läuft, Anfrage ist hinaus
+        toasts.length = 0;
+        closeModal('modal-mushroom'); await warte(20);
+        const t6 = toasts.map(x => x.t).join(' | ');
+        if (!/abgebrochen/i.test(t6)) klagen.push('6: geschlossen, während die Bestimmung lief — kein Satz');
+        else if (!/unterwegs|zählen/.test(t6)) klagen.push('6: die Anfrage war schon hinaus, der Satz sagt es nicht („' + t6 + '")');
+        loeser[5].res(antwort(tod)); await fertig(l6); await warte(20);
+        if (document.getElementById('gs-mushroom-danger')) klagen.push('6: nach dem Schliessen kam doch eine Vollbild-Warnung');
+        ohneVollbild();
+        openMushroomModal(); await foto(9);
+        let tokLos = null; window._gsFreshToken = () => new Promise((r) => { tokLos = r; });
+        const l7 = gsMushroomRunScan(); await warte(30);
+        toasts.length = 0;
+        closeModal('modal-mushroom'); await warte(20);
+        const t7 = toasts.map(x => x.t).join(' | ');
+        if (!/abgebrochen/i.test(t7) || /unterwegs/.test(t7)) klagen.push('6: geschlossen, bevor die Anfrage hinausging — „' + t7 + '"');
+        if (tokLos) tokLos('tok'); await fertig(l7);
+        window._gsFreshToken = async () => 'tok';
+        // eine Bestimmung läuft GANZ durch, dann wird geschlossen: nichts lief mehr — kein „abgebrochen"
+        // (direkt geschlossen; ein neues Öffnen davor räumte den Laufzustand ohnehin ab und prüfte nichts)
+        openMushroomModal(); await foto(10);
+        const l8 = gsMushroomRunScan(); await warte(40);
+        loeser[loeser.length - 1].res(antwort(speise)); await warte(60);
+        if (mergeLoeser.length) mergeLoeser[mergeLoeser.length - 1]();
+        await fertig(l8); await warte(20);
+        toasts.length = 0;
+        closeModal('modal-mushroom'); await warte(20);
+        if (toasts.some(x => /abgebrochen/i.test(x.t))) klagen.push('6: geschlossen, nachdem die Bestimmung fertig war — trotzdem „abgebrochen"');
+      } finally {
+        window._gsFetch = s.f; window._gsFreshToken = s.tok; window.showProfileToast = s.toast; window._gsFotoOhneMeta = s.ohne; window.gsShowMushroomDangerOverlay = s.ov;
+        window._gsMergeMushI18n = s.merge; gsI18n.getLang = s.lang; gsI18n.t = s.t; window.sbFetch = s.sf;
+        ohneVollbild(); box.innerHTML = '';
+        try { closeModal('modal-mushroom'); } catch (_) {}
+        window._gsMushroomPhotoB64 = null;
+        const k = knopf(); if (k) { k.disabled = false; k.style.opacity = '1'; k.textContent = s.kt; }
+      }
+      if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+      return { ok: true, info: 'fr: ohne Wechsel da, Knopf gesperrt bis gezeichnet · neues Foto während der Übersetzung: nichts darunter · älteres „Speisepilz" nach neuerem „TÖDLICH": TÖDLICH bleibt · abgelöster Netzfehler still · Foto 8 vor dem späten Foto 7 bleibt · Schliessen: Satz mit und ohne „unterwegs", ohne Lauf still · Knopf über die Sprachschicht' };
+    },
+  },
   {
     name: 'PZ4 · Pilz-Scan: ein Fehler ist ein Satz (nie „rate_limited" oder „invalid token"), der feste Satz des Servers bleibt — und eine Antwort nach dem Abmelden kommt nicht auf den Bildschirm',
     lauf: async () => {
@@ -4754,6 +5313,244 @@ const FAELLE = [
       }
       if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
       return { ok: true, info: '429 → „Zu viele Pilz-Scans …" · 401 → Sitzung · Satz des KI-Tors bleibt · 502 ohne JSON → Satz · abgemeldet: nichts gezeichnet · Gegenprobe: angemeldet gezeichnet' };
+    },
+  },
+
+  // ── Hauptfunktionen · Scanner 13 (24.11.2026): die Pilz-Verwechsler beim Namen — und im Bild. mushroom-identify
+  // schickt die Verwechsler als Paare von SLUGS (select * auf mushroom_lookalikes, ohne Namen — _live_schema.mjs);
+  // PZ1 stellte einen Namen (edible_common_name), den die Function nie schickt. Hier kommt die Antwort in IHRER Form,
+  // das Register (mushroom_register) und Wikipedia sind gestellt.
+  {
+    name: 'PV1 · Pilz · die Warnbox nennt den Verwechsler beim Namen aus dem Register (Name, Latein, „TÖDLICH", auch auf Französisch) — ohne Register den Namen aus dem Slug, nie „Amanita Phalloides" oder den rohen Slug, und ein Fehler wird nicht gemerkt',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box || !window.gsI18n) return { ok: false, warum: '#mushroom-result oder die Sprachschicht fehlt' };
+      const es = window.sbFetch, ov = window.gsShowMushroomDangerOverlay, sl = gsI18n.getLang, sm = window._gsMergeMushI18n;
+      const anfragen = [];
+      const antwort = () => ({ matched_slug: 'russula_virescens', confidence: 88,
+        mushroom: { slug: 'russula_virescens', common_name_de: 'Grasgrüner Täubling', scientific_name: 'Russula virescens', edibility: 'speisepilz' },
+        edibility: 'speisepilz', safety_color: 'green',
+        lookalikes: [{ edible_slug: 'russula_virescens', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', visual_differences: 'Knollenblätterpilze haben eine Knolle mit Scheide.' }],
+        vapko_required: true });
+      const REG = [{ slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', common_name_fr: 'Amanite phalloïde', scientific_name: 'Amanita phalloides', edibility: 'toedlich' }];
+      const text = () => (box.textContent || '').replace(/\s+/g, ' ');
+      const klagen = [];
+      try {
+        window.gsShowMushroomDangerOverlay = () => {};
+        _gsPilzRegCache = Object.create(null);
+        window.sbFetch = async (pfad) => { anfragen.push(String(pfad)); return /mushroom_register\?/.test(pfad) ? { data: REG.slice(), error: null } : { data: [], error: null }; };
+        box.innerHTML = '';
+        await gsMushroomRenderResult(antwort());
+        const t = text();
+        if (!anfragen.some(u => /mushroom_register\?slug=in\.\(amanita_phalloides\)/.test(u))) klagen.push('das Register wurde nicht nach dem Verwechsler gefragt: ' + JSON.stringify(anfragen));
+        if (!/LEBENSGEFAHR ?Grüner Knollenblätterpilz \(Amanita phalloides\) ☠️ TÖDLICH/.test(t)) klagen.push('Name, Latein oder „TÖDLICH" fehlen beim Verwechsler: ' + (t.match(/LEBENSGEFAHR.{0,90}/) || [''])[0]);
+        if (/Amanita Phalloides|amanita_phalloides/.test(t)) klagen.push('der Slug steht noch da');
+        // auf Französisch der französische Name aus dem Register
+        gsI18n.getLang = () => 'fr'; window._gsMergeMushI18n = async (m) => m;
+        _gsPilzRegCache = Object.create(null);
+        box.innerHTML = '';
+        await gsMushroomRenderResult(antwort());
+        if (!/Amanite phalloïde/.test(text())) klagen.push('auf Französisch fehlt der französische Name: ' + (text().match(/LEBENSGEFAHR.{0,60}/) || [''])[0]);
+        gsI18n.getLang = sl; window._gsMergeMushI18n = sm;
+        // Gegenrichtung: das Register antwortet nicht → der Name aus dem Slug, in EINER Schreibweise; die Warnung steht
+        _gsPilzRegCache = Object.create(null);
+        window.sbFetch = async () => ({ data: null, error: { message: 'offline', status: 0 } });
+        box.innerHTML = '';
+        await gsMushroomRenderResult(antwort());
+        const t2 = text();
+        if (!/LEBENSGEFAHR ?Amanita phalloides/.test(t2) || /Amanita Phalloides|amanita_phalloides/.test(t2)) klagen.push('ohne Register: ' + (t2.match(/LEBENSGEFAHR.{0,60}/) || ['(keine Warnung)'])[0]);
+        // ein Fehler wird nicht gemerkt: kommt das Register wieder, steht der Name da
+        window.sbFetch = async (pfad) => (/mushroom_register\?/.test(pfad) ? { data: REG.slice(), error: null } : { data: [], error: null });
+        box.innerHTML = '';
+        await gsMushroomRenderResult(antwort());
+        if (!/Grüner Knollenblätterpilz/.test(text())) klagen.push('nach einem Fehler bleibt der Name weg — der Fehler wurde gemerkt');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Register gefragt (slug=in.(amanita_phalloides)) · „Grüner Knollenblätterpilz (Amanita phalloides) ☠️ TÖDLICH" · fr „Amanite phalloïde" · ohne Register „Amanita phalloides" · ein Fehler wird nicht gemerkt' };
+      } finally {
+        window.sbFetch = es; window.gsShowMushroomDangerOverlay = ov; gsI18n.getLang = sl; window._gsMergeMushI18n = sm;
+        _gsPilzRegCache = Object.create(null);
+        const o = document.getElementById('gs-mushroom-danger'); if (o) o.remove();
+        box.innerHTML = '';
+      }
+    },
+  },
+  {
+    name: 'PV2 · Pilz-Vergleich · dein Pilzfoto, die Art und die Verwechsler (die gefährlichsten zuerst, jeder einmal) mit Register-Essbarkeit, Risiko und Unterschied — vor dem Antippen fragt niemand Wikipedia, und es gibt kein „Das ist es"',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const ef = window._gsFetch, es = window.sbFetch, ov = window.gsShowMushroomDangerOverlay, fb = window._gsMushroomPhotoB64, rufe = [];
+      const antwort = { matched_slug: 'agaricus_campestris', confidence: 81,
+        mushroom: { slug: 'agaricus_campestris', common_name_de: 'Wiesen-Champignon', scientific_name: 'Agaricus campestris', edibility: 'speisepilz' },
+        edibility: 'speisepilz', safety_color: 'green', vapko_required: true,
+        lookalikes: [
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'agaricus_xanthodermus', confusion_risk: 'mittel', visual_differences: 'gilbt beim Anschneiden, riecht nach Tinte' },
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', visual_differences: 'Knolle mit Scheide, Lamellen bleiben weiss' },
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'amanita_virosa', confusion_risk: 'hoch', visual_differences: 'ganz weiss, Ring hängt' },
+          { edible_slug: 'agaricus_campestris', lookalike_slug: 'amanita_phalloides', confusion_risk: 'hoch', visual_differences: 'doppelt' },
+          { edible_slug: 'agaricus_arvensis', lookalike_slug: 'agaricus_campestris', confusion_risk: 'gering', visual_differences: 'grösser' } ] };
+      const REG = [
+        { slug: 'agaricus_xanthodermus', common_name_de: 'Karbol-Champignon', scientific_name: 'Agaricus xanthodermus', edibility: 'giftig' },
+        { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' },
+        { slug: 'amanita_virosa', common_name_de: 'Kegelhütiger Knollenblätterpilz', scientific_name: 'Amanita virosa', edibility: 'toedlich' },
+        { slug: 'agaricus_arvensis', common_name_de: 'Schaf-Champignon', scientific_name: 'Agaricus arvensis', edibility: 'speisepilz' } ];
+      try {
+        window.gsShowMushroomDangerOverlay = () => {};
+        window._gsMushroomPhotoB64 = 'data:image/jpeg;base64,PILZFOTO';
+        window._gsFetch = function (u) {
+          if (/wikipedia\.org/.test(String(u))) rufe.push(String(u));
+          const n = rufe.length;
+          return Promise.resolve(new Response(JSON.stringify({ thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Bild_' + n + '.jpg/320px-Bild_' + n + '.jpg' }, content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/Bild_' + n } } }), { status: 200 }));
+        };
+        window.sbFetch = async (pfad) => (/mushroom_register\?/.test(pfad) ? { data: REG.slice(), error: null } : { data: [], error: null });
+        _gsPilzRegCache = Object.create(null); _wCache = {}; _wMeta = {};
+        box.innerHTML = '';
+        await gsMushroomRenderResult(antwort);
+        const knopf = box.querySelector('.gs-pilz-vgl-knopf');
+        if (!knopf) return { ok: false, warum: 'kein Knopf „Mit Bildern vergleichen" im Pilz-Ergebnis' };
+        if (rufe.length) return { ok: false, warum: 'vor dem Antippen schon ' + rufe.length + ' Anfrage(n) an Wikipedia' };
+        knopf.click();
+        const dlg = document.getElementById('gs-vergleich');
+        if (!dlg) return { ok: false, warum: 'der Knopf öffnet kein Fenster' };
+        await new Promise(r => setTimeout(r, 250));
+        const klagen = [];
+        const karten = [...dlg.querySelectorAll('.gs-vgl-karte')];
+        const zeile = (k) => (k.textContent || '').replace(/\s+/g, ' ');
+        const namen = karten.map(k => k.getAttribute('data-vgl') + ':' + ((k.querySelector('.gs-vgl-name') || {}).textContent || ''));
+        if (namen.join('|') !== 'haupt:Wiesen-Champignon|alt1:Grüner Knollenblätterpilz|alt2:Kegelhütiger Knollenblätterpilz|alt3:Karbol-Champignon') klagen.push('Karten (Reihenfolge, einmal je Art): ' + namen.join(' · '));
+        const z = karten.map(zeile);
+        if (!/Speisepilz laut Register/.test(z[0] || '')) klagen.push('die Art trägt die Essbarkeit des Registers nicht: ' + (z[0] || '').slice(0, 120));
+        if (!/LEBENSGEFAHR/.test(z[1] || '') || !/TÖDLICH/.test(z[1] || '') || !/Knolle mit Scheide/.test(z[1] || '')) klagen.push('Verwechsler 1 ohne Risiko, „TÖDLICH" oder Unterschied: ' + (z[1] || '').slice(0, 160));
+        if (!/HOCH/.test(z[2] || '') || !/TÖDLICH/.test(z[2] || '')) klagen.push('Verwechsler 2: ' + (z[2] || '').slice(0, 120));
+        if (!/MITTEL/.test(z[3] || '') || !/GIFTIG/.test(z[3] || '')) klagen.push('Verwechsler 3: ' + (z[3] || '').slice(0, 120));
+        const foto = dlg.querySelector('img[alt="Dein Foto"]');
+        if (!foto || foto.getAttribute('src') !== 'data:image/jpeg;base64,PILZFOTO') klagen.push('dein Pilzfoto fehlt oder ist ein anderes');
+        if (dlg.querySelector('.gs-vgl-wahl') || /Das ist es/.test(dlg.textContent || '')) klagen.push('es gibt ein „Das ist es" — bei Pilzen entscheidet kein Bild');
+        if (!/Pilzkontrolle/.test(dlg.textContent || '') || !/VAPKO/.test(dlg.textContent || '')) klagen.push('der Satz zur Pilzkontrolle fehlt im Fenster');
+        const erwartet = ['Agaricus campestris', 'Amanita phalloides', 'Amanita virosa', 'Agaricus xanthodermus'];
+        const gefragt = erwartet.filter(l => rufe.some(u => u.indexOf(encodeURIComponent(l)) >= 0));
+        if (gefragt.length !== 4 || rufe.length !== 4) klagen.push('Wikipedia gefragt nach ' + gefragt.length + ' von 4 Arten, ' + rufe.length + ' Anfragen');
+        const bilder = karten.map(k => { const im = k.querySelector('.gs-vgl-bild img'); return im ? im.getAttribute('src') : ''; });
+        if (bilder.filter(b => /^https:\/\/upload\.wikimedia\.org\//.test(b)).length !== 4) klagen.push('Referenzbilder: ' + bilder.join(' · '));
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '0 Anfragen vor dem Antippen · danach 4 · ' + namen.join(' · ') + ' · Register-Essbarkeit, Risiko, Unterschied · VAPKO-Satz · kein „Das ist es"' };
+      } finally {
+        window._gsFetch = ef; window.sbFetch = es; window.gsShowMushroomDangerOverlay = ov; window._gsMushroomPhotoB64 = fb;
+        _gsPilzRegCache = Object.create(null);
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+        box.innerHTML = '';
+      }
+    },
+  },
+  {
+    name: 'PV3 · Pilz-Vergleich · gilt nur, solange die Bestimmung gilt — nach einem neuen Foto (gsPilzAbbrechen) sagt der Knopf es, statt das alte Ergebnis zu vergleichen',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const es = window.sbFetch, ef = window._gsFetch, gt = window.gsToast, rufe = [], toasts = [];
+      try {
+        window.sbFetch = async () => ({ data: [], error: null });
+        window._gsFetch = function (u) { if (/wikipedia\.org/.test(String(u))) rufe.push(String(u)); return Promise.reject(new Error('offline')); };
+        window.gsToast = (t) => toasts.push(String(t));
+        box.innerHTML = '';
+        await gsMushroomRenderResult({ matched_slug: 'boletus_edulis', confidence: 90, mushroom: { slug: 'boletus_edulis', common_name_de: 'Steinpilz', scientific_name: 'Boletus edulis', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green', lookalikes: [] });
+        if (!box.querySelector('.gs-pilz-vgl-knopf')) return { ok: false, warum: 'kein Knopf — der Fall misst nichts' };
+        // Gegenrichtung zuerst: ohne Wechsel geht das Fenster auf
+        if (!gsPilzVergleichOeffnen() || !document.getElementById('gs-vergleich')) return { ok: false, warum: 'ohne Wechsel geht das Fenster nicht auf — der Fall misst nichts' };
+        gsDismissOverlay(document.getElementById('gs-vergleich'));
+        gsPilzAbbrechen();
+        const r = gsPilzVergleichOeffnen();
+        const klagen = [];
+        if (r !== false || document.getElementById('gs-vergleich')) klagen.push('nach einem neuen Foto öffnet der Knopf den Vergleich des alten Ergebnisses');
+        if (!toasts.some(t => /nichts mehr zu vergleichen/.test(t))) klagen.push('kein Satz: ' + JSON.stringify(toasts));
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'ohne Wechsel offen · nach gsPilzAbbrechen kein Fenster, ein Satz' };
+      } finally {
+        window.sbFetch = es; window._gsFetch = ef; window.gsToast = gt;
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+        box.innerHTML = '';
+      }
+    },
+  },
+  {
+    name: 'PV4 · Pilz · Namen und Unterschiede aus dem Register kommen als Text an — in der Warnbox und im Vergleich, nie als Code',
+    lauf: async () => {
+      const box = document.getElementById('mushroom-result');
+      if (!box) return { ok: false, warum: '#mushroom-result fehlt' };
+      const es = window.sbFetch, ef = window._gsFetch, ov = window.gsShowMushroomDangerOverlay;
+      const BOESE = '<img src=x onerror="window.__pwned=1">';
+      try {
+        window.__pwned = undefined;
+        window.gsShowMushroomDangerOverlay = () => {};
+        window._gsFetch = () => Promise.reject(new Error('offline'));
+        window.sbFetch = async (pfad) => (/mushroom_register\?/.test(pfad)
+          ? { data: [{ slug: 'amanita_phalloides', common_name_de: 'Knollen' + BOESE, scientific_name: 'Amanita ' + BOESE, edibility: 'toedlich' }], error: null }
+          : { data: [], error: null });
+        _gsPilzRegCache = Object.create(null);
+        box.innerHTML = '';
+        await gsMushroomRenderResult({ matched_slug: 'russula_virescens', confidence: 88, mushroom: { slug: 'russula_virescens', common_name_de: 'Grasgrüner Täubling', scientific_name: 'Russula virescens', edibility: 'speisepilz' }, edibility: 'speisepilz', safety_color: 'green',
+          lookalikes: [{ edible_slug: 'russula_virescens', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', visual_differences: 'Knolle ' + BOESE }] });
+        const knopf = box.querySelector('.gs-pilz-vgl-knopf'); if (knopf) knopf.click();
+        await new Promise(r => setTimeout(r, 400));
+        const dlg = document.getElementById('gs-vergleich');
+        const klagen = [];
+        if (window.__pwned) klagen.push('Code ausgeführt');
+        if (!/Knollen<img src=x/.test(box.textContent || '')) klagen.push('der Name steht in der Warnbox nicht als Text');
+        if (!dlg) klagen.push('kein Vergleichsfenster — der Fall misst den Vergleich nicht');
+        else {
+          if (!/Knollen<img src=x/.test(dlg.textContent || '') || !/Knolle <img src=x/.test(dlg.textContent || '')) klagen.push('Name oder Unterschied stehen im Vergleich nicht als Text');
+          if (dlg.querySelector('.gs-vgl-karte img[src="x"]')) klagen.push('ein <img> aus dem Namen steht im Vergleich');
+        }
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: '__pwned unberührt · Name und Unterschied sichtbar als Text — Warnbox und Vergleich' };
+      } finally {
+        window.sbFetch = es; window._gsFetch = ef; window.gsShowMushroomDangerOverlay = ov;
+        _gsPilzRegCache = Object.create(null);
+        try { const d = document.getElementById('gs-vergleich'); if (d) gsDismissOverlay(d); } catch (_) {}
+        box.innerHTML = '';
+      }
+    },
+  },
+  {
+    // Brett bc4f: der regionale Pilz-Hinweis (gsAttachMushroomLookalikeWarn) und seine Galerie
+    // (gsOpenMushroomLookalikesModal) lesen mushroom_lookalikes — nur Slugs — und zeigten „russula virescens vs.
+    // amanita phalloides". Jetzt Namen aus dem Register wie im Pilz-Ergebnis (Scanner 13).
+    name: 'PV5 · Pilz · der regionale Hinweis und die Verwechsler-Galerie nennen die Pilze beim Namen aus dem Register — ohne Register in EINER Schreibweise, nie kleingeschriebenes Latein',
+    lauf: async () => {
+      const es = window.sbFetch;
+      const ROWS = [{ edible_slug: 'russula_virescens', lookalike_slug: 'amanita_phalloides', confusion_risk: 'sehr_hoch_lebensgefahr', key_differences: ['Knolle mit Scheide'], visual_differences: 'Ring am Stiel' }];
+      const REG = [
+        { slug: 'russula_virescens', common_name_de: 'Grasgrüner Täubling', scientific_name: 'Russula virescens', edibility: 'speisepilz' },
+        { slug: 'amanita_phalloides', common_name_de: 'Grüner Knollenblätterpilz', scientific_name: 'Amanita phalloides', edibility: 'toedlich' } ];
+      const weg = () => { ['mushroom-season-lookalikes', 'modal-mushroom-lookalikes'].forEach(id => { const e = document.getElementById(id); if (e) e.remove(); }); };
+      const lauf = async (mitRegister) => {
+        weg(); _gsPilzRegCache = Object.create(null);
+        window.sbFetch = async (pfad) => {
+          if (/mushroom_lookalikes\?/.test(pfad)) return { data: ROWS.slice(), error: null };
+          if (/mushroom_register\?/.test(pfad)) return mitRegister ? { data: REG.slice(), error: null } : { data: null, error: { message: 'offline', status: 0 } };
+          return { data: [], error: null };
+        };
+        const card = document.createElement('div'); document.body.appendChild(card);
+        await gsAttachMushroomLookalikeWarn(card, { typical_mushrooms: ['russula_virescens'] });
+        const hin = ((document.getElementById('mushroom-season-lookalikes') || {}).textContent || '').replace(/\s+/g, ' ');
+        gsOpenMushroomLookalikesModal(JSON.stringify(ROWS));
+        const gal = ((document.getElementById('modal-mushroom-lookalikes') || {}).textContent || '').replace(/\s+/g, ' ');
+        card.remove(); weg();
+        return { hin, gal };
+      };
+      const klagen = [];
+      try {
+        const a = await lauf(true);
+        if (!a.hin) return { ok: false, warum: 'kein regionaler Hinweis gezeichnet — der Fall misst nichts' };
+        if (!/Grasgrüner Täubling vs\. Grüner Knollenblätterpilz/.test(a.hin)) klagen.push('Hinweis: ' + a.hin.slice(0, 160));
+        if (!/Grasgrüner Täubling ↔ Grüner Knollenblätterpilz/.test(a.gal)) klagen.push('Galerie: ' + a.gal.slice(0, 160));
+        if (/russula virescens|amanita phalloides/.test(a.hin + a.gal)) klagen.push('kleingeschriebenes Latein steht noch da');
+        const b = await lauf(false);
+        if (!/Russula virescens vs\. Amanita phalloides/.test(b.hin)) klagen.push('ohne Register, Hinweis: ' + b.hin.slice(0, 160));
+        if (!/Russula virescens ↔ Amanita phalloides/.test(b.gal)) klagen.push('ohne Register, Galerie: ' + b.gal.slice(0, 160));
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Register: „Grasgrüner Täubling vs. Grüner Knollenblätterpilz" in Hinweis und Galerie · ohne Register „Russula virescens vs. Amanita phalloides"' };
+      } finally { window.sbFetch = es; _gsPilzRegCache = Object.create(null); weg(); }
     },
   },
 

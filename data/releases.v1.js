@@ -30,6 +30,90 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.53', date: '09.10.2026',
+      headline: 'Export und Drucken in der Android-App',
+      summary: 'In der Android-App taten die Export-Knöpfe bisher nichts: eine nackte WebView kann eine Datei aus dem Arbeitsspeicher nicht ablegen, und print() tut dort nichts. Das Backup meldete trotzdem „heruntergeladen“, und der Giess-Zettel schrieb sich über die laufende App. Jetzt gehen Backup, GPS-Spur, CSV, Archiv und 3D-Foto an den Android-Dialog „Speichern unter“, Gartenplan und Giess-Zettel an den Druckdialog von Android (mit „Als PDF speichern“). Ohne Brücke in die Android-Schicht: die Datei geht in Teilen an Adressen unter dem eigenen Ursprung, die nur die App-Hülle beantwortet. Und jede Meldung kommt erst, wenn die Datei wirklich da ist.',
+      user_summary: 'In der Android-App kannst du jetzt exportieren und drucken: Backup, GPS-Spuren, Tabellen und Fotos speicherst du über „Speichern unter“ dort, wo du willst; Gartenplan und Giess-Zettel gehen an den Druckdialog, wo du sie auch als PDF speichern kannst. Schliesst du den Dialog, sagt die App „Nicht gespeichert“ — statt so zu tun, als wäre die Datei da.',
+      user_items: [
+        {emoji:'💾', bold:'Exportieren in der App:', text:' Backup, GPS-Spur, Pflanzen, Tagebuch, Messwerte, Archiv und das 3D-Foto speicherst du jetzt über den Android-Dialog „Speichern unter“.'},
+        {emoji:'🖨️', bold:'Drucken und PDF:', text:' Gartenplan und Giess-Zettel öffnen den Druckdialog von Android — dort gibt es „Als PDF speichern“.'},
+        {emoji:'✋', bold:'Abbrechen heisst nicht gespeichert:', text:' die Erfolgsmeldung kommt erst, wenn die Datei wirklich da ist.'},
+        {emoji:'🛡️', bold:'Sicherer Druck im Browser:', text:' Text aus der KI-Antwort steht im Garten-Scan-Druck jetzt als Text da und kann dort nichts mehr ausführen.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' acht Export-Stellen bauten je einen eigenen Anker und sagten sofort „heruntergeladen“. In der Hülle passierte nichts; das Backup klickte einen LOSGELÖSTEN Anker, den das alte Tor gar nicht sah. window.open(\'\') liefert in einer WebView den laufenden Rahmen — der Giess-Zettel schrieb sich über die App.'},
+        {emoji:'🔌', bold:'Ein Kanal ohne Brücke:', text:' gsDateiSpeichern und gsDrucken sind die zwei Wege für alle. In der Hülle geht die Datei per fetch in Teilen an /__huelle/datei/… (start → teil → fertig), die Hülle sammelt sie in eine Spool-Datei und öffnet „Speichern unter“ bzw. den Druckdialog. Kein addJavascriptInterface.'},
+        {emoji:'🔑', bold:'Vier Riegel und ein Schlüssel:', text:' nur GET, nie eine Navigation, nur mit eigener Kopfzeile, nur vom eigenen Ursprung — und ein zufälliger Schlüssel, den nur lesen kann, wer start mit fetch gestellt hat. Ein <img> aus fremder Hand kommt nicht über start hinaus.'},
+        {emoji:'🧯', bold:'Was auf einem Telefon schiefgeht:', text:' Spool-Datei statt Arbeitsspeicher (Prozess stirbt bei offenem Dialog), "wt" statt "w" (Ersetzen kürzt), eine leere Datei wird wieder gelöscht, Schreiben im Hintergrund, Dialog nur von vorne, monotone Uhr, keine Ausnahme auf dem Faden von shouldInterceptRequest.'},
+        {emoji:'🖨️', bold:'Eine eigene Druckansicht:', text:' ohne JavaScript, ohne Netz, ohne Navigation, Grundadresse null, einmal drucken. GS_HUELLE_ANDERS hat einen sechsten Eintrag, „drucken“.'},
+        {emoji:'🛡️', bold:'Vorbestehende Lücke geschlossen:', text:' gsGardenScanExportPDF setzte Pflanzennamen, Kalender, Werkzeuge und Warnungen aus der KI-Antwort ROH in ein Dokument mit dem Ursprung der App. Jetzt escaped, im Browser wie in der App.'},
+        {emoji:'🧪', bold:'apk_check 28 → 68 Fälle:', text:' Export.java gegen android.jar 23 übersetzt und mit Grenzfällen ausgeführt; in der App-Hälfte läuft die Hülle unter https://green-scan.ch mit der CSP aus _headers, und der Kanal geht an einen Java-Prozess mit dem ECHTEN Sammler. Alle zehn Exporte über ihre echte Funktion, die Datei auf der Platte gelesen, byte-gleich mit dem Download im Browser. 16 Brüche als Gegenprobe, 18 Fälle rot, jeder mit dem richtigen Grund.'},
+        {emoji:'📵', bold:'Grenze:', text:' hier läuft kein Android. Geprüft sind Rechnung, Rand und Seite — ob ein echtes Telefon den Dialog so zeigt, sagt erst ein Gerät (Android 6, 10 und 14).'}
+      ]
+  },
+  {
+    v: 'v33.52', date: '06.10.2026',
+      headline: 'Vier Bestätigungen, die nur stimmten, wenn alles gut ging',
+      summary: 'Profil speichern, Freundschaft annehmen und zwei Foto-Wege sagten „gespeichert“, sobald der Server keinen Fehler meldete. Bei einer Änderung, die der Server nicht erlaubt, meldet er aber keinen Fehler — er ändert einfach null Zeilen. Jetzt zählt die App die Zeilen. Dazu eine Regel auf dem Server, die beim Annehmen von Freundschaften zu grosszügig war.',
+      user_summary: 'Wenn du dein Profil änderst, eine Freundschaft annimmst oder einem Fund ein Foto gibst, sagt die App „gespeichert“ jetzt erst, wenn der Server es wirklich gespeichert hat. Hat er nichts geändert, sagt sie das — statt so zu tun, als sei alles gut.',
+      user_items: [
+        {emoji:'✓', bold:'„Gespeichert“ heisst jetzt gespeichert:', text:' bei abgelaufener Anmeldung stand bisher „✓ Gespeichert“, obwohl dein Profil unverändert blieb.'},
+        {emoji:'🤝', bold:'Eine zurückgezogene Anfrage sagt es:', text:' „Diese Anfrage gibt es nicht mehr“ statt „✅ Verbunden!“ für niemanden.'},
+        {emoji:'📸', bold:'Fotos an Funden und Rezepten:', text:' die Bestätigung kommt erst, wenn der Eintrag das Foto wirklich hat.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen, nicht geschätzt:', text:' von 99 Schreibvorgängen (ohne RPC) sind 20 PATCH; vier davon versprachen Erfolg nach nur `.error` und schickten dazu return=minimal. v33.50 hatte „rund 176 Stellen“ genannt — das war eine Schätzung über alle `if (r.error)`, keine Messung dieser Klasse.'},
+        {emoji:'🧮', bold:'Warum nur PATCH:', text:' ein UPDATE, das RLS abweist, filtert still auf 0 Zeilen; ein abgewiesenes INSERT wirft einen Fehler (auch ein Upsert), ein DELETE mit 0 Zeilen heisst „war schon weg“. Live gemessen: alle vier Tabellen filtern UPDATE per USING.'},
+        {emoji:'🔧', bold:'Vier Stellen, eine Regel:', text:' gsSaveProfileField, gsFriendsAccept, _gsMyFindAddPhoto, gsRecipePhotoUpload — return=representation plus _gsSchreibOk, und bei 0 Zeilen ein eigener Satz.'},
+        {emoji:'🧪', bold:'versprechen_check:', text:' ein PATCH mit Versprechen braucht jetzt den Blick auf die Zeilen, und return=minimal ist dort rot. Gegen den alten Stand: genau die vier. save_check fährt zwei davon mit gestelltem Server zu Ende (Nein · leer · Ja).'},
+        {emoji:'🤝', bold:'Migration 20261006_friendships_nur_empfaenger.sql (nicht angewandt):', text:' live durfte der Absender die eigene Anfrage annehmen, jeder eine Zeile gleich als „accepted“ anlegen und beide Seiten user_id/friend_id umschreiben. Danach: Anfrage nur als pending, Annehmen nur durch den Empfänger, ändern nur die Spalte status.'},
+        {emoji:'🐘', bold:'naht_check spielt es nach:', text:' lokales Postgres mit dem Live-Stand, alle vier Wege reproduziert, Migration zweimal, danach jeder verweigert und der richtige Weg weiter offen; Gegenprobe ohne Spaltenrecht biegt wieder um.'},
+        {emoji:'📵', bold:'Grenze:', text:' live hat friendships 0 Zeilen, und nichts sonst liest den Status — eine erzwungene Freundschaft öffnet heute nichts. Die zwei Foto-Wege sind nur statisch geprüft (Datei-Auswahl).'}
+      ]
+  },
+  {
+    v: 'v33.51', date: '25.09.2026',
+      headline: 'Das Admin-Protokoll kennt jetzt jede Aktion',
+      summary: 'Das Admin-Panel hat ein Protokoll auf dem Server — aber fünf von fünfzehn Aktionen kamen dort nie an, darunter das Freigeben und Ablehnen von Foto-Beiträgen und Arten-Vorschlägen. „Wer hat das abgelehnt, und wann?“ war nicht zu beantworten. Jetzt sagt jede Aktion, ob sie eine Spur hinterlässt, der Fuss unter dem Protokoll rechnet die Deckung, und eine Migration schliesst die drei Lücken.',
+      user_summary: 'Für Admins: unter „Letzte Admin-Aktionen“ steht jetzt, welche Aktionen protokolliert werden und welche noch nicht — und jede Zeile ist beschriftet statt als Datenbankname gezeigt. Nach einer Aktion zieht das Protokoll von selbst nach.',
+      user_items: [
+        {emoji:'📜', bold:'Jede Zeile hat einen Namen:', text:' „Feature-Flag setzen“ und „Gutschein eingelöst“ standen bisher als roher Datenbankname da.'},
+        {emoji:'🧮', bold:'Der Fuss sagt die Deckung:', text:' „10 von 15 Aktionen protokolliert der Server · 3 erst nach der Migration · 2 bewusst ohne“ — und „Spur gesehen“ erst, wenn eine solche Zeile wirklich da war.'},
+        {emoji:'🚩', bold:'Meldung erledigen sagt es ehrlich:', text:' solange die Migration fehlt, geht es den alten Weg und die Meldung sagt „ohne Protokolleintrag“.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen (Live-DB, nur lesend):', text:' audit_log hat 193 Zeilen und KEINE INSERT-Policy — geschrieben wird nur aus SECURITY-DEFINER-Funktionen, deshalb gehört die Spur in die Funktion. 10 von 15 Aktionen schreiben; species_image, species_proposal (nur system_events beim Aufnehmen, nichts beim Ablehnen) und report_review (nackter PATCH, keine RPC) nicht; integrity_scan und broadcast bewusst nicht.'},
+        {emoji:'🗂️', bold:'GS_ADM_AKTIONEN: genau eines von spur · spur_ab · ohne_spur.', text:' spur_quelle nur für die drei Funktionen, die im Repo keinen CREATE FUNCTION haben (fn_assign_role, fn_admin_flag_set, fn_set_global_api_key — nur live). _gsAdmSpurDeckung rechnet, _gsAdmSpurHtml zeigt.'},
+        {emoji:'🧾', bold:'Migration 20260925_admin_audit_vollstaendig.sql (nicht angewandt):', text:' zwei Review-Funktionen mit Rumpf wie live plus audit_log-Zeile (Vorschlag in beiden Zweigen), NEU fn_admin_review_report mit is_admin_user-Tor, Status-Vokabular wie der CHECK, alt→neu im diff.'},
+        {emoji:'↩️', bold:'Ersatz nur bei nicht_verfuegbar:', text:' fehlt die RPC, läuft der PATCH mit return=representation und die Antwort trägt ersatz:true plus den Satz mit dem Dateinamen — nie bei Ablehnung oder fehlendem GRANT.'},
+        {emoji:'⚖️', bold:'RAISE EXCEPTION ist eine Ablehnung:', text:' „Only admins can assign roles“ kommt als HTTP 400 (P0001); vorher „fehler“, jetzt „abgelehnt“.'},
+        {emoji:'✏️', bold:'Berichtigung zu v33.50:', text:' fn_assign_role prüft profiles.role = admin, fn_set_global_api_key ruft fn_is_role — nicht is_admin_user(). Der Schluss bleibt: das GRANT öffnet nichts, beide Admin-Konten bestehen beide Prüfungen.'},
+        {emoji:'🧪', bold:'admin_check 11 → 21 Fälle, sieben Gegenproben:', text:' fünf davon in Node — der statische Abgleich in drei Klassen (im Repo · nur live belegt · gar nicht) und die SQL-Hälfte in einem lokalen Postgres: Migration zweimal, als Admin vier Spuren mit genau den deklarierten Namen, als Nicht-Admin keine, eingebaute Gegenprobe ohne INSERT. Ohne Postgres „nicht prüfbar“, nie grün.'},
+        {emoji:'🧹', bold:'gs_admin_log weg:', text:' zwei Schreiber, null Leser, beide Ereignisse ohnehin auf dem Server oder Geräte-Konfiguration.'},
+        {emoji:'📵', bold:'Grenze:', text:' die SQL-Hälfte rechnet mit gestelltem auth.uid() und is_admin_user(). Ob die Migration LIVE angewandt ist, sagt nur Fernando — und die App erst, wenn sie eine Spur gesehen hat.'}
+      ]
+  },
+  {
+    v: 'v33.50', date: '24.09.2026',
+      headline: 'Das Admin-Panel sagt, was der Server wirklich getan hat',
+      summary: 'Fünfzehn Admin-Schreibwege (Sperren, Plan setzen, Gutscheine, Wissen, Meldungen, Broadcast) prüften nur „kein Fehler“ — und PostgREST meldet bei einer abgewiesenen Zeile KEINEN Fehler. Gemessen an der Live-Datenbank: zwei Knöpfe („Nutzer sperren“, „Globalen KI-Schlüssel setzen“) dürfen Admins gar nicht ausführen, und die App stellte trotzdem die Rückfrage „wirkt sofort“. Jetzt geht jeder Schreibweg durch EINE Funktion mit sechs Zuständen und Grund.',
+      user_summary: 'Für Admins: jede Aktion im Admin-Panel sagt jetzt, ob sie wirklich ausgeführt wurde — und wenn nicht, warum. Ein Knopf, der noch nicht freigeschaltet ist, sagt das, statt eine Rückfrage zu stellen und danach zu scheitern.',
+      user_items: [
+        {emoji:'✅', bold:'Bestätigung erst nach der Antwort:', text:' „Als erledigt markiert“ steht nur da, wenn der Server eine Zeile geändert hat.'},
+        {emoji:'🔒', bold:'Ein gesperrter Knopf nennt den Grund:', text:' „Noch nicht freigeschaltet — Migration … anwenden“ statt einer Rückfrage ins Leere.'},
+        {emoji:'📋', bold:'Der Überblick oben zählt es:', text:' welche Aktionen der Server noch nicht freigegeben hat, steht als Zeile über den Sektionen.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen an der Live-DB (nur lesend):', text:' 12 von 13 Schreib-RPCs sind SECURITY DEFINER mit is_admin_user(), die RLS auf user_reports ist dicht. Aber fn_assign_role und fn_set_global_api_key tragen die ACL {postgres, service_role} — authenticated darf sie nicht ausführen. Zwei frühere Re-Grants (v29_20, v30_57) stehen im Repo und sind live nicht in Kraft; 20260924_admin_grants.sql (nicht angewandt) liefert sie nach.'},
+        {emoji:'🗂️', bold:'GS_ADM_AKTIONEN — die Liste ist die Prüfung:', text:' 15 Aktionen, jede mit GENAU einem Ziel (rpc · pfad+method · fn) und optional der Migration, die sie freischaltet. _gsAdmTun ist der eine Weg; GS_ADM_LESE_RPC nennt die zwei POST-Abfragen, die nur lesen.'},
+        {emoji:'🚦', bold:'Sechs Zustände mit Grund:', text:' ok · abgelehnt (RLS, 401/403, {ok:false}, 0 Zeilen am Tabellenweg) · nicht_freigeschaltet („permission denied for function“ — die Sitzung merkt es sich) · nicht_verfuegbar (404/PGRST202: eine nicht angewandte Migration, kein Fehler des Admins) · fehler (Netz) · kein_zugriff (ohne Server-Ja geht keine Anfrage hinaus).'},
+        {emoji:'👁️', bold:'return=representation ist Pflicht am Tabellenweg:', text:' gsAdminReviewReport schickte return=minimal — die Ablehnung war damit unsichtbar, und „✅ Als erledigt markiert.“ stand für nichts da.'},
+        {emoji:'🔕', bold:'gsAdminToggleVoucher las die Antwort gar nicht:', text:' ein Gutschein, der nicht umgeschaltet wurde, sah nach dem Neuladen genauso aus wie vorher, ohne Satz.'},
+        {emoji:'🧪', bold:'admin_check 6 → 11 Fälle, fünf Gegenproben:', text:' ein Schreibweg am einen Weg vorbei · 0 Zeilen als ok · return=minimal · Rückfrage trotz Sperre · Meldung ohne Blick auf den Zustand — jede einzeln rot, mit dem richtigen Fall und den echten Zahlen.'},
+        {emoji:'📵', bold:'Grenze:', text:' der Server ist im Prüfstand gestellt. Geprüft ist, was die App aus einer Antwort MACHT — nicht, ob die RPC antwortet. Und versprechen_check bleibt hier blind, weil ein if (r.error) als Prüfung zählt — eigene Scheibe.'}
+      ]
+  },
+  {
     v: 'v33.49', date: '17.09.2026',
       headline: 'GreenScan ist jetzt eine Android-App',
       summary: 'Es gibt ein APK zum Herunterladen — dieselbe App, aber die Dateien liegen IM Paket statt im Netz. Sie startet ohne Empfang, hat nie eine Adressleiste und braucht keinen Play Store. Fünf Dinge sind in der App anders als im Browser, und die App sagt jedes davon mit Grund.',

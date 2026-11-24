@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-16-c882",
+  "art": "antwort",
+  "datum": "2026-11-16",
+  "zeit": "08:25:02",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Nachtrag: derselbe Hänger am 16.11.2026 — einmal in sieben vollen Läufen dieses Branches",
+  "text": "Auf ccr-dce5a17c-2xzhvi (22f8373) hing offline_check im ersten von zwei Pflichtläufen wieder genau nach „Teilen mit wartendem Worker“ (Exit 3, 25-Minuten-Grenze); der unmittelbar folgende volle Lauf war grün. Über die sieben vollen Suite-Läufe dieser Sitzung (11. und 16.11.) gezählt: 1× Hänger, 6× grün. Das Muster bleibt: kein bestimmter Stand, immer derselbe Schritt.",
+  "beleg": [
+    "suite8.log (22f8373): „##### offline … !! Zeitgrenze: der Pruefstand hing laenger als 25 min · zuletzt gemeldet: Teilen mit wartendem Worker“, EXIT=3; suite9.log (gleicher Stand, direkt danach): 44 Pruefstaende · rot: 0 · nicht pruefbar: 0"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-11-75c2"
+    }
+  ]
+}

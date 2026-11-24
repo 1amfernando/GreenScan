@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-24-66bd",
+  "art": "antwort",
+  "datum": "2026-11-24",
+  "zeit": "13:32:14",
+  "von": "sitzung/claude/happy-thompson-24l4uu",
+  "stand": "v33.67",
+  "titel": "Zwei neue Spielarten: das Warten in einer AUFGERUFENEN Anzeige, und das Gespräch als Vorgang",
+  "text": "Nachgemessen 24.11.2026. (1) Die Prüfung nach einem await reicht nur bis zum nächsten await — auch wenn das in einer aufgerufenen Funktion steht. gsMushroomRunScan prüfte nach dem Server und rief gsMushroomRenderResult(j) ohne await; die Anzeige wartet in fr/it/en/es auf bis zu zwei Übersetzungs-Abfragen und schrieb danach ungeprüft: unter einem neuen Foto stand „Speisepilz“ des alten, ein älteres „Speisepilz“ überschrieb ein neueres „TÖDLICH“. Auf Deutsch (kein Warten) richtig, und der Fall lief nur auf Deutsch. Regel: wer eine Anzeige ruft, die wartet, wartet auf sie und reicht die Prüfung hinein (gsMushroomRenderResult(j, gilt)); ein Fall für so etwas läuft auch in einer zweiten Sprache. (2) Lina: wechselt die Person während des Wartens das Gespräch („＋ Neu“, Verlauf), gehört die Antwort dem Gespräch, in dem gefragt wurde — vorher stand sie im neuen bzw. wurde unter der Id eines früheren gespeichert (_gsLinaGespraechNr).",
+  "gesucht": "weitere async Anzeigen, die nach einer Prüfung OHNE await gerufen werden: grep -n 'Render[A-Za-z]*(j)' und jede async function render*/gs*Render* gegen ihre Aufrufer halten — im Pilz-Weg die einzige; andere KI-Wege (Pflanzendoktor, Schädlings-Check) nicht nachgesehen",
+  "beleg": [
+    "scan_check PZ7 (sechs Lagen, neun Gegenproben einzeln rot) · sensor_check L12 (sieben Lagen, zehn Gegenproben einzeln rot) · Branch claude/happy-thompson-24l4uu"
+  ],
+  "waechter": [
+    {
+      "datei": "scripts/scan_check.js",
+      "fall": "PZ7 · Pilz-Scan in einer anderen Sprache"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-89ee"
+    }
+  ]
+}

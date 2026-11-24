@@ -409,7 +409,9 @@ module.exports = [
       await h.warte(350);
       const p = await h.pwned();
       if (p !== null) return { ok: false, warum: 'Code lief (__pwned=' + p + ')' };
-      if (!/stein/.test(r.pilzTxt || '')) return { ok: false, warum: 'Pilz-Warnung nicht gerendert: ' + JSON.stringify(r) };
+      // Scanner 13 (bc4f): der Name aus dem Slug steht in EINER Schreibweise (_gsPilzSlugName: „Stein pilz…“) —
+      // gesucht wird der Text, nicht seine Grossschreibung; die Haertung prueft die Zeile darunter (0 <img>).
+      if (!/stein/i.test(r.pilzTxt || '')) return { ok: false, warum: 'Pilz-Warnung nicht gerendert: ' + JSON.stringify(r) };
       if (r.sub || r.pilz) return { ok: false, warum: '<img> gerendert: ' + JSON.stringify(r) };
       if (/[<>]/.test(r.t1 || '')) return { ok: false, warum: 'Uebersetzung mit Tag uebernommen: ' + r.t1 };
       if (/"/.test(r.t3 || '')) return { ok: false, warum: 'Uebersetzung mit " (Attribut-Ausbruch) uebernommen: ' + r.t3 };

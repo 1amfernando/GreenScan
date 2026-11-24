@@ -1,6 +1,6 @@
 # Für Fernando — was nur du machen kannst
 
-> Stand **11.11.2026** (Abschnitte bis §30) · geschrieben von Seros.
+> Stand **24.11.2026** (Abschnitte bis §32) · geschrieben von Seros.
 >
 > **Neu und zuerst zu lesen: §30** — die Sicherheitsreparatur v33.59. Von ihr ist auf
 > der Live-Datenbank NICHTS angewandt und keine Edge-Function ausgeliefert; §30 sagt,
@@ -1488,7 +1488,6 @@ anderen fünf). Ein Commit ist eine Prüfsumme — was läuft, ist Byte für Byt
 Prüfstand gefahren hat. Geladen wird beim Ausliefern, nicht zur Laufzeit. Wer sie später
 gewöhnlich ausliefern will: `supabase functions deploy <name>` aus dem Repo, das Ergebnis
 ist dasselbe.
-
 ## 30 · Die Sicherheitsreparatur (v33.59) — was auf dich wartet
 
 **Dein Auftrag (10.11.2026, wörtlich):** „Arbeite an dem Projekt. Verbesser alles
@@ -2065,6 +2064,162 @@ alle sechs laufen seit dem 16.11. mit dem Code von `57a7acf` — `ai-proxy` v4, 
 `garden-scan-analyze` v12, `plant-doctor-diagnose` v7, `pest-identify` v5 stehen jetzt auf „live"
 (das Repo ist dort unverändert), `mushroom-identify` v5 auf „ausliefern" (dieses Paket).
 
+## 32 · Der grosse Durchgang (v33.72) — was du tun musst, und was noch offen ist
+
+**Warum v33.72:** am 24.11.2026 um 14:50 UTC hat sich PR #340 (Lina · Einblick) selbst
+gemergt und wurde v33.70. Damit rutschte die Merge-Reihe um eine Nummer: die
+Hauptfunktionen (Pilz-Scanner, Lina, Wissen-Tab, PR #343) werden v33.71, diese Scheibe
+(PR #344) v33.72. Bitte in dieser Reihenfolge mergen: #343, dann #344.
+
+**Für die App selbst musst du nichts einspielen.** Keine Migration, keine
+Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.
+
+**Was sich für dich sichtbar ändert:**
+
+- Wer sich auf einem neuen Gerät anmeldet (oder in der Android-App), behält
+  seine Gärten und Pflanzungen. Vorher ersetzte die App sie dort durch einen
+  leeren „Mein Garten" — und schob das beim nächsten Abgleich hoch. **Wenn dir
+  oder jemandem genau das schon passiert ist:** die App legt je Sitzung einen
+  Stand in `user_state_snapshots` ab (v33.26) — darin kann der Garten von
+  vorher noch stehen. Sag Bescheid, bevor du etwas versuchst; ich sehe mit dir
+  nach, welcher Stand der richtige ist.
+- Die Fragen „Wirklich löschen?" sind im Dunkelmodus wieder lesbar — ebenso
+  der Hinweis „Noch kein Standort" im Standort-Fenster (war hellgrün auf fast
+  weiss) und die Unterzeile im Kopf der Beet-Layouts.
+- Symbole und Verwechslungshinweise der Arten sind bei jedem Start da, nicht
+  nur beim allerersten.
+- **Die Kopfleiste ist 17 px höher** (56 statt 39 px) und füllt jetzt ihren
+  Platz — so wollte das CSS sie immer; ein Schreibfehler (`calc()` ohne
+  Leerraum um das Plus) hat die Angabe ungültig gemacht. Bitte einmal auf
+  deinem Telefon ansehen, auch auf einem iPhone mit Kerbe: gemessen habe ich
+  nur im Browser bei 412 px Breite.
+- **Auf „Rezepte" und „Heilmittel" steht unten rechts ein Plus-Knopf.** Den
+  gab es schon immer — er stand wegen desselben Schreibfehlers rund 10'000 px
+  unter dem Bildschirm. Eigene Rezepte liessen sich bisher gar nicht anlegen.
+- **Ein Rezept zeigt seine Warnung** („Verwechslung mit Herbstzeitlose"), ein
+  Heilmittel seine Gegenanzeigen und seine Dosierung. Beides stand in den
+  Daten, aber nicht auf dem Bildschirm.
+- **Im Registrierformular** öffnen die Links „Datenschutzerklärung" und
+  „Nutzungsbedingungen" die Texte jetzt wirklich. Vorher ging das Fenster
+  unsichtbar auf — wer sich registrierte, konnte nicht lesen, was er ankreuzt.
+- Startseite und Planer-Kalender zeigen die richtige Kalenderwoche (sie lagen
+  2026 von Montag bis Mittwoch eine Woche zurück).
+
+**Bitte einmal gegenlesen — die Datenschutzerklärung** (`privacy.html`,
+Tabelle in §2). Dort stand „Anonyme Nutzungs- & Fehlerdaten". Beide tragen
+aber deine Konto-Kennung. Das haben zwei Sitzungen parallel berichtigt; seit
+dem Merge vom 24.11. gilt der Satz von `main` („pseudonym"). Dort stehen seit
+v33.59 auch Netlify und Wikipedia unter den Empfängern, und Google Fonts ist
+keiner mehr (die Schriften liegen jetzt selbst im Repo). §8 nennt keine Frist
+für Nutzungsdaten, und
+das Stand-Datum („17. Juni 2026") habe ich nicht angefasst. Das ist dein Text
+— sag mir, wie du ihn haben willst (auf dem Brett: `brett:2026-11-11-5bef`).
+
+**Die Landingpage** (`install.html`) versprach vier Dinge, die es nicht gibt:
+„funktioniert ohne Account", „gsBrain", „iNaturalist-Bridge" und „alle Daten
+in der EU". Sie sagt jetzt, was stimmt (kostenloses Konto nötig; Lina; Fotos
+zur Bestimmung gehen an Anthropic in den USA).
+
+**Die Edge-Functions — sieben von zehn sind im Repo behoben, live keiner.**
+Der Audit hat dort zehn Fehler gefunden und jeden gegengeprüft; behoben habe
+ich hier keinen (Zahlungs- und Anmeldecode, den ich nicht ausführen kann).
+Seit dem Merge vom 24.11. trägt dieser Branch die Sicherheitsreparatur von
+`main` (v33.59/v33.63) — und die schliesst **sieben** davon, darunter die zwei,
+die Geld betreffen (`delete-user` kündigt jetzt bei Stripe, bevor es löscht;
+der Stripe-Webhook antwortet bei einem Datenbankfehler mit 500, damit Stripe es
+noch einmal versucht), und die **zwei ausnutzbaren** (abgeglichen mit den
+Einzelheiten aus der Übergabe-Datei; im Repo stehen sie weiter nicht). Jeder
+dieser sieben ist auf dem Brett nachgemessen und geschlossen.
+
+**Wichtig: live ist davon NICHTS.** Ausgeliefert wird eine Edge-Function nur
+von dir — was wann, steht in `supabase/functions/AUSLIEFERUNG.json` und in §30.
+Bis dahin gilt: wenn jemand mit Abo sein Konto löscht, das Abo bitte im
+Stripe-Dashboard von Hand beenden.
+
+Offen sind drei, alle in `daily-push-checker` (Frost-Warnung zur falschen
+Nacht, Dublettensperre je Nutzer statt je Gerät, „Tagesquiz wartet" auch an
+alle, die schon gespielt haben). Sie stehen in `docs/AUDIT-2026-11-11.md`
+(edge-4, edge-7, edge-9) und auf dem Brett.
+
+**Die Android-App:** vier kleine Fehler in der Hülle und im Bau-Skript sind
+behoben (der Bau brach bei einem Übersetzungsfehler nicht ab; das Passwort des
+Release-Schlüssels stand auf der Kommandozeile — es wird jetzt aus der
+Umgebung gelesen, `GS_APK_KS_PASS` setzt du wie bisher). Drei weitere brauchen
+ein Telefon und stehen auf dem Brett; der wichtigste: „Kamera" im
+Pflanzendoktor, Pilz-Check, Tagebuch und Schädlings-Check öffnet in der APK
+die Bildauswahl statt der Kamera.
+
+**Drei Dinge über die Arbeit selbst:** diese Scheibe hiess v33.57, dann v33.59,
+dann v33.70 und v33.71, jetzt v33.72 — jedes Mal hatte `main` die Nummer inzwischen vergeben. Heute
+(24.11.) ist sie auf `main` v33.68 nachgezogen und auf **PR #343 gestapelt** (v33.71:
+Pilz-Scanner, Lina, Wissen-Tab; darin `main` v33.70). Die Nummer **v33.72** ist ihr Platz
+in der Merge-Reihe: erst #343, dann dieser PR (#344).
+Zusammengeführt mit v33.67 waren es 76 Konfliktstellen in 20 Dateien, mit v33.68
+noch drei. Die Sicherheitsreparatur auf `main` hatte mehrere Funde aus meinem
+Audit parallel behoben (Passwort im Bau-Skript, Datenschutz-Satz, noindex,
+Mikrofon-/Sensor-Freigabe, Garten-Pull); dort gilt jetzt ihre Fassung, was nur
+diese Scheibe hatte, bleibt daneben stehen. Einzeln steht das in STATUS (Eintrag
+„(jv) - v33.72", Absätze „Auf `main` nachgezogen", „Auf v33.70 gestapelt" und „Nach #340 neu gestapelt"). Den
+Pull Request (#344) hat die koordinierende Sitzung geöffnet, nicht ich; er zeigt gegen
+`main`, bis #343 gemergt ist, auch dessen Änderungen. **Bitte in dieser Reihenfolge
+mergen: #343, dann #344.**
+
+**Deine private Mailadresse stand in einer ausgelieferten Datei.** Ein Prüfstand
+(`scripts/robust_check.js`) sollte sicherstellen, dass sie nirgends im Code
+steht — und trug sie dafür selbst wörtlich. Die Datei liefern beide Hoster aus
+(nicht auffindbar, aber abrufbar). Das ist jetzt weg: der Prüfstand zählt jede
+Freemail-Adresse im Code, ohne eine zu nennen. Zwei Dinge bleiben, und die
+entscheidest du: zwei alte, längst angewandte Migrationen
+(`supabase/migrations/v26_91_…` und `v28_18_…`) nennen die Adresse in einer
+Policy, und in der Git-Geschichte steht sie weiter. Eine angewandte Migration
+habe ich nicht umgeschrieben.
+
+**Das Gegenlesen der fertigen Scheibe** ist am 11.11. zweimal am Ausgabenlimit
+gescheitert und am 16.11. gelaufen (vier Agenten lesen, je ein zweiter versucht
+zu widerlegen). Fünfzehn Stellen, alle behoben. Die wichtigsten für dich: der
+Filter „Giftig" fragt jetzt die Art (Wacholder stand unter „Ungiftig"); zwei
+Stichworte an den vertraulichen Brett-Einträgen zeigten auf die Stelle der Lücke
+und sind entfernt; und im Audit-Protokoll zeigte der Satz „zusammen mit Fund 4
+ausliefern" auf den falschen Fund — gemeint ist edge-5, die Reihenfolge ist dort
+sicherheitsrelevant.
+
+**Auf GitHub:** die Prüfung an jedem Pull Request installiert jetzt zusätzlich
+ESLint (über `scripts/package.json` und das eingecheckte Lockfile, `npm ci`).
+Dafür ist nichts zu tun. `npm audit` meldet dazu zwei mittlere Lücken in
+`minimatch`, das ESLint mitbringt — es läuft nur in den Prüfständen, nie in der App.
+
+## 33 · Lina: der Datenschutztext nennt weniger, als mitgeht — dein Wortlaut (Vorschlag, v33.74)
+
+**Was mitgeht** (gemessen am Kontext, den `gsLinaSend` an die KI schickt, `sensor_check` „Lina · Einblick
+ehrlich“): mit eingeschaltetem Einblick die Namen **und Spitznamen** deiner Pflanzen, Gärten und Pflanzungen
+mit **Sorte, Stückzahl und Datum**, **Grösse, Licht und Boden** der Gärten, fällige Aufgaben und **Termine aus
+Kalender und Gartenplänen**, die letzten Tagebuch-Einträge **und die Notiz** (gekürzt) der Pflanze, nach der du
+fragst, **im Tagebuch notierte Schädlinge** (seit diesem Paket), die Wettervorhersage für deinen gewählten Ort mit
+dessen Namen, deine letzten Scans, die Namen deiner Karten-Funde sowie **Namen** und Messwerte deiner Geräte.
+Fett ist, was der heutige Text nicht nennt. Fotos und Koordinaten gehen nicht mit — auch dann nicht, wenn der Ort
+keinen Namen hat (seit diesem Paket heisst er dann „am gewählten Ort“).
+
+**Was „ausschalten“ heisst** (seit diesem Paket, vorher nicht): mit ausgeschaltetem Einblick geht **nur deine
+Frage** mit, dazu die App-Sprache, die Jahreszeit und — wenn die Frage eine Art nennt — deren Angaben aus der
+Artenliste der App. Der heutige Text sagt „Den Einblick in Pflanzen, Gärten, Tagebuch, Wetter und Funde kannst
+du ausschalten“; Scans, Geräte und Messwerte nennt er dabei nicht — sie gehen seit diesem Paket ebenfalls nicht
+mehr mit.
+
+**Vorschlag** — `privacy.html` (der Absatz über Lina) und derselbe Satz in der App (Einstellungen › Datenschutz &
+Daten, „Fragen an Lina“):
+
+> Fragst du die Garten-Coachin **Lina**, gehen mit deiner Frage die Angaben an Anthropic, die sie für eine
+> passende Antwort braucht: die Namen und Spitznamen deiner Pflanzen, Gärten und Pflanzungen mit Sorte, Stückzahl
+> und Datum, Grösse, Licht und Boden deiner Gärten, fällige Aufgaben und Termine aus Kalender und Gartenplänen, die
+> letzten Tagebuch-Einträge und die Notiz der Pflanze, nach der du fragst, im Tagebuch notierte Schädlinge, die
+> Wettervorhersage für deinen gewählten Ort mit dessen Namen, deine letzten Scans, die Namen deiner Karten-Funde
+> sowie Namen und Messwerte deiner Geräte. **Fotos und Koordinaten gehen dabei nicht mit.** Schaltest du im
+> Lina-Fenster den Einblick aus, geht nur deine Frage mit — dazu die Sprache der App und die Jahreszeit.
+
+**Was du entscheidest:** ob dieser Wortlaut so in beide Texte kommt (oder ein kürzerer — die Liste ist lang, aber
+vollständig). Bis du Ja sagst, bleiben `privacy.html` und der Text in der App, wie sie sind; der Code hält sich
+schon jetzt an den Vorschlag (ausgeschaltet geht weniger mit, als der heutige Text verspricht — nicht mehr).
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier
@@ -2079,3 +2234,25 @@ löscht Daten.
 
 **Bei allem anderen: frag mich vorher.** Ich messe lieber zehn Minuten nach,
 als dass du etwas rückgängig machen musst.
+
+## 33 · Modellwahl je Verwendung — NUR der Proxy-Teil, braucht dich (v33.73)
+
+Die App-Seite (`index.html`, Scan-Chat, Quiz-Erklärung, Sprachfrage, Rollenwahl) ist im PR.
+Der Edge-Function-Teil ist NICHT im PR und NICHT ausgeliefert. Er ist eine Zeile:
+
+Datei: `supabase/functions/ai-proxy/index.ts`, Stelle nach `// 3) Body validieren` (vor `const wahl = …`):
+
+```ts
+// Patch-Text (v33.73): die Verwendung nennt ihre Rolle; fehlt sie oder ist sie unbekannt, gilt „vision".
+const verwendungRolle = body.rolle === "schnell" ? "schnell" : "vision";
+const wahl = modellFuerAnfrage(typeof body.model === "string" ? body.model : "", verwendungRolle, modellSecret("vision"), modellSecret("schnell"));
+```
+
+Die bisherige Zeile `const wahl = modellFuerAnfrage(…, "vision", …)` wird durch diese beiden ersetzt.
+
+**Was ohne diese Zeile gilt:** die App funktioniert auch mit dem ALTEN Proxy. Haiku-Modelle stehen in
+dessen Schnell-Kette und werden angenommen; das Feld `rolle` wird ignoriert. Gelesen, nicht live gemessen.
+
+**Bevor du es ausreichst:** ein echter Haiku-Aufruf durch das KI-Tor (`kiTor`) ist NICHT gemessen. Seit dem
+17.11. gab es keinen erfolgreichen Aufruf durch das Tor (Hauptfunktionen, lesend). Erst messen, dann ausliefern.
+Reihenfolge wie immer: Migration zuerst, Function danach (§30).

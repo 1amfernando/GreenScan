@@ -1,0 +1,34 @@
+{
+  "id": "2026-11-11-d412",
+  "art": "befund",
+  "datum": "2026-11-11",
+  "zeit": "10:45:58",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.59",
+  "titel": "Fälligkeit und „Verschieben\" rechnen 24-Stunden-Blöcke — über die Zeitumstellung liegt eine Aufgabe einen Tag daneben",
+  "text": "getDaysUntilDue bildet dueTs aus lastTs + n × 86400000 und schneidet erst danach auf den Tag; gsSnoozeTask rechnet Date.now() + d × 86400000. In den Nächten vom 28./29.03. und 24./25.10. hat der Tag 23 bzw. 25 Stunden. Es gibt EINE Fälligkeitsrechnung (CLAUDE.md §7.1, kalender_check) — die Reparatur gehört dorthin.",
+  "beleg": [
+    "TZ=Europe/Zurich, echte getDaysUntilDue, gestellte Uhr: Sa 28.03. 23:30 erledigt, n=1 → am 29.03. 1 statt 0; So 25.10. 00:30, n=1 → 0 statt 1 (Nachmessung 11.11.2026)",
+    "datum_check nennt den Punkt in seiner Grenze"
+  ],
+  "vorschlag": "In Kalendertagen rechnen (setDate(getDate() + n) am lokalen Tag) statt in Millisekunden; Fall in datum_check mit der Uhr auf den zwei Umstellungstagen.",
+  "stichworte": [
+    "getDaysUntilDue",
+    "gsSnoozeTask",
+    "zeitumstellung",
+    "datum_check",
+    "kalender_check"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var dueTs = lastTs + n * 86400000;"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-df51"
+    }
+  ]
+}

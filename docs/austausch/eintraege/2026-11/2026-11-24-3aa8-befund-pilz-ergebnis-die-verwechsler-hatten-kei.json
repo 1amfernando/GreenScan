@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-24-3aa8",
+  "art": "befund",
+  "datum": "2026-11-24",
+  "zeit": "15:58:58",
+  "von": "sitzung/lokal/pilz-vergleich",
+  "stand": "v33.71",
+  "titel": "Pilz-Ergebnis: die Verwechsler hatten keinen Namen — die Warnbox zeigte „Amanita Phalloides“ statt „Grüner Knollenblätterpilz“, und der Fall dazu stellte einen Namen, den die Function nie schickt",
+  "vorschlag": "Name, Latein und Essbarkeit aus dem Register (mushroom_register, öffentlich lesbar), ein Leser für Warnbox und Bildvergleich",
+  "beleg": [
+    "mushroom-identify (live und im Repo) liest select * aus mushroom_lookalikes — die Tabelle hat keine Namensspalte (scripts/edge/_live_schema.mjs). gsMushroomRenderResult zeigte deshalb den Slug mit grossen Anfangsbuchstaben („Amanita Phalloides“), in jeder Sprache, und nicht die Essbarkeit des Verwechslers — unter „☠️ LEBENSGEFAHR“. scan_check PZ1 gab dem Renderer edible_common_name: 'Grasgrüner Täubling' — ein Feld, das die Function nie schickt (Vorlage statt Ware). Gemessen mit scan_check PV1 gegen den Stand 90e2191: rot."
+  ],
+  "stichworte": [
+    "pilz-scanner",
+    "verwechsler",
+    "register",
+    "attrappe"
+  ]
+}

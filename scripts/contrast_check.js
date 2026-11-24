@@ -223,7 +223,10 @@ async function medianFarben(leser, pngBuffer, punkte) {
   const leser = await (await br.newContext()).newPage();   // nur zum Pixel-Lesen
   await leser.goto('data:text/html,<title>px</title>');
 
-  let unterAA = 0;   // v33.60: ueber beide Modi und die gerechneten Paare — daran haengt der Exit-Code
+  // v33.60: ein TOR — unterAA zaehlt ueber beide Modi und die gerechneten Paare.
+  // v33.72: dazu dynFehler — Durchgang 3 (Dialoge, die sich selbst an den <body>
+  // haengen): einer, der nicht aufgeht, oder ein DYN_AUS-Name, den es nicht mehr gibt.
+  let unterAA = 0, dynFehler = 0;
   for (const dark of [false, true]) {
     const ctx = await br.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
     const p = await ctx.newPage();
@@ -532,6 +535,48 @@ async function medianFarben(leser, pngBuffer, punkte) {
         if (!/2 Fotos/.test(ov.textContent)) throw new Error('teilen-vorschau: Hinweiszeile fehlt — der Fall stellt seinen Zustand nicht her');
         return ov.firstElementChild;
       }],
+      // v33.72: die Rueckfrage. `gsConfirmModal` hat 49 Aufrufstellen und war nie
+      // vermessen — sie braucht Parameter, der automatische Durchgang ruft nur
+      // Oeffner ohne. Gemessen im Dunkelmodus: Titel, Text und „Abbrechen" mit
+      // 1,06:1 (`color:var(--fg,#1a1a1a)`, und `--fg` gab es nie). Jede
+      // „Wirklich loeschen?"-Frage der App war schwarz auf schwarz.
+      ['rueckfrage', () => {
+        gsConfirmModal({ title: 'Pflanze löschen?', message: 'Die Pflanze und ihr Tagebuch werden entfernt. Das lässt sich nicht rückgängig machen.', ok: 'Endgültig löschen', cancel: 'Abbrechen', kind: 'danger' });
+        const w = document.getElementById('gs-confirm-modal');
+        if (!w || !w.firstElementChild) throw new Error('rueckfrage: kein #gs-confirm-modal');
+        if (!/Tagebuch/.test(w.textContent)) throw new Error('rueckfrage: der Text steht nicht da — der Fall stellt seinen Zustand nicht her');
+        return w.firstElementChild;
+      }],
+      ['eingabe', () => {
+        gsPromptModal({ title: 'Name der Pflanze', message: 'Wie soll sie heissen?', value: 'Monstera', ok: 'Speichern', cancel: 'Abbrechen' });
+        const w = document.getElementById('gs-prompt-modal');
+        if (!w || !w.firstElementChild) throw new Error('eingabe: kein #gs-prompt-modal');
+        return w.firstElementChild;
+      }],
+      // Eine Battle-Runde: vier Antwortknoepfe auf `var(--card-bg,#fff)` — auch
+      // diesen Namen gab es nie, im Dunkelmodus stand helle Schrift auf Weiss.
+      ['battle-runde', () => {
+        // Gestellt nur fuer DIESES Fenster — das Aufraeumen nach der Messung gibt den
+        // echten sbFetch zurueck (v33.72, Gegenlesen: stehen gelassen, sahen alle
+        // folgenden Fenster eine erfundene Server-Zeile statt ihrer Fehler- und
+        // Leerzustaende, und die wurden nicht mehr vermessen).
+        if (!window.__gsSbEcht) window.__gsSbEcht = window.sbFetch;
+        window.sbFetch = async () => ({ data: [{}] });
+        gsBattleStartPlay('b-kontrast', 'challenger', [
+          { q: 'Welche dieser Arten ist tödlich giftig?', options: ['Bärlauch', 'Herbstzeitlose', 'Löwenzahn', 'Brennnessel'], correct_idx: 1 },
+          { q: 'Zweite Frage', options: ['a', 'b', 'c', 'd'], correct_idx: 0 }]);
+        gsBattleRenderRound();
+        const m = document.getElementById('gs-nl-modal');
+        const b = document.getElementById('gs-nl-body');
+        if (!m || !b || !/Herbstzeitlose/.test(b.textContent)) throw new Error('battle-runde: die Runde steht nicht da');
+        return b;
+      }],
+      ['track-wiederherstellen', () => {
+        _gsTrackRecoveryChoice(42, 17);
+        const w = document.getElementById('gs-track-recover');
+        if (!w || !w.firstElementChild) throw new Error('track-wiederherstellen: kein #gs-track-recover');
+        return w.firstElementChild;
+      }],
       // v33.59: das Standort-Fenster OHNE Standort. Mit dem kleinen Seed (ohne Ort) mass
       // der automatische Durchgang diesen Zustand zufaellig — und fand 1,51:1 im
       // Dunkelmodus (var(--g-dark) auf fest hellem #f0f7ee). Der volle Seed hat einen Ort;
@@ -558,8 +603,11 @@ async function medianFarben(leser, pngBuffer, punkte) {
     async function messeFenster(fname, oeffnenQuelle, arg, deckel) {
       deckel = deckel || 8;
       try {
-        const hoch = await p.evaluate(([fn, arg]) => {
-          const res = (new Function('return (' + fn + ')'))()(arg);
+        const hoch = await p.evaluate(async ([fn, arg]) => {
+          window.__gsBodyVor = [].slice.call(document.body.children);   // v33.72: fuers Aufraeumen danach
+          // v33.72: ein Oeffner darf async sein (Durchgang 3) — gemessen wird, was er AM ENDE zeigt.
+          let res = (new Function('return (' + fn + ')'))()(arg);
+          if (res && typeof res.then === 'function') res = await res;
           if (!res || !res.getBoundingClientRect) return -1;      // nichts ging auf (0 heisst: offen, rollt nicht)
           let sc = res;
           while (sc && sc !== document.body && sc.scrollHeight <= sc.clientHeight + 4) sc = sc.parentElement;
@@ -628,6 +676,27 @@ async function medianFarben(leser, pngBuffer, punkte) {
           // stehen gelassen, verdeckte sie jedes weitere Fenster.
           const tv = document.getElementById('gs-teilen-vorschau');
           if (tv && typeof gsDismissOverlay === 'function') { try { gsDismissOverlay(tv); } catch(_){} }
+          // v33.72: Rueckfrage und Eingabe geben ein Promise zurueck — „Abbrechen"
+          // loest es sauber auf. Die Battle-Runde schliesst ueber closeModal (das
+          // haelt auch ihren Zaehler an, v32.97).
+          ['gs-confirm-cancel', 'gs-prompt-cancel'].forEach(id => { const b = document.getElementById(id); if (b) { try { b.click(); } catch(_){} } });
+          try { if (typeof closeModal === 'function') closeModal('gs-nl-modal'); } catch(_){}
+          if (window.__gsSbEcht) { window.sbFetch = window.__gsSbEcht; window.__gsSbEcht = null; }
+          // Und alles, was der Oeffner an den <body> gehaengt hat und den
+          // Bildschirm ueberdeckt: stehen gelassen, verdeckte es jedes weitere Fenster.
+          const vor = window.__gsBodyVor;
+          if (vor) {
+            [].slice.call(document.body.children).forEach(el => {
+              if (vor.indexOf(el) >= 0) return;
+              let cs; try { cs = getComputedStyle(el); } catch(_) { return; }
+              if (cs.position !== 'fixed') return;
+              const r = el.getBoundingClientRect();
+              if (r.width * r.height < innerWidth * innerHeight * 0.5) return;
+              try { if (typeof gsDismissOverlay === 'function') gsDismissOverlay(el); } catch(_){}
+              try { if (el.parentNode) el.parentNode.removeChild(el); } catch(_){}
+            });
+            window.__gsBodyVor = null;
+          }
         });
         return true;
       } catch (e) { console.log('  (Fenster ' + fname + ' uebersprungen: ' + e.message.split('\n')[0] + ')'); return false; }
@@ -716,6 +785,89 @@ async function medianFarben(leser, pngBuffer, punkte) {
                 (autoZu.length ? ' · nicht aufgegangen: ' + autoZu.length + ' (' + autoZu.join(', ') + ')' : ''));
     if (gestelltZu.length) { console.log('  !! NICHT PRUEFBAR: gestellte Fenster gingen nicht auf: ' + gestelltZu.join(', ')); process.exitCode = 2; }
 
+    // ── Durchgang 3 (v33.72): Dialoge, die sich SELBST an den <body> haengen ──
+    //
+    // Durchgang 2 findet nur Oeffner, deren Rumpf `openModal(` enthaelt. Rund
+    // ein Dutzend Dialoge bauen ihr Fenster aber selbst (`document.body
+    // .appendChild` mit `position:fixed`) — Scan-Tipps, Sprachmodus,
+    // Passwort aendern, Konto loeschen, Avatar-Wahl, Wetterwarnungen. Sie
+    // waren nie vermessen; der Knopf „Alles klar" der Scan-Tipps stand mit
+    // 2,36:1 da. Dieselbe Entdeckung, andere Bauform: jede Funktion OHNE
+    // Parameter, deren Rumpf ein festes Fenster an den <body> haengt.
+    // Was kein Dialog ist (Start-Routinen, Banner, Abzeichen), steht mit
+    // Grund in DYN_AUS — die Liste ist die Pruefung: ein Name darin, den es
+    // nicht mehr gibt, wird gemeldet.
+    const DYN_AUS = {
+      gsCheckPastDueBanner: 'Banner bei ueberfaelliger Zahlung — erscheint nur mit einem Abo-Zustand vom Server',
+      loadHomeWeather: 'laedt das Wetter der Startseite; das Fenster darin ist ein Fehlerfall ohne Netz',
+      _gsBattleMaybeOfferResume: 'bietet nur an, wenn eine unterbrochene Runde im Speicher liegt',
+      _gsInstallInit: 'Start-Routine (Install-Banner)',
+      _gsAuthPrompt: 'Anmelde-Aufforderung — erscheint nur ohne Sitzung, der Pruefstand ist angemeldet',
+      _gsOfflineEngineInit: 'Start-Routine (Offline-Anzeige)',
+      _gsStatusBadgeInit: 'Start-Routine (Status-Abzeichen)',
+      ensureBadge: 'Hilfsfunktion des Status-Abzeichens, kein Dialog',
+      _gsStorageMgmtInit: 'Start-Routine (Speicherverwaltung)',
+      _gsUniversalSearchInit: 'Start-Routine (Suche)',
+      _gsWhatsNewInit: 'Start-Routine — den Dialog selbst misst nutzersicht_check E4',
+      showWhatsNew: 'innere Funktion von _gsWhatsNewInit, von aussen nicht erreichbar',
+      _gsMaintenanceBannerBoot: 'Start-Routine (Wartungs-Banner)',
+      gsPPshow3DCad: 'braucht einen offenen Plan und laedt Three.js — der Planer wird oben von Hand gestellt',
+    };
+    const dynNamen = await p.evaluate((quelleTxt) => {
+      const out = [];
+      const re = /(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(\s*\)\s*\{/g;
+      let m;
+      while ((m = re.exec(quelleTxt))) {
+        let d = 0, i = re.lastIndex - 1, ende = -1;
+        while (i < quelleTxt.length && i < re.lastIndex + 40000) {
+          const c = quelleTxt[i];
+          if (c === '{') d++;
+          else if (c === '}') { d--; if (d === 0) { ende = i; break; } }
+          i++;
+        }
+        if (ende < 0) continue;
+        const rumpf = quelleTxt.slice(re.lastIndex, ende);
+        if (/document\.body\.appendChild\(/.test(rumpf) && /position:\s*fixed/.test(rumpf) && rumpf.indexOf('openModal(') < 0) out.push(m[1]);
+      }
+      return [...new Set(out)].sort();
+    }, require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8'));
+    const DYN_OEFFNER = `(async function(name){
+      window.sbIsLoggedIn = function(){ return true; };
+      window.gsIsAdmin = function(){ return true; };
+      window.gsIsStaff = function(){ return true; };
+      window.gsRequire = function(){ return true; };
+      window._sbProfile = window._sbProfile || { id:'u1', email:'p@r.ch', role:'admin' };
+      var vor = [].slice.call(document.body.children);
+      var f = window[name];
+      if (typeof f !== 'function') return 0;
+      // Ein Oeffner, der erst den Server fragt (gsPPopenSavedPlans: mit angemeldeter Sitzung
+      // zuerst sbFetch, dann das Fenster), haengt sein Fenster NACH dem await an — also warten,
+      // hoechstens vier Sekunden. Ohne das galt er als „nicht aufgegangen".
+      try { var _r = f(); if (_r && typeof _r.then === 'function') await Promise.race([_r, new Promise(function(ok){ setTimeout(ok, 4000); })]); } catch(_) { return 0; }
+      var neu = [].slice.call(document.body.children).filter(function(el){
+        if (vor.indexOf(el) >= 0) return false;
+        var cs = getComputedStyle(el);
+        return cs.position === 'fixed' && cs.display !== 'none' && (el.textContent||'').trim().length > 12;
+      });
+      window.__gsDynOffen = neu.length;
+      return neu.length ? neu[neu.length - 1] : 0;
+    })`;
+    // Ein Teil-Lauf (GS_KONTRAST_TABS bzw. ein Fenster-Muster) urteilt nicht ueber das Ganze.
+    const dynLauf = NUR_TABS ? [] : (NUR ? dynNamen.filter(n => NUR.test(n)) : dynNamen);
+    const dynUeberholt = (NUR || NUR_TABS) ? [] : Object.keys(DYN_AUS).filter(n => dynNamen.indexOf(n) < 0);
+    if (dynUeberholt.length) { console.log('  !! DYN_AUS nennt Namen, die es so nicht mehr gibt: ' + dynUeberholt.join(', ')); dynFehler++; }
+    let dynOffen = 0; const dynZu = [];
+    for (const name of dynLauf) {
+      if (DYN_AUS[name]) continue;
+      await messeFenster(name, DYN_OEFFNER, name, 3);
+      const n = await p.evaluate(() => { const v = window.__gsDynOffen | 0; window.__gsDynOffen = 0; return v; });
+      if (n) dynOffen++; else dynZu.push(name);
+    }
+    console.log('  dynamische Dialoge: ' + dynNamen.length + ' gefunden · ' + Object.keys(DYN_AUS).length + ' ausgenommen (mit Grund) · ' + dynOffen + ' geoeffnet und vermessen' +
+                (dynZu.length ? ' · NICHT aufgegangen: ' + dynZu.join(', ') : ''));
+    // Ein Dialog, der nicht aufgeht, ist nicht vermessen — und das ist kein Gruen.
+    if (dynZu.length) dynFehler++;
+
     // v33.60: stand der Anmeldebildschirm am Ende (wieder)? Dann ist dieser
     // Modus nicht gemessen — drei Zustaende, nicht zwei.
     const anmeldebildStand = await p.evaluate(SEED_MOD.ANMELDEBILD_STEHT);
@@ -764,8 +916,8 @@ async function medianFarben(leser, pngBuffer, punkte) {
   // „EXIT=0", in jedem Lauf, gruen. Eine Zahl, die niemand lesen MUSS, liest
   // niemand (CLAUDE.md: „Eine Regel ohne Auslöser ist eine Bitte"). Nicht pruefbar
   // (Exit 2: der Anmeldebildschirm stand) geht vor.
-  if (unterAA && process.exitCode !== 2) {
-    console.log('\n  ROT: ' + unterAA + ' Stelle(n) unter AA — siehe oben.');
+  if ((unterAA || dynFehler) && process.exitCode !== 2) {
+    console.log('\n  ROT: ' + unterAA + ' Stelle(n) unter AA' + (dynFehler ? ' · dynamische Dialoge nicht vermessen: ' + dynFehler : '') + ' — siehe oben.');
     process.exitCode = 1;
   }
 })();

@@ -9,10 +9,12 @@ nichts auf dem Server ausser dem Gespraechsverlauf. Stand v33.34, gemessen.
 gsLinaSend()                                index.html, grep "async function gsLinaSend"
  ├─ _gsNotfallStufe(text)                    Vergiftungs-Notfall in vier Sprachen → Nummer ZUERST, Antwort trotzdem
  ├─ gsLinaContext(text)                      Sprache · Pflanzenzahl (gsPflanzenZahl) · Region · Jahreszeit
+ │    │                                      Einblick aus (gsLinaEinblickAn): NUR Sprache, Jahreszeit, ARTEN — sonst nichts
  │    ├─ gsLinaZahlen()                       Faellig · Alarme · Messwerte · letzter Scan · Aussaatfenster · Plan-Termine
  │    └─ _gsLinaArtenZeile(text)              die Arten aus der FRAGE, geerdet ueber _gsArtenTreffer + _gsArtAnzeige
  ├─ callAI(hist.slice(-16), LINA_SYSTEM + ctx, 900)   kein Tool-Use: {model, max_tokens, system, messages}
  ├─ _gsLinaSicherheit(antwort, treffer)      Zusage „essbar" ueber eine Art mit tox ≥ 3 → Warnzeile darueber
+ │    └─ _gsLinaTrefferMitPflanzen(text, t) dazu die Arten eigener Pflanzen, die die Frage (auch beim Spitznamen) nennt
  └─ gsLinaDispatch(aktion)                   EINE Textzeile am Antwortende, Whitelist, Schreiben nur nach gsConfirmModal
 ```
 
@@ -51,9 +53,19 @@ Seit dem Paket „Lina · Einblick" (Punkt 8) kennt Lina den Garten beim Namen.
 Ein zweiter Block neben `gsLinaZahlen`, abschaltbar im Lina-Fenster
 (`gs_lina_einblick = '0'`, in `GS_KEEP_ON_LOGOUT`; `gsLinaEinblickAn()`).
 
+**„Aus" heisst aus** (Brett 6bbf, seit v33.74): ohne Einblick gibt `gsLinaContext` NUR Sprache,
+Jahreszeit und die ARTEN der Frage weiter — keine Pflanzenzahl, keine Region, nichts aus
+`gsLinaZahlen` —, und die KI erfährt, dass sie die Daten nicht kennt. Der Schalter steht im
+leeren Verlauf UND als Zeile im laufenden Gespräch (`gsLinaEinblickSchalten`). Gelingt das
+Speichern nicht (voller Speicher: `setItem` gibt `false`), gilt „aus" bis zum Neuladen
+(`_gsLinaEinblickSitzung`), und ein Satz sagt es. Ein Ortsname, der eine KOORDINATE ist (der
+Rückfall von `gsReverseGeocode`: „46.948°N, 7.447°E"), geht nie mit — `_gsOrtNameFuerKi`;
+die Wetter-Zeile heisst dann „Wetter am gewählten Ort".
+
 | Zeile | Quelle | Deckel |
 |---|---|---|
-| Braucht Hilfe | `gsPflanzenHilfe()` — Aufgabe ≥ `GS_HILFE_UEBERFAELLIG_TAGE` (2) im Verzug (`gsGetDueTasks`) oder Schaedling im Tagebuch der letzten `GS_HILFE_SCHAEDLING_TAGE` (14) Tage (`gsTagebuchAlle`, `cat === 'pest'`) | 4 + „+N weitere“; ohne Signal nennt die Zeile, WAS geprueft wurde |
+| Braucht Hilfe | `gsPflanzenHilfe()` — Aufgabe ≥ `GS_HILFE_UEBERFAELLIG_TAGE` (2) im Verzug (`gsGetDueTasks`) oder Schaedling an der Pflanze in den letzten `GS_HILFE_SCHAEDLING_TAGE` (14) Tagen (`gsSchaedlingeNotiert`) | 4 + „+N weitere“; ohne Signal nennt die Zeile, WAS geprueft wurde — „kein Schädling" nur, wenn das Cloud-Tagebuch geladen ist (`gs_garden_diary_cache`) |
+| Schädlinge im Tagebuch | `gsSchaedlingeNotiert()` über `gsTagebuchAlle` — `pest` und `pest_observation`; die Schreiber (`gsPestAddToDiary`, `gsDiaryAddEntry`) legen sie OHNE Pflanze in der Cloud an, `gsCloudTagebuchLaden` spiegelt sie | 3 + „+N weitere" |
 | Im Detail — <Pflanze> | eigene Pflanzen, die in der FRAGE stehen (`_gsLinaPflanzenInFrage`: ganzer Name an Wortgrenzen, Mehrzahl-Endung) → Ort, Aufgaben (`_gsTaskDays`), 3 Tagebuch-Eintraege, Foto-ZAEHLER, Notiz | 2 Pflanzen, je `GS_LINA_DETAIL_MAX` 420 Zeichen — ganze Angaben fallen von hinten |
 | Wetter <Ort> | `gs_weather_cache` (Rohwerte Open-Meteo), Schwellen aus `_gsWetterTage` | 3 Tage, 3 Warnungen. Nur wenn die Vorhersage zum gewaehlten Ort gehoert UND den heutigen Tag enthaelt |
 | Pflanzen | beide Listen (`_gsLinaPflanzenAlle`) mit Ort | 8 + „+N weitere“ |
@@ -97,6 +109,11 @@ alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
    prueft jede Zusage („essbar", „kannst du roh essen", „Speisepilz", fr/it/en)
    gegen `tox ≥ 3` — Satz fuer Satz, am ROHEN Text (`_gsLinaNorm` streicht
    Satzzeichen). Gemessen mit den echten Saetzen, nicht ausgewaehlten.
+   Seit v33.74 sieht sie auch die Art einer eigenen Pflanze, die die Frage beim Namen
+   oder Spitznamen nennt („Lilli" = Maiglöckchen, `_gsLinaTrefferMitPflanzen` — auch bei
+   ausgeschaltetem Einblick: die Pruefung laeuft auf dem Geraet), und eine giftige Art, die
+   erst in der ANTWORT steht — dort nur mit ganzem Namen oder Binomen im selben Satz
+   (sonst warnte „Ja, Petersilie ist essbar." vor der Hunds-Petersilie; gemessen).
 3. **Der Notfall kommt VOR dem Sende-Riegel** und nimmt die Antwort nicht weg.
 4. **Zahlen im Kontext sind Rohwerte aus einem Datensatz** — `sensor_check`
    „Lina" haelt jede Prozent-/Gradzahl gegen den Speicher. Eine Zahl, die in

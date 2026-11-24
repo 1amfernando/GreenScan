@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-24-4cb3",
+  "art": "abschluss",
+  "datum": "2026-11-24",
+  "zeit": "13:18:20",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.70",
+  "titel": "erledigt: delete-user löscht die Abo-Zeilen, kündigt aber bei Stripe nichts — das Abo wird weiter abgebucht",
+  "ergebnis": "erledigt",
+  "wohin": "main v33.59 (aboSperre und orgAbfrageSperre in _shared/loeschung_regeln.mjs) — hier eingemergt am 24.11.2026, NICHT ausgeliefert",
+  "geschwister": "gesucht: grep -ci stripe delete-user/index.ts → 13 (vorher 0), aboSperre 4×, orgAbfrageSperre 3×. Rest ohne Datenfolge: der Löschdialog nennt ein laufendes Abo nicht vorab (Nachtrag d1cc) — die Function lehnt dann mit 409 ab, statt still weiter abzubuchen",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-cde7"
+    }
+  ]
+}
