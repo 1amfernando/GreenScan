@@ -117,7 +117,7 @@ sed -e "s/android:versionCode=\"1\"/android:versionCode=\"$VERSION_CODE\"/" \
 # ---------------------------------------------------------------- Uebersetzen
 echo "-- javac"
 aapt package -f -m -J "$BAU/src" -M "$BAU/AndroidManifest.xml" -S "$HIER/res" -I "$ANDROID_JAR"
-# v33.71: der Status von javac wird FESTGEHALTEN. Vorher lief die Ausgabe durch
+# v33.72: der Status von javac wird FESTGEHALTEN. Vorher lief die Ausgabe durch
 # einen Filter mit `|| true` — ein Uebersetzungsfehler in MainActivity ergab
 # „1 error", javac schrieb trotzdem 17 von 40 Klassen, die Pruefung fragte nur
 # nach IRGENDEINER .class, und das Skript baute und signierte ein Paket OHNE

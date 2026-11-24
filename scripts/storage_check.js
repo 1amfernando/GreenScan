@@ -179,9 +179,9 @@ const GEGENPROBE_LUEGE = 'gs_scan_history';            // steht in GS_USER_KEYS
     await fahre('gs_aicalls_', 'gs_aicalls_', () => gsAboTrackAICall());
     out.heute = { iso: heuteIso, ds: new Date().toDateString() };
     // Sicherung beschaedigter Schluessel: 9 alte Sicherungen, dann ein unrettbarer Schluessel.
-    // v33.71: zuerst den Zustand HERSTELLEN. Die Faelle oben hinterlassen Probewerte, die fuer
+    // v33.72: zuerst den Zustand HERSTELLEN. Die Faelle oben hinterlassen Probewerte, die fuer
     // manche JSON-Schluessel kein JSON sind (gs_recipes, gs_remedies, gs_garden_twin, userLocation …
-    // — seit v33.71 prueft die Integritaet sie). Ohne diesen Vorlauf sicherte der Lauf unten sechs
+    // — seit v33.72 prueft die Integritaet sie). Ohne diesen Vorlauf sicherte der Lauf unten sechs
     // Schluessel auf einmal, und der Deckel schuetzt die Sicherungen der laufenden Runde mit Recht.
     window.gsStorageIntegrityCheck();
     familie('gs_corrupt_bak__').forEach(k => localStorage.removeItem(k));

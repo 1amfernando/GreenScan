@@ -91,7 +91,7 @@ ersetzen, und die Pruefstaende beider Seiten an die vereinte Form anpassen,
 nicht ruhigstellen (CLAUDE.md §5, §7.1).
 
 Vier Marker, immer zusammen (`robust_check` „Changelog“ haelt sie zusammen) — gesetzt mit
-`node scripts/_bump.js --von vA.B --nach vC.D [--kennung alt:neu] [--basis <ref>]` (seit v33.71; der Kopf der
+`node scripts/_bump.js --von vA.B --nach vC.D [--kennung alt:neu] [--basis <ref>]` (seit v33.72; der Kopf der
 Datei sagt, was beim Stapeln auf einen Vorgaenger gilt):
 
 | Marker | wo |
@@ -154,7 +154,7 @@ Live-Seite ist aus einer Cloud-Sitzung nicht erreichbar (`CONNECT … 403`).
 
 ## 9b · Ein breiter Audit ist ein Workflow, nicht acht lose Agenten
 
-Seit v33.71 liegt er im Repo: `.claude/workflows/greenscan-audit.js` — acht
+Seit v33.72 liegt er im Repo: `.claude/workflows/greenscan-audit.js` — acht
 Blickwinkel (`robust` · `escape` · `datum` · `edge` · `sw` · `css` · `daten` ·
 `android`), je ein Auditor (nur lesend) und ein Gegenpruefer, der jeden Fund zu
 widerlegen versucht. `args.linsen` waehlt aus, `args.scratch` sagt, wohin die

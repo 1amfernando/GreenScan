@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.71.20261124">
+<meta name="app-version" content="33.72.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -458,7 +458,7 @@ body{height:100%;background:var(--g-bg);color:var(--text);font-family:"DM Sans",
 
 .topbar{
   position:fixed;top:0;left:0;right:0;
-  height:calc(var(--st) + var(--top-h));   /* v33.71: ohne Leerraum um das Plus ist calc() UNGUELTIG — die Leiste war 39 statt 56 px hoch (statik_check S8) */
+  height:calc(var(--st) + var(--top-h));   /* v33.72: ohne Leerraum um das Plus ist calc() UNGUELTIG — die Leiste war 39 statt 56 px hoch (statik_check S8) */
   padding-top:var(--st);
   /* v31.43 — Die Kopfleiste war in BEIDEN Modi dunkelgruen (--fill-dark) und
      stand damit als letztes dunkles Element gegen die inzwischen durchgehend
@@ -2842,7 +2842,7 @@ window._gsArtenFehlstart = function () {
     try { window.localStorage.getItem('gs__probe'); } catch (_gsLsErr) { return { fixed: 0, backedUp: 0, skipped: 'no-storage' }; } /* v33.58 · P1-11 */
     // v28.76 C2-1: kanonischer Scan-History-Key ist 'gs_scan_history' (SCAN_HISTORY_KEY).
     // Der bare 'scan_history' wurde NIE geschrieben → Integrity-Check schützte den falschen Key.
-    // v33.71: die Liste kannte zehn Schluessel — und keinen von denen, die das
+    // v33.72: die Liste kannte zehn Schluessel — und keinen von denen, die das
     // Hauptskript beim PARSEN liest und an denen es dann stirbt (gs_market,
     // gs_recipes, gs_remedies) oder still auf leer zurueckfaellt und beim
     // naechsten Speichern ueberschreibt (gs_gardens, gs_plantings, …).
@@ -2925,7 +2925,7 @@ window._gsArtenFehlstart = function () {
     }
     return { checked: jsonKeys.length, repaired: fixed, backedUp: backedUp };
   };
-  // v33.71: SOFORT, nicht erst nach 1,5 s. Die Pruefung lief „fire-and-forget"
+  // v33.72: SOFORT, nicht erst nach 1,5 s. Die Pruefung lief „fire-and-forget"
   // nach dem Laden — das Hauptskript weiter unten liest dieselben Schluessel
   // aber beim PARSEN. Ein abgeschnittener Wert (voller Speicher mitten im
   // Schreiben) war dann schon gelesen: entweder starb das Hauptskript daran
@@ -10620,7 +10620,7 @@ function gsFilterPlants(q) {
 var _gsErnteLog = null;
 function gsErnteLoad() {
   if (!_gsErnteLog) {
-    _gsErnteLog = _gsListeLesen('gs_ernte_log') || [];   // v33.71: formsicher
+    _gsErnteLog = _gsListeLesen('gs_ernte_log') || [];   // v33.72: formsicher
   }
   return _gsErnteLog;
 }
@@ -10736,11 +10736,11 @@ function openGartenTagebuch() {
       // einer Zahl statt eines ISO-Strings (Alt-Daten, Import) hat bisher den
       // ganzen Bildschirm mitgerissen. Ein krummer Eintrag darf einen
       // Jahresueberblick nicht toeten.
-      if (e.ts) { var _t = _gsKalTag(e.ts); if (_t) dates[_t] = true; }   // v33.71: der LOKALE Tag (vorher die ersten zehn Zeichen des UTC-Stempels)
+      if (e.ts) { var _t = _gsKalTag(e.ts); if (_t) dates[_t] = true; }   // v33.72: der LOKALE Tag (vorher die ersten zehn Zeichen des UTC-Stempels)
     });
     var d = new Date();
     for (var i = 0; i < 90; i++) {
-      var key = _gsDayKey(d);   // v33.71: lokal, wie die Schleife darunter (setDate)
+      var key = _gsDayKey(d);   // v33.72: lokal, wie die Schleife darunter (setDate)
       if (dates[key]) streak++;
       else if (i > 0) break; // wenn heute kein Eintrag, Streak = 0 erst nach morgen
       d.setDate(d.getDate() - 1);
@@ -11324,14 +11324,14 @@ function openErnteTracking() {
   // Verfügbare Jahre
   var allYears = {};
   log.forEach(function(e){
-    var _t0 = e.ts ? _gsKalTag(e.ts) : null; if (_t0) allYears[_t0.slice(0, 4)] = true;   // v33.71: das Jahr des LOKALEN Tags (Silvester 00:30 gehoert ins neue Jahr)
+    var _t0 = e.ts ? _gsKalTag(e.ts) : null; if (_t0) allYears[_t0.slice(0, 4)] = true;   // v33.72: das Jahr des LOKALEN Tags (Silvester 00:30 gehoert ins neue Jahr)
   });
   allYears[String(now.getFullYear())] = true;
   var yearList = Object.keys(allYears).sort().reverse();
   
   // Aggregate für gewähltes Jahr
   function yearStats(year) {
-    var filtered = log.filter(function(e){ var t = e.ts ? _gsKalTag(e.ts) : null; return !!t && t.slice(0, 4) === String(year); });   // v33.71: lokal — und eine Zahl als ts wirft nicht mehr
+    var filtered = log.filter(function(e){ var t = e.ts ? _gsKalTag(e.ts) : null; return !!t && t.slice(0, 4) === String(year); });   // v33.72: lokal — und eine Zahl als ts wirft nicht mehr
     var byPlant = {};
     var byMonth = [0,0,0,0,0,0,0,0,0,0,0,0];
     var byMonthCount = [0,0,0,0,0,0,0,0,0,0,0,0];
@@ -11529,7 +11529,7 @@ function openErnteTracking() {
       contentHtml += '<div style="display:flex;align-items:center;gap:10px;padding:8px 11px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:4px;">' +
         '<span style="font-size:var(--fs-xl);">' + _gsEmoji(e.emoji, '🧺') + '</span>' +
         '<div style="flex:1;min-width:0;"><div style="font-size:var(--fs-md);font-weight:700;color:var(--text);">' + escHtml(e.pflanze||'') + '</div>' +
-        '<div style="font-size:var(--fs-xs);color:var(--muted);">' + escHtml(_gsKalTag(e.ts) || '')   /* v33.71: der LOKALE Tag (datum_check) */  + '</div></div>' +
+        '<div style="font-size:var(--fs-xs);color:var(--muted);">' + escHtml(_gsKalTag(e.ts) || '')   /* v33.72: der LOKALE Tag (datum_check) */  + '</div></div>' +
         '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--g-dark);">' + (parseFloat(e.menge)||0) + ' ' + escHtml(gsErnteUnitLabel(e.unit)) + '</div>' +
         '<button onclick="gsErnteDelete(\'' + _gsOcStr(e.id) + '\')" style="background:none;border:none;color:var(--muted);font-size:var(--fs-md);cursor:pointer;padding:2px 4px;opacity:.4;-webkit-tap-highlight-color:transparent;">✕</button>' +
       '</div>';
@@ -13093,7 +13093,7 @@ window.dqSerie = dqSerie;
 window.dqStatsBuchen = dqStatsBuchen;
 
 function dqGetStats() {
-  // v33.71: formsicher — ein gespeichertes `null` oder eine Liste war gueltiges
+  // v33.72: formsicher — ein gespeichertes `null` oder eine Liste war gueltiges
   // JSON, und `stats.streak` warf (Startseite, Quiz, Rangliste).
   return _gsObjektLesen('gs_dq_stats') || {points:0,correct:0,total:0,streak:0,bestStreak:0,year:new Date().getFullYear()};
 }
@@ -17848,7 +17848,7 @@ window.gsNotif = (function(){
   // verschiebt der Planer eine Meldung, statt sie zu verwerfen.
   function stille(wann){
     var s = {};
-    s = _gsObjektLesen('gs_push_settings') || {};   // v33.71: formsicher (`null` im Speicher warf am ersten Feld)
+    s = _gsObjektLesen('gs_push_settings') || {};   // v33.72: formsicher (`null` im Speicher warf am ersten Feld)
     var d = wann ? new Date(wann) : new Date();
     try { var pu = s.pauseUntil && new Date(s.pauseUntil); if (pu && !isNaN(pu.getTime()) && pu > d) return { aktiv: true, grund: 'pause', bis: pu }; } catch(_){}
     var qs = (typeof s.quietStart === 'number') ? s.quietStart : 22, qe = (typeof s.quietEnd === 'number') ? s.quietEnd : 7;
@@ -18239,7 +18239,7 @@ function _gsVorsichtigste(treffer) {
     // v31.90 markiert. Ein Rumpf sagt nichts über Vorsicht; er sagt nur,
     // dass niemand hingesehen hat.
     // Vorlagen-Text (gsAutoFillLookalikes, ~2 s nach dem Start; `_warning_tpl`
-    // setzt seit v33.71 niemand mehr) zählt NICHT als Bearbeitung — er steht
+    // setzt seit v33.72 niemand mehr) zählt NICHT als Bearbeitung — er steht
     // auf ganzen Kategorien.
     var wa = (a && a.warning && !a._warning_tpl) ? 1 : 0, la = (a && a.lookalike && !a._lookalike_tpl) ? 1 : 0;
     var wb = (b && b.warning && !b._warning_tpl) ? 1 : 0, lb = (b && b.lookalike && !b._lookalike_tpl) ? 1 : 0;
@@ -20511,7 +20511,7 @@ try {
   }
 } catch(_){}
 
-// v33.71: hier standen `gsAutoFillDBGaps` und drei Vorlagen-Tabellen (Verwendung,
+// v33.72: hier standen `gsAutoFillDBGaps` und drei Vorlagen-Tabellen (Verwendung,
 // Verwechslung, Warnung je Kategorie) — 90 Zeilen ohne Aufrufer. Der einzige
 // „Aufruf" war der eigene Wiederholungs-Timer im Rumpf; robust_check C2 zaehlte
 // ihn als zweite Nennung. Im Rumpf wurde ausserdem `HABITAT_TEMPLATES` gelesen,
@@ -20548,7 +20548,7 @@ async function mktDelete(id) {
 
 // ══ BEWÄSSERUNGS-ERINNERUNG ═══════════════════════════════════
 function gsCheckWaterNeeded() {
-  // v33.71: hier stand eine EIGENE Faelligkeitsrechnung — `lastDone +
+  // v33.72: hier stand eine EIGENE Faelligkeitsrechnung — `lastDone +
   // intervalDays * 86400000`. `lastDone` ist seit v26.51 ein ISO-String
   // (gsQuickDone): Zeichenkette + Zahl ergibt eine Zeichenkette, der Vergleich
   // war immer falsch, und der Banner ist kein einziges Mal erschienen. Sie
@@ -20743,7 +20743,7 @@ function gsCatEmoji(sp) {
 
 function gsNormalizeCatEmojis() {
   if (typeof DB === 'undefined' || !DB.length) { setTimeout(gsNormalizeCatEmojis, 800); return; }
-  // v33.71: hier stand `if (localStorage.getItem('gs_emoji_normalized_v2')) return;`
+  // v33.72: hier stand `if (localStorage.getItem('gs_emoji_normalized_v2')) return;`
   // — und am Ende setzte die Funktion genau diesen Schalter. Sie aendert aber
   // nichts Gespeichertes: sie bereitet die Artenliste IM ARBEITSSPEICHER auf,
   // und die wird bei jedem Start frisch aus data/plants.v1.js gebaut. Der
@@ -21551,7 +21551,7 @@ var LOOKALIKE_TEMPLATES = {
 
 function gsAutoFillLookalikes() {
   if (typeof DB === 'undefined' || !DB.length) { setTimeout(gsAutoFillLookalikes, 1000); return; }
-  // v33.71: derselbe Schalter wie in gsNormalizeCatEmojis (`gs_lookalike_filled`)
+  // v33.72: derselbe Schalter wie in gsNormalizeCatEmojis (`gs_lookalike_filled`)
   // — die Hinweise standen nur in der allerersten Sitzung da. Gemessen: erste
   // Sitzung 0 Arten ohne Verwechslungshinweis, jede spaetere 1'435. Die
   // Vorsichtsregel des Scanners (`_gsVorsichtigste`, v32.45) und ihr Pruefstand
@@ -22838,7 +22838,7 @@ async function gsContributeScanPhoto(spId, conf){
 window.gsContributeScanPhoto = gsContributeScanPhoto;
 
 var _recipeFavs=[];
-_recipeFavs=_gsListeLesen('gs_recipe_favs', true) || [];   // v33.71: formsicher (ids sind Zeichenketten)
+_recipeFavs=_gsListeLesen('gs_recipe_favs', true) || [];   // v33.72: formsicher (ids sind Zeichenketten)
 function isRecipeFav(id){return _recipeFavs.indexOf(id)>=0;}
 function toggleRecipeFav(id,ev){
   if(ev)ev.stopPropagation();
@@ -23181,7 +23181,7 @@ function gsInitPullToRefresh(screenId, onRefresh) {
 
 // ── RECENT SEARCHES ─────────────────────────────────────────
 var _gsRecentSearches = [];
-_gsRecentSearches = (_gsListeLesen('gs_recent_searches', true) || []).filter(function (x) { return typeof x === 'string'; });   // v33.71: formsicher
+_gsRecentSearches = (_gsListeLesen('gs_recent_searches', true) || []).filter(function (x) { return typeof x === 'string'; });   // v33.72: formsicher
 
 
 function gsRenderRecentSearches() {
@@ -23211,7 +23211,7 @@ function safeJsonParse(str, fallback) {
     console.warn('JSON parse error, using fallback:', e.message);
     return fallback; 
   }
-  // v33.71: die FORM der Vorgabe gilt. `safeGetItem('ps_myplants', [])` gab bei
+  // v33.72: die FORM der Vorgabe gilt. `safeGetItem('ps_myplants', [])` gab bei
   // einem gespeicherten `{}`, `"x"` oder `5` genau das zurueck — gueltiges JSON,
   // falsche Form — und der erste `.filter`/`.push` warf (21 Aufrufer, darunter
   // myPlants, gardens, plantings, favs beim PARSEN der Seite). Ist die Vorgabe
@@ -24348,7 +24348,7 @@ const WEEKLY_SEASONAL_FACTS = [
   {kw:52,emoji:'💧',title:'Winterlichkeit und Wasser',text:'Zufrierender Seen: Bodensee gefriert selten (zuletzt 1963). Klimawandel macht das fast unmöglich.',fact:'💡 Der Bodensee (Seegfrörni) ist eingefroren wenn -13°C über 2 Wochen anhalten. Das passiert kaum noch.',cat:'wissen'},
 ];
 
-// v33.71: die Kalenderwoche nach ISO 8601 — Montag bis Sonntag, KW 1 ist die
+// v33.72: die Kalenderwoche nach ISO 8601 — Montag bis Sonntag, KW 1 ist die
 // Woche mit dem ersten Donnerstag des Jahres. Vorher gab es ZWEI Rechnungen
 // (hier und im Planer-Kalender), beide zaehlten Sieben-Tage-Bloecke ab dem
 // 1. Januar. Das stimmt nur in Jahren, die an einem Montag beginnen: 2026
@@ -24365,7 +24365,7 @@ function gsIsoKW(d) {
   return Math.ceil(((t - j1) / 86400000 + 1) / 7);
 }
 function gsGetKW(){ return gsIsoKW(); }
-// v33.71: die Fakten EINER Kalenderwoche — mit EINEM Rueckfall. Die Liste kennt
+// v33.72: die Fakten EINER Kalenderwoche — mit EINEM Rueckfall. Die Liste kennt
 // KW 1 bis 52; die ISO-Woche 53 (2026: 28.12. bis 03.01.) hat keinen Eintrag.
 // Die Fakten-Karte suchte dann die Nachbarwochen ab (→ KW 52), die Tages-Info
 // auf derselben Startseite nahm die ersten zehn Eintraege der Datei — das sind
@@ -24382,7 +24382,7 @@ function _gsWochenFakten(kw) {
   return w.length ? w : facts.slice(0, 10);
 }
 // v33.61 (main): die ISO-Woche fuer did_you_know_facts.kw (Postgres EXTRACT(week …)). Seit
-// v33.71 ist gsGetKW selbst die ISO-Woche — EINE Rechnung, zwei Namen.
+// v33.72 ist gsGetKW selbst die ISO-Woche — EINE Rechnung, zwei Namen.
 function _gsIsoWoche(d) { return gsIsoKW(d); }
 window._gsIsoWoche = _gsIsoWoche;
 function gsInitWeekFacts() {
@@ -24396,7 +24396,7 @@ function gsInitWeekFacts() {
       return;
     }
     var kw = gsGetKW();
-    var weekFacts = _gsWochenFakten(kw);   // v33.71: ein Rueckfall fuer beide Anzeigen
+    var weekFacts = _gsWochenFakten(kw);   // v33.72: ein Rueckfall fuer beide Anzeigen
     // Deterministisch mischen
     var arr = weekFacts.slice(), seed = kw * 1337;
     for (var i = arr.length-1; i > 0; i--) {
@@ -25149,7 +25149,7 @@ async function gsLoadSupabaseDailyContent() {
     // v33.61 (Home 7): alle aktiven Fakten, und ein Fakt mit Kalenderwoche nur in SEINER Woche. Bis hier
     // `order=id.asc&limit=30`: von 192 aktiven erschienen nur die ersten 30 (live nachgelesen 16.11.2026),
     // und 10 davon tragen eine Woche (kw) — sie standen in jeder Woche da. Die Woche ist die ISO-Woche
-    // wie in v_today_tip (EXTRACT(week …)). Seit v33.71 ist gsGetKW dieselbe ISO-Woche (gsIsoKW) —
+    // wie in v_today_tip (EXTRACT(week …)). Seit v33.72 ist gsGetKW dieselbe ISO-Woche (gsIsoKW) —
     // bis dahin zaehlte es Tage seit dem 1. Januar und lag oft eine Woche daneben.
     // Der Filter steht in der Anfrage UND hier: die Antwort ist fremde Eingabe (scan_check HF1).
     try {
@@ -25984,9 +25984,9 @@ function initHomeBoard() {
       try {
         var facts = (typeof WEEKLY_SEASONAL_FACTS !== 'undefined') ? WEEKLY_SEASONAL_FACTS : (window.WEEKLY_SEASONAL_FACTS || []);
         if (!facts || !facts.length) return _dailyFallback();
-        var kw = gsGetKW();   // v33.71: der Rueckfall daneben war eine dritte Kopie der alten Rechnung — gsGetKW gibt es immer
+        var kw = gsGetKW();   // v33.72: der Rueckfall daneben war eine dritte Kopie der alten Rechnung — gsGetKW gibt es immer
         var dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
-        var weekFacts = _gsWochenFakten(kw);   // v33.71: derselbe Rueckfall wie die Fakten-Karte (KW 53 → KW 52, nicht die Januar-Texte)
+        var weekFacts = _gsWochenFakten(kw);   // v33.72: derselbe Rueckfall wie die Fakten-Karte (KW 53 → KW 52, nicht die Januar-Texte)
         var info = weekFacts[dayOfYear % weekFacts.length];
         if (!info) return _dailyFallback();
         var titleEl = document.getElementById('daily-title');
@@ -26355,7 +26355,7 @@ function getCatLabel(c){
 
 function gsMarketLoad() {
   if (!window._gsMarket) {
-    window._gsMarket = _gsListeLesen('gs_market_listings') || [];   // v33.71: formsicher
+    window._gsMarket = _gsListeLesen('gs_market_listings') || [];   // v33.72: formsicher
   }
   return window._gsMarket;
 }
@@ -27703,7 +27703,7 @@ window.GS_VOLLBILD_OVERLAYS = GS_VOLLBILD_OVERLAYS;
 function _gsSchichtZ(el) {
   try { return parseInt(getComputedStyle(el).zIndex, 10) || 0; } catch (_) { return 0; }
 }
-// v33.71: hier stand eine ZWEITE `function _gsSichtbar` (v33.43, „display
+// v33.72: hier stand eine ZWEITE `function _gsSichtbar` (v33.43, „display
 // ist nicht none"). Die erste steht beim Update-Waechter (v33.25, „hat ein
 // Rechteck") — und in JavaScript gewinnt still die SPAETERE Deklaration, fuer
 // ALLE Aufrufer. Der Zurueck-Knopf rechnete also seit v33.43 mit der Regel
@@ -29968,7 +29968,7 @@ function _gsFundZeit(f) {
 window._gsFundZeit = _gsFundZeit;
 function _gsKalTagPlus(tag, n) { var p = String(tag).split('-'); return _gsKalTag(new Date(+p[0], +p[1] - 1, +p[2] + (n || 0))); }
 function gsHeuteTag() { return _gsKalTag(new Date()); }
-// v33.71: ein reines DATUM wird als `…T12:00:00.000Z` abgelegt (gsHarvestSubmit:
+// v33.72: ein reines DATUM wird als `…T12:00:00.000Z` abgelegt (gsHarvestSubmit:
 // „der Tag ist gemeint, nicht eine Uhrzeit"). Der Kalender zeigte dafuer eine
 // Uhrzeit, die niemand eingegeben hat — 14:00 im Sommer, 13:00 im Winter.
 // Eine echte Zeit (`new Date().toISOString()`, mit Millisekunden) trifft exakt
@@ -30918,7 +30918,7 @@ function _gsKalFilterSchreiben(f) {
     if (typeof gsToast === 'function') gsToast(_gsSatz('Der Speicher ist voll — die Auswahl gilt nur für dieses Mal'));
     return false;
   }
-  // v33.71: hier stand `if (typeof markDirty === 'function') markDirty('state')`.
+  // v33.72: hier stand `if (typeof markDirty === 'function') markDirty('state')`.
   // Eine globale `markDirty` gibt es nicht — sie heisst `gsCloudSync.markDirty`.
   // Der Schutz war also immer falsch und die Wahl wurde NIE zum Sync vorgemerkt:
   // sie reiste nur, wenn zufaellig etwas anderes den Zustand als geaendert
@@ -33605,7 +33605,7 @@ function gsBuildScanContext() {
     ctx.season = (month>=3&&month<=5)?'Frühling' : (month>=6&&month<=8)?'Sommer' : (month>=9&&month<=11)?'Herbst' : 'Winter';
     if (_ex && _ex.datum) {
       ctx.ausFoto = true;
-      // v33.71: `d` ist LOKALE Mitternacht (gsExifVonDatei baut es aus Jahr, Monat,
+      // v33.72: `d` ist LOKALE Mitternacht (gsExifVonDatei baut es aus Jahr, Monat,
       // Tag). `toISOString().slice(0, 10)` ist der UTC-Tag — in der Schweiz also
       // IMMER der Vortag: EXIF 2026:07:15 → „aufgenommen am 2026-07-14", auf der
       // Scan-Karte und im Auftrag an die KI. (datum_check)
@@ -37775,7 +37775,7 @@ function _gsAltGefahr(res) {
 window._gsAltTox = _gsAltTox;
 window._gsAltGefahr = _gsAltGefahr;
 
-// v33.71: EINE Tabelle fuer das Symbol einer Scan-Kategorie. Zwei Leser — die
+// v33.72: EINE Tabelle fuer das Symbol einer Scan-Kategorie. Zwei Leser — die
 // Scan-Karte und „zu meinen Pflanzen". Unbekannt oder leer ergibt 🌿.
 var GS_SCAN_KAT_EMOJI = { wildpflanze:'🌸', pilz:'🍄', baum:'🌳', kraut:'🌿', hauspflanze:'🪴', moos:'🌱', flechte:'🪨', alge:'💧' };
 function _gsScanKatEmoji(kat) {
@@ -38924,7 +38924,7 @@ window.gsAddScanToMyPlants = async function(){
     }
     var now = Date.now();
     var nowIso = new Date().toISOString();
-    // v33.71: hier stand `typeof EMOJI_BY_CAT === 'object' ? EMOJI_BY_CAT[…]` — eine
+    // v33.72: hier stand `typeof EMOJI_BY_CAT === 'object' ? EMOJI_BY_CAT[…]` — eine
     // Tabelle, die es nie gab. Jede aus einem Scan uebernommene Pflanze ohne
     // eigenes Symbol bekam 🌿, auch ein Pilz. Dieselbe Tabelle wie die Scan-Karte.
     var emoji = _gsEmoji(r.emoji, '') || _gsScanKatEmoji(r.category);   // v33.59: r.emoji ist KI-Ausgabe
@@ -40736,13 +40736,13 @@ window._gsOcArg = _gsOcStr;
 function _gsOcStr(s) {
   return String(s == null ? '' : s)
     .replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-    // v33.71: JEDER Zeilentrenner, nicht nur \n — ein einsames \r beendet einen
+    // v33.72: JEDER Zeilentrenner, nicht nur \n — ein einsames \r beendet einen
     // JS-String genauso, und der Wert soll EXAKT ankommen (\r\n blieb \n).
     .replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')
     .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 window._gsOcStr = _gsOcStr;
-window._gsOcArg = _gsOcStr;   // v33.71: ein Helfer, zwei Namen — der alte hat vier Aufrufer
+window._gsOcArg = _gsOcStr;   // v33.72: ein Helfer, zwei Namen — der alte hat vier Aufrufer
 window.gsHTMLEscape = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
 
 // ═══════════════════════════════════════════════════════════
@@ -42048,8 +42048,8 @@ function displayLuxResult(lux, warnText) {
   var cat, bg, pc;
   if (lux < 100) { cat = '🌑 Dunkel'; bg = '#e3f2fd'; pc = '#1565c0'; }
   else if (lux < 500) { cat = '🌥️ Halbschatten'; bg = '#e8f5e9'; pc = '#2e7d32'; }
-  else if (lux < 2000) { cat = '🌤️ Hell (indirekt)'; bg = '#fff8e1'; pc = '#bf360c'; }   /* v33.71: #ef6c00 war 2,90:1 (gerechnet) */
-  else if (lux < 10000) { cat = '☀️ Hell (direkt)'; bg = '#fff3e0'; pc = '#bf360c'; }   /* v33.71: #e65100 war 3,46:1 (gerechnet) */
+  else if (lux < 2000) { cat = '🌤️ Hell (indirekt)'; bg = '#fff8e1'; pc = '#bf360c'; }   /* v33.72: #ef6c00 war 2,90:1 (gerechnet) */
+  else if (lux < 10000) { cat = '☀️ Hell (direkt)'; bg = '#fff3e0'; pc = '#bf360c'; }   /* v33.72: #e65100 war 3,46:1 (gerechnet) */
   else { cat = '🔥 Volle Sonne'; bg = '#ffebee'; pc = '#c62828'; }
   if (catEl) {
     catEl.textContent = cat;
@@ -42218,7 +42218,7 @@ function gsLuxCalibrate() {
 
   // Sonnenstand-Schätzung einblenden, wenn GPS vorhanden
   var sunBox = document.getElementById('lux-calib-sun');
-  // v33.71: hier stand `typeof gsUserPosition !== 'undefined' ? gsUserPosition : null`.
+  // v33.72: hier stand `typeof gsUserPosition !== 'undefined' ? gsUserPosition : null`.
   // Eine `gsUserPosition` gab es nie — `pos` war IMMER null, die Zeile darunter
   // sagte auch mit gespeichertem Standort „Aktiviere GPS …", und die
   // astronomische Referenz ist kein einziges Mal erschienen. Der Standort hat
@@ -44364,7 +44364,7 @@ let currentCommentPostId = null;
 // der Feed-Lader anlegte. renderSocialFeed liest sie (Seiten-Ende) und warf
 // ohne vorherigen Ladevorgang ReferenceError; gefunden von escape_check.
 var _communityPage = 0;
-// v33.71: dasselbe fuer `_communityLoading` — nie deklariert. `loadSocialPosts`
+// v33.72: dasselbe fuer `_communityLoading` — nie deklariert. `loadSocialPosts`
 // LIEST es als Erstes; lief vorher nicht `initSocialFeed` (das die Globale
 // durch eine Zuweisung still anlegte), war das ein ReferenceError. Fuenf
 // Aufrufer stehen in einem try/catch und haben ihn verschluckt — der Feed
@@ -46869,7 +46869,7 @@ window.gsOpenSaisonPilze = gsOpenSaisonPilze;
 // v29.67 Anfänger-Ampel-Stufen (aus v_mushroom_beginner; deterministisch, sichere Fehlerrichtung)
 var GS_BEGINNER_AMPEL = {
   anfaenger:       { e:'🟢', l:'Anfänger-geeignet',     k:'amp_anfaenger',       c:'#2e7d32', bg:'#e8f5e9' },
-  fortgeschritten: { e:'🟡', l:'Für Fortgeschrittene',  k:'amp_fortgeschritten', c:'#bf360c', bg:'#fff3e0' },   /* v33.71: #e65100 war 3,46:1 — c ist die Schriftfarbe auf bg */
+  fortgeschritten: { e:'🟡', l:'Für Fortgeschrittene',  k:'amp_fortgeschritten', c:'#bf360c', bg:'#fff3e0' },   /* v33.72: #e65100 war 3,46:1 — c ist die Schriftfarbe auf bg */
   gefahr:          { e:'🔴', l:'Giftig / gefährlich',   k:'amp_gefahr',          c:'#c62828', bg:'#ffebee' },
   ungeniessbar:    { e:'⚪', l:'Ungeniessbar',           k:'amp_ungeniessbar',    c:'#616161', bg:'#f5f5f5' },
   unbekannt:       { e:'❔', l:'Einstufung offen',       k:'amp_unbekannt',       c:'#616161', bg:'#f5f5f5' }
@@ -48541,7 +48541,7 @@ function openHarvestAddModal(plantId) {
   // Reset
   var amt = document.getElementById('harvest-amount'); if (amt) amt.value = '';
   var note = document.getElementById('harvest-note'); if (note) note.value = '';
-  var dt = document.getElementById('harvest-date'); if (dt) dt.value = _gsDayKey();   // v33.71: lokaler Tag
+  var dt = document.getElementById('harvest-date'); if (dt) dt.value = _gsDayKey();   // v33.72: lokaler Tag
   gsHarvestRate(0);
   // Plant-Name im Header
   var plant = (Array.isArray(window.myPlants) ? window.myPlants : []).find(function(p){ return p.id === plantId; });
@@ -48573,7 +48573,7 @@ async function gsHarvestSubmit() {
   // gsCloudSync + gs_ernte_log-Cache) statt ins deprecated harvest_log. So erscheint die
   // Plant-Detail-Ernte auch im Ernte-Tracker UND im Erntekalender (v_harvest_stats_per_user).
   try {
-    var dateStr = (document.getElementById('harvest-date') || {}).value || _gsDayKey();   // v33.71: lokaler Tag
+    var dateStr = (document.getElementById('harvest-date') || {}).value || _gsDayKey();   // v33.72: lokaler Tag
     var rowId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2,10));
     var entry = {
       id: rowId,
@@ -49388,7 +49388,7 @@ function openPostWithType(type) {
 // v_marketplace_listings bzw. aus lokalen Entwuerfen des Nutzers.
 
 let marketListings = (function() {
-  // v33.71: `JSON.parse(stored)` ohne Halt auf oberster Ebene — ein kaputter
+  // v33.72: `JSON.parse(stored)` ohne Halt auf oberster Ebene — ein kaputter
   // Wert liess das GANZE Hauptskript sterben (alles danach lief nicht, der
   // Ladebildschirm blieb stehen). Jetzt formsicher; kaputt heisst: keine Liste.
   var arr = _gsListeLesen('gs_market');
@@ -55308,7 +55308,7 @@ window.gsLoadCloudRemedies = async function() {
   } catch(e) { console.warn('[gsLoadCloudRemedies]', e); }
 };
 
-// v33.71: die eingebauten Rezepte schreiben `diff:'einfach'|'mittel'|'schwer'|'fortgeschritten'`
+// v33.72: die eingebauten Rezepte schreiben `diff:'einfach'|'mittel'|'schwer'|'fortgeschritten'`
 // (385) bzw. `difficulty:'leicht'` (107) — die Tabelle kannte nur die drei Werte des
 // Formulars. 0 von 385 trafen; auf jeder Karte stand das rohe Kleinwort.
 const DIFF_LABELS = {easy:'🟢 Einfach', medium:'🟡 Mittel', hard:'🔴 Anspruchsvoll',
@@ -55600,7 +55600,7 @@ function openRecipeDetail(id) {
       _gsRecipePlantLinksHtml(r) + // GS_RECIPE_LINKS v1
       // Heilwirkung (nur für Heilmittel)
       (isRemedy && r.wirkung ? '<div style="background:var(--bg-info-soft);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:10px;"><div style="font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;color:var(--c-info);margin-bottom:4px;">' + _t('remedy_effect_heading','💊 Wirkung & Anwendung') + '</div><div style="font-size:var(--fs-md);color:var(--c-info);line-height:1.55;">' + escHtml(r.wirkung) + '</div></div>' : '') +
-      // v33.71 (Audit „Datenform"): hier stand `isRemedy && r.warning` — die Warnung
+      // v33.72 (Audit „Datenform"): hier stand `isRemedy && r.warning` — die Warnung
       // eines REZEPTS wurde nie gezeigt. 230 eingebaute Rezepte tragen eine, darunter
       // „Baerlauch-Pesto: Verwechslung mit Herbstzeitlose (toedlich!)". Und von einem
       // Heilmittel las die Anzeige weder Gegenanzeigen noch Dosierung, obwohl alle 24
@@ -55614,7 +55614,7 @@ function openRecipeDetail(id) {
       // Zubereitung
       '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);margin-bottom:8px;">' + _t('recipe_preparation_heading','👨‍🍳 Zubereitung') + '</div>' +
       '<div style="background:var(--card);border-radius:var(--r-md);padding:8px 12px;margin-bottom:14px;box-shadow:var(--shadow-sm);">' + stepsHtml + '</div>' +
-      // v33.71: Dosierung, Wirkstoffe und Beleg eines Heilmittels (standen nur in den Daten)
+      // v33.72: Dosierung, Wirkstoffe und Beleg eines Heilmittels (standen nur in den Daten)
       (r.dosage ? '<div data-rezept="dosierung" style="background:var(--bg-info-soft);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:10px;"><div style="font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;color:var(--c-info);margin-bottom:4px;">' + _gsSatz('💊 Dosierung') + '</div><div style="font-size:var(--fs-md);color:var(--c-info);line-height:1.55;">' + escHtml(r.dosage) + '</div></div>' : '') +
       ((r.activeIngredients || r.evidence) ? '<div data-rezept="wirkstoffe" style="background:var(--surface-neutral);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:10px;font-size:var(--fs-sm);color:var(--text2);line-height:1.55;">' +
         (r.activeIngredients ? '<div><b>' + _gsSatz('Wirkstoffe:') + '</b> ' + escHtml(r.activeIngredients) + '</div>' : '') +
@@ -59075,7 +59075,7 @@ window._gsLoeschmarke = _gsLoeschmarke; window._gsStateMischen = _gsStateMischen
 // Neuladen hier; das entscheidet der Aufrufer.
 function _gsBackupEinspielen(data) {
   var nicht = [];
-  // v33.71: die FORM zuerst — VOR jeder Zuweisung. Vorher reichte `if (data.x)`:
+  // v33.72: die FORM zuerst — VOR jeder Zuweisung. Vorher reichte `if (data.x)`:
   // ein Backup mit `myPlants: {…}` oder `gardens: "…"` (von Hand bearbeitet,
   // aus einer anderen App, abgeschnitten) wurde uebernommen, als „erfolgreich
   // importiert" gemeldet und nach dem Neuladen war „Meine Pflanzen" bzw. der
@@ -59143,7 +59143,7 @@ function importUserData() {
               showMarketNotif('Backup erfolgreich importiert!', '📥', '#1565c0');
               location.reload();
             } else if (_erg.grund === 'form') {
-              // v33.71: nichts wurde angefasst — das sagen, und NICHT neu laden.
+              // v33.72: nichts wurde angefasst — das sagen, und NICHT neu laden.
               gsToast(_gsSatz('Dieses Backup hat nicht die erwartete Form ({1}). Es wurde nichts geändert.', (_erg.felder || []).join(', ')), 'error', 8000);
             } else {
               // Kein Neuladen: die Meldung muss ankommen, sonst sieht es aus wie Erfolg.
@@ -64807,7 +64807,7 @@ function initUserLocation() {
 
 function initDefaultGarden() {
   if (gardens.length > 0) return; // already has gardens
-  // v33.71: der Speicher kann mehr wissen als der Arbeitsspeicher (ein Pull, ein
+  // v33.72: der Speicher kann mehr wissen als der Arbeitsspeicher (ein Pull, ein
   // zweiter Tab). Liegen dort Gaerten, werden sie uebernommen — „Mein Garten"
   // entsteht nur, wenn es wirklich keinen gibt. Ohne das schrieb die Zeile
   // darunter eine leere Liste ueber einen gefuellten Speicher (sync_check).
@@ -67591,7 +67591,7 @@ window.gsPPumsetzen = function (idx) {
           gardenId: g.id,
           name: p.name || 'Pflanze',
           variety: p.latin || '',
-          date: (p.sow_date && /^\d{4}-\d{2}-\d{2}$/.test(p.sow_date)) ? p.sow_date : _gsDayKey(),   // v33.71: lokaler Tag
+          date: (p.sow_date && /^\d{4}-\d{2}-\d{2}$/.test(p.sow_date)) ? p.sow_date : _gsDayKey(),   // v33.72: lokaler Tag
           count: Math.max(1, parseInt(p.count, 10) || 1),
           notes: 'Aus KI-Plan' + (notiz.length ? ' \u00b7 ' + notiz.join(' \u00b7 ') : ''),
           added: new Date().toISOString(),
@@ -72555,7 +72555,7 @@ function gsGardenScanShowPlant(idx) {
   if (!pl) return;
   if (typeof gsHaptic === 'function') gsHaptic('tap');
   var rows = [];
-  if (pl.lat) rows.push(['Lat. Name', pl.lat, true]);   // v33.71: das <em> setzt die Ausgabe, nicht der Wert
+  if (pl.lat) rows.push(['Lat. Name', pl.lat, true]);   // v33.72: das <em> setzt die Ausgabe, nicht der Wert
   if (pl.category) rows.push(['Kategorie', pl.category]);
   if (pl.qty) rows.push(['Anzahl', pl.qty + 'x']);
   if (pl.position) rows.push(['Position', (pl.position.x||0) + ',' + (pl.position.y||0) + 'm' + (pl.position.row ? ' (Reihe ' + pl.position.row + ')' : '')]);
@@ -72569,7 +72569,7 @@ function gsGardenScanShowPlant(idx) {
   if (pl.incompatible_plants && _liste(pl.incompatible_plants)) rows.push(['Unverträglich', _liste(pl.incompatible_plants)]);
   if (pl.care_intensity) rows.push(['Pflege', pl.care_intensity]);
   var rowsHtml = rows.map(function(r){
-    return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:var(--fs-sm);"><span style="color:var(--muted);font-weight:600;">' + r[0] + '</span><span style="color:var(--text);text-align:right;">' + (r[2] ? '<em>' + _gsPlanEsc(r[1]) + '</em>' : _gsPlanEsc(r[1])) + '</span></div>';   // v33.71: KI-Felder als TEXT — an der EINEN Ausgabestelle
+    return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:var(--fs-sm);"><span style="color:var(--muted);font-weight:600;">' + r[0] + '</span><span style="color:var(--text);text-align:right;">' + (r[2] ? '<em>' + _gsPlanEsc(r[1]) + '</em>' : _gsPlanEsc(r[1])) + '</span></div>';   // v33.72: KI-Felder als TEXT — an der EINEN Ausgabestelle
   }).join('');
   var html = '<div style="padding:0;">' +
     '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);padding:18px;color:#fff;position:relative;">' +
@@ -73729,7 +73729,7 @@ function gsBuildPlanCalendar(analysis){
   if (!Array.isArray(wc) || !wc.length) return '<div style="padding:18px;text-align:center;color:var(--muted);font-size:var(--fs-sm);">Kein Wochen-Kalender in diesem Plan (älterer Plan?).</div>';
   var weeks = wc.filter(function(w){ return w && Array.isArray(w.actions) && w.actions.length; }).sort(function(a,b){ return (a.week_nr||0)-(b.week_nr||0); });
   if (!weeks.length) return '<div style="padding:18px;text-align:center;color:var(--muted);font-size:var(--fs-sm);">Keine geplanten Aktionen.</div>';
-  var curWeek = gsIsoKW();   // v33.71: EINE Kalenderwoche (ISO) — vorher eine eigene Rechnung, Montag bis Mittwoch eine Woche zurueck
+  var curWeek = gsIsoKW();   // v33.72: EINE Kalenderwoche (ISO) — vorher eine eigene Rechnung, Montag bis Mittwoch eine Woche zurueck
   var out = '<div style="padding:4px 0;"><div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px;">📅 ' + weeks.length + ' aktive Wochen · 🥕 Wurzel · 🥬 Blatt · 🌸 Blüte · 🍅 Frucht</div>';
   out += weeks.map(function(w){
     var lm = _gsPlanLunarMeta(w.lunar_focus), isCur = (w.week_nr === curWeek);
@@ -75827,7 +75827,7 @@ function gsVoiceStop() {
 }
 
 // Intent-Detection + Antwort-Generierung. 3 Use-Cases:
-// 1) Erinnere mich ... → sagt ehrlich, dass der Sprachmodus das nicht kann (v33.71)
+// 1) Erinnere mich ... → sagt ehrlich, dass der Sprachmodus das nicht kann (v33.72)
 // 2) Was kann ich (diesen Monat) ernten? → seasonal_tips via gsLoadSeasonalTasks
 // 3) Generisch → callAI
 async function gsVoiceProcess(transcript) {
@@ -75853,7 +75853,7 @@ async function gsVoiceProcess(transcript) {
   }
 
   // Use-Case 1: „erinnere mich …"
-  // v33.71: hier stand „Ich habe deinen Wunsch gespeichert … Schau im Tagebuch
+  // v33.72: hier stand „Ich habe deinen Wunsch gespeichert … Schau im Tagebuch
   // oder Mein-Garten-Tab nach für die Erinnerung." — und gespeichert wurde
   // NICHTS. Der einzige Schreiber war `gsBrain.observe`, und gsBrain gibt es
   // seit v28.75 nicht mehr (CLAUDE.md §4). Ein Versprechen, das niemand
@@ -78141,7 +78141,7 @@ function openAddPlanting(preGardenId) {
   if (preGardenId) sel.value = preGardenId;
 
   // Set today as default date
-  document.getElementById('plant-date').value = _gsDayKey();   // v33.71: der LOKALE Tag — zwischen 00:00 und 02:00 stand hier gestern (datum_check)
+  document.getElementById('plant-date').value = _gsDayKey();   // v33.72: der LOKALE Tag — zwischen 00:00 und 02:00 stand hier gestern (datum_check)
   document.getElementById('plant-name').value = '';
   document.getElementById('plant-variety').value = '';
   document.getElementById('plant-count').value = '1';
@@ -79771,7 +79771,7 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
-    v: 'v33.71', date: '24.11.2026',
+    v: 'v33.72', date: '24.11.2026',
       headline: 'Deine Gärten bleiben auf einem neuen Gerät — und ein grosser Durchgang durch Fehler, die kein Prüfstand sah',
       summary: 'Ein Audit mit 18 Agenten in drei Läufen (acht Blickwinkel, jeder Fund von einem Gegenprüfer zu widerlegen versucht) und zwei neue Prüfstände. Der schwerste Fund: wer sich auf einem frischen Gerät anmeldete, bekam seine Gärten geholt — und im selben Atemzug ersetzte die App sie durch „Mein Garten" mit 0 Pflanzungen und merkte das zum Hochladen vor. Dazu: zwei Aufbereitungen der Artenliste liefen nur in der allerersten Sitzung (ab der zweiten 1\'971 statt 160 Arten mit generischem Symbol), die Rückfrage-Dialoge waren im Dunkelmodus schwarz auf schwarz (1,06:1), ein kaputter Wert im Gerätespeicher liess die App auf dem Ladebildschirm stehen, an sieben Stellen kam Text aus fremder Hand als Code an, und das Datum war nachts an sechs Stellen der Vortag. Aus dem zweiten Lauf: sieben ungültige calc()-Ausdrücke (die Kopfleiste war 39 statt 56 px hoch, und der Knopf „Rezept hinzufügen“ stand 10\'499 px unter dem Bildschirm), die Rechtstexte liessen sich vor der Registrierung nicht öffnen, die Kalenderwoche lag Montag bis Mittwoch eine Woche zurück, und die Warnung eines Rezepts wurde nie gezeigt. Neu: statik_check liest die App als Programm, datum_check läuft in der Schweizer Zeitzone um 01:30 nachts. Die Scheibe ist auf main (v33.68) nachgezogen und auf v33.70 (Pilz-Scanner, Lina, Wissen-Tab) gestapelt.',
       user_summary: 'Deine Gärten und Pflanzungen bleiben erhalten, wenn du dich auf einem neuen Gerät oder in der Android-App anmeldest. Die Fragen „Wirklich löschen?" sind im Dunkelmodus wieder lesbar, du kannst eigene Rezepte anlegen, und ein Rezept zeigt seine Warnung. Und die App startet auch dann, wenn ein gespeicherter Wert beschädigt ist.',
@@ -79805,7 +79805,7 @@ window.GS_RELEASES = [
         {emoji:'🤖', bold:'Android-Hülle (apk_check B7, R22):', text:' build.sh hält den Status von javac fest (vorher: ein Paket ohne MainActivity mit Exit 0 — B7 fährt den Bau mit einem Fehler wirklich), die Dateiwahl antwortet genau einmal, eine gescheiterte Wiederherstellung lädt die App, das Release-Passwort geht über env: an apksigner.'},
         {emoji:'🎨', bold:'Der urteilende contrast_check wurde sofort rot:', text:' auf dem zusammengeführten Stand drei Stellen unter AA, vor dem Zusammenführen null. „Noch kein Standort“ im Standort-Fenster setzte eine fest helle Fläche (#f0f7ee) mit kippender Schrift — 1,51:1 im Dunkelmodus; die Unterzeile der Beet-Layouts war Weiss mit 85 % Deckkraft auf Hellgrün — 3,87:1 in beiden Modi, messbar erst, seit die calc()-Reparatur das Fenster verschob. Beide behoben, Prüfstand wieder bei 0. Dazu vier Stellen GERECHNET, die er nicht erreicht (fest auf fest, also in beiden Modi gleich): „Suche …“ und „GPS wird ermittelt“ (3,46:1), zwei Stufen des Lichtmessers (2,90 und 3,46:1) und die Pilz-Ampel „Für Fortgeschrittene“ (3,46:1) — alle auf #bf360c (über 5:1).'},
         {emoji:'🧐', bold:'Gegengelesen (16.11.):', text:' vier Agenten lasen den Diff, je ein zweiter versuchte zu widerlegen — 15 Stellen, alle behoben: _gsPassCat fragt die Art (nutzersicht_check E21 mit T018), contrast_check gibt sbFetch nach der Battle-Runde zurück, robust_check „Kaputter Speicher“ öffnet die echten Fenster (drei Namen gab es nicht), statik_check S8 fängt „X- Y“ und liest keine Zitate mehr, S9 kennt alle auslassbaren End-Tags, datum_check T7 prüft Montag 00:30; dazu Doku und zwei Stichworte an vertraulichen Brett-Einträgen.'},
-        {emoji:'🔀', bold:'Auf main nachgezogen:', text:' die Scheibe hiess v33.57, bis main die Nummer vergeben hatte — 121 Nennungen umnummeriert, 28 Konfliktstellen; drei Funde des zweiten Laufs hatte main (v33.58) schon behoben. Am 24.11. noch einmal auf v33.67 und v33.68: 76 und 3 Konfliktstellen; danach auf v33.70 gestapelt, das main v33.69 mitbringt (vier Dateien, nur Versionsangaben und Listen). Wo beide Seiten dasselbe behoben hatten (Kopfzeilen, Garten-Pull, Backup, fremde Bilder, Datenschutz-Satz), gilt die Fassung von main; nutzersicht_check E11–E15 heissen jetzt E17–E21, apk_check B6/R19 jetzt B7/R22. Die Nummer v33.71 ist ein Platzhalter.'},
+        {emoji:'🔀', bold:'Auf main nachgezogen:', text:' die Scheibe hiess v33.57, bis main die Nummer vergeben hatte — 121 Nennungen umnummeriert, 28 Konfliktstellen; drei Funde des zweiten Laufs hatte main (v33.58) schon behoben. Am 24.11. noch einmal auf v33.67 und v33.68: 76 und 3 Konfliktstellen; danach auf v33.70 gestapelt, das main v33.69 mitbringt (vier Dateien, nur Versionsangaben und Listen). Wo beide Seiten dasselbe behoben hatten (Kopfzeilen, Garten-Pull, Backup, fremde Bilder, Datenschutz-Satz), gilt die Fassung von main; nutzersicht_check E11–E15 heissen jetzt E17–E21, apk_check B6/R19 jetzt B7/R22. Die Nummer v33.72 ist ein Platzhalter.'},
         {emoji:'🧭', bold:'Offen und belegt:', text:' zehn Funde in den Edge-Functions — sieben davon hat die Sicherheitsreparatur von main im Repo geschlossen (live erst nach der Auslieferung), drei in daily-push-checker bleiben —, sechs rund um den Service Worker, drei zum Datum, drei in der Android-Hülle — 28 Einträge auf dem Brett (docs/austausch), jeder mit Anker an seiner Stelle, und in STATUS Sektion 2.'}
       ],
   },
@@ -80407,7 +80407,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.71';
+var GS_VERSION = 'v33.72';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -80644,7 +80644,7 @@ function _gsIngLinkHtml(r, name) {
 // Öffnet Infokarte NUR per ID und nur, wenn die Sperre es erlaubt
 function _openPlantFromRecipe(plantId, recipeId) {
   if (!plantId) return;
-  // v33.71: kein Rueckfall auf `window._currentOpenRecipeId` mehr — gesetzt hat ihn
+  // v33.72: kein Rueckfall auf `window._currentOpenRecipeId` mehr — gesetzt hat ihn
   // nur die entfernte Ueberschreibung von openRecipeDetail, und beide Erzeuger dieses
   // Links tragen `data-gs-recipe`. Fehlt der Kontext doch, gilt unten die strengste Regel.
   var rid = recipeId || null;
@@ -84205,7 +84205,7 @@ window._gsTeilenLoeschen = _gsTeilenLoeschen;
 // (v32.61) — in Fenstern von GS_GETEILT_FRISCH_MS, solange etwas wartet; ob das
 // Foto dann noch frisch ist, entscheidet der Eintrag bzw. das Fach.
 var GS_TEILEN_WARTEN_MS = 1000;
-// v33.71: „steht der Anmeldebildschirm?" ist EINE Frage — das Teilen-Ziel
+// v33.72: „steht der Anmeldebildschirm?" ist EINE Frage — das Teilen-Ziel
 // (wartet) und die Rechtstexte (muessen DARUEBER aufgehen) stellen sie beide.
 function _gsAnmeldungSteht(){
   try {
@@ -87711,7 +87711,7 @@ var GS_KEEP_ON_LOGOUT = [
 
   // Einmal-Migrationen. Muessen bleiben — ein zweiter Lauf ist im besten
   // Fall verschwendete Zeit und im schlechtesten ein Datenverlust.
-  // v33.71: drei Eintraege sind hier heraus (`gs_db_filled_v3`,
+  // v33.72: drei Eintraege sind hier heraus (`gs_db_filled_v3`,
   // `gs_lookalike_filled`, `gs_emoji_normalized_v2`). Sie schuetzten keine
   // Migration, sondern eine Aufbereitung im ARBEITSSPEICHER — und haben sie
   // damit ab der zweiten Sitzung abgeschaltet. Eine Einmal-Migration aendert
@@ -90221,7 +90221,7 @@ async function gsCommunitySearch(q){
   if (!q || q.trim().length < 2) { body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:var(--fs-sm);">Tippe mindestens 2 Zeichen, um nach einem Namen zu suchen.</div>'; return; }
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_user_search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_q: q.trim(), p_limit: 15 }) });
-    // v33.71: drei Zustaende statt zwei. Ein Serverfehler (401 nach abgelaufener
+    // v33.72: drei Zustaende statt zwei. Ein Serverfehler (401 nach abgelaufener
     // Sitzung, 500, Netz) wurde zur leeren Liste und damit zu „Keine Treffer." —
     // „nichts gefunden" und „nicht geladen" sahen gleich aus (das catch darunter
     // laeuft nie: sbFetch wirft nicht, CLAUDE.md §3.5).
@@ -92164,7 +92164,7 @@ async function gsRegisterPushSubscription(subscription){
     try { loc = JSON.parse(localStorage.getItem('gs_user_location') || '{}'); } catch(_){}
     // Push-Settings aus localStorage-Cache (Defaults true)
     var s = {};
-    s = _gsObjektLesen('gs_push_settings') || {};   // v33.71: formsicher (`null` im Speicher warf am ersten Feld)
+    s = _gsObjektLesen('gs_push_settings') || {};   // v33.72: formsicher (`null` im Speicher warf am ersten Feld)
     // v33.59: on_conflict auf UNIQUE(user_id, endpoint) (sonst 23505 beim erneuten Abonnieren
     // desselben Geraets) und updated_at mit — „neuestes Abo" heisst damit „zuletzt genutzt".
     var _r = await sbFetch('/rest/v1/push_subscriptions?on_conflict=user_id,endpoint', {
@@ -92983,7 +92983,7 @@ async function gsPushSettingsRefresh(){
   }
   // Lokale Settings ins UI spiegeln
   var s = {};
-  s = _gsObjektLesen('gs_push_settings') || {};   // v33.71: formsicher (`null` im Speicher warf am ersten Feld)
+  s = _gsObjektLesen('gs_push_settings') || {};   // v33.72: formsicher (`null` im Speicher warf am ersten Feld)
   var ids = { frost:'push-cat-frost', heat:'push-cat-heat', storm:'push-cat-storm', water:'push-cat-water', seasonal:'push-cat-seasonal', quiz:'push-cat-quiz', classes:'push-cat-classes', doctor:'push-cat-doctor', battle:'push-cat-battle' };
   Object.keys(ids).forEach(function(k){
     var el = document.getElementById(ids[k]);
@@ -96067,7 +96067,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 })
 
 // ══ RECHTLICHE TEXTE MODAL ════════════════════════════════════
-// v33.71 (Audit „CSS/HTML"): im Registrierformular steht „Ich akzeptiere die
+// v33.72 (Audit „CSS/HTML"): im Registrierformular steht „Ich akzeptiere die
 // Datenschutzerklaerung & Nutzungsbedingungen" mit zwei Links hierher. Das
 // Fenster ist aber ein Nachfahre von #app — und #app ist ohne Anmeldung
 // `display:none!important` (Login-Flash-Guard, `html.gs-preauth`); ausserdem
@@ -96190,10 +96190,10 @@ function showLegalTab(tab) {
 
 // ── Admin-Einstellungen im Profil (nur für gsIsAdmin) ─────────
 
-// v33.71: hier wurde `openRecipeDetail` ueberschrieben, um
+// v33.72: hier wurde `openRecipeDetail` ueberschrieben, um
 // `window._currentOpenRecipeId` zu setzen. Gelesen hat ihn nur ein Rueckfall in
 // `_openPlantFromRecipe`, den nie jemand brauchte (beide Links tragen
-// `data-gs-recipe`) — er ist mit entfernt (Gegenlesen v33.71).
+// `data-gs-recipe`) — er ist mit entfernt (Gegenlesen v33.72).
 // Eine Funktionsdeklaration neu zuzuweisen ist ausserdem die Bauform, an der
 // man spaeter nicht mehr sieht, welche Fassung laeuft (statik_check S4).
 
@@ -98741,7 +98741,7 @@ if (typeof window.gsGoBack !== 'function') {
 <!-- ─── SCAN-CHAT MODAL ──────────────────────────────────── -->
 <div class="modal-overlay" id="scan-chat-modal" style="z-index:4500;" onclick="if(event.target===this)closeScanChat()">
   <div class="modal" style="max-width:440px;height:80vh;display:flex;flex-direction:column;">
-    <!-- v33.71 (Audit „CSS/HTML"): fuer .modal-header und .modal-close gibt es keine
+    <!-- v33.72 (Audit „CSS/HTML"): fuer .modal-header und .modal-close gibt es keine
          CSS-Regel — der Kopf stand ohne Innenabstand da, das ✕ als nackter Knopf
          in einer eigenen Zeile links UNTER dem Titel, im Dunkelmodus als heller Fleck
          (schwarz auf Hellgrau). Der Kopf traegt seinen Abstand jetzt selbst und ist der
@@ -99842,7 +99842,7 @@ if (typeof window.gsGoBack !== 'function') {
     enqueue({ action: 'upsert', table: 'garden_plantings', row: {
       id: pl.id, user_id: u, garden_id: pl.gardenId || pl.garden_id,
       species_name: pl.plantName || pl.species_name || '?', emoji: pl.emoji || null,
-      planted_at: pl.planted_at || pl.plantedAt || pl.date || _gsDayKey(),   // v33.71: `pl.date` ist das Feld, das die App schreibt — und sonst der LOKALE Tag
+      planted_at: pl.planted_at || pl.plantedAt || pl.date || _gsDayKey(),   // v33.72: `pl.date` ist das Feld, das die App schreibt — und sonst der LOKALE Tag
       harvested_at: pl.harvested_at || null,
       status: pl.status || 'growing', quantity: pl.quantity || 1,
       notes: pl.notes || null, position: pl.position || null
@@ -99950,7 +99950,7 @@ if (typeof window.gsGoBack !== 'function') {
 (function() {
   var SUPA_URL_FALLBACK = 'https://vowbiueikwrauuceilhc.supabase.co';
   var EDGE_URL = function() {
-    // v33.71: hier standen zwei Quellen, die es nie gab (`GS_SUPABASE_URL`,
+    // v33.72: hier standen zwei Quellen, die es nie gab (`GS_SUPABASE_URL`,
     // `window._gsSupaUrl`) — die Adresse war immer der Rueckfall. Sie kommt
     // jetzt von dort, wo jeder andere Aufruf sie holt (`sbGetConfig` → SB_URL).
     var u = '';
@@ -101921,7 +101921,7 @@ window._gsTPsave = async function(btn){
   var title = tpName(t)+' · '+r1(TP.plot.wid)+'×'+r1(TP.plot.len)+' m';
   var summary = (L('tp_save_sum','Baum-Pflanzplan'))+': '+tpName(t)+' — '+(t.mature_height_m_max||'?')+' m, '+(L('tp_d_boundary','Grenzabstand'))+' '+tpDistances(t).boundary+' m.';
   if(btn){ btn.disabled=true; btn.textContent='⏳ '+L('tp_saving','Speichern…'); }
-  // v33.71: die Rueckgabe wird GELESEN. Vorher stand hier ein try/catch, das die
+  // v33.72: die Rueckgabe wird GELESEN. Vorher stand hier ein try/catch, das die
   // Ausnahme in die Konsole schrieb, und danach bedingungslos „✅ Gespeichert" —
   // auch wenn weder das Geraet (Speicher voll, `local_failed`) noch das Konto
   // den Plan hatte.
@@ -101945,6 +101945,6 @@ window._gsTPloadSaved = async function(payload){
 })();
 </script>
 
-</div><!-- /#app — v33.71: das <div id="app"> wurde nie geschlossen; der Browser tat es hier still (statik_check S9). Das DOM bleibt dasselbe. -->
+</div><!-- /#app — v33.72: das <div id="app"> wurde nie geschlossen; der Browser tat es hier still (statik_check S9). Das DOM bleibt dasselbe. -->
 </body>
 </html>

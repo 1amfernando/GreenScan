@@ -122,7 +122,7 @@ for fid, f in felder.items():
 # v33.60 (brett:2026-11-11-ec73): der Pruefstand URTEILT. Bis dahin endete er
 # immer mit 0 — „N Felder, die niemand liest" haette `pruefstaende.sh` als gruen
 # gemeldet (dieselbe Luecke wie in contrast_check und render_check). Zwei
-# Sitzungen haben das parallel geschlossen; v33.71 bringt dazu die Liste BEWUSST
+# Sitzungen haben das parallel geschlossen; v33.72 bringt dazu die Liste BEWUSST
 # und „nicht pruefbar", wenn kaum Felder gefunden werden.
 # Ein Treffer bleibt ein VERDACHT: wer ihn geprueft hat und das Feld fuer
 # richtig haelt, traegt es hier mit GRUND ein — dann zaehlt es nicht mehr, steht

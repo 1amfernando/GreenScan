@@ -360,7 +360,7 @@ const melde = (frage, ok, wie) => {
     const hoch = [];
     window.sbFetch = async function (pfad, opts) {
       opts = opts || {}; const m = (opts.method || 'GET').toUpperCase();
-      // v33.71: die Cloud-Liste traegt auch Unrat (`null`, eine Zeichenkette, eine Liste) —
+      // v33.72: die Cloud-Liste traegt auch Unrat (`null`, eine Zeichenkette, eine Liste) —
       // was von dort kommt, ist fremde Eingabe und geht gesiebt in Speicher UND Variable.
       if (/\/rest\/v1\/user_gardens/.test(pfad) && m === 'GET') return { data: [{ data: { gardens: G.concat([null, 'kaputt', ['x']]), plantings: PL.concat([null, 7]) }, updated_at: new Date().toISOString() }], error: null, status: 200 };
       if (/\/rest\/v1\/user_gardens/.test(pfad)) { try { hoch.push(JSON.parse(opts.body).data); } catch (_) {} return { data: [{}], error: null, status: 200 }; }
