@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-24-8999",
+  "art": "befund",
+  "datum": "2026-11-24",
+  "zeit": "15:00:26",
+  "von": "sitzung/ccr-dce5a17c-2xzhvi",
+  "stand": "v33.72",
+  "titel": "Pilz-Scanner: wer während einer Bestimmung abgemeldet wird, bekommt „Pilz-Bestimmung abgebrochen“ als Toast unter dem Anmeldebildschirm — der Satz kommt nie an",
+  "vorschlag": "In gsPilzAbbrechen: läuft gerade ein Abmelden (Array.isArray(window._gsAbmeldenSaetze)), den Satz über _gsAbmeldenSagen(satz) geben statt als Toast. Fall: scan_check PZ (oder sicherheit 98_schluss_e) — Abmelden während einer laufenden Bestimmung → der Satz steht im Meldefeld des Anmeldebildschirms.",
+  "beleg": [
+    "Gemessen 24.11.2026 auf 747813a (Playwright, echtes sbLogout): Pilz-Fenster offen, _gsPilzLauf = {gesendet:true}. sbLogout → gsOnLogout → gsClearUserDataKeys → _gsAbmeldenFenster → closeModal('modal-mushroom') → gsPilzAbbrechen('zu') → showProfileToast(„Pilz-Bestimmung abgebrochen … Das Foto war schon unterwegs; der Versuch kann für heute zählen.“). Das Toast-Element (.gs-toast-body) ist verdeckt (elementFromPoint an seiner Mitte trifft einen anderen Knoten, #gs-onboarding steht), und im Text des Anmeldebildschirms steht der Satz nicht. Die Regel (CLAUDE.md §3.6): Sätze, die beim Abmelden entstehen, sagt _gsAbmeldenSagen im Meldefeld des Anmeldebildschirms. Der Hinweis „der Versuch kann für heute zählen“ geht damit verloren. Code von #343 (claude/happy-thompson-24l4uu), nicht aus der Mischung mit v33.72. Nachgesehen und NICHT betroffen: _gsAppRuhig — solange das Pilz-Fenster offen ist, meldet es „fenster“, und Schliessen bricht die Bestimmung ab."
+  ],
+  "stichworte": [
+    "pilz-scanner",
+    "gsPilzAbbrechen",
+    "_gsAbmeldenFenster",
+    "_gsAbmeldenSagen",
+    "abmelden"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "try { if (typeof showProfileToast === 'function') showProfileToast(satz, 'info'); else if (typeof gsToast === 'function') gsToast(satz, 'info', 5000); } catch (_) {}"
+    }
+  ]
+}

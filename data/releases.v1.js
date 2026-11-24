@@ -30,6 +30,28 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.51', date: '25.09.2026',
+      headline: 'Das Admin-Protokoll kennt jetzt jede Aktion',
+      summary: 'Das Admin-Panel hat ein Protokoll auf dem Server — aber fünf von fünfzehn Aktionen kamen dort nie an, darunter das Freigeben und Ablehnen von Foto-Beiträgen und Arten-Vorschlägen. „Wer hat das abgelehnt, und wann?“ war nicht zu beantworten. Jetzt sagt jede Aktion, ob sie eine Spur hinterlässt, der Fuss unter dem Protokoll rechnet die Deckung, und eine Migration schliesst die drei Lücken.',
+      user_summary: 'Für Admins: unter „Letzte Admin-Aktionen“ steht jetzt, welche Aktionen protokolliert werden und welche noch nicht — und jede Zeile ist beschriftet statt als Datenbankname gezeigt. Nach einer Aktion zieht das Protokoll von selbst nach.',
+      user_items: [
+        {emoji:'📜', bold:'Jede Zeile hat einen Namen:', text:' „Feature-Flag setzen“ und „Gutschein eingelöst“ standen bisher als roher Datenbankname da.'},
+        {emoji:'🧮', bold:'Der Fuss sagt die Deckung:', text:' „10 von 15 Aktionen protokolliert der Server · 3 erst nach der Migration · 2 bewusst ohne“ — und „Spur gesehen“ erst, wenn eine solche Zeile wirklich da war.'},
+        {emoji:'🚩', bold:'Meldung erledigen sagt es ehrlich:', text:' solange die Migration fehlt, geht es den alten Weg und die Meldung sagt „ohne Protokolleintrag“.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen (Live-DB, nur lesend):', text:' audit_log hat 193 Zeilen und KEINE INSERT-Policy — geschrieben wird nur aus SECURITY-DEFINER-Funktionen, deshalb gehört die Spur in die Funktion. 10 von 15 Aktionen schreiben; species_image, species_proposal (nur system_events beim Aufnehmen, nichts beim Ablehnen) und report_review (nackter PATCH, keine RPC) nicht; integrity_scan und broadcast bewusst nicht.'},
+        {emoji:'🗂️', bold:'GS_ADM_AKTIONEN: genau eines von spur · spur_ab · ohne_spur.', text:' spur_quelle nur für die drei Funktionen, die im Repo keinen CREATE FUNCTION haben (fn_assign_role, fn_admin_flag_set, fn_set_global_api_key — nur live). _gsAdmSpurDeckung rechnet, _gsAdmSpurHtml zeigt.'},
+        {emoji:'🧾', bold:'Migration 20260925_admin_audit_vollstaendig.sql (nicht angewandt):', text:' zwei Review-Funktionen mit Rumpf wie live plus audit_log-Zeile (Vorschlag in beiden Zweigen), NEU fn_admin_review_report mit is_admin_user-Tor, Status-Vokabular wie der CHECK, alt→neu im diff.'},
+        {emoji:'↩️', bold:'Ersatz nur bei nicht_verfuegbar:', text:' fehlt die RPC, läuft der PATCH mit return=representation und die Antwort trägt ersatz:true plus den Satz mit dem Dateinamen — nie bei Ablehnung oder fehlendem GRANT.'},
+        {emoji:'⚖️', bold:'RAISE EXCEPTION ist eine Ablehnung:', text:' „Only admins can assign roles“ kommt als HTTP 400 (P0001); vorher „fehler“, jetzt „abgelehnt“.'},
+        {emoji:'✏️', bold:'Berichtigung zu v33.50:', text:' fn_assign_role prüft profiles.role = admin, fn_set_global_api_key ruft fn_is_role — nicht is_admin_user(). Der Schluss bleibt: das GRANT öffnet nichts, beide Admin-Konten bestehen beide Prüfungen.'},
+        {emoji:'🧪', bold:'admin_check 11 → 21 Fälle, sieben Gegenproben:', text:' fünf davon in Node — der statische Abgleich in drei Klassen (im Repo · nur live belegt · gar nicht) und die SQL-Hälfte in einem lokalen Postgres: Migration zweimal, als Admin vier Spuren mit genau den deklarierten Namen, als Nicht-Admin keine, eingebaute Gegenprobe ohne INSERT. Ohne Postgres „nicht prüfbar“, nie grün.'},
+        {emoji:'🧹', bold:'gs_admin_log weg:', text:' zwei Schreiber, null Leser, beide Ereignisse ohnehin auf dem Server oder Geräte-Konfiguration.'},
+        {emoji:'📵', bold:'Grenze:', text:' die SQL-Hälfte rechnet mit gestelltem auth.uid() und is_admin_user(). Ob die Migration LIVE angewandt ist, sagt nur Fernando — und die App erst, wenn sie eine Spur gesehen hat.'}
+      ]
+  },
+  {
     v: 'v33.50', date: '24.09.2026',
       headline: 'Das Admin-Panel sagt, was der Server wirklich getan hat',
       summary: 'Fünfzehn Admin-Schreibwege (Sperren, Plan setzen, Gutscheine, Wissen, Meldungen, Broadcast) prüften nur „kein Fehler“ — und PostgREST meldet bei einer abgewiesenen Zeile KEINEN Fehler. Gemessen an der Live-Datenbank: zwei Knöpfe („Nutzer sperren“, „Globalen KI-Schlüssel setzen“) dürfen Admins gar nicht ausführen, und die App stellte trotzdem die Rückfrage „wirkt sofort“. Jetzt geht jeder Schreibweg durch EINE Funktion mit sechs Zuständen und Grund.',

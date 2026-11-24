@@ -62,7 +62,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     Registers zeigt und die vorsichtigere gewinnt: die Artenliste ist bei 10 Giftpilzen milder als das
     Register, 34 fehlen ihr (Brett 2026-11-19-a24a). Die Function muss Fernando ausliefern
     (FUER-FERNANDO §31).
-    **Nachtrag v33.70 (`scan_check` PZ5, PZ6) — ein Ergebnis gehört zu seinem Foto.** Gemessen 19.11.: ein
+    **Nachtrag v33.71 (`scan_check` PZ5, PZ6) — ein Ergebnis gehört zu seinem Foto.** Gemessen 19.11.: ein
     neues Foto liess das Urteil des vorigen stehen („✅ Speisepilz" unter einem anderen Pilz); wer während der
     Bestimmung das Fenster schloss und mit einem neuen Foto wieder öffnete, sah den Knopf weiter auf
     „⏳ Identifiziere…", und die Antwort zum alten Foto erschien unter dem neuen — bei einem Giftpilz samt
@@ -97,7 +97,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
    Monat, ohne Bezug zu fälligen Aufgaben oder zum letzten Scan.
 8. ✅ v33.61 (bestätigt und schlimmer: mit Text dahinter stand die Zeile roh in der Antwort;
    `sensor_check` L6) — Verdacht: ein kaputtes `[[GS_ACTION]]` am Antwortende wird still verworfen.
-9. ✅ v33.70 (`sensor_check` L12, gefunden 24.11. beim Nachlesen von `gsLinaSend`) — **Eine Antwort
+9. ✅ v33.71 (`sensor_check` L12, gefunden 24.11. beim Nachlesen von `gsLinaSend`) — **Eine Antwort
    landet im falschen Gespräch.** Wer während „Lina denkt nach…" auf „＋ Neu" tippte, sah das neue
    Gespräch mit der Antwort auf eine Frage beginnen, die dort nicht stand; die nächste Frage ging mit
    dieser Antwort als Vorgeschichte an die KI. Wer ein früheres Gespräch öffnete, bekam die Antwort dort
@@ -143,7 +143,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
 2. ✅ v33.61 (`scan_check` HW1, HW2; dazu: die Sturmwarnung las die Stunden 00–02 Uhr) — **Wetterkarte hat zwei Schreiber** (`loadHomeWeather`, `gsApplyWeatherToWidget`) mit
    eigenen Regeln für Frost und Regen statt `GS_WETTER_GRENZEN`; was dasteht, hängt davon ab,
    wer zuletzt lief. Kein Prüffall (`hw-*` kommt in `scripts/` nicht vor).
-3. ✅ v33.70 (`nutzersicht_check` E9 Teil 4, `scan_check` D1g) — **„Arten" zählt verschieden:** Lexikon zeigt `DB.length`, Home `gsArtenZahlen().arten`.
+3. ✅ v33.71 (`nutzersicht_check` E9 Teil 4, `scan_check` D1g) — **„Arten" zählt verschieden:** Lexikon zeigt `DB.length`, Home `gsArtenZahlen().arten`.
    Die Startseite zählt richtig; der Fehler liegt im Wissen-Tab → Brett `2026-11-16-4d79`
    (dort auch „Essbar" und „Giftig" mit eigenen Regeln).
    **Behoben 19.11.:** Kopf-Chip und Kachel „Arten" zeigen 3'136 (vorher 4'337 Einträge), „Essbar"
@@ -181,7 +181,7 @@ Brett `c699`. Wer hier einen Fall baut, misst mit eigenem Massstab und realistis
 
 ## Nebenfunde (nicht in den vier Funktionen)
 
-- ✅ v33.70 — Das Lexikon (Wissen) schreibt `DB.length` (4'337 Einträge) unter „Arten" — CLAUDE.md §1
+- ✅ v33.71 — Das Lexikon (Wissen) schreibt `DB.length` (4'337 Einträge) unter „Arten" — CLAUDE.md §1
   verlangt `gsArtenZahlen()` (3'136 Arten). Gefunden 16.11.2026, gemessen und aufs Brett gelegt als
   `2026-11-16-4d79` (auch der Kopf-Chip des Wissen-Tabs, „Essbar" und „Giftig" mit eigenen Regeln);
   behoben 19.11. als Home 3.

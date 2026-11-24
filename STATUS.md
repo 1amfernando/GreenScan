@@ -30,7 +30,7 @@ eingearbeitet (28 Konfliktstellen in elf Dateien, jede im Merge-Commit
 begründet; nachgezählt: von 391 eigenen und 1'196 fremden hinzugefügten Zeilen
 in `index.html` fehlen genau die sechs, die begründet entfallen). Danach hiess
 sie v33.59, v33.70 und v33.71; heute steht sie als **v33.72** auf `main` v33.68 und ist
-auf v33.70 (PR #343, darin `main` v33.69) gestapelt — die Nummer ist ihr Platz in der
+auf v33.71 (PR #343, darin `main` v33.70) gestapelt — die Nummer ist ihr Platz in der
 Merge-Reihe (`docs/WARTESCHLANGE.md` auf `claude/quirky-ritchie-7fkc3f`).
 
 **Der schwerste Fund — Datenverlust bei den Gärten (bestätigt, nachgestellt):**
@@ -318,7 +318,7 @@ Löschmarken · Filter und Wissen-Tab · Doku), je ein Gegenprüfer. Im Code: ke
 beide Seiten geändert, jede steht im Kopf wie auf ihrer Seite (mit acorn über vier Stände verglichen), und keine
 Seite ruft etwas, das die andere entfernt hat. Drei Funde, alle Doku, alle behoben: (1) weiter unten in diesem
 Eintrag steht „*Nicht angefasst:* der Zähler „Giftig" im Lexikon zählt `tox >= 2` … hängt an der offenen Frage
-`2026-11-11-3ba5`" — das hat v33.70 erledigt ((js), Brett `2026-11-16-4d79` geschlossen): Kachel und Filter
+`2026-11-11-3ba5`" — das hat v33.71 erledigt ((jt), Brett `2026-11-16-4d79` geschlossen): Kachel und Filter
 fragen beide `gsIstGiftig`; in der geladenen Liste sind es 77 Einträge der Stufe 1 mit Giftvermerk (die 78 dort
 sind roh gezählt, F007 ist eine Dublette), und 3ba5 fragt nach der Essbarkeit der PA-haltigen Arten, nicht nach
 der Zählregel. Der Satz bleibt als Messung von damals stehen. (2) FUER-FERNANDO §32 beschrieb noch den Stand vor
@@ -326,6 +326,16 @@ dem Stapeln. (3) Der Verweis auf die Warteschlange nannte keinen Branch — die 
 Koordinators. Nebenbei gesehen und NICHT aus der Mischung (gelesen, nicht gemessen; dem Koordinator gemeldet):
 `gsOnLogout` leert das Lina-Gespräch, zählt `_gsLinaGespraechNr` aber nicht hoch; und wer während einer
 Pilz-Bestimmung abgemeldet wird, bekommt „abgebrochen" als Toast, der unter dem Anmeldebildschirm liegt.
+
+**Nach #340 neu gestapelt (24.11.2026).** Um 14:50 UTC hat sich PR #340 (Lina · Einblick) selbst gemergt:
+`main` ist seither v33.70 mit der Kennung (jr). Die Hauptfunktionen haben `main` eingezogen und heissen v33.71
+mit (js) Pilz · (jt) Wissen · (ju) Lina 9 (Kopf `33d2818`); diese Scheibe heisst v33.72 mit (jv). Umnummeriert
+wurde ZUERST (`scripts/_bump.js --von v33.71 --nach v33.72 --kennung ju:jv --basis origin/main`, 169 Nennungen,
+25 Dateien; v33.71, v33.72, (ju) und (jv) kamen auf `main` und auf `90863cd` nicht vor), DANN wurde `33d2818`
+eingezogen — andersherum hätte das Ersetzen deren v33.71 und (ju) mit umgeschrieben (der Kopf von
+`scripts/_bump.js` sagt das jetzt). Konflikte: drei Dateien, nur Buchführung (Versionen, Kopf von
+`GS_RELEASES`, Kopf von STATUS); v33.51 legt `_bump.js` ins Archiv (inline 20, Archiv 599, keine Dublette).
+Die Sätze in diesem Eintrag, die vom ersten Stapeln erzählen, nennen die Nummern von damals (v33.70, (jr)–(jt)).
 
 **Nachgetragen am 16.11.2026 — der Hinweis des Sicherheits-Branches galt auch
 hier:** der Garten-Pull dieser Scheibe übernahm die geholte Liste UNGESIEBT
@@ -447,13 +457,13 @@ steht unten rechts ein Plus-Knopf, und die Datenschutzerklärung nennt
 Nutzungs- und Fehlerdaten nicht mehr „anonym" (beide Sitzungen haben das
 gefunden; es gilt der Satz von `main`: „pseudonym") — bitte gegenlesen.
 
-**Offen:** brett:2026-11-11-6f90, brett:2026-11-11-6bf4, brett:2026-11-11-664e (drei Funde in `daily-push-checker`; die sieben anderen Edge-Funde hat die Sicherheitsreparatur von `main` im Repo geschlossen — live keiner, siehe §2) · brett:2026-11-11-1243, brett:2026-11-11-9400, brett:2026-11-11-21ed, brett:2026-11-11-664f, brett:2026-11-11-8c07, brett:2026-11-11-9ca0, brett:2026-11-16-0ea0, brett:2026-11-16-0a7f (Service Worker, Manifest, Kompass) · brett:2026-11-11-d412, brett:2026-11-11-000a, brett:2026-11-11-035c (Datum) · brett:2026-11-11-5e72 (drei Suchen) · brett:2026-11-11-002d, brett:2026-11-11-8ee7 (CSS) · brett:2026-11-11-bf2f, brett:2026-11-11-2069 (Daten) · brett:2026-11-11-bd8a, brett:2026-11-11-2129, brett:2026-11-11-e919 (Android-Hülle) · brett:2026-11-11-5bef (Frage an Fernando, §2)
+**Offen:** brett:2026-11-24-f834, brett:2026-11-24-8999 (zwei Funde im Code von v33.71, beim Gegenlesen des Stapels gemessen) · brett:2026-11-11-6f90, brett:2026-11-11-6bf4, brett:2026-11-11-664e (drei Funde in `daily-push-checker`; die sieben anderen Edge-Funde hat die Sicherheitsreparatur von `main` im Repo geschlossen — live keiner, siehe §2) · brett:2026-11-11-1243, brett:2026-11-11-9400, brett:2026-11-11-21ed, brett:2026-11-11-664f, brett:2026-11-11-8c07, brett:2026-11-11-9ca0, brett:2026-11-16-0ea0, brett:2026-11-16-0a7f (Service Worker, Manifest, Kompass) · brett:2026-11-11-d412, brett:2026-11-11-000a, brett:2026-11-11-035c (Datum) · brett:2026-11-11-5e72 (drei Suchen) · brett:2026-11-11-002d, brett:2026-11-11-8ee7 (CSS) · brett:2026-11-11-bf2f, brett:2026-11-11-2069 (Daten) · brett:2026-11-11-bd8a, brett:2026-11-11-2129, brett:2026-11-11-e919 (Android-Hülle) · brett:2026-11-11-5bef (Frage an Fernando, §2)
 **Nicht geprüft:** hier läuft kein Android und kein echtes Supabase — die vier Reparaturen an der Hülle sind übersetzt (`apk_check` baut das Paket) und gelesen, nicht auf einem Gerät gefahren; die Funde in den Edge-Functions sind gelesen und zum Teil mit den echten Rümpfen in Node ausgeführt. Dass ein `fetch()` im Worker gegen `connect-src` geprüft wird, ist aus der Spezifikation gelesen, nicht im Browser gemessen. Ob Cloudflare Pages und Netlify ein Punkt-Verzeichnis (`.claude/`, `.github/`) überhaupt ausliefern, ist von hier nicht messbar. Die neue Höhe der Kopfleiste ist in Chromium bei 412 px gemessen, nicht auf einem Telefon mit Kerbe angesehen.
 
-### 2026-11-24 (jt) - v33.70: Lina — eine Antwort gehört dem Gespräch, in dem gefragt wurde
+### 2026-11-24 (ju) - v33.71: Lina — eine Antwort gehört dem Gespräch, in dem gefragt wurde
 
 **Auftrag:** Hauptfunktionen, Lina (Fernando: „Entscheide selber", „weiter"). Gefunden beim Nachlesen von `gsLinaSend`
-(`docs/HAUPTFUNKTIONEN.md`, Lina 9). Gebaut auf diesem Branch über (js), main v33.67 (`0485b2d`); #337 (Sicherheit) fasst
+(`docs/HAUPTFUNKTIONEN.md`, Lina 9). Gebaut auf diesem Branch über (jt), main v33.67 (`0485b2d`); #337 (Sicherheit) fasst
 Linas Sende- und Gesprächsfunktionen nicht an (nachgesehen).
 
 **Gemessen** (die geladene App, gestellte KI und Cloud): wer während „Lina denkt nach…" auf **„＋ Neu"** tippte, sah das neue
@@ -475,13 +485,17 @@ ohne Wechsel · Wechsel beim Anlegen · Ausfall · leeres Neu-Öffnen), gegen de
 der richtigen Lage. Beim Bau selbst gelernt: ein `return lauf` aus einer async-Hilfe WARTET auf das Senden — der Fall hing elf
 Minuten, bis das Versprechen in einem Behälter zurückkam. Die volle Suite steht im Nachtrag.
 
+**Zusammengeführt mit v33.70 (#340, Lina · Einblick, `8a2f16e`):** die Lina-Funktionen liessen sich ohne Konflikt
+zusammenführen; L12 und „Lina · Einblick“ stehen beide in `sensor_check` und sind am eingespielten Stand grün (67/0). Die
+Befunde der Nachprüfung zu #340 (Schalter, Datenschutztext, Schädling-Signal, Gegenprobe) nimmt ein eigenes Paket auf.
+
 **Offen:** nichts.
 **Nicht geprüft:** ein echtes Telefon; dass die Cloud die Antwort beim gefragten Gespräch wirklich annimmt (gestellt, nicht live).
 
-### 2026-11-19 (js) - v33.70: Wissen-Tab — dieselben Zahlen wie Startseite und Filter, und jede Kachel öffnet ihre Liste
+### 2026-11-19 (jt) - v33.71: Wissen-Tab — dieselben Zahlen wie Startseite und Filter, und jede Kachel öffnet ihre Liste
 
 **Auftrag:** Hauptfunktionen, Home 3 (`docs/HAUPTFUNKTIONEN.md`; eigener Befund `2026-11-16-4d79` vom 16.11.) — Fernando,
-„Entscheide selber". Gebaut auf diesem Branch über (jr), main v33.67 (`0485b2d`). Kommt mit dem Pilz-Paket und Lina 9 in EINE Auslieferung (`v33.70`).
+„Entscheide selber". Gebaut auf diesem Branch über (js), main v33.67 (`0485b2d`). Kommt mit dem Pilz-Paket und Lina 9 in EINE Auslieferung (`v33.71`).
 
 **Gemessen** (die geladene App, 16.11. und nachgemessen 19.11.): der Kopf des Wissen-Tabs („🌿 4'337 Arten") und die
 Lexikon-Kachel „Arten" zeigten `DB.length` — das sind die Einträge, die Startseite sagt 3'136 Arten. „Essbar" 1'130, Startkachel
@@ -513,11 +527,11 @@ gezählt, und der Kopf nennt seine Einheit (E9 Teil 3). Wie die Startkachel „A
 **Offen:** nichts — brett:2026-11-16-4d79 ist mit diesem Paket geschlossen.
 **Nicht geprüft:** ein echtes Telefon; die Kacheln in einer anderen App-Sprache (Wörter über `_t`, Zahlen über `gsLocale` — nicht gefahren).
 
-### 2026-11-19 (jr) - v33.70: Pilz-Scanner — ein Ergebnis gehört zu seinem Foto
+### 2026-11-19 (js) - v33.71: Pilz-Scanner — ein Ergebnis gehört zu seinem Foto
 
 **Auftrag:** Hauptfunktionen, Bereich Scanner (Fernando, 11.11.2026, „Entscheide selber"); Nachtrag zu Scanner 11
 (`docs/HAUPTFUNKTIONEN.md`). Gebaut auf main v33.66 (`bf9e843`), zusammengeführt mit v33.67 (`0485b2d`, Scanner 4, (jo)) — beide berühren
-verschiedene Stellen, nur STATUS §0 traf sich. Ausgeliefert mit Wissen und Lina 9 als `v33.70`
+verschiedene Stellen, nur STATUS §0 traf sich. Ausgeliefert mit Wissen und Lina 9 als `v33.71`
 (Nummer und Kennung vergibt der Koordinator am Kopf der Reihe).
 
 **Gemessen** (lokal, `gsMushroomRunScan` mit gestelltem Server, Stand v33.66):
@@ -563,6 +577,31 @@ reicht bis zum Zeichnen, auch durch eine aufgerufene Funktion, die selbst wartet
 
 **Offen:** brett:2026-11-19-a24a — der Pilz-Eintrag im Scan-Verlauf (erst nach der Datenseite).
 **Nicht geprüft:** ein echtes Telefon; dieselbe Bauform im Pflanzendoktor und im Schädlings-Check (nicht nachgesehen, Nachtrag 33e0).
+### 2026-11-24 (jr) - v33.70: Lina · Einblick — Pflanzen beim Namen, wer Hilfe braucht, Gärten, Wetter am Ort, Scans und Funde im Kontext
+
+**Auftrag:** Punkt 8 (Lina), Auslöser Linas eigene Wunschliste (Fernando, 19.11.2026). Gebaut auf main v33.65, zweimal nachgezogen (v33.68 #337, dann v33.69 #338 — `1649859`),
+im Code ohne Konflikt; die Nummer ist deshalb v33.70.
+Fernando hat am 24.11.2026 zwei Dinge freigegeben: der Einblick ist standardmässig AN (abschaltbar), und der Wortlaut des neuen
+Datenschutz-Absatzes.
+
+**Gebaut:** `gsLinaEinblick(frage)` — ein zweiter Kontextblock neben `gsLinaZahlen` mit eigenem Deckel (`GS_LINA_EINBLICK_MAX` 1500):
+Braucht Hilfe (`gsPflanzenHilfe`: Aufgabe 2+ Tage überfällig oder Schädling in 14 Tagen im Tagebuch), Im Detail (eigene Pflanzen aus der
+Frage, Wortgrenzen), Wetter (nur für den gewählten Ort und nur mit dem heutigen Tag, Schwellen aus `_gsWetterTage`), Pflanzen, Gärten,
+Frühere Scans, Funde (Name und Tag, nie die Koordinate). Dazu der erste Vorschlag im leeren Verlauf, drei Absätze in `LINA_SYSTEM`,
+der Schalter `gs_lina_einblick` (`GS_KEEP_ON_LOGOUT`), ein Absatz in `privacy.html` §3 und in der Erklärung in der App.
+Tabelle und Regeln: `docs/memory/07-lina.md`.
+
+**Geprüft** (lokal, TZ=UTC): `sensor_check` mit dem neuen Fall „Lina · Einblick" (Kontext gegen die Datensätze, kein Foto, keine
+Koordinate, ohne Daten keine Zeile, Schalter), dazu `storage`, `nutzersicht`, `i18n`, `escape`, `robust`, `wiring`, `touch`, `a11y`,
+`render`, `versprechen`, `austausch`.
+
+**Offen:** nichts
+
+**Nicht geprüft:** eine echte Antwort von Lina mit dem neuen Kontext (kein KI-Aufruf von hier); die übrigen Prüfstände lokal (massgeblich
+ist der Lauf auf GitHub); die Wetter-Zeile sagt „keine der vier Schwellen überschritten" auch dann, wenn ein Tagesfeld im
+Zwischenspeicher fehlt. Nicht gebaut und Entscheidung für Fernando: Fotos an Lina, ein Wachstums- oder Gesundheitswert,
+Push-Meldung „braucht Hilfe", Verbreitungsdaten für Wanderungen.
+
 ### 2026-11-24 (jq) - v33.69: Gelöscht bleibt gelöscht — die Schlussprüfung von v33.68, nachgezogen
 
 **Auftrag:** Fernando, „Bitte schau das auch alles gemergt wird." PR #337 (v33.68) ist seit dem 24.11., 13:05 UTC,
@@ -17120,9 +17159,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.72` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.70) · SW-Cache `gs-v33.72` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.72` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.71) · SW-Cache `gs-v33.72` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **101'949 Zeilen / rund 6,3 MB** (v33.72: rund 300 Zeilen Funktionen ohne Aufrufer heraus; gemessen nach dem Stapeln auf v33.70) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **598 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.50).
+- **Frontend:** `index.html` **102'273 Zeilen / rund 6,3 MB** (v33.72: rund 300 Zeilen Funktionen ohne Aufrufer heraus; gemessen nach dem Stapeln auf v33.71) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **599 Einträge** — mit `new Function` geparst und gezählt; wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.51).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **48** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.72: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 48** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (jv). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

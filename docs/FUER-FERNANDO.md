@@ -2066,6 +2066,11 @@ alle sechs laufen seit dem 16.11. mit dem Code von `57a7acf` — `ai-proxy` v4, 
 
 ## 32 · Der grosse Durchgang (v33.72) — was du tun musst, und was noch offen ist
 
+**Warum v33.72:** am 24.11.2026 um 14:50 UTC hat sich PR #340 (Lina · Einblick) selbst
+gemergt und wurde v33.70. Damit rutschte die Merge-Reihe um eine Nummer: die
+Hauptfunktionen (Pilz-Scanner, Lina, Wissen-Tab, PR #343) werden v33.71, diese Scheibe
+(PR #344) v33.72. Bitte in dieser Reihenfolge mergen: #343, dann #344.
+
 **Für die App selbst musst du nichts einspielen.** Keine Migration, keine
 Edge-Function. Sobald der Stand ausgeliefert ist, wirkt alles.
 
@@ -2146,15 +2151,15 @@ die Bildauswahl statt der Kamera.
 
 **Drei Dinge über die Arbeit selbst:** diese Scheibe hiess v33.57, dann v33.59,
 dann v33.70 und v33.71, jetzt v33.72 — jedes Mal hatte `main` die Nummer inzwischen vergeben. Heute
-(24.11.) ist sie auf `main` v33.68 nachgezogen und auf **PR #343 gestapelt** (v33.70:
-Pilz-Scanner, Lina, Wissen-Tab; darin `main` v33.69). Die Nummer **v33.72** ist ihr Platz
+(24.11.) ist sie auf `main` v33.68 nachgezogen und auf **PR #343 gestapelt** (v33.71:
+Pilz-Scanner, Lina, Wissen-Tab; darin `main` v33.70). Die Nummer **v33.72** ist ihr Platz
 in der Merge-Reihe: erst #343, dann dieser PR (#344).
 Zusammengeführt mit v33.67 waren es 76 Konfliktstellen in 20 Dateien, mit v33.68
 noch drei. Die Sicherheitsreparatur auf `main` hatte mehrere Funde aus meinem
 Audit parallel behoben (Passwort im Bau-Skript, Datenschutz-Satz, noindex,
 Mikrofon-/Sensor-Freigabe, Garten-Pull); dort gilt jetzt ihre Fassung, was nur
 diese Scheibe hatte, bleibt daneben stehen. Einzeln steht das in STATUS (Eintrag
-„(jv) - v33.72", Absätze „Auf `main` nachgezogen" und „Auf v33.70 gestapelt"). Den
+„(jv) - v33.72", Absätze „Auf `main` nachgezogen", „Auf v33.70 gestapelt" und „Nach #340 neu gestapelt"). Den
 Pull Request (#344) hat die koordinierende Sitzung geöffnet, nicht ich; er zeigt gegen
 `main`, bis #343 gemergt ist, auch dessen Änderungen. **Bitte in dieser Reihenfolge
 mergen: #343, dann #344.**
