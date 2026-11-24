@@ -465,6 +465,32 @@ steht unten rechts ein Plus-Knopf, und die Datenschutzerklärung nennt
 Nutzungs- und Fehlerdaten nicht mehr „anonym" (beide Sitzungen haben das
 gefunden; es gilt der Satz von `main`: „pseudonym") — bitte gegenlesen.
 
+**Nachtrag nach dem Merge (24.11.2026, ohne Versionsnummer — nur Doku und
+Prüfstands-Ausgabe, die App ist unverändert).** (1) `docs/AUDIT-2026-11-11.md`
+beginnt mit einer Seite für Fernando: „Was die Prüfstände seit dem 24.11.2026
+mehr sehen" — nur Wirkung, keine Technik. Entworfen von einem Workflow (vier
+Erheber, ein Entwurf, drei Gegenprüfer mit 49 Einwänden); übernommen, was
+nachgemessen hielt — u. a. war das Beispiel „Maiglöckchen" erfunden (es trägt
+🔔 und war nie betroffen; jetzt Giersch, Korbweide, Schleierling, gegen
+`gsCatEmoji` nachgesehen), und den Rückschritt beim Garten-Scan-Detail hat das
+Gegenlesen gefunden, kein Prüfstand. (2) Die CI-Läufe von #344 und #346
+gelesen: 48 Prüfstände, rot 0, nicht prüfbar 0 — `statik_check` lief mit
+ESLint 10.1.0, `datum_check` in Europe/Zurich; T0 steht mit 32 genau am Deckel,
+auch auf #347 und nach einem Probe-Merge der offenen Branches mit `main`.
+(3) Ein rotes Tor sagte in der CI nicht, WO: `pruefstaende.sh` zeigt nur das
+Ende eines Berichts und bei Rot die Zeilen mit `!!`. `field_check` (ein
+überholter `BEWUSST`-Eintrag), `contrast_check` (jede Stelle unter AA, die
+Statusbox) und `render_check` (JS-Fehler, verdächtiger Text, abgeschnitten,
+ausserhalb) tragen jetzt `!!` vor jedem Befund, `field_check` dazu ein Urteil
+als letzte Zeile. Gegenprobe über `run()` aus `pruefstaende.sh`: ein
+erfundener `BEWUSST`-Eintrag erschien mit der alten Fassung 0-mal im Bericht,
+mit der neuen einmal; eine blasse Zeile und ein „undefined" in einer Kopie von
+`index.html` erschienen beide mit Stelle. (4) CLAUDE.md §4f Regel 5 berichtigt:
+auf `main` urteilten die drei schon vorher (Lesbarkeit seit v33.59, die zwei
+anderen seit v33.65). (5) Gefunden beim Beobachten: #346 hatte keinen
+Prüflauf — mit Konflikt geöffnet, und GitHub startet dann keinen; der
+Koordinator hat die Regel in WARTESCHLANGE §1 aufgenommen.
+
 **Offen:** brett:2026-11-24-f834, brett:2026-11-24-8999 (zwei Funde im Code von v33.71, beim Gegenlesen des Stapels gemessen) · brett:2026-11-11-6f90, brett:2026-11-11-6bf4, brett:2026-11-11-664e (drei Funde in `daily-push-checker`; die sieben anderen Edge-Funde hat die Sicherheitsreparatur von `main` im Repo geschlossen — live keiner, siehe §2) · brett:2026-11-11-1243, brett:2026-11-11-9400, brett:2026-11-11-21ed, brett:2026-11-11-664f, brett:2026-11-11-8c07, brett:2026-11-11-9ca0, brett:2026-11-16-0ea0, brett:2026-11-16-0a7f (Service Worker, Manifest, Kompass) · brett:2026-11-11-d412, brett:2026-11-11-000a, brett:2026-11-11-035c (Datum) · brett:2026-11-11-5e72 (drei Suchen) · brett:2026-11-11-002d, brett:2026-11-11-8ee7 (CSS) · brett:2026-11-11-bf2f, brett:2026-11-11-2069 (Daten) · brett:2026-11-11-bd8a, brett:2026-11-11-2129, brett:2026-11-11-e919 (Android-Hülle) · brett:2026-11-11-5bef (Frage an Fernando, §2)
 **Nicht geprüft:** hier läuft kein Android und kein echtes Supabase — die vier Reparaturen an der Hülle sind übersetzt (`apk_check` baut das Paket) und gelesen, nicht auf einem Gerät gefahren; die Funde in den Edge-Functions sind gelesen und zum Teil mit den echten Rümpfen in Node ausgeführt. Dass ein `fetch()` im Worker gegen `connect-src` geprüft wird, ist aus der Spezifikation gelesen, nicht im Browser gemessen. Ob Cloudflare Pages und Netlify ein Punkt-Verzeichnis (`.claude/`, `.github/`) überhaupt ausliefern, ist von hier nicht messbar. Die neue Höhe der Kopfleiste ist in Chromium bei 412 px gemessen, nicht auf einem Telefon mit Kerbe angesehen.
 

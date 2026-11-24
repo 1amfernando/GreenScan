@@ -879,8 +879,11 @@ async function medianFarben(leser, pngBuffer, punkte) {
     if (NUR_TABS) console.log('  (TEIL-LAUF: nur die Tabs ' + NUR_TABS.join(', ') + ' — keine Fenster, kein Urteil ueber das Ganze)');
     if (anmeldebildStand) { console.log('  !! ' + SEED_MOD.ANMELDEBILD_SATZ); process.exitCode = 2; }
     console.log('\n=== ' + (dark ? 'DUNKELMODUS' : 'HELLMODUS') + ' — ' + liste.length + ' Textstellen unter AA');
+    // „!!“ vorn: pruefstaende.sh zeigt in der CI nur das Ende des Berichts und bei Rot die Zeilen mit
+    // „!!“ — ohne die Marke stand dort „ROT: 3 Stelle(n) unter AA — siehe oben“, und „oben“ war nicht
+    // im Log (24.11.2026). Gilt fuer jede Zeile, die einen Befund NENNT.
     liste.slice(0, 70).forEach(o => console.log(
-      `  ${String(o.r).padStart(5)}:1 (soll ${o.min})  ${o.tab.padEnd(9)} ${o.sel.slice(0,32).padEnd(33)} ` +
+      `  !! ${String(o.r).padStart(5)}:1 (soll ${o.min})  ${o.tab.padEnd(9)} ${o.sel.slice(0,32).padEnd(33)} ` +
       `rgb(${o.fg})@${o.alpha.toFixed(2)} auf rgb(${o.bg})  „${o.t}"`));
     if (liste.length > 70) console.log(`  … und ${liste.length-70} weitere`);
     unterAA += liste.length;
@@ -906,7 +909,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
     if (k < 4.5) schlecht.push(fg + ' auf ' + bg + ' — ' + k.toFixed(2) + ':1');
   }
   console.log('\n=== STATUSBOX #loc-status — ' + paare.length + ' Farbpaare aus dem Code gerechnet, ' + schlecht.length + ' unter AA');
-  schlecht.forEach(x => console.log('  ' + x));
+  schlecht.forEach(x => console.log('  !! ' + x));
   if (paare.length < 5) { console.log('  !! nur ' + paare.length + ' Paare gefunden — die Suche sieht etwas nicht (stEl.style.… / setStatus)'); unterAA++; }
   unterAA += schlecht.length;
 

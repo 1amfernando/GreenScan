@@ -1354,7 +1354,13 @@ Pruefstaende: `statik_check` (S0–S9), `datum_check` (T0–T7), `robust_check`
 > mit 0; „N unter AA" haette die Suite als gruen gemeldet. Alle drei urteilen
 > jetzt (`field_check` mit einer Liste `BEWUSST`: ein gepruefter Verdacht
 > bekommt dort seinen Grund). Nur `perf_check` ist bewusst ein Bericht — und
-> so steht es in seinem Kopf.
+> so steht es in seinem Kopf. *(Berichtigt 24.11.2026: das beschreibt den Stand, als
+> diese Scheibe begann. Auf `main` urteilte `contrast_check` schon seit v33.59,
+> `render_check` und `field_check` seit v33.65 — beide Seiten hatten es parallel gebaut.
+> Und ein Tor braucht eine lesbare rote Zeile: `pruefstaende.sh` zeigt in der CI nur das
+> Ende eines Berichts und bei Rot die Zeilen mit `!!`; jede Zeile, die einen Befund
+> NENNT, traegt deshalb `!!` vorn — sonst steht dort „rot“ und „siehe oben“, und „oben“
+> ist nicht im Log.)*
 >
 > **6 · Alle Pruefstaende laufen in UTC, die Nutzer nicht.** Ein
 > `toISOString().slice(0, 10)` ist in der Schweiz nachts der Vortag, und in UTC

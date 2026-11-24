@@ -141,7 +141,7 @@ if erklaert:
     print('Bewusst ohne Leser (mit Grund in BEWUSST):', len(erklaert))
     for z in sorted(erklaert): print('   .  %-26s %-26s %s' % (z[0], z[1], BEWUSST[z[0]]))
 if ueberholt:
-    print('BEWUSST nennt Felder, die es nicht (mehr) gibt oder die inzwischen gelesen werden:', ', '.join(ueberholt))
+    print('   !! BEWUSST nennt Felder, die es nicht (mehr) gibt oder die inzwischen gelesen werden:', ', '.join(ueberholt))
 print('Zusammengesetzt nachgeschlagen (kein Fehler):', len(zusammengesetzt))
 for z in sorted(zusammengesetzt):
     print("   .  %-26s %-26s %-15s ueber '%s' + ..." % (z[0], z[1], z[2], z[4]))
@@ -152,4 +152,9 @@ print('Erkannte Verkettungs-Praefixe:', len(praefixe),
 if len(felder) < 100:
     print('NICHT PRUEFBAR: nur %d Formularfelder gefunden — der Pruefstand misst offenbar etwas anderes' % len(felder))
     sys.exit(2)
+# Das Urteil steht als LETZTE Zeile: pruefstaende.sh zeigt in der CI nur die letzten sechs
+# Zeilen (bei Rot dazu die Zeilen mit „!!“). Bis zum 24.11.2026 stand dort die Liste der
+# Praefixe — gruen war nur am EXIT zu erkennen, und ein ueberholter BEWUSST-Eintrag waere rot
+# gewesen, ohne dass der Bericht sagt, warum.
+print('Felder ohne Leser: %d · ueberholte BEWUSST-Eintraege: %d' % (len(offen), len(ueberholt)))
 sys.exit(1 if (offen or ueberholt) else 0)
