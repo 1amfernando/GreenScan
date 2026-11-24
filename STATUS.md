@@ -12,6 +12,31 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (jr) - kein Bump: die CI speichert ihre Downloads zwischen, der Wächter ist entschieden, und der Schwarm geht als EIN Pull-Request
+
+**Auftrag:** Fernando, 24.11.2026, drei Entscheidungen zu den offenen Fragen des Schwarms (Branch
+`ccr-b63433a4-d1xgyg`, Eintrag (jh)): **ein** Pull-Request für alles; der Wächter läuft **stündlich ab dem
+Merge** (Brett `2026-11-18-70cd`, Antwort `2026-11-24-a9dc9d23`); und **ja** zum Zwischenspeicher in der CI
+(Brett `2026-11-18-cf93`). Vorher `main` bis v33.68 eingemischt, ohne Konflikt.
+
+**Der Zwischenspeicher** (`.github/workflows/pruefstaende.yml`): die Installation brauchte an langsamen
+Spiegel-Tagen bis 13 min, sonst rund 30 s — bei rund 26 min für die Prüfstände selbst. Jetzt zwei Speicher
+über `actions/cache` (derselbe volle Commit wie im Wächter): die **apt-Pakete** in `~/gs-apt-archiv`
+(Schlüssel je Kalenderwoche, eine neue Woche beginnt mit dem Stand der letzten) und die
+**Playwright-Browser** (Schlüssel = `scripts/package-lock.json`). Gesichert wird direkt nach der
+Installation — ein roter Prüfstand nimmt dem nächsten Lauf den Speicher nicht.
+
+> **Ein Zwischenspeicher ist eine Eingabe aus der Vergangenheit — und apt prüft sie nur an der Grösse.**
+> Gemessen auf Ubuntu 24.04 (dasselbe Abbild wie die CI): ein `.deb` im Archiv-Ordner mit EINEM veränderten
+> Byte bei gleicher Grösse → „Need to get 0 B", apt lädt nichts nach. Ein Paket läuft bei der Installation
+> als root. Deshalb hält der Schritt „apt: Zwischenspeicher pruefen" jede Datei gegen die SHA256 der
+> SIGNIERTEN Paketliste und verwirft, was nicht passt — mit EINEM `apt-cache show` für alle (je Datei
+> einer dauerte 27 s für 25 Dateien, so 1,5 s). Die Browser haben keine solche Liste: ihnen wird
+> vertraut, soweit dem Bereich des Speichers — ein PR sieht nur seinen eigenen und den von `main`.
+
+**Offen:** brett:2026-11-18-cf93 (schliesst sich erst mit zwei gemessenen CI-Läufen am PR: einer ohne, einer mit Speicher), brett:2026-11-18-70cd (Punkt 2: die Branch-Regel für `zz-sicherung` kann nur Fernando in den Einstellungen setzen)
+**Nicht geprüft:** ob `actions/cache` in der CI trifft und wie viel Zeit es spart (erst der Lauf am PR); ein Fork-PR; die Unversehrtheit der Browser im Speicher (keine signierte Liste); der Wächter auf `main` (läuft erst nach dem Merge)
+
 ### 2026-11-19 (jp) - v33.68: Eine Antwort nach dem Abmelden landet nie mehr im nächsten Konto — ein Tor in sbFetch und in der KI
 
 **Auftrag:** Fernando, „Verbesser alles komplett. Alle Sicherheitslücken sollten behoben werden" — Fortsetzung
