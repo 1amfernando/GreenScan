@@ -1,0 +1,95 @@
+name: Brett-Wächter
+
+# Fernando, 17.11.2026: „Wächter-Funktion: Ein Agent überwachte, ob Speicherorte gelöscht oder Räume
+# zurückgesetzt wurden. Sicherungskopien: Anlegen von Kopien an versteckten Adressen (z. B. mit
+# Z-Präfixen), damit die Information bei einem Löschvorgang bestehen blieb."
+#
+# Gemessen am 17.11.2026: 72 von 165 Brett-Einträgen lagen auf genau EINEM Branch und nirgends sonst.
+# Ein Force-Push, ein von Hand gelöschter Branch oder ein stale PR (weekly-cleanup: delete-branch)
+# hätte sie ohne jede Meldung vernichtet — eine Sitzung, die das bemerken könnte, gibt es dann nicht
+# mehr. Deshalb läuft der Wächter OHNE Sitzung: stündlich kopiert er jede Eintragsdatei jedes Branches
+# byte-gleich auf den Branch `zz-sicherung` (Z-Präfix: er sortiert hinter allen anderen, und das Brett
+# liest ihn zuletzt — nur, wo kein Original mehr liegt). Was nur noch dort liegt, meldet er.
+#
+# Regeln aus zwei Gegenprüfungen (18.11.2026):
+# - Zugangsdaten nur für den EINEN Push (persist-credentials: false; der Token geht als Kopfzeile
+#   genau an fetch und push, nie in .git/config, und er wird aus der Umgebung genommen, bevor das
+#   Werkzeug läuft) — `node scripts/austausch.mjs` liest fremde Branches.
+# - Jeder Lauf baut EINEN Stand aus dem Nichts (ein leerer Index, nur geprüfte Dateien; kein
+#   ausgecheckter Baum der Sicherung) und schreibt ihn ohne Geschichte (Orphan-Commit,
+#   --force-with-lease auf den vorigen): was ein Grabstein entfernt, liegt danach in keinem Commit
+#   des Branches mehr, und eine fremde Datei auf zz-sicherung legt den Wächter nicht lahm.
+# - Das Gedächtnis liegt AUSSERHALB der Sicherung (Actions-Cache) und wird erst NACH einem
+#   erfolgreichen Push abgelegt: fehlt vor dem Lauf, was zuletzt gesichert war, wurde zz-sicherung
+#   zurückgesetzt oder gelöscht — dann wird der Lauf ROT. Ein gescheiterter Push gibt keinen Fehlalarm.
+#
+# Er schreibt NUR auf zz-sicherung. Keine Migration, kein Ausliefern, kein Löschen fremder Branches.
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: brett-waechter
+  cancel-in-progress: false
+
+jobs:
+  sichern:
+    name: Brett sichern
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: 22
+      - name: Gedaechtnis holen
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4.3.0
+        with:
+          path: ${{ runner.temp }}/brett-stand
+          key: brett-waechter-stand-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: brett-waechter-stand-
+      - name: Sicherung schreiben und melden
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          B64=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          unset GH_TOKEN
+          echo "::add-mask::$B64"
+          kopf() { git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $B64" "$@"; }
+          kopf fetch --quiet --no-tags --depth=1 origin '+refs/heads/*:refs/remotes/origin/*'
+          STAND="$RUNNER_TEMP/brett-stand/stand.json"
+          ALT=$(git rev-parse --verify --quiet refs/remotes/origin/zz-sicherung || true)
+          if [ -z "$ALT" ] && [ -f "$STAND" ]; then echo "::error::zz-sicherung fehlt, das Gedaechtnis kennt sie — der Branch wurde geloescht. Er wird neu angelegt; was nur dort lag, ist weg (siehe unten)."; fi
+          if [ -z "$ALT" ] && [ ! -f "$STAND" ]; then echo "::warning::Weder zz-sicherung noch ein Gedaechtnis — der erste Lauf, ODER beides ging verloren (dann ist nicht erkennbar, was fehlt)."; fi
+          set +e
+          node scripts/austausch.mjs sichern --alt "${ALT:-leer}" --baum "$RUNNER_TEMP/brett-baum" --gedaechtnis "$STAND" --gedaechtnis-neu "$RUNNER_TEMP/brett-stand-neu.json" > "$RUNNER_TEMP/brett-bericht.md"
+          RC=$?
+          set -e
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/brett-bericht.md"
+          if [ "$RC" -ne 0 ] && [ "$RC" -ne 3 ]; then exit "$RC"; fi
+          TREE=$(cat "$RUNNER_TEMP/brett-baum")
+          if [ -n "$ALT" ] && [ "$TREE" = "$(git rev-parse "$ALT^{tree}")" ]; then
+            echo "Nichts Neues zu sichern."
+          else
+            NEU=$(git -c user.name='brett-waechter' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit-tree "$TREE" -m "Brett-Sicherung $(date -u +%Y-%m-%dT%H:%MZ)")
+            kopf push --quiet --force-with-lease="refs/heads/zz-sicherung:$ALT" origin "$NEU:refs/heads/zz-sicherung"
+            echo "- Geschrieben nach zz-sicherung." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          mkdir -p "$(dirname "$STAND")"
+          mv "$RUNNER_TEMP/brett-stand-neu.json" "$STAND"
+          exit "$RC"
+      - name: Gedaechtnis ablegen
+        if: always()
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4.3.0
+        with:
+          path: ${{ runner.temp }}/brett-stand
+          key: brett-waechter-stand-${{ github.run_id }}-${{ github.run_attempt }}

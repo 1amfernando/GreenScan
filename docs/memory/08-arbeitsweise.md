@@ -17,7 +17,26 @@ Du bist nicht die einzige Sitzung. Was du findest und nicht selbst behebst,
 was du nicht messen konntest und was dir einfaellt, gehoert aufs Brett
 (`node scripts/austausch.mjs hilfe`, Regeln: `docs/austausch/README.md`) —
 und der STATUS-Eintrag am Ende traegt zwei feste Zeilen: `**Offen:**` (mit
-`brett:<id>` oder „nichts") und `**Nicht geprüft:**`.
+`brett:<id>` oder „nichts") und `**Nicht geprüft:**`. `holen` zeigt zuerst DICH
+BETREFFEND (fremder Halt auf deinen Dateien, Veto gegen deinen Eintrag, Antworten und
+Lieferungen auf deine Fragen, nicht Gepushtes — „dein" heisst: von dir geschrieben, nicht: liegt
+in deinem Arbeitsbaum); eine Aufgabe nimmst du mit `nehme <id>` (auf Stufe 1 nur, was dir
+aufgetragen oder zugestellt ist — `docs/AGENTEN-NETZ.md` §4) und gibst sie mit
+`lage --phase fertig` frei, einen Halt setzt `halt` (Funktionsnamen oder Pfade — nie
+`STATUS.md` oder `index.html` als Ganzes), `naechste` holt selbst und endet unter einem fremden
+Bump-Halt mit Exit 1 (README „Der Schwarm"). Was eine Austausch-Runde schreibt, traegt als `von`
+die Sitzung und als `rolle` den Blickwinkel. Mithelfen heisst `nehme <id> --auch` (das Feld
+`mithelfen`, belegt keinen der drei Plaetze); Lage und Halt nur von einem eigenen Branch, nie in
+fremdem Namen (Pruefstand A10). Eine Identitaet ist genau EIN Ref (`origin/main`, `origin/<branch>`)
+oder ein Feld — nie ein Muster oder ein Titel (CLAUDE.md §5, Runde 3).
+Ein Upstream ist nur nach einem im Reflog belegten `git branch -m` ein eigener Name; was im
+Teilabruf fehlt (Datei, Baum, Ankunft), heisst „nicht rechenbar" mit Quelle, nie „leer" (Runde 4).
+Konvergiert eine gegnerische Pruefung nicht, hilft keine weitere Runde, sondern ein Schutzziel mit
+Rangfolge, festgelegt VOR der zweiten Runde: (1) ehrlich Geschriebenes geht nie still verloren,
+(2) nicht rechenbar → sagen und die sichere Richtung nehmen, (3) Faelschungen erkennen, wo es geht —
+verhindern kann sie nur ein Branch-Schutz. Danach prueft der Skeptiker nur noch: haelt die Reparatur,
+bricht sie Richtiges, laesst sich ein TEIL ausbauen, ohne dass ein Fall rot wird. Was bleibt, ist eine
+benannte Grenze mit Zahl (CLAUDE.md §5, Runden 5–5d).
 
 Arbeite in einer **Kopie** (`tar --exclude=.git -cf - . | (cd KOPIE && tar -xf -)`),
 nie im Repo selbst, solange die Suite nicht gruen ist. Beide Dateien eines
@@ -89,6 +108,10 @@ kann dieselben Dateien geaendert oder live ausgeliefert haben — in v33.59 ware
 es neun Function-Dateien und vier Stellen in `index.html`. Vereinen, nicht
 ersetzen, und die Pruefstaende beider Seiten an die vereinte Form anpassen,
 nicht ruhigstellen (CLAUDE.md §5, §7.1).
+
+Welche Nummer frei ist: `node scripts/austausch.mjs naechste` (nach `holen`) — sie
+rechnet die Branches mit, die noch nicht auf main sind. „Die naechste nach main"
+trugen am 16.11.2026 vier Branches zugleich.
 
 Vier Marker, immer zusammen (`robust_check` „Changelog“ haelt sie zusammen) — gesetzt mit
 `node scripts/_bump.js --von vA.B --nach vC.D [--kennung alt:neu] [--basis <ref>]` (seit v33.72; der Kopf der

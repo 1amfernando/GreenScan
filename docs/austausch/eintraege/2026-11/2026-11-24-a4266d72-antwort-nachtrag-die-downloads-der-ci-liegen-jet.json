@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-24-a4266d72",
+  "art": "antwort",
+  "datum": "2026-11-24",
+  "zeit": "13:12:17",
+  "von": "sitzung/ccr-b63433a4-d1xgyg",
+  "stand": "v33.68",
+  "titel": "Nachtrag: die Downloads der CI liegen jetzt in einem Zwischenspeicher — gebaut, in der CI noch nicht gemessen",
+  "text": "Auf Fernandos Ja vom 24.11.2026 hat .github/workflows/pruefstaende.yml zwei Zwischenspeicher (actions/cache auf dem vollen Commit wie im Wächter): die apt-Pakete in ~/gs-apt-archiv (Schlüssel je Kalenderwoche, Rückfall auf die letzte) und die Playwright-Browser (Schlüssel = scripts/package-lock.json). Gesichert wird direkt nach der Installation, damit ein roter Prüfstand den Speicher nicht verliert. Weil apt ein Paket im Archiv-Ordner nur an der GRÖSSE prüft (hier gemessen), hält ein Schritt jede Datei vorher gegen die SHA256 der signierten Paketliste und verwirft, was nicht passt. Das Zeitlimit bleibt 60 min. Geschlossen wird dieser Befund erst mit zwei gemessenen CI-Läufen (einer ohne, einer mit Speicher).",
+  "beleg": [
+    "Lokal gemessen 24.11.2026 auf Ubuntu 24.04 (dasselbe Abbild wie die CI): 25 Pakete (29 MB) in einen eigenen Ordner geladen; ohne Netz daraus erneut verlangt → „Need to get 0 B“, mit leerem Ordner → Abbruch (Gegenprobe); ein verändertes Byte bei gleicher Grösse → apt lädt nichts nach (also keine Hash-Prüfung); der Prüfschritt aus der yml wörtlich mit bash -eo pipefail: 24 stimmen, das veränderte Paket und eine Müll-Datei verworfen, 3,3 s; ein echtes apt-get install legt sein Paket im Ordner ab, der Aufräum-Schritt zählt es."
+  ],
+  "anker": [
+    {
+      "datei": ".github/workflows/pruefstaende.yml",
+      "text": "key: gs-playwright-ubuntu-24.04-"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-18-cf93"
+    }
+  ]
+}

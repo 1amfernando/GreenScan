@@ -214,6 +214,12 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   Stapeln auf einen noch nicht gemergten Vorgänger gilt (`--basis` = dessen
   Kopf, erst umnummerieren, dann einziehen). `_headers` Zeile 1 steht seit
   v33.59 fest und ist kein Marker mehr.
+- **Welche Nummer frei ist, sagt `node scripts/austausch.mjs naechste`** — Version
+  UND STATUS-Kürzel, gerechnet über main und die frischen Branches. „Die nächste
+  nach main" ist es nicht: am 16.11.2026 trugen vier Branches zugleich v33.59 und
+  sechs das Kürzel (je); wer als Zweiter merged, nummeriert alle fünf Marken um.
+  Gezählt werden LINIEN (Vorfahren und Kopien desselben Release-Titels sind eine), und
+  „überholt" heisst: main trägt deine Nummer schon für etwas anderes (17.11.: sieben Branches).
 - Commit-Message-Format: `vXX.YY: <kurze Aussage>` + Markdown-Body mit
   Bullets pro Bereich (Sicherheit / UX / Feature). Beispiel siehe letzte
   Commits auf `main`.
@@ -1444,9 +1450,83 @@ node scripts/austausch.mjs hilfe     # schreiben: neu befund|idee|frage · antwo
 **Vor dem Edit:** `git fetch origin main && git status`, dann `holen`. Die Liste
 „FRISCHE BRANCHES" zeigt, wer parallel arbeitet — nachsehen, bevor du dieselbe
 Stelle anfasst. Die Fehlerklassen (`klasse <wort>`) sind das Suchraster: Regel,
-Suchmuster für Geschwister, der Prüfstand-Fall, der sie bewacht.
+Suchmuster für Geschwister, der Prüfstand-Fall, der sie bewacht. **Seit 18.11.2026 steht
+ganz oben „DICH BETREFFEND"** — gerechnet am SCHREIBER (`von`), nicht am Fundort: ein fremder
+Halt auf deinen Dateien oder Funktionen (auch einer, der per `main` in deinen Arbeitsbaum kam),
+ein Veto gegen deinen Eintrag, Antworten und Lieferungen auf deine Fragen (mit dem fertigen
+`git show`), was nur in deinem Arbeitsbaum liegt; dann KRITISCH, LAGE und HALT. Wer einen
+Eintrag aufgreift, sagt es mit `nehme <id>` (die älteste Übernahme gilt, je Schreiber und Ziel,
+bis `lage --phase fertig`) — auf Stufe 1 nur, was dir aufgetragen oder zugestellt ist
+(`docs/AGENTEN-NETZ.md` §4; ohne Auftrag vom Brett wählen ist Stufe 3 und braucht Fernandos Ja). Dringlichkeit, Lage, Halt/Veto, Wächter und die Sicherung
+`zz-sicherung`: `docs/austausch/README.md` „Der Schwarm".
 
-**Und noch einmal VOR dem Bump** (`git fetch origin main`, `git log HEAD..origin/main`).
+> **„Mein" heisst: von mir geschrieben — nicht: liegt bei mir** (18.11.2026). Die erste Fassung
+> des Schwarms hielt alles im Arbeitsbaum für eigen. Ein Halt, der per Merge auf `main` kam,
+> wirkte damit bei keiner späteren Sitzung, `ernten` machte jeden fremden Halt wirkungslos, und
+> ein Veto gegen irgendeinen Eintrag auf `main` hiess bei jedem „gegen deinen Eintrag". Vier von
+> fünf Linsen der Gegenprüfung fanden dieselbe Gleichsetzung, jede an einer anderen Stelle.
+> **Wer eine Regel über „meine" Dinge baut, rechnet am Schreiber.** Und **eine Sicherung mit
+> Geschichte vergisst nichts**: was ein Grabstein entfernte, blieb in `git log -p zz-sicherung`
+> lesbar — der Wächter schreibt seither je Lauf einen Stand ohne Geschichte.
+>
+> **Eine Reparatur reisst eine neue Lücke — und erst die zweite Prüfung auf dem reparierten Stand
+> findet sie** (18.11.2026). Runde 2 (71 Funde, alle nachgestellt): „am Schreiber" machte alles,
+> was die Austausch-Runde schreibt, zu niemandes Eintrag; „Zukunftszeit ist nicht frisch" liess
+> `naechste` eine Nummer still doppelt vergeben; „strittige Fassungen nicht rechnen" machte die
+> Sicherung zur Partei, und EIN Byte auf einem dritten Branch löschte jeden Halt. Und meine eigene
+> erste Reparatur für „lokaler Name ≠ Upstream" (Identität aus dem Upstream) hätte nach `git
+> checkout -b x origin/main` jede Sitzung „main" genannt. **Wer eine Regel ändert, fragt, welche
+> Fälle die ALTE Regel still richtig behandelt hat** — und lässt den reparierten Stand noch einmal
+> gegnerisch prüfen. Zwei Bauformen daraus: **ein Wächter baut seinen Stand aus dem Nichts** (wer
+> den eigenen alten Stand ungeprüft übernimmt, sichert eine Behauptung), und **was je Kennung
+> gezählt wird, verliert Fassungen** (gezählt wird je Blob).
+>
+> **Eine Regel, die eine IDENTITÄT am Muster erkennt, gilt für jeden, der den Namen wählen kann**
+> (18.11.2026, Runde 3 — 56 Funde, alle nachgestellt). `/(^|\/)main$/` machte einen pushbaren
+> Branch `claude/main` zu main: ein Halt im fremden Namen wirkte, ein „ersetzt" versteckte einen
+> kritischen Befund. Dieselbe Klasse dreimal weiter: derselbe Branch-Name auf einem zweiten Remote
+> galt als „Branch des Schreibers", der Titel „Mithelfen: …" entschied über eine Absicht, und das
+> `von` JEDER Fassung zählte — eine Kopie, die ihr `von` auf den eigenen Branch umschrieb, galt als
+> Original und schaltete den Alarm des Wächters ab. **Eine Identität ist genau EIN Ref, ein Feld
+> oder ein einmal festgehaltener Wert — nie ein Muster, ein Freitext oder die Selbstauskunft der
+> Kopie.** Und drei Reparaturen in drei getrennten Arbeitskopien rissen beim Zusammenführen eine
+> Lücke, die keine allein hatte (ein Rest der alten Ref-Regel in einer neuen Funktion): **wer
+> zusammenführt, fährt die Gegenproben ALLER Teile noch einmal auf dem zusammengeführten Stand.**
+>
+> **Was fehlt, ist keine Antwort — und wer etwas nachholt, fragt zuerst, ob es fehlen KANN** (18.11.2026,
+> Runde 4 — 45 Funde, alle nachgestellt). In einem Klon mit `--filter=blob:none` sah `holen` keinen fremden
+> Eintrag, und `nehme` schrieb still eine zweite Übernahme; ein fehlender Baum machte aus `(ls || '')` „keine
+> Dateien"; eine Lage ohne messbare Ankunft wurde gar nicht geprüft; ein Wächter ohne Gedächtnis vernichtete
+> die einzige Kopie. Jedes Mal wurde „nicht gelesen" als „nichts da" gerechnet. Jetzt ist es „nicht
+> rechenbar" mit Quelle, und eine unbestimmbare Ankunft heisst unwirksam. **Und die Reparatur drehte die
+> Klasse um:** das neue gezielte Nachladen machte aus einem VOLLEN Repo einen Teilabruf — gefunden hat es
+> der Skeptiker der Gruppe, nicht der Fall, weil kein Fall ein volles Repo danach noch einmal ansah. Dazu
+> dieselbe Klasse wie Runde 3, eine Stufe leiser: **ein Upstream ist kein eigener Name**, nur nach einem im
+> Reflog belegten `git branch -m`. **Wer eine Gegenprobe nur mit den Fällen fährt, die sie treffen soll,
+> sieht nicht, welchen ANDEREN Fall die Reparatur bricht** — erst die volle Suite fand zwei: C12 baute seine
+> nachrangige Übernahme über genau den Weg, den die Reparatur schloss; und die Frage nach einem gelöschten
+> Branch, die jetzt seine Commits nennt, trug dabei wieder den Push-Befehl, den Runde 4 aus ihr entfernt hatte.
+>
+> **Eine Prüfung, die nicht konvergiert, braucht ein Schutzziel — keine sechste Runde** (18.11.2026, Runden 5
+> bis 5d — 56 Funde, dann 23, 14 und 17). Jede Reparaturrunde riss kleinere Lücken, als sie schloss, und einige
+> in genau der Klasse, die sie schliessen sollte: die gerechte Frist je Branch machte aus 25 ehrlichen Branches
+> eine Klippe (`naechste` endete jedes Mal mit Exit 2, wo vorher EIN Abruf reichte); die strengere
+> Rückzugs-Regel verlor einen ehrlichen Rückzug, sobald eine Kopie auf einem dritten Branch lag; die neue
+> Auskunft „für die anderen wirkt er NICHT" stand auch unter einem abgelaufenen Halt. Konvergiert hat es erst
+> mit einer Rangfolge, an der jede Abwägung gemessen wurde: (1) ein ehrlicher Eintrag geht nie still verloren,
+> (2) was sich nicht rechnen lässt, sagt es und nimmt die sichere Richtung, (3) Fälschungen werden erkannt, wo
+> es geht — verhindern kann sie nur ein Branch-Schutz. **Wer gegnerisch prüft, legt VOR der zweiten Runde fest,
+> was geschützt wird und was als benannte Grenze stehen darf** — sonst findet jede Runde die Grenzen der
+> letzten. Ab dann fragt der Skeptiker nur drei Dinge: hält die Reparatur, bricht sie etwas, das vorher richtig
+> lief, und lässt sich ein TEIL von ihr ausbauen, ohne dass ein Fall rot wird (nach 5c waren es neun Teile —
+> **eine Gegenprobe je Reparatur ist nicht eine je Teil**). Zwei Bauformen daraus: **eine gerecht verteilte
+> Frist ist eine Klippe** (erst EIN Abruf, dann halbieren, wenn er hängt), und **ein Werkzeug, das einen
+> Konflikt auflöst, kann still den Schluss eines Falls verschlucken** — `node --check` und der Vergleich jedes
+> Falls mit seiner Einzelfassung VOR dem Commit, nicht in derselben Befehlskette danach.
+
+**Und noch einmal VOR dem Bump** (`git fetch origin main`, `git log HEAD..origin/main`; `naechste`
+holt seit 18.11.2026 selbst alle Branches — ein fremder Bump-Halt liegt auf einem fremden Branch,
+nicht auf `main`).
 Wer lange auf einem Zweig arbeitet, sieht sonst nicht, dass eine andere Sitzung
 dieselben Dateien geändert — oder live ausgeliefert — hat (v33.59: neun
 Function-Dateien und vier Stellen in `index.html`; am selben Tag ein zweites Mal

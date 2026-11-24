@@ -202,6 +202,30 @@ NICHT ausgeliefert** — bis dahin sind die serverseitigen Lücken live offen. R
 Handgriffe: `docs/FUER-FERNANDO.md` §30; was offen bleibt und was eine Entscheidung braucht:
 `STATUS.md` §2.
 
+### Seit dem 18.11.2026 (kein Bump) — der Schwarm: Dringlichkeit, Übernahme, Lage, Halt und Veto, Wächter
+
+Auftrag (17.11.2026): eine gemeinsame Wissensbasis über die Sitzungen hinaus, klare Protokolle
+(Dringlichkeit, Aufgabenzuweisung, Fortschrittskontrolle), ein Wächter mit Sicherungskopien an einer
+Adresse mit Z-Präfix, systemweit „Halt" und „Veto". Alles auf dem Brett, Regeln in
+`docs/austausch/README.md` „Der Schwarm":
+
+- **Dringlichkeit** (`kritisch` · `dringend`); ein offener kritischer Eintrag muss in STATUS §2 stehen.
+- **Aufgaben:** `nehme <id>` (die älteste Übernahme gilt, höchstens drei je Schreiber), `frage --an`,
+  `antworte --geliefert` (Pfad + Commit, der Fragende sieht den fertigen `git show`).
+- **Fortschritt:** `lage --phase laeuft|letzte_runde|fertig --runde 4/5 --bis 3h`.
+- **Halt und Veto:** `halt --geltung … --bis …` (Funktionen, Pfade, `bump`), `veto <id>`; `naechste`
+  endet unter einem fremden Bump-Halt mit Exit 1, ohne Rechnung mit 2. DICH BETREFFEND ganz oben in
+  `holen`, gerechnet am Schreiber.
+- **Wächter:** A6 (keine Eintragsdatei verschwindet ohne Grabstein) und die Action
+  `brett-waechter.yml`, die stündlich jede Fassung jedes Eintrags auf `zz-sicherung` sichert — aus dem
+  Nichts, ohne Geschichte — und rot wird, wenn eine Fassung nur noch dort liegt.
+- **Schutzziel** (ab Runde 5b): (1) ehrlich Geschriebenes geht nie still verloren, (2) nicht rechenbar
+  heisst die sichere Richtung mit Grund, (3) Fälschungen werden erkannt, wo es geht — verhindern kann sie
+  nur ein Branch-Schutz.
+- Fünf gegnerische Prüfungen (64, 71, 56, 45, 56 Funde) und drei Nachrunden (23, 14, 17); jede Reparatur
+  mit Teilfall und Gegenprobe. Prüfstand `austausch_check` 23 → 49 Fälle. **Offen:** den Wächter mit dem
+  Merge einschalten und über einen Branch-Schutz entscheiden; das Zeitlimit der CI (`STATUS.md` (jh)).
+
 ### Seit dem 11.11.2026 (kein Bump) — das Brett: wie sich alle KI-Sitzungen austauschen
 
 Auftrag: „Alle Agenten müssen sich austauschen …, dass untereinander neue Ideen entstehen können."

@@ -25,7 +25,10 @@ jobs:
     # 19.11.2026: 45 → 60. Gemessen an Lauf 44498377739 (PR #328): Abbruch nach 45 min 17 s, ohne dass ein
     # Prüfstand scheiterte — die Installation (Android-Werkzeuge, Playwright) brauchte 19 min statt rund
     # 30 s, die Prüfstände selbst brauchen ≥ 26 min. Ein Abbruch sieht aus wie Rot und ist keines.
-    # Die bessere Abhilfe (Downloads cachen) ist ein eigener Schritt; das Limit ist nur die Luft dafür.
+    # Die bessere Abhilfe (Downloads cachen) ist ein eigener Schritt; das Limit ist nur die Luft dafür —
+    # seit 24.11.2026 da („Zwischenspeicher“ unten).
+    # Dazu (18.11.2026, Schwarm): `austausch_check` fährt 49 statt 17 Fälle (lokal rund 7 min statt knapp 4);
+    # zwei Läufe vom 18.11. brauchten 41 bzw. 34 min. Das Brett trägt den Befund (Anker auf die Zeile darunter).
     timeout-minutes: 60
     services:
       postgres:
@@ -46,11 +49,107 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
         with:
           persist-credentials: false
+          # Brett-Waechter (austausch_check A6): HEAD ist der Merge-Commit des PR, HEAD^1 die Basis
+          # (main zum Zeitpunkt des Ereignisses) — fest, nicht die bewegliche Spitze. Kein eigener Fetch.
+          fetch-depth: 2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: 22
+      # Das Brett (austausch_check A8): ein Halt einer laufenden Sitzung liegt auf IHREM Branch, nicht im
+      # Baum dieses PR — ohne die anderen Branches sah A8 nur Halts, die schon auf main liegen
+      # (Gegenpruefung 18.11.2026). Nur lesend, ohne Zugangsdaten (das Repo ist oeffentlich). Als
+      # Teil-Abruf ohne grosse Dateien: jeder Branch traegt eine eigene index.html (6 MB) — A8 braucht nur
+      # die Eintraege (hoechstens 64 KB). Gemessen 18.11.2026: 143 Refs in 1,5 s, 16 MB.
+      - name: Branches fuer das Brett (nur lesend)
+        run: |
+          git config remote.origin.promisor true
+          git config remote.origin.partialclonefilter 'blob:limit=200k'
+          git fetch --quiet --no-tags --depth=1 --filter=blob:limit=200k origin '+refs/heads/*:refs/remotes/origin/*' || echo "::warning::Branches nicht geholt — A8 sieht nur Halts im Baum"
+          # zz-sicherung zusaetzlich OHNE Filter (Gegenpruefung 5b, R5b-fassungen-1): ihr Verzeichnis (sicherung.json) waechst mit
+          # jeder gesicherten Fassung — gemessen 900 gesicherte Befunde: 272 KB, also ueber 200k (C33). Fehlt es, ist jeder gesicherte und danach
+          # berichtigte Halt strittig, und A8 ist „nicht pruefbar". --refetch, weil der Ref nach dem Abruf oben schon „aktuell" ist
+          # (ohne holte git nichts); --no-auto-maintenance: kein Umpacken des ganzen Abrufs. Nur, wenn es den Branch gibt.
+          if git rev-parse --verify --quiet refs/remotes/origin/zz-sicherung >/dev/null; then
+            git fetch --quiet --no-tags --depth=1 --no-filter --refetch --no-auto-maintenance origin '+refs/heads/zz-sicherung:refs/remotes/origin/zz-sicherung' || echo "::warning::zz-sicherung nicht ohne Filter geholt — ein Verzeichnis ueber 200 KB fehlt, A8 ist bei berichtigten gesicherten Halts nicht pruefbar"
+          fi
+      # Die Geschichte dazu (austausch_check A10, Gegenpruefung 5b, R5b-identitaet-0): wann eine Lage oder ein Halt auf dem
+      # Branch seines Schreibers ankam, rechnet das Brett aus dessen GESCHICHTE — im flachen Abruf oben gibt es keine, und eine
+      # um 15 h rueckdatierte eigene Lage war in A10 gruen (gemergt misst auf main niemand mehr nach). --unshallow ergaenzt JEDE
+      # flache Grenze, auch die des Merge-Commits aus actions/checkout; derselbe Filter wie oben (Eintraege und ihre aelteren
+      # Fassungen sind klein, index.html bleibt weg). zz-sicherung bleibt aussen vor (negative Refspec): ihr Ref bleibt der Stand
+      # aus dem Schritt oben — zoege der Waechter dazwischen nach, kaeme der neue Stand hier mit dem Filter, und ein Verzeichnis
+      # ueber 200 KB fehlte. Ihre Wurzel wird trotzdem vollstaendig (--unshallow ergaenzt jede Grenze, die der Klon meldet).
+      # Gemessen 18.11.2026 am echten origin (PR 329): 3 s, 16 → 22 MB, danach `git rev-parse --is-shallow-repository` = false.
+      # Scheitert er, sagt A10 „nicht pruefbar" (nie still ok) — auch mit einem Verzeichnis in zz-sicherung: flach misst A10 eine
+      # Lage oder einen Halt nur, wo das Verzeichnis den Anspruch zu Hause UND diese Fassung kennt (Gegenpruefung 5b, R5c-I1).
+      - name: Geschichte fuer das Brett (nur lesend)
+        run: |
+          if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
+            git fetch --quiet --no-tags --filter=blob:limit=200k --unshallow origin '+refs/heads/*:refs/remotes/origin/*' '^refs/heads/zz-sicherung' || echo "::warning::Geschichte nicht geholt — A10 ist fuer Lagen und Halts im Baum nicht pruefbar"
+          fi
+      # Zwischenspeicher fuer die Downloads (24.11.2026, Brett cf93). Die Installation brauchte an langsamen
+      # Spiegel-Tagen bis 13 min (Android-Werkzeuge und Playwright), sonst rund 30 s — die Pruefstaende selbst
+      # rund 26 min. Zwei Speicher, beide mit festem Namen fuer dieses Abbild:
+      #   · apt-Pakete (.deb) in ~/gs-apt-archiv, Schluessel je Kalenderwoche — eine neue Woche beginnt mit dem
+      #     Stand der letzten (restore-keys) und laedt nur nach, was sich geaendert hat; `autoclean` raeumt, was
+      #     die Paketliste nicht mehr kennt.
+      #   · Playwright-Browser in ~/.cache/ms-playwright, Schluessel = das Lockfile (dort steht die Version).
+      # Gesichert wird direkt nach der Installation, nicht am Ende: ein roter Pruefstand nimmt dem naechsten
+      # Lauf den Speicher nicht. Ein Speicher, der fehlt oder nicht antwortet, ist kein Fehler — dann wird
+      # geladen wie bisher.
+      # VERTRAUEN: apt prueft ein .deb, das schon im Archiv-Ordner liegt, nur an der GROESSE (gemessen
+      # 24.11.2026 auf Ubuntu 24.04: ein veraendertes Byte bei gleicher Groesse → „Need to get 0 B"). Deshalb
+      # haelt der Schritt „apt: Zwischenspeicher pruefen" jede Datei gegen die SHA256 der signierten Paketliste
+      # und verwirft, was nicht passt (gemessen: veraendert, Muell, unbekannte Version → verworfen; 25 von 25
+      # unveraenderten bleiben; 1,5 s). Die Browser haben keine solche Liste — ihnen wird vertraut, soweit dem
+      # Bereich des Speichers: GitHub gibt einem PR nur seinen EIGENEN Speicher und den von main, ein Fork-PR
+      # kann also nur seine eigenen spaeteren Laeufe vergiften. Und: ein neuer PR findet erst nach seinem
+      # ersten Lauf etwas, solange auf main kein Lauf gespeichert hat (workflow_dispatch auf main fuellt ihn).
+      - name: Zwischenspeicher — Woche
+        id: zs
+        run: echo "woche=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+      - name: Zwischenspeicher — apt-Pakete holen
+        id: apt_zs
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4.3.0
+        with:
+          path: ~/gs-apt-archiv/*.deb
+          key: gs-apt-ubuntu-24.04-${{ steps.zs.outputs.woche }}
+          restore-keys: gs-apt-ubuntu-24.04-
+      - name: Zwischenspeicher — Playwright-Browser holen
+        id: pw_zs
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: gs-playwright-ubuntu-24.04-${{ hashFiles('scripts/package-lock.json') }}
+      - name: 'apt: Zwischenspeicher pruefen'
+        env:
+          GS_ZS_TREFFER: ${{ steps.apt_zs.outputs.cache-matched-key }}
+        run: |
+          D="$HOME/gs-apt-archiv"
+          mkdir -p "$D"
+          sudo mkdir -p "$D/partial"
+          sudo chown _apt "$D/partial" 2>/dev/null || true
+          printf 'Dir::Cache::Archives "%s/";\nAPT::Keep-Downloaded-Packages "true";\nBinary::apt-get::APT::Keep-Downloaded-Packages "true";\n' "$D" | sudo tee /etc/apt/apt.conf.d/99gs-zwischenspeicher >/dev/null
+          sudo apt-get update -qq
+          # Jede Datei gegen die signierte Paketliste: EIN apt-cache-Aufruf fuer alle (einer je Datei dauerte 1 s).
+          shopt -s nullglob
+          dateien=("$D"/*.deb)
+          declare -A hash=()
+          args=()
+          for f in "${dateien[@]}"; do
+            hash["$f"]=$(sha256sum "$f" | cut -d' ' -f1)
+            pv=$(dpkg-deb -f "$f" Package Version 2>/dev/null | awk -F': ' '$1=="Package"{p=$2} $1=="Version"{v=$2} END{if(p!=""&&v!="")print p"="v}') || pv=''
+            if [ -n "$pv" ]; then args+=("$pv"); fi
+          done
+          signiert=''
+          if [ ${#args[@]} -gt 0 ]; then signiert=$(apt-cache show "${args[@]}" 2>/dev/null | awk '/^SHA256: /{print $2}') || signiert=''; fi
+          gut=0; weg=0
+          for f in "${dateien[@]}"; do
+            if [ -n "$signiert" ] && grep -qxF "${hash[$f]}" <<<"$signiert"; then gut=$((gut+1)); else sudo rm -f -- "$f"; weg=$((weg+1)); echo "verworfen: $(basename "$f")"; fi
+          done
+          echo "apt-Zwischenspeicher: $gut Pakete stimmen mit der signierten Liste, $weg verworfen (Speicher: ${GS_ZS_TREFFER:-keiner})"
       - name: psql + python
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client python3
+        run: sudo apt-get install -y -qq postgresql-client python3
       # v33.49: apk_check baut das Android-Paket WIRKLICH und sieht darin nach.
       # Die Werkzeuge kommen aus dem Ubuntu-Archiv, NICHT von dl.google.com —
       # das ist aus der Claude-Cloud gesperrt (403), und ein Pruefstand, der
@@ -65,8 +164,34 @@ jobs:
           # v33.59: `npm ci` gegen scripts/package-lock.json (Integritaets-Hashes) statt `npm install`.
           npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium
+      # Sichern direkt nach der Installation (siehe „Zwischenspeicher" oben) — nur, was nicht schon unter
+      # genau diesem Schluessel liegt. `autoclean` wirft weg, was die aktuelle Paketliste nicht mehr kennt.
+      - name: Zwischenspeicher — aufraeumen
+        if: steps.apt_zs.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get -qq autoclean
+          shopt -s nullglob
+          d=("$HOME/gs-apt-archiv"/*.deb)
+          echo "apt-Zwischenspeicher: ${#d[@]} Pakete, $(du -sch "${d[@]}" 2>/dev/null | tail -1 | cut -f1)"
+      - name: Zwischenspeicher — apt-Pakete sichern
+        if: steps.apt_zs.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4.3.0
+        with:
+          path: ~/gs-apt-archiv/*.deb
+          key: gs-apt-ubuntu-24.04-${{ steps.zs.outputs.woche }}
+      - name: Zwischenspeicher — Playwright-Browser sichern
+        if: steps.pw_zs.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: gs-playwright-ubuntu-24.04-${{ hashFiles('scripts/package-lock.json') }}
+      # GIT_NO_LAZY_FETCH: der Teil-Abruf oben laesst grosse Dateien weg — und git laedt jede davon still vom
+      # Promisor nach, sobald ein Pruefstand sie liest (gemessen 18.11.2026: `austausch.mjs --nur-lokal` holte je
+      # frischem Branch STATUS.md und index.html, 12 Nachlade-Prozesse bei sechs Branches). Gelesen wird, was
+      # da ist; was fehlt, nennt das Werkzeug (austausch_check C18 haelt diese Zeile fest).
       - name: Prüfstände
         env:
           GS_PW: ${{ github.workspace }}/scripts/node_modules/playwright
           GS_PG_URL: postgresql://postgres@127.0.0.1:54329/postgres
+          GIT_NO_LAZY_FETCH: '1'
         run: bash scripts/pruefstaende.sh

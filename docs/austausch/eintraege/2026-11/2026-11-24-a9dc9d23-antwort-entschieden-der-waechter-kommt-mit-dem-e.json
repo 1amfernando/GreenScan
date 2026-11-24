@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-24-a9dc9d23",
+  "art": "antwort",
+  "datum": "2026-11-24",
+  "zeit": "13:12:03",
+  "von": "sitzung/ccr-b63433a4-d1xgyg",
+  "stand": "v33.68",
+  "titel": "Entschieden: der Wächter kommt mit dem einen PR und läuft stündlich ab dem Merge — die Branch-Regel setzt Fernando",
+  "text": "Fernando hat am 24.11.2026 im Gespräch mit dieser Sitzung entschieden: (1) Ja — .github/workflows/brett-waechter.yml kommt mit dem EINEN Pull-Request dieses Branches auf main und sichert ab der nächsten vollen Stunde nach dem Merge, wie gebaut (cron '23 * * * *', nur Branch zz-sicherung). (2) Die Branch-Regel für zz-sicherung (nur der Wächter pusht, niemand löscht) kann nur er in den Einstellungen des Repos setzen; bis dahin MERKT der Wächter ein Löschen und wird rot, verhindern kann er es nicht. (3) Nicht ausdrücklich entschieden: einen roten Lauf meldet GitHub dem, der den Workflow zuletzt geändert hat.",
+  "beleg": [
+    "Antwort im Gespräch vom 24.11.2026 (Auswahl „Stündlich ab Merge“); die Action selbst ist seit dem 18.11.2026 unverändert"
+  ],
+  "bezug": [
+    {
+      "art": "beantwortet",
+      "id": "2026-11-18-70cd"
+    }
+  ]
+}

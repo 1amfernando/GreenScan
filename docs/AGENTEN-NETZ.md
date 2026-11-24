@@ -33,8 +33,12 @@ Eine Verbesserung geht immer denselben Weg, und jeder Schritt hat einen Auslöse
    Bereichs-Agenten, was seinen Bereich trifft: neue Befunde an seinen Stichworten, neue
    Commits an seinen Funktionen, fremde Branches an denselben Stellen. *Auslöser: die
    geplante Runde.*
-3. **Nehmen.** Der Bereichs-Agent antwortet auf dem Brett (`antworte <id>`), bevor er
-   beginnt — damit sieht jeder, dass der Befund einen Besitzer hat.
+3. **Nehmen.** Der Bereichs-Agent sagt auf dem Brett, dass er beginnt — mit `nehme <id>`
+   (eine Lage mit Bezug; die älteste Übernahme gilt, `docs/austausch/README.md` „Aufgaben:
+   `nehme`") —, damit jeder sieht, dass der Befund einen Besitzer hat. Eine Antwort
+   (`antworte <id>`) zählt für „noch niemand dazu" ebenso, nimmt aber nichts: eine zweite
+   Sitzung kann denselben Befund danach noch übernehmen. `nehme` sagt, WER bearbeitet — ob
+   jemand nehmen darf, sagt §4 (auf Stufe 1: was zugestellt oder aufgetragen ist).
 4. **Bauen.** Prüfstand zuerst (ein Fall, der gegen den alten Stand rot ist), dann die
    Reparatur, dann die Suche nach Geschwistern (`klasse`). Wie bisher: CLAUDE.md §7.1.
 5. **Einreihen.** Der Agent meldet dem Koordinator „fertig, Branch X". Der Koordinator
