@@ -82618,7 +82618,10 @@ window.gsInstallApp = async function(){
     _lastAutoSync = Date.now();
     try {
       if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-        if (typeof gsSyncUserDataOnLogin === 'function') gsSyncUserDataOnLogin();
+        // v33.80: der Abgleich laeuft ueber gsSyncPullNow('focus') (Zuhoerer in _gsSetupConstantSync; bis das
+        // 4,5 s nach dem Start steht, hier selbst) — vorher rief diese Stelle den ganzen Abgleich direkt, an
+        // Sperrfrist und Laufsperre vorbei: jede Rueckkehr waren 15 Anfragen, ein Fokus danach noch einmal 11.
+        if (!window._gsConstantSyncSetup && typeof gsSyncPullNow === 'function') gsSyncPullNow('focus');
         // v29.16: Entitlements mit-nachladen, damit ein vom Admin/Gutschein frisch gesetzter
         // Tier auch ohne Kaltstart beim Vordergrund-Wechsel ankommt (teilt den 30s-Cooldown).
         if (typeof gsLoadEntitlements === 'function') gsLoadEntitlements();
@@ -88628,6 +88631,7 @@ function gsOnLogout() {
   // gesamten Pflanzen-Bestand ueberall.
   try { window._gsInitialSyncDone = false; } catch(_){}
   try { window._gsBlobGelesen = {}; } catch(_){}   // 19.11.2026: dieselbe Sperre je Blob (gsCloudSync._flush)
+  try { window._gsBlobStempel = null; window._gsVollPullTs = 0; window._gsEigenerPush = {}; } catch(_){}   // v33.80
 
   // ═══ v31.04: Sync-Zustand des scheidenden Nutzers raeumen ════════════════
   // `gs_sync_queue` und `gs_sync_dirty` stehen NICHT in GS_USER_KEYS und
@@ -89152,19 +89156,85 @@ function gsClearUserDataKeys(){
   } catch(e){ console.warn('[gsClearUserDataKeys]', e); }
 }
 
+// ── SPEICHER-V2 Scheibe 5 (v33.80): der ruhige Abgleich ─────────────────────────────────────
+// Gemessen an v33.77: der 2-Minuten-Takt rief den GANZEN Anmelde-Abgleich — 11 bis 12 Anfragen je
+// Durchgang, drei davon ganze Blobs (Pflanzen mit Pflegeverlauf, Gaerten, Zustand), 36 Durchgaenge je
+// sichtbarer Stunde, auch wenn sich nirgends etwas geaendert hatte. Jetzt:
+//   · Der Abgleich fragt zuerst nur `updated_at` der drei Zeilen. Ist jeder Stempel derselbe TEXT wie
+//     der, der beim letzten vollen Lesen mit `data` kam, wird kein Blob geladen. „Gleich“ heisst gleich,
+//     nie „aelter“ — updated_at kommt beim Push aus der GERAETE-Uhr und ist zwischen zwei Geraeten nicht
+//     monoton; und nie gegen gs_sync_synced_at_* (der traegt je nach Weg Server- oder Geraetezeit).
+//   · Ruhig ist ein Durchgang nur, wenn diese Sitzung fuer diese Person schon EINMAL alles gelesen hat
+//     (_gsInitialSyncDone, _gsBlobGelesen je Blob, ein gemerkter Stempel je Blob). Der Start, die
+//     Anmeldung und jeder Durchgang nach einem Lesefehler sind voll wie bisher.
+//   · Ist EIN Stempel anders, fehlt einer oder scheitert ein Abruf, gibt es keine halbe Sache: bei
+//     „anders“ laufen alle drei Blobs wie bisher (state zuerst — er traegt die Loeschmarken), bei einem
+//     Fehler endet der Durchgang, ohne etwas als gelesen zu nehmen.
+//   · Gemerkt wird der Stempel im Arbeitsspeicher (je Fenster, an die uid gebunden) — kein neuer
+//     Speicherschluessel, nichts, was ein anderes Konto erben koennte.
+// Die Neben-Tabellen (Tagebuch, Ernte, Scans; Einstellungen, Rolle, Alt-Sensoren, Schluessel) fahren im
+// Takt nur noch mit, wenn der letzte volle Durchgang aelter ist als GS_ABGLEICH_VOLL_MS oder ein ANDERES
+// Geraet einen Blob geschrieben hat. Die Glocke bleibt in jedem Durchgang: sie ist das Einzige, was bei
+// offener App ohne Push sofort stimmen soll. Pruefstand: sync_check H15 / H15b / H15c.
+var GS_ABGLEICH_VOLL_MS = 15 * 60 * 1000;
+var GS_BLOB_TABELLEN = { state: 'user_app_state', garden: 'user_gardens', plants: 'user_plants' };
+// Die Pull-Sperre ZAEHLT. Bis v33.77 merkte sich jeder Lauf den Wert davor und stellte ihn am Ende
+// zurueck: zwei Laeufe, die sich ueberlappten (Start und Rueckkehr in den Vordergrund), liessen die
+// Sperre fuer immer gesetzt — danach stellte der Takt keine Anfrage mehr, und kein entprellter Push
+// ging hinaus (in Node nachgestellt, sync_check H15b).
+function _gsPullSperre(d) {
+  var n = Math.max(0, (window._gsPullTiefe || 0) + d);
+  window._gsPullTiefe = n;
+  window._gsPullInFlight = n > 0;
+  window._gsSyncPullInProgress = n > 0;
+  return n;
+}
+// Der Stempel einer Blob-Zeile — nur aus einer Antwort, die auch `data` trug, und nur nach dem Einspielen.
+// 'keine' heisst: es gibt dort keine Zeile (frisches Konto); null: Zeile ohne Stempel (nie „gleich“).
+function _gsBlobStempelMerken(uid, sc, antwort) {
+  try {
+    if (!window._gsBlobStempel || window._gsBlobStempel.uid !== uid) window._gsBlobStempel = { uid: uid };
+    var z = (antwort && !antwort.error && Array.isArray(antwort.data)) ? antwort.data[0] : undefined;
+    window._gsBlobStempel[sc] = (antwort && !antwort.error && Array.isArray(antwort.data))
+      ? (z ? (z.updated_at ? String(z.updated_at) : null) : 'keine') : null;
+    if (window._gsEigenerPush) window._gsEigenerPush[sc] = false;
+  } catch(_){}
+}
+function _gsAbgleichRuhigMoeglich(uid) {
+  try {
+    if (window._gsInitialSyncDone !== true) return false;
+    var st = window._gsBlobStempel, ge = window._gsBlobGelesen;
+    if (!st || st.uid !== uid || !ge) return false;
+    for (var sc in GS_BLOB_TABELLEN) { if (ge[sc] !== uid || !st[sc]) return false; }
+    return true;
+  } catch(_){ return false; }
+}
+// true = derselbe Stand · false = anders · null = der Abruf ist gescheitert (dann wird nichts geschlossen)
+function _gsStempelGleich(gemerkt, antwort) {
+  if (!antwort || antwort.error || !Array.isArray(antwort.data)) return null;
+  var z = antwort.data[0];
+  if (!z) return gemerkt === 'keine';
+  if (gemerkt === 'keine' || !gemerkt || !z.updated_at) return false;
+  return String(z.updated_at) === String(gemerkt);
+}
+
 // v23.74: Nach Login: User-Daten aus Supabase ziehen (user_gardens / user_plants Tabellen)
 // PRIVACY-FIX: Wenn die User-ID gewechselt hat, ALLE User-Keys VOR dem Fetch clearen
 // v24.11: erweiterter Sync — zieht ALLE User-Daten cross-device
-async function gsSyncUserDataOnLogin(){
+// v33.80: `anlass` = { ruhig: true } kommt nur vom Takt und vom Fokus (gsSyncPullNow); ohne Angabe
+// (Start, Anmeldung, „Jetzt abgleichen“) laufen die Neben-Tabellen immer mit. Rueckgabe: 'voll' ·
+// 'ruhig' (Neben-Tabellen ausgelassen) · undefined (Fehler, Personenwechsel, abgemeldet).
+async function gsSyncUserDataOnLogin(anlass){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
   var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || typeof sbFetch !== 'function') return;
   // v29.45 Race-Guard: JEDER Pull-Pfad (Boot/Login/Visibility — nicht nur gsSyncPullNow) muss
   // konkurrierende async-Pushes unterdrücken (sonst Re-Push gerade gepullter Daten, v29.28-Klasse)
   // UND verhindern, dass der User-Switch-Clear unten dirty markiert → leere neue Cloud (Clobber).
-  // Nesting-safe save/restore (wenn gsSyncPullNow die Flags schon setzte, bleiben sie danach gesetzt).
-  var _prevPullFlight = window._gsPullInFlight, _prevPullProg = window._gsSyncPullInProgress;
-  window._gsPullInFlight = true; window._gsSyncPullInProgress = true;
+  // v33.80: die Sperre ZAEHLT (_gsPullSperre) — das fruehere Merken und Zurueckstellen liess sie nach zwei
+  // ueberlappenden Laeufen fuer immer stehen.
+  _gsPullSperre(1);
+  var _abgleichErgebnis;
   // PRIVACY: User-ID-Switch erkennen → Cache des vorigen Users löschen
   var lastUid = localStorage.getItem('gs_last_active_uid');
   if (lastUid && lastUid !== uid) {
@@ -89172,6 +89242,7 @@ async function gsSyncUserDataOnLogin(){
     console.log('[gsSync] User changed:', lastUid, '→', uid, '— clearing previous user data');
     window._gsInitialSyncDone = false; // v29.45: Boot-Race-Empty-Guard für den NEUEN User re-armen
     window._gsBlobGelesen = {};        // 19.11.2026: dieselbe Sperre je Blob (gsCloudSync._flush)
+    window._gsBlobStempel = null; window._gsVollPullTs = 0; window._gsEigenerPush = {};   // v33.80: kein Stempel des vorigen Kontos
     if (typeof gsClearUserDataKeys === 'function') gsClearUserDataKeys();
     // v29.45: der Clear erzeugt via setItem-Patch dirty-Marker → wegräumen, sonst pusht der leere
     // neue Stand die frisch zu pullenden Daten weg, bevor der Pull schreibt.
@@ -89228,13 +89299,39 @@ async function gsSyncUserDataOnLogin(){
     // Gegenpruefung blob (19.11.2026): welche Zeile in DIESER Sitzung fuer DIESE Person gelesen und
     // zusammengefuehrt wurde — erst danach darf gsCloudSync._flush ihren Blob hochschieben (er ersetzt die
     // Zeile ganz). Gesetzt wird nur nach einem Lesen OHNE Fehler (0 Zeilen zaehlen: dort gibt es nichts).
-    var _gelesenMerken = function (sc) {
+    var _gelesenMerken = function (sc, antwort) {
       try { if (!window._gsBlobGelesen || typeof window._gsBlobGelesen !== 'object') window._gsBlobGelesen = {}; window._gsBlobGelesen[sc] = uid; } catch(_){}
+      _gsBlobStempelMerken(uid, sc, antwort);   // v33.80: der Stempel DIESER Antwort — die naechste Stempel-Frage vergleicht dagegen
     };
     // v33.65: der state-Blob ZUERST — er traegt die Loeschmarken, und die muessen vor den Listen
     // bekannt sein (sonst steht ein auf dem anderen Geraet entfernter Eintrag hier wieder auf).
     // Die Person darf zwischen den awaits nicht gewechselt haben (§3.6: _gsPerson).
     var _person0 = (typeof _gsPerson === 'function') ? _gsPerson() : null;
+    // v33.80 · die Weiche: erst die drei Stempel, ein Blob nur, wenn sich einer geaendert hat (Kopf oben).
+    var _ruhig = false, _fremd = false;
+    if (_gsAbgleichRuhigMoeglich(uid)) {
+      var _scs = ['state', 'garden', 'plants'];
+      var _stAntw = await Promise.all(_scs.map(function (sc) {
+        return sbFetch('/rest/v1/' + GS_BLOB_TABELLEN[sc] + '?user_id=eq.' + uid + '&select=updated_at&limit=1', {method:'GET'});
+      }));
+      if (typeof _gsPerson === 'function' && _gsPerson() !== _person0) return;
+      var _stGem = (window._gsBlobStempel && window._gsBlobStempel.uid === uid) ? window._gsBlobStempel : {};
+      var _stUrteil = _scs.map(function (sc, i) { return _gsStempelGleich(_stGem[sc], _stAntw[i]); });
+      if (_stUrteil.indexOf(null) >= 0) {
+        // Ein gescheiterter Stempel-Abruf ist ein Lesefehler: nichts laden, nichts als gelesen nehmen, kein
+        // Push von hier aus. Der naechste Durchgang entscheidet neu.
+        console.warn('[gsSync] Stempel-Abruf fehlgeschlagen — dieser Durchgang endet ohne Abgleich.');
+        return;
+      }
+      _ruhig = _stUrteil.indexOf(false) < 0;
+      // Anders, und dieses Geraet hat seit dem letzten Lesen NICHT selbst geschrieben: ein anderes Geraet war es.
+      _fremd = _scs.some(function (sc, i) { return _stUrteil[i] === false && !(window._gsEigenerPush && window._gsEigenerPush[sc]); });
+    }
+    // Die Neben-Tabellen: immer ohne `anlass` (Start, Anmeldung, „Jetzt abgleichen“), sonst nur nach fremder Aenderung.
+    var _neben = !(anlass && anlass.ruhig === true) || _fremd || !window._gsInitialSyncDone;
+    if (!_ruhig) {   // ── ab hier bis zur Marke „Ende der Blobs“ der volle Weg, unveraendert ──
+    // Ein voller Durchgang beginnt ohne gemerkte Stempel: nur was DIESER Durchgang fehlerfrei liest, gilt danach.
+    try { window._gsBlobStempel = { uid: uid }; } catch(_){}
     var s = await sbFetch('/rest/v1/user_app_state?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
     if (typeof _gsPerson === 'function' && _gsPerson() !== _person0) return;
     var _tombLok = {};
@@ -89348,7 +89445,7 @@ async function gsSyncUserDataOnLogin(){
         if (pUpdated && !_pNeu) try { localStorage.setItem('gs_sync_synced_at_plants', pUpdated); } catch(_){}
       }
     }
-    if (_pGelesen) _gelesenMerken('plants');   // 19.11.2026: erst jetzt darf der Pflanzen-Blob hoch
+    if (_pGelesen) _gelesenMerken('plants', p);   // 19.11.2026: erst jetzt darf der Pflanzen-Blob hoch
     // v24.24: user_app_state — alles was nicht in plants/garden gehört
     try {
       // (v33.65: `s` wurde oben schon geholt — vor den Listen, wegen der Loeschmarken)
@@ -89510,7 +89607,7 @@ async function gsSyncUserDataOnLogin(){
           }
         }
       }
-      if (s && !s.error && Array.isArray(s.data)) _gelesenMerken('state');   // 19.11.2026: erst jetzt darf der state-Blob hoch
+      if (s && !s.error && Array.isArray(s.data)) _gelesenMerken('state', s);   // 19.11.2026: erst jetzt darf der state-Blob hoch
     } catch(_){}
     // v24.24: gpx_tracks aus Garden-Blob nach localStorage zurück (war in Pull oben unsichtbar)
     var _gpxOk = false;
@@ -89544,7 +89641,9 @@ async function gsSyncUserDataOnLogin(){
       }
       _gpxOk = true;
     } catch(_){}
-    if (_gpxOk && g && !g.error && Array.isArray(g.data)) _gelesenMerken('garden');   // 19.11.2026: erst jetzt darf der Garten-Blob hoch
+    if (_gpxOk && g && !g.error && Array.isArray(g.data)) _gelesenMerken('garden', g);   // 19.11.2026: erst jetzt darf der Garten-Blob hoch
+    }   // ── Ende der Blobs (v33.80: if (!_ruhig)) ──
+    if (_neben) {   // v33.80: Tagebuch, Ernte und Scans nur im vollen Durchgang
     // v24.23: garden_diary — wenn die Cloud mehr/neuere Einträge hat als der plants-Blob,
     // mergen wir nach gs_gartentagebuch (UI-Source). Dedupe per id.
     try {
@@ -89608,6 +89707,9 @@ async function gsSyncUserDataOnLogin(){
     } catch(_){}
     // v24.11: Scans separat ziehen
     try { if (typeof gsLoadCloudScans === 'function') await gsLoadCloudScans(); } catch(_){}
+    }   // ── Ende der Neben-Tabellen (v33.80: if (_neben)) ──
+    // 16.11.-Klasse (§3.6): nach den awaits oben gehoert alles Weitere der Person, die gefragt hat.
+    if (typeof _gsPerson === 'function' && _gsPerson() !== _person0) return;
     // UI re-render
     try { if (typeof renderFavs === 'function') renderFavs(); } catch(_){}
     try { if (typeof gsUpdateGartenWidgets === 'function') gsUpdateGartenWidgets(); } catch(_){}
@@ -89635,12 +89737,13 @@ async function gsSyncUserDataOnLogin(){
     // Pull ist durch (sonst sicherte man den halben Stand des Geraets), und die
     // Regel entscheidet selbst, ob heute schon eines existiert.
     try { if (typeof _gsSnapshotAuto === 'function') _gsSnapshotAuto('sitzung'); } catch(_){}
+    _abgleichErgebnis = _neben ? 'voll' : 'ruhig';
   } catch(e){ console.warn('[gsSyncUserDataOnLogin]', e); }
   finally {
-    // v29.45: Race-Guards nesting-safe zurücksetzen — gilt für ALLE Pull-Pfade (Boot/Login/Visibility)
-    window._gsPullInFlight = _prevPullFlight;
-    window._gsSyncPullInProgress = _prevPullProg;
+    // v29.45: Race-Guards zurücksetzen — gilt für ALLE Pull-Pfade (Boot/Login/Visibility); v33.80: gezaehlt
+    _gsPullSperre(-1);
   }
+  return _abgleichErgebnis;
 }
 window.gsSyncUserDataOnLogin = gsSyncUserDataOnLogin;
 
@@ -89974,6 +90077,8 @@ window.gsCloudSync = (function(){
     try { _dirtyAtVorher = scope ? localStorage.getItem('gs_sync_dirty_at_' + scope) : null; } catch(_){}
     var _markSuccess = function(){
       if (!scope) return;
+      // v33.80: dieses Geraet hat die Zeile selbst geschrieben — der naechste Stempel ist „anders“, aber nicht fremd
+      try { if (!window._gsEigenerPush) window._gsEigenerPush = {}; window._gsEigenerPush[scope] = true; } catch(_){}
       try { localStorage.setItem('gs_sync_synced_at_' + scope, pushTs); } catch(_){}
       // v33.65: nur wegraeumen, was dieser Push wirklich gesendet hat — eine spaetere Aenderung bleibt vorgemerkt
       try { if (localStorage.getItem('gs_sync_dirty_at_' + scope) === _dirtyAtVorher) localStorage.removeItem('gs_sync_dirty_at_' + scope); } catch(_){}
@@ -90942,6 +91047,8 @@ async function gsSyncPullNow(reason){
   // Guards VOR dem try — damit das finally (Flag-Restore) nicht bei Early-Return feuert.
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
   if (reason !== 'manual' && document.visibilityState !== 'visible') return;
+  // v33.80: ohne Empfang kein Takt — vorher liefen alle Anfragen in den Fehler (und die Rolle fiel auf 'user').
+  if (reason !== 'manual' && navigator.onLine === false) return;
   if (window._gsPullInFlight) {
     // v29.28 (Review-P3): manueller Sync wartet auf den laufenden Pull, statt still zu no-op'en
     // (sonst sichert das Backup ggf. veraltete Daten vor dem Merge).
@@ -90950,13 +91057,16 @@ async function gsSyncPullNow(reason){
   }
   var now = Date.now();
   if (reason !== 'manual' && (now - (window._gsLastPullTs||0)) < 25000) return; // 25s Cooldown
-  window._gsPullInFlight = true;
+  _gsPullSperre(1);                    // unterdrückt Re-Push der gerade gepullten Daten (ganzer Pull); v33.80: gezaehlt
   window._gsLastPullTs = now;
-  var _prevPull = window._gsSyncPullInProgress;
-  window._gsSyncPullInProgress = true; // unterdrückt Re-Push der gerade gepullten Daten (ganzer Pull)
   _gsSetSyncSyncing(true);
   var sigBefore = _gsDataSig();
-  var pp = (async function(){ try { if (typeof gsSyncUserDataOnLogin === 'function') await gsSyncUserDataOnLogin(); } catch(_){} })();
+  // v33.80: Takt, Fokus und „wieder online“ sind ruhig, solange der letzte VOLLE Durchgang juenger ist als
+  // GS_ABGLEICH_VOLL_MS (ein Alter, kein Verbergen: ein Tab, der nie verborgen wird, ist sonst nie „abwesend“;
+  // eine zurueckgestellte Uhr gilt als alt). „Jetzt abgleichen“ ist immer voll.
+  var _alter = now - (window._gsVollPullTs || 0);
+  var _anlass = (reason !== 'manual' && window._gsVollPullTs && _alter >= 0 && _alter < GS_ABGLEICH_VOLL_MS) ? { ruhig: true } : undefined;
+  var pp = (async function(){ try { if (typeof gsSyncUserDataOnLogin === 'function') await gsSyncUserDataOnLogin(_anlass); } catch(_){} })();
   window._gsPullPromise = pp;
   try {
     await pp;
@@ -90973,8 +91083,7 @@ async function gsSyncPullNow(reason){
     }
   } catch(_){}
   finally {
-    window._gsSyncPullInProgress = _prevPull; // synchron + immer zurücksetzen
-    window._gsPullInFlight = false;
+    _gsPullSperre(-1);                 // synchron + immer zurücksetzen (v33.80: gezaehlt — ein direkter Lauf daneben bleibt geschuetzt)
     window._gsPullPromise = null;
     _gsSetSyncSyncing(false);
     try { _gsUpdateSyncStatusEl(); } catch(_){}
@@ -93624,15 +93733,26 @@ async function gsNotifPull(){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return [];
   var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || typeof sbFetch !== 'function') return [];
-  try {
-    var r = await sbFetch('/rest/v1/notifications?user_id=eq.' + uid + '&order=created_at.desc&limit=50', {method:'GET'});
-    if (r && !r.error && Array.isArray(r.data)) {
-      window._gsServerNotifs = r.data;
-      try { if (typeof gsRenderNotifBadge === 'function') gsRenderNotifBadge(); } catch(_){}
-      return r.data;
-    }
-  } catch(e){ console.warn('[gsNotifPull]', e); }
-  return [];
+  // v33.80: zwei Ausloeser im selben Moment (Rueckkehr in den Vordergrund: der Glocken-Zuhoerer UND der
+  // Abgleich) teilen EINEN Abruf — vorher wurde die Liste zweimal geholt.
+  var lf = window._gsNotifPullLauf;
+  if (lf && lf.uid === uid) return lf.p;
+  var lauf = { uid: uid, p: null };
+  lauf.p = (async function(){
+    try {
+      var r = await sbFetch('/rest/v1/notifications?user_id=eq.' + uid + '&order=created_at.desc&limit=50', {method:'GET'});
+      if (r && !r.error && Array.isArray(r.data)) {
+        window._gsServerNotifs = r.data;
+        try { window._gsNotifGeholt = { uid: uid, t: performance.now() }; } catch(_){}
+        try { if (typeof gsRenderNotifBadge === 'function') gsRenderNotifBadge(); } catch(_){}
+        return r.data;
+      }
+    } catch(e){ console.warn('[gsNotifPull]', e); }
+    finally { if (window._gsNotifPullLauf === lauf) window._gsNotifPullLauf = null; }
+    return [];
+  })();
+  window._gsNotifPullLauf = lauf;
+  return lauf.p;
 }
 async function gsNotifMarkRead(id){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
@@ -94992,20 +95112,55 @@ async function gsOpenRedeemVoucher(){
 window.gsOpenRedeemVoucher = gsOpenRedeemVoucher;
 
 // ═══ ERWEITERT: gsSyncUserDataOnLogin zieht jetzt ALLES ═══
+// v33.80 (SPEICHER-V2 Scheibe 5): diese Umhuellung ist der EINE Eingang aller fuenf Aufrufer (Start, Anmeldung,
+// Rueckkehr, „Jetzt abgleichen“, Takt). Zwei Dinge sitzen deshalb hier:
+//   · Ein laufender Abgleich derselben Person wird GETEILT — der zweite Aufrufer wartet auf denselben Lauf,
+//     statt daneben einen zweiten zu starten (vorher: doppelte Anfragen und eine haengende Sperre). Wer voll
+//     will und auf einen ruhigen Lauf traf, startet danach seinen eigenen.
+//   · Einstellungen, Rolle, Alt-Sensoren und Schluessel fahren nur mit, wenn der Abgleich selbst voll war;
+//     die Glocke immer.
 var _gsOrigSyncOnLogin = window.gsSyncUserDataOnLogin;
-window.gsSyncUserDataOnLogin = async function(){
-  try { if (typeof _gsOrigSyncOnLogin === 'function') await _gsOrigSyncOnLogin(); } catch(_){}
-  try {
-    await Promise.all([
-      gsSensorSync().catch(function(){}),
-      gsNotifPull().catch(function(){}),
-      gsPrefsPull().catch(function(){}),
-      // v23.76: Rolle vom Server pullen
-      gsSyncUserRole().catch(function(){}),
-      // v23.77: Globalen API-Key pullen (admin → alle)
-      gsPullGlobalApiKey().catch(function(){})
-    ]);
-  } catch(e){ console.warn('[gsSyncUserDataOnLogin-extended]', e); }
+window.gsSyncUserDataOnLogin = async function(anlass){
+  var ruhigGewollt = !!(anlass && anlass.ruhig === true);
+  var uid = null;
+  try { uid = (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) ? gsStore.get('gs_sb_uid', null) : null; } catch(_){}
+  for (var i = 0; i < 3; i++) {
+    var l = window._gsAbgleichLauf;
+    if (!l || l.uid !== uid) break;
+    try { await l.p; } catch(_){}
+    if (ruhigGewollt || !l.ruhig) return l.ergebnis;
+  }
+  var lauf = { uid: uid, ruhig: ruhigGewollt, p: null, ergebnis: undefined };
+  window._gsAbgleichLauf = lauf;
+  lauf.p = (async function(){
+    var erg;
+    try {
+      try { if (typeof _gsOrigSyncOnLogin === 'function') erg = await _gsOrigSyncOnLogin(anlass); } catch(_){}
+      lauf.ergebnis = erg;
+      var voll = (erg === 'voll') || (erg === undefined && !ruhigGewollt);
+      try {
+        await Promise.all(voll ? [
+          gsSensorSync().catch(function(){}),
+          gsNotifPull().catch(function(){}),
+          gsPrefsPull().catch(function(){}),
+          // v23.76: Rolle vom Server pullen
+          gsSyncUserRole().catch(function(){}),
+          // v23.77: Globalen API-Key pullen (admin → alle)
+          gsPullGlobalApiKey().catch(function(){})
+        ] : [
+          // Die Glocke — ausser sie wurde in den letzten Sekunden schon geholt (der Glocken-Zuhoerer bei der Rueckkehr
+          // in den Vordergrund ist schneller als die drei Stempel). performance.now(): laeuft auch bei gestellter Uhr.
+          (function(){ var g = window._gsNotifGeholt; return (g && g.uid === uid && (performance.now() - g.t) < 8000) ? Promise.resolve() : gsNotifPull().catch(function(){}); })()
+        ]);
+      } catch(e){ console.warn('[gsSyncUserDataOnLogin-extended]', e); }
+      // Nur ein GELUNGENER voller Durchgang zaehlt als „zuletzt voll“ — nach einem Fehler bleibt der naechste Takt voll.
+      if (erg === 'voll') { try { window._gsVollPullTs = Date.now(); } catch(_){} }
+    } finally {
+      if (window._gsAbgleichLauf === lauf) window._gsAbgleichLauf = null;
+    }
+    return erg;
+  })();
+  return lauf.p;
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -95072,7 +95227,10 @@ async function gsSyncUserRole() {
     var uid = gsStore.get('gs_sb_uid', null);
     if (!uid) return null;
     var r = await sbFetch('/rest/v1/profiles?id=eq.' + uid + '&select=role,is_admin,is_expert', {method:'GET'});
-    var rows = (r && r.data && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+    // v33.80: ein Lesefehler ist keine Antwort. Vorher fiel der Spiegel bei jedem Netzfehler auf 'user' — ohne
+    // Empfang verlor ein Konto mit Rolle sie im Spiegel spaetestens beim naechsten Takt (sync_check H15c).
+    if (!r || r.error || !Array.isArray(r.data)) return null;
+    var rows = r.data;
     var role = (rows[0] && rows[0].role) ? rows[0].role : 'user';
     localStorage.setItem('gs_user_role', role);
     // v32.74 (Audit A6): `gs_is_admin` ist der Spiegel von is_admin_user() —

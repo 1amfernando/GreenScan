@@ -1257,6 +1257,249 @@ const melde = (frage, ok, wie) => {
         : f.join(' · '));
   }
 
+  // ── SPEICHER-V2 Scheibe 5 · der ruhige Abgleich ─────────────────────────────────────────────
+  // Gemessen am 24.11.2026 (v33.77): der 2-Minuten-Pull rief den GANZEN Anmelde-Abgleich — 11 bis 12
+  // Anfragen je Durchgang, drei davon ganze Blobs, 36 Durchgaenge je sichtbarer Stunde. Hier antwortet die
+  // Attrappe wie PostgREST: sie liefert NUR die Spalten aus `select=` (wer `data` aus einer Stempel-Antwort
+  // laese, bekaeme nichts) und sie zaehlt jede Anfrage. Gefahren wird der echte Weg: gsSyncPullNow('periodic')
+  // und ein echtes visibilitychange — nicht die Rechnung dahinter.
+  const h15 = await page.evaluate(async () => {
+    const raus = {};
+    const warte = (ms) => new Promise(r2 => setTimeout(r2, ms));
+    const echt = { fetch: window.sbFetch, login: window.sbIsLoggedIn, raw: window.fetch, toast: window.showProfileToast, agent: window.gsAgentScheduleNotifications, snap: window._gsSnapshotAuto };
+    const exp0 = localStorage.getItem('gs_sb_expires'), tok0 = localStorage.getItem('gs_sb_token');
+    const rolle0 = localStorage.getItem('gs_user_role');
+    const BLOB = { user_plants: 1, user_gardens: 1, user_app_state: 1 };
+    const cloud = {};
+    const anfragen = [];
+    let nr = 0, stoer = null, bremse = 0;
+    const stempel = () => '2026-11-21T08:00:' + String(10 + (++nr)) + '.123456+00:00';
+    const nimm = (tab, body) => { try { cloud[tab] = { data: JSON.parse(body).data, updated_at: stempel() }; } catch (_) {} };
+    window.sbFetch = async function (pfad, opts) {
+      opts = opts || {}; const m = (opts.method || 'GET').toUpperCase();
+      const p = String(pfad);
+      const tab = (p.match(/\/rest\/v1\/(?:rpc\/)?([A-Za-z_0-9]+)/) || [])[1] || p;
+      const sel = decodeURIComponent((p.match(/[?&]select=([^&]*)/) || [])[1] || '');
+      anfragen.push({ tab: tab, sel: sel, m: m });
+      if (bremse) await warte(bremse);
+      if (stoer) { const r = stoer(tab, sel, m); if (r) return r; }
+      if (BLOB[tab] && (m === 'POST' || m === 'PATCH')) { nimm(tab, opts.body); return { data: [{}], error: null, status: 200 }; }
+      if (BLOB[tab] && m === 'GET') {
+        const z = cloud[tab]; if (!z) return { data: [], error: null, status: 200 };
+        const nur = {}; (sel || 'data,updated_at').split(',').forEach(c => { if (c in z) nur[c] = z[c]; });
+        return { data: [JSON.parse(JSON.stringify(nur))], error: null, status: 200 };
+      }
+      if (tab === 'is_admin_user') return { data: false, error: null, status: 200 };
+      return { data: [], error: null, status: 200 };
+    };
+    window.fetch = async function (url, opts) {
+      const tab = (String(url).match(/\/rest\/v1\/(user_plants|user_gardens|user_app_state)/) || [])[1];
+      if (tab && opts && opts.body) { anfragen.push({ tab: tab, sel: '', m: 'POST', roh: true }); nimm(tab, opts.body); return new Response('[{}]', { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+      return echt.raw.apply(this, arguments);
+    };
+    window.sbIsLoggedIn = () => true;
+    window.showProfileToast = () => {};
+    window.gsAgentScheduleNotifications = async () => {};
+    window._gsSnapshotAuto = function () {};   // das Backup hat seinen eigenen Pruefstand; hier zaehlen die Abgleich-Anfragen
+    localStorage.setItem('gs_sb_expires', String(Date.now() + 3600e3));
+    if (!tok0) localStorage.setItem('gs_sb_token', 'x.y.z');
+    // Die zwei Takte der App duerfen nicht in die Zaehlung laufen.
+    try { clearInterval(window._gsConstPullInterval); clearInterval(window._gsAutoSyncInterval); } catch (_) {}
+    try { if (typeof _gsSetupConstantSync === 'function') { _gsSetupConstantSync(); clearInterval(window._gsConstPullInterval); } } catch (_) {}
+    const lies = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+    const kurz = () => anfragen.map(a => a.tab + (BLOB[a.tab] && a.m === 'GET' ? '[' + a.sel + ']' : (a.m !== 'GET' && BLOB[a.tab] ? '<' + a.m + '>' : ''))).sort().join(' ');
+    const zahl = (f) => anfragen.filter(f).length;
+    const mess = () => ({
+      alle: anfragen.length, liste: kurz(),
+      stempel: zahl(a => BLOB[a.tab] && a.m === 'GET' && a.sel === 'updated_at'),
+      blobs: zahl(a => BLOB[a.tab] && a.m === 'GET' && /(^|,)data(,|$)/.test(a.sel)),
+      neben: zahl(a => /^(garden_diary|garden_harvests|user_scans|user_preferences|profiles|sensor_devices|is_admin_user|fn_get_global_api_key)$/.test(a.tab)),
+      glocke: zahl(a => a.tab === 'notifications'),
+      hoch: zahl(a => BLOB[a.tab] && a.m !== 'GET'),
+    });
+    // Ein Takt „zwei Minuten spaeter“: die Sperrfrist des Pulls und das Frische-Fenster der Glocke (8 s) sind abgelaufen.
+    const takt = async () => { anfragen.length = 0; window._gsLastPullTs = 0; window._gsNotifGeholt = null; await gsSyncPullNow('periodic'); await warte(120); return mess(); };
+    try {
+      const T0 = 1767225600000;
+      cloud.user_app_state = { data: { favs: ['a1', 'b2'] }, updated_at: stempel() };
+      cloud.user_gardens = { data: { gardens: [{ id: 'g_h15', name: 'Hochbeet', geaendert: T0 }], plantings: [], plans: [], current: null, gpx_tracks: [] }, updated_at: stempel() };
+      cloud.user_plants = { data: { plants: [{ id: 'p_h15', name: 'Tomate', geaendert: T0 }, { id: 'p_bleibt', name: 'Basilikum', geaendert: T0 }], diary: [], dead_plants: [], seed_inventory: [] }, updated_at: stempel() };
+      ['gs_sync_dirty', 'gs_sync_dirty_at_garden', 'gs_sync_dirty_at_state', 'gs_sync_dirty_at_plants', 'gs_garden_plan_current', 'gs_geloescht', 'gs_garden_plans', 'gs_gpx_tracks',
+        'ps_favs', 'ps_myplants', 'gs_gardens', 'gs_plantings', 'gs_gartentagebuch', 'gs_dead_plants', 'gs_seed_inventory'].forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('gs_sb_uid', 'nutzer-H15'); localStorage.setItem('gs_last_active_uid', 'nutzer-H15');
+      try { myPlants = []; gardens = []; plantings = []; favs = []; } catch (_) {}
+      window._gsBlobGelesen = {}; window._gsInitialSyncDone = false; window._gsBlobStempel = null; window._gsVollPullTs = 0; window._gsAbgleichLauf = null;
+      window._gsPullInFlight = false; window._gsSyncPullInProgress = false; window._gsPullTiefe = 0; window._gsNotifLastVisPull = 0;
+
+      // (1) Der erste Abgleich der Sitzung ist voll — wie bei der Anmeldung.
+      anfragen.length = 0;
+      await gsSyncUserDataOnLogin(); await warte(900);
+      raus.erst = mess();
+      raus.erstDa = lies('ps_favs').join(',') + ' | ' + lies('ps_myplants').map(x => x.id).sort().join(',') + ' | ' + lies('gs_gardens').map(x => x.id).join(',');
+
+      // (2) Der Takt ohne jede Aenderung: drei Stempel und die Glocke — sonst nichts.
+      raus.ruhig = await takt();
+      raus.ruhig2 = await takt();
+
+      // (3) Ein ANDERES Geraet hat den state-Blob geschrieben: alles wird geladen, und der neue Stand ist da.
+      cloud.user_app_state = { data: { favs: ['a1', 'b2', 'c3'] }, updated_at: stempel() };
+      raus.fremd = await takt();
+      raus.fremdDa = lies('ps_favs').join(',');
+      raus.nachFremd = await takt();
+
+      // (4) Eine Loeschmarke im state-Blob, der Pflanzen-Blob selbst ist UNVERAENDERT: der Eintrag geht trotzdem.
+      cloud.user_app_state = { data: { favs: ['a1', 'b2', 'c3'], geloescht: { ps_myplants: { p_h15: Date.now() } } }, updated_at: stempel() };
+      raus.marke = await takt();
+      await warte(900);
+      raus.markeDa = lies('ps_myplants').map(x => x.id).sort().join(',');
+      await takt(); await warte(600); await takt();   // was die Marke an Nachzug ausloest, darf sich setzen
+
+      // (5) Ein Stempel-Abruf scheitert: nichts wird geladen, nichts als „gelesen“ genommen, das Geraet bleibt wie es ist.
+      const favsVor = lies('ps_favs').join(',');
+      cloud.user_app_state = { data: { favs: ['zz9'] }, updated_at: stempel() };
+      stoer = (tab, sel, m) => (tab === 'user_gardens' && m === 'GET') ? { data: null, error: { message: 'HTTP 503', status: 503 }, status: 503 } : null;
+      raus.fehler503 = await takt();
+      raus.fehlerDa = lies('ps_favs').join(',') === favsVor ? 'unveraendert' : lies('ps_favs').join(',');
+      stoer = null;
+      raus.nachFehler = await takt();
+      raus.nachFehlerDa = lies('ps_favs').join(',');
+
+      // (6) Eine Zeile ohne Stempel ist nie „gleich“.
+      const merk = cloud.user_plants.updated_at;
+      await takt();
+      stoer = (tab, sel, m) => (tab === 'user_plants' && m === 'GET' && sel === 'updated_at') ? { data: [{ updated_at: null }], error: null, status: 200 } : null;
+      raus.ohneStempel = await takt();
+      stoer = null; cloud.user_plants.updated_at = merk;
+      await takt();
+
+      // (7) Ein EIGENER Push aendert den Stempel: die Blobs werden einmal nachgelesen, die Neben-Tabellen nicht.
+      await takt();
+      localStorage.setItem('ps_favs', JSON.stringify(['zz9', 'eigen']));
+      try { favs = ['zz9', 'eigen']; } catch (_) {}
+      gsCloudSync.markDirty('state');
+      await warte(1500);
+      raus.eigenCloud = ((cloud.user_app_state.data || {}).favs || []).join(',');
+      raus.eigen = await takt();
+      raus.eigenDa = lies('ps_favs').join(',');
+      raus.nachEigen = await takt();
+
+      // (8) Ungesendet bei gleichem Stempel: der ruhige Durchgang nimmt nichts zurueck und haelt den Push nicht auf.
+      await takt();
+      window._gsSyncPullInProgress = true;                // wie mitten in einem Pull: nur vormerken, nicht senden
+      localStorage.setItem('ps_favs', JSON.stringify(['zz9', 'eigen', 'offen']));
+      try { favs = ['zz9', 'eigen', 'offen']; } catch (_) {}
+      try { localStorage.setItem('gs_sync_dirty_at_state', new Date().toISOString()); const dd = JSON.parse(localStorage.getItem('gs_sync_dirty') || '{}'); dd.state = true; localStorage.setItem('gs_sync_dirty', JSON.stringify(dd)); } catch (_) {}
+      window._gsSyncPullInProgress = false;
+      raus.offen = await takt();
+      await warte(1200);
+      raus.offenDa = lies('ps_favs').join(',');
+      raus.offenCloud = ((cloud.user_app_state.data || {}).favs || []).join(',');
+      await takt(); await takt();
+
+      // (9) Nach laengerer Zeit ohne vollen Durchgang kommen die Neben-Tabellen wieder mit — die Blobs bleiben beim Stempel.
+      window._gsVollPullTs = Date.now() - 16 * 60 * 1000;
+      raus.alt = await takt();
+      raus.nachAlt = await takt();
+
+      // (10) Der Draht: ein echtes visibilitychange (zurueck im Vordergrund) ist ebenfalls ruhig, und die Glocke wird EINMAL geholt.
+      anfragen.length = 0; window._gsLastPullTs = 0; window._gsNotifLastVisPull = 0; window._gsNotifGeholt = null;
+      document.dispatchEvent(new Event('visibilitychange'));
+      await warte(700);
+      raus.sicht = mess();
+
+      // (11) Die Laufsperre: zwei Abgleiche, die sich ueberlappen, lassen danach keinen Takt haengen.
+      bremse = 15;
+      window._gsBlobGelesen = {}; window._gsInitialSyncDone = false;
+      anfragen.length = 0;
+      await Promise.all([gsSyncUserDataOnLogin(), gsSyncUserDataOnLogin()]); await warte(400);
+      raus.doppel = mess();
+      raus.doppelFlag = (window._gsPullInFlight === true || window._gsSyncPullInProgress === true) ? 'haengt' : 'frei';
+      raus.nachDoppel = await takt();
+      anfragen.length = 0; window._gsLastPullTs = 0;
+      await Promise.all([gsSyncPullNow('periodic'), gsSyncUserDataOnLogin()]); await warte(400);
+      raus.gemischtFlag = (window._gsPullInFlight === true || window._gsSyncPullInProgress === true) ? 'haengt' : 'frei';
+      raus.nachGemischt = await takt();
+      bremse = 0;
+
+      // (12) Die Rolle: ein Lesefehler macht aus „expert“ kein „user“; eine Antwort gilt.
+      localStorage.setItem('gs_user_role', 'expert');
+      stoer = (tab) => tab === 'profiles' ? { data: null, error: { message: 'Failed to fetch', status: 0 }, status: 0 } : null;
+      await gsSyncUserRole();
+      raus.rolleFehler = localStorage.getItem('gs_user_role');
+      stoer = (tab) => tab === 'profiles' ? { data: [{ role: 'staff', is_admin: false, is_expert: true }], error: null, status: 200 } : null;
+      await gsSyncUserRole();
+      raus.rolleAntwort = localStorage.getItem('gs_user_role');
+      stoer = (tab) => tab === 'profiles' ? { data: [], error: null, status: 200 } : null;
+      await gsSyncUserRole();
+      raus.rolleLeer = localStorage.getItem('gs_user_role');
+      stoer = null;
+    } catch (e) { raus.ausnahme = String(e && e.stack || e).split('\n').slice(0, 3).join(' | '); }
+    finally {
+      window.sbFetch = echt.fetch; window.sbIsLoggedIn = echt.login; window.fetch = echt.raw; window.showProfileToast = echt.toast; window.gsAgentScheduleNotifications = echt.agent; window._gsSnapshotAuto = echt.snap;
+      ['gs_geloescht', 'gs_sync_dirty', 'gs_sync_dirty_at_garden', 'gs_sync_dirty_at_state', 'gs_sync_dirty_at_plants'].forEach(k => localStorage.removeItem(k));
+      if (exp0 == null) localStorage.removeItem('gs_sb_expires'); else localStorage.setItem('gs_sb_expires', exp0);
+      if (tok0 == null) localStorage.removeItem('gs_sb_token');
+      if (rolle0 == null) localStorage.removeItem('gs_user_role'); else localStorage.setItem('gs_user_role', rolle0);
+      window._gsPullInFlight = false; window._gsSyncPullInProgress = false; window._gsPullTiefe = 0;
+    }
+    return raus;
+  });
+  {
+    const S = (o) => JSON.stringify(o);
+    const RUHIG = 'notifications user_app_state[updated_at] user_gardens[updated_at] user_plants[updated_at]';
+    const istRuhig = (m) => !!m && m.liste === RUHIG;
+    const f = [];
+    if (h15.ausnahme) f.push('Ausnahme: ' + h15.ausnahme);
+    else {
+      if (!h15.erst || h15.erst.blobs !== 3 || h15.erst.neben < 5) f.push('(1) der erste Abgleich ist nicht voll: ' + S(h15.erst));
+      if (h15.erstDa !== 'a1,b2 | p_bleibt,p_h15 | g_h15') f.push('(1) nach dem ersten Abgleich fehlt etwas auf dem Geraet: „' + h15.erstDa + '“');
+      if (!istRuhig(h15.ruhig) || !istRuhig(h15.ruhig2)) f.push('(2) der Takt ohne Aenderung stellt nicht GENAU drei Stempel-Anfragen und die Glocke: ' + (h15.ruhig && h15.ruhig.alle) + ' Anfragen — ' + (h15.ruhig && h15.ruhig.liste));
+      if (!h15.fremd || h15.fremd.stempel !== 3 || h15.fremd.blobs !== 3 || h15.fremd.neben < 3) f.push('(3) fremde Aenderung: erwartet drei Stempel, drei Blobs und die Neben-Tabellen — ' + S(h15.fremd));
+      if (h15.fremdDa !== 'a1,b2,c3') f.push('(3) der Stand des anderen Geraets ist nicht da: „' + h15.fremdDa + '“');
+      if (!istRuhig(h15.nachFremd)) f.push('(3) nach dem Nachladen ist der Takt nicht wieder ruhig: ' + (h15.nachFremd && h15.nachFremd.liste));
+      if (!h15.marke || h15.marke.blobs !== 3) f.push('(4) Loeschmarke: es wurden nicht alle drei Blobs gelesen (' + S(h15.marke) + ')');
+      if (h15.markeDa !== 'p_bleibt') f.push('(4) Loeschmarke im state-Blob, Pflanzen-Blob unveraendert: erwartet nur „p_bleibt“, gemessen „' + h15.markeDa + '“');
+      if (!h15.fehler503 || h15.fehler503.blobs !== 0 || h15.fehler503.hoch !== 0) f.push('(5) gescheiterter Stempel-Abruf: es wurde trotzdem geladen oder hochgeschoben — ' + S(h15.fehler503));
+      if (h15.fehlerDa !== 'unveraendert') f.push('(5) gescheiterter Stempel-Abruf: das Geraet hat sich geaendert („' + h15.fehlerDa + '“)');
+      if (!h15.nachFehler || h15.nachFehler.blobs !== 3 || h15.nachFehlerDa !== 'zz9') f.push('(5) nach dem Fehler holt der naechste Takt den neuen Stand nicht nach: ' + S(h15.nachFehler) + ' · „' + h15.nachFehlerDa + '“');
+      if (!h15.ohneStempel || h15.ohneStempel.blobs !== 3) f.push('(6) eine Zeile ohne Stempel galt als „gleich“: ' + S(h15.ohneStempel));
+      if (h15.eigenCloud !== 'zz9,eigen') f.push('(7) der eigene Push kam nicht an: „' + h15.eigenCloud + '“');
+      if (!h15.eigen || h15.eigen.blobs !== 3 || h15.eigen.neben !== 0) f.push('(7) nach dem EIGENEN Push: erwartet drei Blobs und KEINE Neben-Tabelle — ' + S(h15.eigen));
+      if (h15.eigenDa !== 'zz9,eigen' || !istRuhig(h15.nachEigen)) f.push('(7) nach dem eigenen Push: Stand „' + h15.eigenDa + '“, danach ' + (h15.nachEigen && h15.nachEigen.liste));
+      if (h15.offenDa !== 'zz9,eigen,offen' || h15.offenCloud !== 'zz9,eigen,offen') f.push('(8) ungesendet bei gleichem Stempel: Geraet „' + h15.offenDa + '“, Cloud „' + h15.offenCloud + '“ — erwartet beide „zz9,eigen,offen“');
+      if (!h15.offen || h15.offen.blobs !== 0) f.push('(8) ungesendet bei gleichem Stempel: der Takt hat Blobs geladen (' + S(h15.offen) + ')');
+      if (!h15.alt || h15.alt.stempel !== 3 || h15.alt.blobs !== 0 || h15.alt.neben < 5) f.push('(9) nach 16 Minuten ohne vollen Durchgang: erwartet drei Stempel, keinen Blob und die Neben-Tabellen — ' + S(h15.alt));
+      if (!istRuhig(h15.nachAlt)) f.push('(9) danach ist der Takt nicht wieder ruhig: ' + (h15.nachAlt && h15.nachAlt.liste));
+      if (!h15.sicht || h15.sicht.stempel !== 3 || h15.sicht.blobs !== 0 || h15.sicht.neben !== 0 || h15.sicht.glocke !== 1) f.push('(10) zurueck im Vordergrund: erwartet drei Stempel, keinen Blob, keine Neben-Tabelle, die Glocke einmal — ' + S(h15.sicht));
+    }
+    melde('H15 · Ruhiger Abgleich: der Takt holt drei Stempel und die Glocke und laedt einen Blob nur, wenn sich einer geaendert hat — und alles, was am vollen Durchgang hing, gilt weiter (fremde Aenderung, Loeschmarke, Lesefehler, eigener Push, ungesendeter Stand, laengere Zeit, zurueck im Vordergrund)',
+      f.length === 0,
+      f.length === 0 ? 'erster Abgleich ' + h15.erst.alle + ' Anfragen · Takt ohne Aenderung ' + h15.ruhig.alle + ' · fremde Aenderung ' + h15.fremd.alle + ' · eigener Push ' + h15.eigen.alle + ' · nach 16 min ' + h15.alt.alle + ' · Vordergrund ' + h15.sicht.alle
+        : f.join(' · '));
+    const g = [];
+    if (h15.ausnahme) g.push('Ausnahme: ' + h15.ausnahme);
+    else {
+      if (h15.doppelFlag !== 'frei') g.push('nach zwei ueberlappenden Abgleichen bleibt die Pull-Sperre gesetzt');
+      if (!h15.doppel || h15.doppel.blobs !== 3) g.push('zwei ueberlappende Abgleiche lasen die Blobs ' + (h15.doppel && h15.doppel.blobs) + '-mal statt 3-mal (ein Lauf wird geteilt)');
+      if (!h15.nachDoppel || h15.nachDoppel.alle === 0) g.push('der Takt danach stellt keine Anfrage mehr (die Sperre haengt)');
+      if (h15.gemischtFlag !== 'frei') g.push('Takt und direkter Abgleich zugleich: die Pull-Sperre bleibt gesetzt');
+      if (!h15.nachGemischt || h15.nachGemischt.alle === 0) g.push('nach Takt + direktem Abgleich stellt der naechste Takt keine Anfrage mehr');
+    }
+    melde('H15b · Zwei Abgleiche, die sich ueberlappen (Start und Rueckkehr in den Vordergrund, Takt und „Jetzt abgleichen“), teilen EINEN Lauf — und danach haengt keine Sperre: der naechste Takt fragt wieder',
+      g.length === 0,
+      g.length === 0 ? 'Sperre frei · Blobs einmal gelesen (' + h15.doppel.blobs + ') · Takt danach ' + h15.nachDoppel.alle + ' Anfragen' : g.join(' · '));
+    const r = [];
+    if (h15.ausnahme) r.push('Ausnahme: ' + h15.ausnahme);
+    else {
+      if (h15.rolleFehler !== 'expert') r.push('ein Lesefehler machte aus „expert“ „' + h15.rolleFehler + '“');
+      if (h15.rolleAntwort !== 'staff') r.push('eine Antwort mit Rolle „staff“ ergab „' + h15.rolleAntwort + '“');
+      if (h15.rolleLeer !== 'user') r.push('eine Antwort ohne Zeile ergab „' + h15.rolleLeer + '“ statt „user“');
+    }
+    melde('H15c · Die Rolle im Spiegel: ein Lesefehler (kein Empfang) aendert sie nicht — nur eine Antwort des Servers',
+      r.length === 0,
+      r.length === 0 ? 'Fehler → „expert“ bleibt · Antwort → „staff“ · keine Zeile → „user“' : r.join(' · '));
+  }
+
   // ── SPEICHER-V2 Scheibe 3 · die Fakten fuer den Fall „Register“ (gelesen, solange die Seite lebt) ──
   const regFakten = await page.evaluate((proben) => {
     const raus = { fehler: null };
@@ -1493,7 +1736,7 @@ const melde = (frage, ok, wie) => {
       : 'ungeprüft, weil kein Probewert eingetragen: ' + ohneProbe.join(', '));
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 26 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 29 · davon rot: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (fehler.length ? fehler.slice(0, 3).join(' | ') : 'keine'));
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;
 })();
