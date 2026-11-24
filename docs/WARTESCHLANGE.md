@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 16:42 UTC · `main` = `bbb5b26` (**v33.73**, #346) · #347 Hauptfunktionen (Kopf `9e0cc7a`, Baum gegen das neue main unverändert → die CI seit 16:17 gilt 1:1) wartet auf grün + Leser, Merge als MERGE-COMMIT · danach Sicherheit v33.75 (kb) · danach Hauptfunktionen „Suche 11“ v33.76 (kc).
+**Stand:** 24.11.2026, 16:50 UTC · `main` = `bbb5b26` (**v33.73**, #346) · #347 Hauptfunktionen: zwei Leser fanden zwei bestätigte Mängel am Kopf `9e0cc7a` (Bindestrich-Slugs im Pilz-Register, falscher Lina-Aus-Satz) — Hauptfunktionen pusht EINEN Fix-Commit, danach neue CI (ca. 38 min), Merge als MERGE-COMMIT · Sicherheit stapelt erst auf den neuen Kopf (SHA kommt vom Koordinator) · danach „Suche 11“ v33.76 (kc).
 
 ## 1 · Warum es schneller wird
 
@@ -43,8 +43,8 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 | 1 | Hauptfunktionen (Pilz · Wissen · Lina 9) | `claude/happy-thompson-24l4uu` | **v33.71** | (js) · (jt) · (ju) | **GEMERGT** als `7ca6a19` (#343) |
 | 2 | Audit | `ccr-dce5a17c-2xzhvi` | **v33.72** | (jv) | **GEMERGT** als Merge-Commit `06daf91` (#344; CI auf 440f9e5 grün, Baum identisch) |
 | 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | **v33.73** | (jw) | **GEMERGT** als Merge-Commit `bbb5b26` (#346; CI auf 24dd782 grün, Baum identisch); der Proxy-Teil gehört Fernando (FUER-FERNANDO §33) |
-| 4 | Hauptfunktionen · Lina · Einblick ehrlich + Scanner 12 + Pilz-Verwechsler (EIN Kopf) | `claude/happy-thompson-24l4uu` | v33.74 | (jx) · (jy) · (jz) · (ka) | PR **#347**, Kopf **`9e0cc7a`** (eingefroren), CI läuft seit 16:17; lokale Prüfstände grün; drei Leser prüfen read-only (Scanner/Pilz · Lina „Aus“ · Regression) |
-| 5 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.75 | (kb) | Scheibe 1 fertig; stapelt auf `9e0cc7a` (Kopf von Nr. 4), Bump von Hand (`_bump.js` trippt auf dem Stapel) |
+| 4 | Hauptfunktionen · Lina · Einblick ehrlich + Scanner 12 + Pilz-Verwechsler (EIN Kopf) | `claude/happy-thompson-24l4uu` | v33.74 | (jx) · (jy) · (jz) · (ka) | PR **#347**, Kopf `9e0cc7a` + ein Fix-Commit (A Bindestrich-Slugs · B Lina-„Aus“ ehrlich · C keine positiven Marken am Verwechsler); neue CI nach dem Push |
+| 5 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.75 | (kb) | Scheibe 1 fertig; stapelt auf den Fix-Kopf von Nr. 4 (SHA kommt vom Koordinator; nichts pushen, was auf 9e0cc7a aufbaut), Bump von Hand (`_bump.js` trippt auf dem Stapel) |
 | 6 | Hauptfunktionen · Suche 11 (Vorschläge beim Anlegen wie die Artensuche, „⚠️ giftig“ je Art) | `claude/happy-thompson-24l4uu` | v33.76 | (kc) | baut lokal; pusht erst auf den Kopf von Nr. 5, wenn der Koordinator ihn meldet; Bärlauch/Maiglöckchen-Gegenprobe Pflicht |
 | – | Brett (#341) | `ccr-b63433a4-d1xgyg` | – | – | enthält `.github/workflows/*` und `docs/AGENTEN-NETZ.md` → Fernando; der Werkzeug-Teil kommt als eigener PR |
 
