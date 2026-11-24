@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-24-bc4f",
+  "art": "befund",
+  "datum": "2026-11-24",
+  "zeit": "15:59:08",
+  "von": "sitzung/lokal/pilz-vergleich",
+  "stand": "v33.71",
+  "titel": "Regionaler Pilz-Hinweis (gsAttachMushroomLookalikeWarn): die Doppelgänger stehen als Slug da — „amanita phalloides vs. russula virescens“, ohne deutschen Namen und ohne Essbarkeit",
+  "vorschlag": "Dieselbe Quelle wie Scanner 13: _gsPilzRegister(slugs) und _gsMushName — oder _gsPilzVerwechsler je Paar; ein Fall in scan_check mit Slugs wie die Tabelle sie liefert",
+  "beleg": [
+    "Beim Suchen nach Geschwistern zu 3aa8 (24.11.2026, nur gelesen): gsAttachMushroomLookalikeWarn liest mushroom_lookalikes (nur Slugs) und zeigt in der Warnung und in der Liste String(l.edible_slug).replace(/_/g,' ') — kleingeschriebenes Latein, keine Namen aus dem Register, keine Essbarkeit. Der Steckbrief (Zeile mit otherSlugs) löst die Namen über das Register auf; das Pilz-Ergebnis seit Scanner 13 über _gsPilzRegister. Nicht gemessen am Bildschirm (kein Fall), nur am Quelltext."
+  ],
+  "stichworte": [
+    "pilz-scanner",
+    "verwechsler",
+    "register",
+    "pilzkalender"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "escHtml(String(l.edible_slug).replace(/_/g,' ')) + ' vs. ' + escHtml(String(l.lookalike_slug).replace(/_/g,' '))"
+    }
+  ]
+}

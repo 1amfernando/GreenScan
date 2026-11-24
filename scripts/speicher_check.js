@@ -78,6 +78,30 @@ const FAELLE = [
     },
   },
   {
+    // Brett 2026-11-24-6bbf: gsLinaEinblickSchalten las die Rückgabe von setItem nicht — bei vollem Speicher blieb
+    // der Einblick still AN, und Linas Kontext trug weiter Pflanzen, Ort und Geräte zur KI. Jetzt gilt „aus" bis
+    // zum Neuladen (_gsLinaEinblickSitzung), und ein Satz sagt es.
+    name: 'Lina · Einblick ausschalten · gilt bis zum Neuladen, und ein Satz sagt es',
+    lauf: () => {
+      if (typeof gsLinaEinblickSchalten !== 'function') return { ok: false, warum: 'gsLinaEinblickSchalten fehlt' };
+      try { localStorage.removeItem('gs_lina_einblick'); } catch (_) {}
+      _gsLinaEinblickSitzung = null;
+      try {
+        if (!gsLinaEinblickAn()) return { ok: false, warum: 'der Einblick war schon aus — Fall nicht hergestellt' };
+        __voll(true); gsLinaEinblickSchalten(); __voll(false);
+        if (!__VOLL_LOG.some(k => k === 'gs_lina_einblick')) return { ok: false, warum: 'kein Schreibversuch auf gs_lina_einblick — Fall nicht hergestellt' };
+        if (gsLinaEinblickAn()) return { ok: false, warum: 'der Einblick bleibt an — das Ausschalten scheiterte still' };
+        if (!__TOASTS.some(t => /Speicher/.test(t) && /neu lädt/.test(t))) return { ok: false, warum: 'keine Meldung an die Person: ' + JSON.stringify(__TOASTS.slice(0, 2)) };
+        if (/^Braucht Hilfe|Region:|Pflanze\(n\) in GreenScan/m.test(gsLinaContext('Wie geht es meinen Pflanzen?'))) return { ok: false, warum: 'die Daten gehen trotzdem an die KI' };
+        return { ok: true, info: 'aus bis zum Neuladen · Meldung da · nichts aus den Daten an die KI' };
+      } finally {
+        __voll(false); _gsLinaEinblickSitzung = null;
+        try { localStorage.removeItem('gs_lina_einblick'); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
     name: 'Arten-Korrektur-Warteschlange · false, kein stilles „eingereiht"',
     lauf: () => {
       if (typeof _gsKorrekturEinreihen !== 'function') return { ok: false, warum: '_gsKorrekturEinreihen fehlt' };
@@ -394,6 +418,45 @@ const FAELLE = [
       p.tasks.water.lastDone = ld; if (p.diary && p.diary.length > dn) p.diary.splice(0, p.diary.length - dn); savePlantsToStorage();
       if (!ok2) return { ok: false, warum: 'mit Platz nicht erledigt (Rückgabe ' + JSON.stringify(r2) + ')' };
       return { ok: true, info: 'voll → unverändert + Satz + false · mit Platz → erledigt + true' };
+    },
+  },
+  {
+    // SPEICHER-V2 Scheibe 2: gsAddDiaryEntry las die Rueckgabe von savePlantsToStorage nicht — bei vollem
+    // Speicher stand „📓 Eintrag gespeichert" da, das Fenster wurde neu gezeichnet (die Eingabe war weg),
+    // und nach dem naechsten Start fehlte der Eintrag.
+    name: 'Tagebuch-Eintrag an einer Pflanze (gsAddDiaryEntry) bei vollem Speicher: kein Eintrag, kein „gespeichert", die Notiz steht noch im Formular — mit Platz genau einer',
+    lauf: async () => {
+      const p = { id: 'mp_tb_probe', name: 'Probe-Efeu', emoji: '🌿', water: 2, sun: 2, notes: '', diary: [], added: new Date().toISOString(), tasks: {} };
+      myPlants.push(p);
+      const f = [];
+      try {
+        openPlantDiary(p.id);
+        const feld = () => document.getElementById('diary-note');
+        if (!feld()) return { ok: false, warum: 'Fall nicht hergestellt: kein Notizfeld' };
+        feld().value = 'Blattläuse entdeckt';
+        window.__TOASTS = [];
+        __voll(true); const r = await gsAddDiaryEntry(p.id); __voll(false);
+        if (!__VOLL_LOG.some(k => k === 'ps_myplants')) f.push('Fall nicht hergestellt: kein Schreibversuch');
+        if ((p.diary || []).length !== 0) f.push('der Eintrag steht in der Liste, obwohl nichts gespeichert wurde');
+        if (__TOASTS.some(t => /Eintrag gespeichert/.test(t))) f.push('meldet „Eintrag gespeichert" für nichts');
+        if (!__TOASTS.some(t => /Speicher ist voll|nicht gespeichert/i.test(t))) f.push('kein Satz: ' + JSON.stringify(__TOASTS.slice(0, 2)));
+        if (!feld() || feld().value !== 'Blattläuse entdeckt') f.push('die Notiz ist aus dem Formular verschwunden');
+        if (r !== false) f.push('Rückgabe ' + JSON.stringify(r) + ' statt false');
+        if (f.length) return { ok: false, warum: f.join(' · ') };
+        window.__TOASTS = [];
+        // Die Doppelklick-Sperre (600 ms) wird hier GELÖST statt abgewartet: in dieser Seite laufen Zeitgeber
+        // früherer Fälle, die dynamische Fenster abräumen (gemessen: auf einer frischen Seite bleibt das
+        // Fenster stehen, hier war es nach 700 ms weg) — ein Warten mässe den Nachbarfall, nicht diesen.
+        try { delete window._gsAsyncLocks['diaryAdd_' + p.id]; } catch (_) {}
+        const r2 = await gsAddDiaryEntry(p.id);
+        if ((p.diary || []).length !== 1 || r2 !== true) return { ok: false, warum: 'mit Platz: ' + (p.diary || []).length + ' Einträge, Rückgabe ' + JSON.stringify(r2) + ' · ' + JSON.stringify(__TOASTS.slice(0, 2)) };
+        return { ok: true, info: 'voll → kein Eintrag + Satz + false, Notiz bleibt im Formular · mit Platz → 1 Eintrag + true' };
+      } finally {
+        __voll(false);
+        try { const m = document.getElementById('plant-diary-modal'); if (m) m.remove(); } catch (_) {}
+        const i = myPlants.indexOf(p); if (i >= 0) myPlants.splice(i, 1);
+        try { savePlantsToStorage(); } catch (_) {}
+      }
     },
   },
   {

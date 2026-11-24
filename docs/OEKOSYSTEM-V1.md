@@ -374,7 +374,7 @@ nächste Sitzung nicht rät:
 
 Speicher: `gs_geraete`, `gs_geraete_regeln`, `gs_messwerte` → `GS_USER_KEYS`
 (gehen beim Abmelden); `gs_metric_catalog` → `GS_KEEP_ON_LOGOUT` (öffentlich).
-`gs_geraete` und `gs_geraete_regeln` reisen im `state`-Blob (klein);
+`gs_geraete` und `gs_geraete_regeln` sollten im `state`-Blob reisen (klein) — *berichtigt am 24.11.2026: sie tun es NICHT; gebaut wurde nur der Rückweg (`stateMap`), nie der Hinweg (`_buildStateBlob`). Als ganze Liste dürfen sie auch nicht reisen (ein Gerät ersetzte die Geräte des anderen); die Regel je Eintrag ist `docs/SPEICHER-V2.md` Scheibe 4, und `sync_check` „Kein Rueckweg ohne Hinweg“ führt beide als „reist noch nicht“*;
 `gs_messwerte` **nicht** — dafür ist die Tabelle da (Stufe 1). Kalender:
 Messwerte von Hand sind Ereignisse der Art `messung`, verletzte Regeln der
 Art `alarm` (`KALENDER-V1.md` §3.4).

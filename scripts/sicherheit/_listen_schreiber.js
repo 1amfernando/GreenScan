@@ -22,6 +22,7 @@ const LOKALE_SCHREIBER = {
   'savePlantsToStorage|ps_myplants': 'schreibt die Variable myPlants — jeder fremde Eingang setzt sie gesiebt',
   'moveToCemetery|gs_dead_plants': 'eigene Pflanze in den Friedhof',
   'restoreFromCemetery|gs_dead_plants': 'eigene Pflanze aus dem Friedhof',
+  '_gsFriedhofSpeichern|gs_dead_plants': 'Foto-Ausgangskorb: traegt die Adresse eines eigenen Fotos an einer Pflanze im Friedhof nach (v33.75) — schreibt die Liste aus dem Arbeitsspeicher, nichts aus fremder Hand',
   'gsHarvestSubmit|gs_ernte_log': 'Ernte aus dem eigenen Formular',
   'gsPPsavePlan|gs_garden_plans': 'Plan aus dem eigenen Planer (KI-Teil vorher durch gsSanitizePlannerPlan)',
   'gsPPdeletePlan|gs_garden_plans': 'Loeschen aus der eigenen Liste',

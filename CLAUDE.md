@@ -325,6 +325,7 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 | Quiz-Tag | `dqDayKey()` — **UTC**, weil der Server mit `current_date` rotiert; die Anzeige der Grenze rechnet `dqNaechsteFrage()` | nie `new Date().toISOString()` je Anzeige, nie die lokale Mitternacht |
 | Pflanzen- und Gartenlisten zwischen ZWEI Geräten (seit v33.66) | `_gsMergeEintraege(lokal, cloud, {schmutzig, tomb, ohneId})` — EINE Rechnung je Eintrag nach id: der spätere `geaendert`-Stempel gewinnt, ohne Stempel oder bei Gleichstand das lokale, wenn es ungesendet (dirty) ist; einseitige Einträge bleiben, ausser eine Löschmarke (`gs_geloescht` `{liste:{id:ms}}`, 90 Tage, höchstens 300 je Liste, im state-Blob und im Snapshot, auf dem Rückweg eine VEREINIGUNG) ist jünger. Gestempelt wird an den Engpässen `savePlantsToStorage` / `saveGardenData` (`_gsStempeln`). `gsSyncUserDataOnLogin` geht für `ps_myplants`, `gs_gardens`, `gs_plantings` immer hindurch und schreibt über `_gsListeEinspielen`; nach jedem `await` gilt `_gsPerson()` | nie eine ganze Liste aus der Cloud über die lokale legen (`myPlants = pd.plants`); keine zweite Merge-Rechnung neben `_gsMergeEintraege`; Tagebuch, Ernte-Log, Friedhof und Saatgut sind NICHT gestempelt (viele Schreiber, kein Engpass — offen, STATUS (jn)) |
 | Ein Blob geht erst hoch, wenn er GELESEN wurde (seit v33.68) | `gsCloudSync._flush` schiebt `user_plants` / `user_gardens` / `user_app_state` nur, wenn `_gsInitialSyncDone` gilt oder `_gsBlobGelesen[scope]` die uid dieser Sitzung trägt (gesetzt in `gsSyncUserDataOnLogin` nach einem Lesen OHNE Fehler; 0 Zeilen zählen). Wer den Garten-Blob von Hand liest und zurückschreibt, nimmt `_gsGartenBlobLesen(r)` (da · leer · fehler · gewechselt) — nur über „da“ oder „leer“ wird geschrieben. Bei ungesendetem Stand werden Pläne und Tracks je Eintrag zusammengeführt, mit Löschmarken (`_gsLoeschmarke`, `GS_GELOESCHT_LISTEN` = die drei Stempel-Listen + `gs_garden_plans` + `gs_gpx_tracks`); ein ungesendeter state auf einem Gerät ohne `gs_sync_synced_at_state` wird je Schlüssel gemischt (`_gsStateMischen`). Ein ungelesenes Profil trägt `_ungelesen`: nichts darüber zurückschreiben, nicht als Cloud-Stand rechnen (`gsXpBootSync`), nachlesen über `_gsProfilNachlesen` | einen Lesefehler als „leer“ nehmen und dann die ganze Zeile schreiben; eine Liste je Eintrag zusammenführen, ohne zu fragen, wie ein LÖSCHEN darin überlebt (ohne Marke kommt das Gelöschte zurück — `sync_check` H10); einen Ersatzwert (xp 0) als gemessenen Stand behandeln |
+| Pflegeverlauf einer Pflanze und seine Fotos (seit v33.75) | `p.diary` hat DREI Schreiber (`gsQuickDone`, `gsDoneAllDue`, `gsAddDiaryEntry`) und EINEN Deckel: `gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit')` — die ältesten nach `_gsEintragZeit(e)` gehen ins Archiv, die Reihenfolge bleibt. Ein Foto, dessen Upload scheitert, wartet im Ausgangskorb (`gsQueuePhoto(bucket, b64, {kind:'diary', ref:'<Pflanzen-Id>\|<ts>'}, uid)`), der Eintrag trägt `gsphoto://<n>`; `_gsApplyPhotoUrl` sucht den EINTRAG nach Pflanze und Zeit (auch im Pflanzenfriedhof) und antwortet `true` · `false` (Ziel fehlt) · `'voll'` (Speicher sagte Nein — das Foto bleibt im Korb). Der Flush zählt nur eine Ablehnung des Servers als Versuch (`window._gsUploadGrund`), trägt erst nach dem ersten Abgleich nach und hebt den Änderungsstempel nicht (`_gsLeiseSpeichern` / `_gsStempelLeise`); nach acht Ablehnungen geht ein Tagebuch-Foto zurück in seinen Eintrag, jedes andere ins Archiv. Altbestand: `gsDiaryFotosNachziehen`. Die Backup-Datei trägt das Bild (`_gsBackupFotosEinbetten`) | `'head'`/`'tail'` an einer Liste mit mehr als einem Schreiber; base64 in einen Eintrag einer Liste, die im Blob reist; einen Platzhalter in Blob, Snapshot oder Datei; ein `false` von `_gsApplyPhotoUrl` als „darf weg“ lesen, ohne `'voll'` zu kennen; ein Hintergrund-Schreiber, der `geaendert` hebt (er schlägt im Zwei-Geräte-Abgleich die Arbeit eines anderen Geräts) |
 | Lernkarten („Üben") | `localStorage.gs_dq_training` über `gsTrainingLaden()` / `gsTrainingBuchen(schluessel, richtig)`; Schlüssel = normiertes Binomen + Fragetyp (die ART, nicht der Eintrag) | nie direkt schreiben — Deckel, Karteileichen-Räumung und `markDirty('state')` hängen daran; und nie `gs_dq_stats` mitzählen: Üben ist vom Tagesquiz getrennt |
 | Arten in einem FREITEXT (Lina, Chat) | `_gsArtenTreffer(text)` — ganzer Name oder ganzes Binomen an Wortgrenzen, plus das letzte Wort eines mehrteiligen Namens (≥ 10 Zeichen, gegen die deutsche Deklination); der Umgangsname zieht seine FAMILIE mit; je Art durch `_gsArtAnzeige` | nie den Vergleich aus `getSmartAnswer` nachbauen (er nimmt IRGENDEIN Wort — „braune Blätter" ergibt die Braune Krustenflechte), nie bei mehreren Arten eine auswählen (`[0]` ist die Dateireihenfolge), und nie eine Zusage geben, wenn der volle Name gar nicht in der Frage stand |
 | Quiz-Kategorie | `supabase/functions/_shared/quiz_gen_regeln.mjs` (`QUIZ_KATEGORIEN` + `QUIZ_KAT_ALIAS`), in der App gespiegelt als `GS_QUIZ_KATEGORIEN` / `GS_QUIZ_KAT_ALIAS`; angezeigt **nur** über `_gsQuizKatLabel(slug)` | nie `quiz.category` roh anzeigen (es gab 35 Schreibweisen aus drei Quellen), nie eine Kategorie erfinden — was das Vokabular nicht kennt, wird verworfen bzw. bleibt leer |
@@ -345,6 +346,7 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 | Kalenderwoche | `gsIsoKW(d)` — ISO 8601 (Montag bis Sonntag, KW 1 = die Woche mit dem ersten Donnerstag); `gsGetKW()` ist dieselbe Rechnung fuer heute | nie Sieben-Tage-Bloecke ab dem 1. Januar (2026 lag das Montag bis Mittwoch eine Woche zurueck) |
 | Fakten einer Woche | `_gsWochenFakten(kw)` — die Eintraege der Woche, sonst der Nachbarwoche (zuerst die davor), sonst die ersten zehn | kein eigener Rueckfall je Anzeige (die Liste kennt KW 1–52, die ISO-Woche 53 hat keinen Eintrag) |
 | „Steht der Anmeldebildschirm?" | `_gsAnmeldungSteht()` — `html.gs-preauth` ODER `#gs-onboarding` sichtbar | nie nur eine der beiden Bedingungen; `_gsTeilenBereit()` ist ihre Verneinung |
+| Referenzbild einer ART (seit v33.74, Scanner 12) | geholt an EINER Stelle: `_gsCommunityBilderHolen(spId)` (freigegebene Fotos aus dem eigenen Speicher, über `_gsFremdBild`) und `_gsWikiBildHolen(lat)` (`{src, seite, datei}` oder `null`; nur `upload.wikimedia.org`; ein Netzfehler wird nicht als „kein Bild" gemerkt). Gezeichnet von der Artenansicht (`gsLoadSpeciesImage` → `gsLoadWikiImage`) und vom Vergleich im Scan-Ergebnis (`gsScanVergleichOeffnen`). Der Pilz-Scanner (Scanner 13) nutzt dasselbe Fenster (`_gsVglFenster`); Name, Latein und Essbarkeit eines Pilzes und seiner Verwechsler kommen dort aus dem REGISTER (`_gsPilzRegister`, `_gsPilzVerwechsler`) — `mushroom-identify` schickt die Verwechsler nur als Slugs | ein Bild von Wikipedia OHNE Antippen holen (die Datenschutzerklärung nennt Wikipedia „wenn du eine Art öffnest" — ein Bild bei jedem Scan wäre ein neuer Anlass); ein Wikipedia-Bild ohne Nachweis (`_gsWikiDateiSeite`: Dateiseite mit Urheber und Lizenz); eine dritte Hol-Funktion daneben |
 
 ### 3.4 · KI-Calls
 **IMMER** über `callAI(messages, systemPrompt, maxTokens, opts)` oder
@@ -482,6 +484,17 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
 > Gefunden wurde das nicht beim Lesen, sondern beim Nachstellen mit einem
 > echten Telefonfoto. **Wer einen Rettungsweg für vollen Speicher baut, muss
 > ihn auslösen** — sonst schreibt man Trost, keinen Code.
+> **Ein Umzug darf nichts unsicherer machen — und eine Warteschlange, die aufgibt, ist ein Löschweg** (v33.75).
+> Die erste Fassung von Scheibe 2 legte ein Tagebuch-Foto ohne Empfang in den Ausgangskorb statt als base64 in
+> den Eintrag — und übernahm damit dessen Aufgeben nach acht Anläufen: ein Bild, das vorher sicher im Eintrag
+> lag, wäre nach acht Funklöchern aus dem Tagebuch verschwunden, während der Satz daneben „wird hochgeladen,
+> sobald wieder Empfang da ist" versprach. Gefunden hat es die Gegenprüfung (drei Linsen, je Fund ein
+> Widerleger), kein Fall: der Fall mass den Erfolg, nicht das Scheitern. Vier Regeln daraus:
+> (1) **wer einen Wert in eine Warteschlange verlegt, liest zuerst, wie sie AUFGIBT**, und was dann mit der
+> einzigen Kopie geschieht; (2) **ein Netzfehler ist kein Versuch** — gezählt wird nur ein Nein des Servers;
+> (3) **„nicht gespeichert" ist nicht „Ziel fehlt"** — eine Funktion, die beides als `false` meldet, lässt den
+> Aufrufer bei vollem Speicher wegwerfen; (4) **ein Schreiber im Hintergrund hebt keinen Änderungsstempel**:
+> er ist kein Wille der Person und darf im Zwei-Geräte-Abgleich nicht gewinnen. Prüfstand: `offline_check` 9b.
 - Cloud: `sbFetch(path, opts)` — hat Auto-Retry/Backoff für GET, einmaliges
   Retry für POST/PATCH/DELETE bei Netzwerk-Errors. Liefert
   `{data, error: {message, status?}}`.
@@ -828,6 +841,21 @@ Zugangsdaten im Wurzelverzeichnis wäre nach einem `git add -A` nicht nur im
   `display_name` — live und auch in der Fassung der Migration; ob der Signup
   stattdessen einen neutralen Namen setzt, ist eine Entscheidung für Fernando
   (STATUS §2).
+- **Ein Schalter, der Daten von der KI fernhält, sitzt dort, wo der Kontext
+  ENTSTEHT** (v33.74, Brett 6bbf). Linas „Einblick aus“ nahm bis dahin nur EINEN
+  Block weg; Pflanzenzahl, Region, fällige Aufgaben mit Namen, Geräte, Messwerte,
+  Kalender und der letzte Scan gingen weiter mit, während das Fenster das Gegenteil
+  sagte. Jetzt kehrt `gsLinaContext` ohne Einblick früh zurück (nur Sprache,
+  Jahreszeit, die Arten der Frage); das bisherige Gespräch geht weiter mit, und
+  die Sätze sagen das (die erste Fassung schrieb „nur deine Frage" — Prüfung von
+  #347: ein Datenschutz-Satz sagt nichts zu, was nicht stimmt). `sensor_check` „Lina · Einblick ehrlich“
+  misst, was an die KI GEHT — mit `GS_LINA_ZEILEN_RANG` als Liste der Datenzeilen,
+  damit eine neue Zeile mitgemessen wird. **Ein Ortsname kann eine Koordinate sein**
+  (der Rückfall von `gsReverseGeocode`): an die KI nur über `_gsOrtNameFuerKi`.
+  **Und eine Wahl, die nicht gespeichert werden konnte, gilt trotzdem** — bis zum
+  Neuladen, mit einem Satz (`_gsLinaEinblickSitzung`); ein Schutz, der bei vollem
+  Speicher still wieder angeht, ist keiner. Den Wortlaut der Datenschutztexte
+  entscheidet Fernando (FUER-FERNANDO §33).
 - **Wer einen neuen externen Host einbaut**, trägt ihn in
   `scripts/sicherheit/97_empfaenger.js` (`HOSTS`) ein und nennt ihn in BEIDEN
   Datenschutztexten: `privacy.html` §4 und die Erklärung in der App. Der Fall
@@ -2279,6 +2307,18 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > ausgewaehlte** — ein Fall, dessen Satz den Treffer schon enthaelt, prueft
 > die Vorlage und nicht die Ware.
 
+> **Die Gegenprobe kennt, was Lina kennt — und was sie schreibt** (v33.74, Brett
+> 6bbf). `_gsLinaSicherheit` sah nur die Arten der FRAGE: „Kann ich Lilli essen?"
+> (Lilli = das eigene Maiglöckchen) und „Die Beeren der Eibe kannst du essen." (die
+> Art steht erst in der Antwort) liefen ohne Warnung durch. `_gsLinaTrefferMitPflanzen`
+> nimmt die Arten eigener Pflanzen dazu, die die Frage beim Namen oder Spitznamen
+> nennt — auch bei ausgeschaltetem Einblick, denn die Pruefung laeuft auf dem Geraet.
+> Eine Art aus der ANTWORT zaehlt nur mit ganzem Namen oder Binomen im bejahenden
+> Satz: ueber die Deklinations-Regel und den Familien-Zug von `_gsArtenTreffer`
+> warnte „Ja, Petersilie ist essbar." vor der Hunds-Petersilie (gemessen an 22
+> Saetzen, Brett 6bbf). **Wer eine Warnung erweitert, misst sie zuerst an harmlosen
+> Saetzen.**
+
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
 > lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer
@@ -3706,8 +3746,12 @@ Startbestand, elf Groessen); **bei vollem Speicher sagt es die Funktion**
 (`kind = 'manual'`): derselbe Weg vom Wert bis ins Dashboard und in den
 Kalender (`messung`/`alarm`), den spaeter ein Sensor nimmt. Neue Schluessel
 `gs_geraete`/`gs_geraete_regeln`/`gs_messwerte` stehen in `GS_USER_KEYS`,
-`gs_metric_catalog` in `GS_KEEP_ON_LOGOUT`; Geraete und Regeln reisen im
-`state`-Blob, Messwerte nicht (dafuer ist die Tabelle da — Stufe 1).
+`gs_metric_catalog` in `GS_KEEP_ON_LOGOUT`; Geraete und Regeln ~~reisen im
+`state`-Blob~~, Messwerte nicht (dafuer ist die Tabelle da — Stufe 1).
+*Berichtigt am 24.11.2026 (nachgezaehlt):* Geraete und Regeln reisen NICHT —
+es gibt nur den Rueckweg (`stateMap`), nie einen Hinweg (`_buildStateBlob`).
+`sync_check` „Kein Rueckweg ohne Hinweg“ fuehrt beide mit Grund als „reist noch
+nicht“; die Regel je Eintrag ist `docs/SPEICHER-V2.md` Scheibe 4.
 
 **Seit v32.49 liest `gsTagebuchAlle()` DREI Quellen** — Gartentagebuch,
 Pflanzentagebuecher und den Spiegel des Cloud-Tagebuchs
