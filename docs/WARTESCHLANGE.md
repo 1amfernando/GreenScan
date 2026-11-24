@@ -6,7 +6,7 @@
 > Koordinators ersetzt sie nicht — widerspricht eine Nachricht der Datei, gilt die jüngere
 > `Stand:`-Zeile.
 
-**Stand:** 24.11.2026, 15:20 UTC · `main` = `8a2f16e` (**v33.70**, #340) · #343 Kopf `33d2818` (v33.71), #344 Kopf `440f9e5` (v33.72), CI beider PRs läuft · KI-Modelle stapelt jetzt.
+**Stand:** 24.11.2026, 15:50 UTC · `main` = `7ca6a19` (**v33.71**, #343 gemergt) · #344 wartet auf Audits Merge-Commit (Baum identisch) und die CI auf `440f9e5` · KI-Modelle stapelt danach, dann Hauptfunktionen (v33.74), dann Sicherheit (v33.75).
 
 ## 1 · Warum es schneller wird
 
@@ -40,12 +40,11 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 
 | Nr | Sitzung | Branch | Version | STATUS-Kennung | Zustand |
 |---|---|---|---|---|---|
-| 1 | Hauptfunktionen (Pilz · Wissen · Lina 9) | `claude/happy-thompson-24l4uu` | **v33.71** | (js) Pilz · (jt) Wissen · (ju) Lina 9 | PR **#343**, Kopf **`33d2818`** (main 8a2f16e eingezogen, Prüfstände grün gemeldet), CI seit ~15:08; Kopf FROREN, Merge bei grüner CI |
+| 1 | Hauptfunktionen (Pilz · Wissen · Lina 9) | `claude/happy-thompson-24l4uu` | **v33.71** | (js) · (jt) · (ju) | **GEMERGT** als `7ca6a19` (#343) |
 | 2 | Audit | `ccr-dce5a17c-2xzhvi` | **v33.72** | (jv) | PR **#344**, Kopf **`440f9e5`** (enthält `33d2818` und main 8a2f16e), CI läuft; Kopf FROREN, Merge nach #343 |
 | 3 | KI-Modelle (nur App-Teil) | `claude/blissful-mayer-6fosgo` | v33.73 | (jw) | stapelt jetzt auf `440f9e5`; der Proxy-Teil gehört Fernando (als Patch-Text in FUER-FERNANDO, nicht als Code unter supabase/) |
-| 4 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.74 | (jx) | Scheibe 1 fertig (`f859bf7`, ohne PR/Bump), stapelt auf Nr. 3 |
-| 5 | Hauptfunktionen · Lina · Einblick ehrlich machen | eigener Branch ab main | v33.75 | (jy) | Funde auf PR #340 (Kommentar 7135172753): Schalter, Schädling-Filter, Gegenprobe, Datenschutztext (**Wortlaut entscheidet Fernando**) |
-| 6 | Hauptfunktionen · Scanner 12 „Mit Bildern vergleichen" | eigener Branch ab main | v33.76 | (jz) | fertig lokal; wird nach Nr. 1 gestartet |
+| 4 | Hauptfunktionen · Lina · Einblick ehrlich + Scanner 12 (EIN Kopf) | Branch von Nr. 3 aus neu aufgesetzt | v33.74 | (jx) · (jy) | wartet auf den Kopf von Nr. 3 |
+| 5 | Sicherheit (Speicher · Sync · Backend) | `ccr-5e705a36-jveaak` | v33.75 | (jz) | Scheibe 1 fertig (`f859bf7`, ohne PR/Bump), stapelt auf Nr. 3 |
 | – | Brett (#341) | `ccr-b63433a4-d1xgyg` | – | – | enthält `.github/workflows/*` und `docs/AGENTEN-NETZ.md` → Fernando; der Werkzeug-Teil kommt als eigener PR |
 
 **Lehre vom 24.11., 14:50 UTC:** eine Sitzung, die der Koordinator nicht erreicht (Cowork-Sitzung „Linas Wünsche", `untrusted device`), kann sich selbst mergen und die Reihe verschieben. Darum gilt vor JEDEM Merge: `git fetch origin main` und nachsehen, ob `main` noch der Stand ist, auf dem der PR gebaut wurde — sonst zuerst umnummerieren lassen. Die CI auf einem überholten Kopf gilt nicht.
@@ -54,6 +53,7 @@ waren damit rund fünf Stunden. Die Wartezeit steckt nicht in der Arbeit, sonder
 
 | main | Version | Was |
 |---|---|---|
+| `7ca6a19` | v33.71 | #343 Pilz-Scanner · Wissen-Tab · Lina 9 (Hauptfunktionen) |
 | `8a2f16e` | v33.70 | #340 Lina · Einblick (selbst gemergt von der Cowork-Sitzung „Linas Wünsche“; Nachprüfung als Kommentar auf dem PR) |
 | `1649859` | v33.69 | #338 Gelöscht bleibt gelöscht (Löschmarken, `_gsStateMischen`, `gsXpBootSync`, `_gsProfilNachlesen`) |
 | `428d78f` | – | #339 Brett-Befund 0df5 (Stripe-Zahlungsweg, nur Doku) |
