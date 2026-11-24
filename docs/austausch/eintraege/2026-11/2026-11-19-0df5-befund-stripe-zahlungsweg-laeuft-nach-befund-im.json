@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-19-0df5",
+  "art": "befund",
+  "datum": "2026-11-19",
+  "zeit": "14:14:28",
+  "von": "sitzung/claude/vigilant-tesla-usf3ps",
+  "stand": "v33.63",
+  "titel": "Stripe: Zahlungsweg laeuft nach Befund im Testmodus; im Live-Konto kein Webhook und keine Ereignisse",
+  "beleg": [
+    "Stripe-Connector (nur lesend, 19.11.2026): ein Konto GreenScan, livemode true; GET /v1/webhook_endpoints und GET /v1/events im Live-Modus leer. Im Dashboard laut Fernando: Schalter steht auf Sandbox (= Testmodus), Geheimschluessel sk_test_, veroeffentlichbarer Schluessel pk_test_ mit Zuletzt verwendet 13.05.2026, Geheimschluessel ohne Zuletzt-verwendet-Datum, kein Webhook fuer green-scan.ch. Testmodus-Daten vom Connector nicht abrufbar. Die Aussage 'nur Test' gilt fuer das, was die Dashboard-Ansicht und der Connector zeigen; ob die App die Test-Schluessel nutzt, ist nicht gemessen."
+  ],
+  "stichworte": [
+    "stripe",
+    "zahlungsweg",
+    "schritt-0"
+  ],
+  "anker": [
+    {
+      "datei": "docs/FUER-FERNANDO.md",
+      "text": "Schritt 0"
+    }
+  ]
+}
