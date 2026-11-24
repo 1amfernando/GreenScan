@@ -52,6 +52,14 @@ Tagebuch in `CLAUDE.md`.
    gemischt (`_gsStateMischen`); ein ungelesenes Profil (`_ungelesen`) ist kein
    Cloud-Stand. *(CLAUDE.md §3.3; sync_check H8–H12)*
 
+5a″. **Der Pflegeverlauf hat EINEN Deckel nach Zeit, und ein Foto ohne Upload wartet im
+   Ausgangskorb** (v33.75). `p.diary` hat drei Schreiber; gedeckelt wird nur mit
+   `gsCapWithArchive(…, GS_PFLEGEVERLAUF_MAX, 'zeit')`. Kein base64 in einem Eintrag
+   einer Liste, die im Blob reist: `gsQueuePhoto(…, {kind:'diary', ref:'<pid>|<ts>'}, uid)`.
+   `_gsApplyPhotoUrl` antwortet `true` · `false` (Ziel fehlt) · `'voll'` (bleibt im Korb);
+   ein Hintergrund-Schreiber hebt den Stempel nicht (`_gsLeiseSpeichern`).
+   *(CLAUDE.md §3.3, §3.5; kalender_check „Pflegeverlauf“, offline_check 9b)*
+
 5b. **Eine Antwort nach einem `await` gehört der Person, die gefragt hat.**
    `sbLogout` lädt nicht neu. Wer nach einem `await` zeichnet oder schreibt, merkt
    sich vorher `_gsPerson()` und prüft danach, ob es noch dieselbe ist; was nur im

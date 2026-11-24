@@ -416,6 +416,14 @@ Nach Klassen, nicht nach Datum. Die Versionsnummer fuehrt zum Tagebuch in
   wurde — die Reparatur gegen Datenverlust wurde zur Wiederauferstehung (`sync_check`
   H10). Regel: jede Zusammenführung je Eintrag braucht eine Antwort auf „wie überlebt
   ein Löschen?“ (`_gsLoeschmarke`, `GS_GELOESCHT_LISTEN`).
+- **24.11.2026 (Speicher)** Eine Liste mit zwei Schreibern hat keine „Reihenfolge“:
+  einer setzt vorn an, einer hängt hinten an — ein Deckel mit „Anfang behalten“ oder
+  „Ende behalten“ wirft die NEUESTEN Einträge des anderen hinaus (`kalender_check`
+  „Pflegeverlauf · der Deckel“). Gedeckelt wird nach Zeit.
+- **24.11.2026 (Speicher)** Eine Warteschlange, die nach N Anläufen aufgibt, ist ein
+  Löschweg. Wer etwas dorthin verlegt, liest zuerst das Aufgeben — und zählt ein
+  Funkloch nicht als Anlauf (`offline_check` 9b; gefunden von der Gegenprüfung, nicht
+  vom Fall: der mass den Erfolg, nicht das Scheitern).
 - **24.11.2026 (Abgleich)** Eine Sperre „erst lesen, dann schreiben“ hilft nichts,
   wenn beim Lesen nichts zusammengeführt wird: der Verlust wandert nur hinter das
   Lesen (`sync_check` H11). Und ein Ersatzwert ist kein Messwert: xp 0 aus dem

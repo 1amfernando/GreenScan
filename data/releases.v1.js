@@ -30,6 +30,23 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.54', date: '09.10.2026',
+      headline: 'Ein Stil im Text lädt keine fremde Adresse mehr',
+      summary: 'Übersetzte Texte und Chat-Zeilen dürfen ein wenig Auszeichnung tragen — und dazu ein style-Attribut. Der Filter dafür war eine Verbotsliste auf dem Rohtext: er suchte „url(“. CSS kennt aber Escapes (u\\72l( liest der Browser als url(), und image-set("…") lädt eine Adresse ganz ohne url(. Die gegnerische Prüfung zu v33.53 hat in Chromium gezeigt, dass ein Satz damit eine fremde Adresse laden konnte. Jetzt geht jeder Stil durch eine Erlaubnisliste: nur bekannte Eigenschaften, keine Escapes, keine Zeichenketten, keine Funktion ausser rgb/hsl/var/calc.',
+      user_summary: 'Eine Sicherheitslücke ist geschlossen: ein Text aus fremder Hand (eine Übersetzung, eine Antwort im Chat) konnte über eine versteckte Stil-Angabe ein Bild von einer fremden Adresse nachladen — und damit verraten, dass du die Seite geöffnet hast. Das geht nicht mehr; normale Formatierungen bleiben, wie sie sind.',
+      user_items: [
+        {emoji:'🛡️', bold:'Keine versteckten Nachlader mehr:', text:' ein Text aus fremder Hand kann über eine Stil-Angabe nichts mehr von einer fremden Adresse laden.'},
+        {emoji:'🧱', bold:'Kein Text legt sich über die App:', text:' Stil-Angaben, die einen Satz über den ganzen Bildschirm spannen könnten, fallen weg.'},
+        {emoji:'✅', bold:'Formatierungen bleiben:', text:' Farben, Fettdruck, Grösse und Abstände in den Texten sehen aus wie bisher.'}
+      ],
+      items: [
+        {emoji:'📏', bold:'Gemessen:', text:' sechs Stile (u\\72l, \\75rl, u\\rl, image-set im Hintergrund und im Rahmen, list-style) lösten durch gsSanitizeHtml je eine Anfrage an die fremde Adresse aus — 6 von 6.'},
+        {emoji:'🧾', bold:'Erlaubnisliste statt Verbotsliste:', text:' _gsStilSaeubern prüft jede Deklaration: kein Backslash, kein Anführungszeichen, kein Kommentar, kein @; nur Eigenschaften aus GS_SANITIZE_STIL; Funktionen nur rgb/rgba/hsl/hsla/var/calc; ein geschlossenes Alphabet. Was nicht passt, fällt allein.'},
+        {emoji:'📐', bold:'Was die Texte brauchen, bleibt:', text:' gemessen an den übersetzbaren Elementen — color (auch mit var()), display, font-size, font-weight, margin, margin-bottom. position, width und Co. fallen, sonst legt sich ein Satz über die App.'},
+        {emoji:'🧪', bold:'escape_check A10b:', text:' rendert die bösen Stile wirklich ins Dokument und zählt die Anfragen des Browsers (0), prüft die Überlagerung und acht gute Stile. Gegen v33.53 rot (6 Anfragen); drei Gegenproben einzeln rot.'}
+      ]
+  },
+  {
     v: 'v33.53', date: '09.10.2026',
       headline: 'Export und Drucken in der Android-App',
       summary: 'In der Android-App taten die Export-Knöpfe bisher nichts: eine nackte WebView kann eine Datei aus dem Arbeitsspeicher nicht ablegen, und print() tut dort nichts. Das Backup meldete trotzdem „heruntergeladen“, und der Giess-Zettel schrieb sich über die laufende App. Jetzt gehen Backup, GPS-Spur, CSV, Archiv und 3D-Foto an den Android-Dialog „Speichern unter“, Gartenplan und Giess-Zettel an den Druckdialog von Android (mit „Als PDF speichern“). Ohne Brücke in die Android-Schicht: die Datei geht in Teilen an Adressen unter dem eigenen Ursprung, die nur die App-Hülle beantwortet. Und jede Meldung kommt erst, wenn die Datei wirklich da ist.',
