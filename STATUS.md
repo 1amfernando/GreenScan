@@ -12,6 +12,102 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-24 (kn) - v33.82: Lina 14 — ein Ort in der Frage ist der letzte Rückfall der Gift-Gegenprobe
+
+**Auftrag:** Brett-Idee 5929, vom Koordinator als (kn) in v33.82 freigegeben. „Kann ich die Beeren auf dem Balkon essen?“ nennt
+keine Art und keine eigene Pflanze, nur einen Ort, an dem eine Tollkirsche steht. Auf „Ja, die kannst du essen.“ schwieg die
+Gift-Gegenprobe. Die erste Fassung (a130338) ging mit (kd) zurück; sie warnte bei 8 von 8 harmlosen Garten-Sätzen.
+Bedingungen: Der Ort nimmt nie eine Warnung weg, die ohne ihn käme, und das Orakel bleibt bei „nur Basis“ 0.
+
+**Gebaut** (`_gsLinaOrteInFrage`, `_gsLinaPflanzenInFrage(frage, max, ort)`, `_gsLinaGiftGenannt(text, opt)`, `_gsLinaNenntArt`,
+`_gsLinaOrtFrageFrei`, `_gsLinaOrtOhneNamen`, `GS_LINA_ORTE`, `GS_LINA_ORT_FREI`):
+- **Ein Ort** ist ein Raum, ein Gartenteil oder ein Gartenname nach einer Präposition („im Wohnzimmer“, „auf dem Balkon“). Dort
+  stehen die Pflanzungen eines Gartens dieses Namens und die eigenen Pflanzen, deren Notiz oder Spitzname den Ort nennt. Ihre
+  giftigen Arten tragen `ort`.
+- **Nur in der Frage**, und nur, wenn sie nichts Bestimmtes nennt: keine Art der Liste (auch in der Mehrzahl), keine eigene
+  Pflanze beim Namen, und nur Wörter aus `GS_LINA_ORT_FREI` (Funktionswörter, Essverben, Farbe und Reife, „Pflanze“, Pflanzenteile,
+  wer isst). Ein anderes Wort kann ein Name sein, den die Liste so nicht kennt („Gierschblätter“, klein getippt „bärlauche“).
+- **Nur in einem zustimmenden Teil, der selbst keine Art nennt**, und nur, wenn die Antwort bis dahin kein Wort gross schreibt,
+  das ein Name sein kann („Bärlauche“, „des Bärlauchs“, „Die Erdbeeren sind reif und …“). Ausgenommen ist eine giftige Art, die sie
+  selbst nennt: „Auf dem Balkon wächst eine Tollkirsche. Die Beeren sind essbar.“ warnt. Damit erbt der Teil auch kein Subjekt (F, K).
+- **Die Antwort liest nur Namen:** „Ja, im Garten kannst du ihn essen.“ auf „Kann ich Basilikum ernten?“ meint das Basilikum.
+- Hinter derselben Pflege-Sperre wie (km): „Die kannst du bedenkenlos auf dem Balkon stehen lassen.“ bleibt still.
+
+**Gemessen:**
+
+| Orakel MIT Garten (Balkon: Tollkirsche, Erdbeere · Wohnzimmer: Maiglöckchen), 3'138 Namen | ohne Ort | mit Ort | nur ohne Ort | neu bei harmlosen Namen |
+|---|---|---|---|---|
+| „Kann ich die Beeren auf dem Balkon essen?“ → „Ja, N kannst du essen.“ / „N ist essbar.“ / „Die Beeren der N …“ | 351 | 352 | **0** | **0** |
+| … → „Ja, N(Mehrzahl) kannst du essen.“ / „Die Blätter des Ns …“ | 327 / 315 | 328 / 316 | **0** | **0** |
+| „Kann ich N auf dem Balkon essen?“ / „Kann ich N(Mehrzahl) im Wohnzimmer essen?“ → „Ja, die kannst du essen.“ | 435 / 358 | 435 / 358 | **0** | **0** |
+
+Erläuterungen zur Tabelle:
+- **Die eine neue Warnung** je Form ist „Wüstenrose (kl.)“, eine giftige Art. Der Punkt der Abkürzung trennt den Satz; die Basis
+  warnt dort nie, der Ort jetzt schon.
+- **Die erste Fassung dieses Pakets** (ohne Wortliste und Namen-Test, gemessen) warnte bei harmlosen Namen neu: je 9 in „ja“,
+  „ist“ und „gen_f“, 1'426 in der Mehrzahl, 2'323 im Genitiv und 1'429 in der Wohnzimmer-Frage. „Ja, Bärlauche kannst du essen.“
+  nannte für die Liste keine Art.
+- **Orakel ohne Garten** (6 Formen, auf dem Kopf): gleich wie (km) und (kj). Ohne eigene Daten greift der Ort nie.
+
+**Prüfstand:** `sensor_check` „Lina 14 · Ort in der Frage (kn)“ — 6 Ort-Fragen warnen, 19 Sätze still (darunter die 8 aus a130338),
+„im Garten“ nennt genau die giftige Pflanzung, und über 716 Namen (alle giftigen, jeder siebte harmlose) in zwei Formen nimmt der
+Ort keine Warnung weg und warnt bei keinem harmlosen Namen neu; dazu der echte Weg über `gsLinaSend`. Fünf Gegenproben sind einzeln
+rot, je mit dem erwarteten Satz: Ort aus · die Frage darf etwas nennen · der Teil darf etwas nennen · Namen-Test ohne die genannte
+giftige Art · die Antwort liest Orte.
+
+**Lokal (TZ=UTC) auf dem Kopf v33.82:**
+- Stände: sensor 72/0 („Lina 11“ bis „Lina 14“) · scan 150/0 · sicherheit (person, schluss, senken) 104/0 · nutzersicht 17/0 (E4b
+  rendert die Release-Notiz) · robust 38/0 · speicher 29/0 · modell 23/0 · kalender 57/0 · statik 10/0 · datum 8/0 · austausch 17/0 ·
+  i18n und wiring grün.
+- Die Orakel auf genau diesem Kopf: ohne Garten Basis → Kopf „nur Basis“ 0 in jeder Form und gleich wie (kj); mit Garten „nur ohne
+  Ort“ 0 in jeder Form, bei harmlosen Namen 0 neu.
+
+**Offen:** brett:2026-11-24-ae6c (der Ort in der Antwort und die Gartenart; 5929 ist mit diesem Eintrag geschlossen).
+**Nicht geprüft:** echte KI-Antworten (gestellt); eine Gartenart statt eines Gartennamens („auf dem Balkon“ bei einem Garten
+„Südseite“ vom Typ Balkon) — der Ort greift dort nicht; eine Frage mit einem Wort ausserhalb der Liste greift bewusst nie.
+
+### 2026-11-24 (km) - v33.82: Lina 13 — eine geerbte Art zählt nicht vor „bedenkenlos im Garten bleiben“
+
+**Auftrag:** Hold-out des Koordinators zu v33.81 (#355): 0 Regressionen, aber zwei neue Fehlalarme von F:
+„Die Narzisse blüht im März und kann bedenkenlos im Garten bleiben.“ und „Der Fingerhut ist winterhart und kann unbedenklich
+draussen stehen bleiben.“ F erbte die Art in den Teil „kann bedenkenlos … bleiben“, und der trägt nur einen schwachen Stamm.
+
+**Gebaut** (`_gsLinaSicherheit`, `nurPflegeGeerbt`, `PFLEGE_STANDORT`): Eine GEERBTE Art (F, K) zählt nicht in einem Teil, der nur einen
+schwachen Stamm (bedenkenlos, unbedenklich, ohne Bedenken) vor einer Standort- oder Pflege-Handlung trägt (bleiben, stehen, wachsen,
+überwintern, umtopfen, schneiden …).
+- Die Handlung folgt dem Stamm direkt oder nach einer Ortsangabe („im Garten“, „draussen“, „auf dem Balkon“). „Unbedenklich,
+  solange du gesund bleibst“ ist keine Ortsangabe und warnt weiter.
+- Ein Ess-Wort irgendwo im Satz hebt die Regel auf, wie bei B.
+- Was die Basis warnt (die Arten der Frage, imSatz), bleibt. Das ist keine neue Ausnahme an der Sicherheitslinie: Nennt die Frage
+  die Narzisse, warnt „Die Narzisse kann bedenkenlos im Garten bleiben.“ weiter, wie in der Basis.
+
+**Gemessen** (Vorlagen über 312 giftige und 404 harmlose Namen, Zustand nach `gsAutoFillLookalikes`):
+
+| Vorlage | soll | Basis | (kj) | (km) |
+|---|---|---|---|---|
+| „N blüht im März und kann bedenkenlos im Garten bleiben.“ | still | 1 warnte | 311 warnten | 36 |
+| „N ist winterhart und kann unbedenklich draussen stehen bleiben.“ | still | 1 warnte | 311 warnten | 36 |
+| „N ist robust und kann unbedenklich umgetopft werden.“ | still | 1 warnte | 311 warnten | 36 |
+| „N und Tulpen können bedenkenlos im Garten bleiben.“ (K) | still | 1 warnte | 311 warnten | 36 |
+| „N ist giftig, aber in kleinen Mengen unbedenklich.“ | warnen | 1 | 311 | 311 |
+| „N ist hübsch und unbedenklich für Kinder.“ | warnen | 1 | 311 | 311 |
+| „…, solange du gesund bleibst.“ · „… bleiben und roh gegessen werden.“ | warnen | 1 / 1 | 311 / 311 | 311 / 311 |
+
+Erläuterungen zur Tabelle:
+- **Die 36:** genau die 36 Namen von G in (kj): 35 mit einem Ess-Wort („…pilz“, „…beere“) und „Echter Speise-Schirmling“
+  („Speise“ ist ein Zusage-Stamm, schon in der Basis). Die Regel nimmt nie ein Ess-Wort weg.
+- **Die 1 der Basis:** „Echter Speise-Schirmling“; der Rest der Warn-Zeilen ist „Wüstenrose (kl.)“ (der Punkt trennt den Satz).
+- **Harmlose Stichprobe:** In den vier stillen Vorlagen warnten in (kj) je 6, jetzt 0.
+- **Alle anderen Vorlagen** von (kj) (F, K, E, G, C2: 25 Gruppen) haben dieselben Zahlen wie in (kj).
+
+**Prüfstand:** `sensor_check` „Lina 13 · Pflege-Sätze (km)“ mit 6 stillen Sätzen, 9 Zusagen, der Grenze zur Basis und 5 Vorlagen
+über alle giftigen Namen. Vier Gegenproben sind einzeln rot, je mit dem erwarteten Satz: Regel aus · Lücke beliebig · ohne
+Ess-Wort-Sperre im Satz · Regel auch für die Basis.
+
+**Offen:** nichts ((kn) im selben Paket schliesst brett:2026-11-24-5929).
+**Nicht geprüft:** echte KI-Antworten (gestellt); Pflege-Sätze, deren Handlung nicht in der Liste steht („… kann bedenkenlos
+draussen bleiben“ ja, „… verträgt bedenkenlos Frost“ nein) — dort warnt die geerbte Art weiter, wie in (kj).
+
 ### 2026-11-24 (kj) - v33.81: Lina 12 — ein Teil ohne Subjekt hängt am Satz davor, und drei Fehlalarme aus (kg) sind weg
 
 **Auftrag:** Hold-out des Koordinators zu v33.79 (#353, bestanden mit Vermerk):
@@ -17725,9 +17821,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.81` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.80) · SW-Cache `gs-v33.81` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.82` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.81) · SW-Cache `gs-v33.82` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **103'729 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.81; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.56).
+- **Frontend:** `index.html` **103'868 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.82; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.62).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **48** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.72: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 48** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (jv). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

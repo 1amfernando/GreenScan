@@ -3267,16 +3267,18 @@ const FAELLE = [
         ];
         const zahl = {};
         VORLAGEN.forEach(([r, soll, v]) => {
-          let ok = 0; const falsch = [];
+          let ok = 0; const ohneW = [], fehlA = [];
           toxNamen.forEach((n) => {
             if (AUSNAHME.includes(n)) return;
             // G still: nur für Namen OHNE Ess-Wort — mit Ess-Wort muss der Erlebnis-Satz weiter warnen
             const s = (r === 'G' && soll === 'S' && ESSWORT.test(n)) ? 'W' : soll;
             const [f, a] = v(n);
-            if ((pruef(f, a) ? 'W' : 'S') === s) ok++; else falsch.push(n);
+            const ist = pruef(f, a) ? 'W' : 'S';
+            if (ist === s) ok++; else (s === 'W' ? ohneW : fehlA).push(n);
           });
           zahl[r + soll] = ok;
-          if (falsch.length) klagen.push('(o) ' + r + ' ' + (soll === 'W' ? 'ohne Warnung' : 'mit Fehlalarm') + ' bei ' + falsch.length + ' Namen: ' + falsch.slice(0, 5).join(', '));
+          if (ohneW.length) klagen.push('(o) ' + r + ' ohne Warnung bei ' + ohneW.length + ' Namen: ' + ohneW.slice(0, 5).join(', '));
+          if (fehlA.length) klagen.push('(o) ' + r + ' mit Fehlalarm bei ' + fehlA.length + ' Namen: ' + fehlA.slice(0, 5).join(', '));
         });
         // ein Name, der nur über „-nie" verneint war (N), warnt jetzt — die Basis und (kg) schwiegen
         if (!pruef(E, 'Ja, Rote Rosskastanie kannst du essen.')) klagen.push('(o) N: „Rote Rosskastanie" ohne Warnung');
@@ -3284,6 +3286,203 @@ const FAELLE = [
         return { ok: true, info: W.length + ' Zusagen warnen, ' + S.length + ' Sätze still · Orakel über ' + toxNamen.length + ' giftige Namen: ' + Object.keys(zahl).map(k => k + ' ' + zahl[k]).join(' · ') };
       } finally {
         myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
+      }
+    },
+  },
+  {
+    // (km) Lina 13 · Pflege-Sätze (24.11.2026): der Hold-out des Koordinators zu (kj) fand zwei neue Fehlalarme — F erbte die Art in
+    // „… und kann bedenkenlos im Garten bleiben." (Narzisse) und „… und kann unbedenklich draussen stehen bleiben." (Fingerhut). Eine
+    // GEERBTE Art (F, K) zählt nicht mehr, wenn der Teil nur einen schwachen Stamm vor einer Standort- oder Pflege-Handlung trägt.
+    // Was die Basis warnt (die Arten der Frage, imSatz), bleibt — die Regel nimmt keine Warnung der Basis weg —, und ein Ess-Wort
+    // irgendwo im Satz hebt sie auf.
+    name: 'Lina 13 · Pflege-Sätze (km): eine geerbte Art zählt nicht, wenn der Teil nur „bedenkenlos/unbedenklich" vor einer Standort- oder Pflege-Handlung sagt — „unbedenklich für Kinder", „in kleinen Mengen unbedenklich" und jede starke Zusage warnen weiter',
+    lauf: async () => {
+      const sichern = { mp: myPlants, pl: plantings, ga: gardens };
+      const klagen = [];
+      try {
+        myPlants = []; plantings = []; gardens = [];
+        const pruef = (frage, antwort) => !!_gsLinaSicherheit(antwort, _gsLinaTrefferMitPflanzen(frage, _gsArtenTreffer(frage)));
+        const E = 'Was kann ich essen?';
+        // (a) still — die zwei Sätze des Hold-outs und ihre Geschwister (Standort, Pflege, Aufzählung)
+        const S = [
+          'Die Narzisse blüht im März und kann bedenkenlos im Garten bleiben.',
+          'Der Fingerhut ist winterhart und kann unbedenklich draussen stehen bleiben.',
+          'Der Fingerhut ist robust und kann unbedenklich umgetopft werden.',
+          'Die Eibe ist robust und kann bedenkenlos geschnitten werden.',
+          'Die Tollkirsche ist anspruchslos und kann unbedenklich im Halbschatten wachsen.',
+          'Narzissen und Tulpen können bedenkenlos im Garten bleiben.',
+        ];
+        // (b) muss warnen — ein schwacher Stamm OHNE Standort- oder Pflege-Handlung, eine Ortsangabe, die keine ist, ein Ess-Wort
+        //     im Satz und die starken Zusagen von F und K
+        const W = [
+          'Die Herbstzeitlose ist giftig, aber in kleinen Mengen unbedenklich.',
+          'Die Herbstzeitlose ist giftig, aber gekocht bedenkenlos.',
+          'Die Herbstzeitlose ist giftig, aber in kleinen Mengen unbedenklich, solange du gesund bleibst.',
+          'Die Narzisse blüht im März und kann bedenkenlos im Garten bleiben und roh gegessen werden.',
+          'Die Tollkirsche ist hübsch und unbedenklich für Kinder.',
+          'Die Tollkirsche ist hübsch und für Erwachsene unbedenklich.',
+          'Die Tollkirsche ist hübsch und kann bedenkenlos im Garten bleiben, die Beeren sind essbar.',
+          'Die Herbstzeitlose ist aber ebenfalls essbar.',
+          'Herbstzeitlose und Bärlauch sind essbar.',
+        ];
+        S.forEach((a) => { if (pruef(E, a)) klagen.push('(a) Fehlalarm: „' + a + '"'); });
+        W.forEach((a) => { if (!pruef(E, a)) klagen.push('(b) keine Warnung: „' + a + '"'); });
+        // (c) die Grenze der Regel: nennt die FRAGE die Art, warnt die Basis — (km) nimmt ihr nichts weg
+        if (!pruef('Kann die Narzisse im Garten bleiben?', 'Die Narzisse kann bedenkenlos im Garten bleiben.')) klagen.push('(c) (km) nimmt eine Warnung der Basis weg (die Frage nennt die Narzisse)');
+        // (o) Vorlagen über ALLE giftigen Namen (Art-Stufe ≥ 3), beide Richtungen; ein Name mit Ess-Wort („…pilz", „…beere")
+        //     warnt auch im Pflegesatz — die Regel nimmt nie ein Ess-Wort weg
+        const toxNamen = [], ges = {};
+        DB.forEach((sp) => { const n = String(sp && sp.name || '').trim(); const a = (_gsArtAnzeige(sp) || sp); if (n && !ges[n] && (a.tox | 0) >= 3) { ges[n] = 1; toxNamen.push(n); } });
+        if (toxNamen.length < 250) klagen.push('(o) nur ' + toxNamen.length + ' giftige Namen — der Fall misst nichts');
+        const ESSWORT = /(?:^|[\s-])ess|isst|nasch|kost|koch|brat|back|(?:^|[\s-])roh(?:$|[\s-])|salat|tee(?:$|[\s-])|suppe|saft|würz|wuerz|kau|frucht|früchte|fruechte|beere|pilz|samen|knolle|mang|mund|magen/i;
+        // „Wüstenrose (kl.)": der Punkt der Abkürzung trennt den Satz; „Echter Speise-Schirmling": „Speise" ist ein Zusage-Stamm —
+        // beides schon in der Basis (gemessen 24.11.2026: es warnen genau dieselben 36 Namen wie bei G in (kj))
+        const AUSNAHME = ['Wüstenrose (kl.)', 'Echter Speise-Schirmling'];
+        const VORLAGEN = [
+          ['bleiben', 'S', (n) => n + ' blüht im März und kann bedenkenlos im Garten bleiben.'],
+          ['stehen', 'S', (n) => n + ' ist winterhart und kann unbedenklich draussen stehen bleiben.'],
+          ['K', 'S', (n) => n + ' und Tulpen können bedenkenlos im Garten bleiben.'],
+          ['Menge', 'W', (n) => n + ' ist giftig, aber in kleinen Mengen unbedenklich.'],
+          ['Kinder', 'W', (n) => n + ' ist hübsch und unbedenklich für Kinder.'],
+        ];
+        const zahl = {};
+        VORLAGEN.forEach(([r, soll, v]) => {
+          let ok = 0; const ohneW = [], fehlA = [];
+          toxNamen.forEach((n) => {
+            if (AUSNAHME.includes(n)) return;
+            const s = (soll === 'S' && ESSWORT.test(n)) ? 'W' : soll;   // ein Name mit Ess-Wort warnt auch im Pflegesatz
+            const ist = pruef(E, v(n)) ? 'W' : 'S';
+            if (ist === s) ok++; else (s === 'W' ? ohneW : fehlA).push(n);
+          });
+          zahl[r] = ok;
+          if (ohneW.length) klagen.push('(o) ' + r + ' ohne Warnung bei ' + ohneW.length + ' Namen: ' + ohneW.slice(0, 5).join(', '));
+          if (fehlA.length) klagen.push('(o) ' + r + ' mit Fehlalarm bei ' + fehlA.length + ' Namen: ' + fehlA.slice(0, 5).join(', '));
+        });
+        if (klagen.length) return { ok: false, warum: klagen.slice(0, 8).join(' · ') + (klagen.length > 8 ? ' · (+' + (klagen.length - 8) + ')' : '') };
+        return { ok: true, info: S.length + ' Pflegesätze still, ' + W.length + ' Zusagen warnen · Vorlagen über ' + toxNamen.length + ' giftige Namen: ' + Object.keys(zahl).map(k => k + ' ' + zahl[k]).join(' · ') };
+      } finally {
+        myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
+      }
+    },
+  },
+  {
+    // (kn) Lina 14 · Ort in der Frage (Brett 5929, 24.11.2026): „Kann ich die Beeren auf dem Balkon essen?" nennt keine Art und keine
+    // eigene Pflanze, nur einen Ort, an dem eine Tollkirsche steht. Auf „Ja, die kannst du essen." schwieg die Gift-Gegenprobe. Der Ort
+    // ist jetzt der LETZTE Rückfall: nur in der Frage, nur wenn sie weder eine Art (auch in der Mehrzahl) noch eine eigene Pflanze beim
+    // Namen nennt, und nur in einem zustimmenden Teil, der selbst keine Art nennt und kein Subjekt erbt (F, K). Die Antwort liest nur
+    // Namen. Die erste Fassung (a130338, mit (kd) zurückgenommen) warnte bei 8 von 8 harmlosen Garten-Sätzen — die stehen unten still.
+    name: 'Lina 14 · Ort in der Frage (kn): „Kann ich die Beeren auf dem Balkon essen?" → „Ja, die kannst du essen." warnt vor der Tollkirsche auf dem Balkon — nur als letzter Rückfall; „die Erdbeeren im Garten" meinen die Erdbeeren, und der Ort nimmt nie eine Warnung weg',
+    lauf: async () => {
+      const sichern = { mp: myPlants, pl: plantings, ga: gardens, ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, pt: window.showProfileToast,
+        on: Object.getOwnPropertyDescriptor(navigator, 'onLine'), ls: ['gs_lina_einblick'].map(k => [k, localStorage.getItem(k)]) };
+      const klagen = [];
+      try {
+        localStorage.removeItem('gs_lina_einblick'); _gsLinaEinblickSitzung = null;
+        const pruef = (frage, antwort) => !!_gsLinaSicherheit(antwort, _gsLinaTrefferMitPflanzen(frage, _gsArtenTreffer(frage)));
+        const garten = () => {
+          myPlants = [
+            { id: 'l14-1', name: 'Maiglöckchen', nick: 'Lilli', notes: 'steht im Wohnzimmer am Fenster', tasks: {}, diary: [] },
+            { id: 'l14-2', name: 'Basilikum', nick: 'Basi', tasks: {}, diary: [] } ];
+          gardens = [{ id: 'l14-g1', name: 'Balkon', type: 'balkon' }, { id: 'l14-g2', name: 'Mein Garten', type: 'garten' }];
+          plantings = [{ id: 'l14-p1', gardenId: 'l14-g1', name: 'Tollkirsche', tasks: {} },
+            { id: 'l14-p2', gardenId: 'l14-g2', name: 'Eibe', tasks: {} }, { id: 'l14-p3', gardenId: 'l14-g2', name: 'Erdbeere', tasks: {} }];
+        };
+        garten();
+        // (a) der Ort warnt: die Frage nennt nur den Ort, die Antwort sagt zu, ohne eine Art zu nennen
+        const ORT_WARNT = [
+          ['Kann ich die Beeren auf dem Balkon essen?', 'Ja, die kannst du essen.'],
+          ['Kann ich die Beeren auf dem Balkon essen?', 'Ja, die Beeren kannst du essen.'],
+          ['Kann ich die Beeren auf dem Balkon essen?', 'Klar, sie sind essbar.'],
+          ['Was kann ich im Garten essen?', 'Ja, die kannst du alle essen.'],
+          ['Kann ich die Pflanze im Wohnzimmer essen?', 'Ja, die kannst du essen.'],
+          ['Kann ich die Beeren auf dem Balkon essen?', 'Auf dem Balkon wächst eine Tollkirsche. Die Beeren sind essbar.'],
+        ];
+        // (b) der Ort schweigt: die Frage nennt eine Art (auch in der Mehrzahl) oder eine eigene Pflanze, der Teil nennt eine Art oder
+        //     erbt ein Subjekt, die Antwort spricht von Pflege, verneint, oder die Frage hat keinen Ort (die ersten acht aus a130338)
+        const ORT_STILL = [
+          ['Kann ich die Erdbeeren im Garten essen?', 'Ja, Erdbeeren kannst du essen.'],
+          ['Was kann ich essen?', 'Ja, die Erdbeeren im Garten kannst du essen.'],
+          ['Wie giesse ich im Garten richtig?', 'Giesse morgens, die Erdbeeren kannst du später essen.'],
+          ['Kann ich die Erdbeeren im Garten essen?', 'Ja, die kannst du essen.'],
+          ['Wie giesse ich im Garten richtig?', 'Giesse morgens. Himbeeren kannst du übrigens essen.'],
+          ['Kann ich Kartoffeln im Garten anbauen?', 'Ja, und Kartoffeln kannst du im Herbst essen.'],
+          ['Wie giesse ich im Garten richtig?', 'Giesse morgens. Zucchinis kannst du übrigens essen.'],
+          ['Kann ich Basilikum ernten?', 'Ja, im Garten kannst du ihn essen.'],
+          ['Kann ich die Beeren auf dem Balkon essen?', 'Die Erdbeeren sind reif und du kannst sie essen.'],
+          ['Kann ich die Beeren auf dem Balkon essen?', 'Erdbeeren und Himbeeren sind essbar.'],
+          ['Kann ich die Beeren auf dem Balkon essen?', 'Die kannst du bedenkenlos auf dem Balkon stehen lassen.'],
+          ['Kann ich Basi im Garten essen?', 'Ja, den kannst du essen.'],
+          ['Was kann ich essen?', 'Ja, die kannst du essen.'],
+          ['Kann ich die Beeren auf dem Balkon essen?', 'Nein, die sind giftig.'],
+          // die Frage nennt etwas, das die Liste so nicht kennt — auch klein getippt
+          ['Kann ich die Gierschblätter im Garten essen?', 'Ja, die kannst du essen.'],
+          ['kann ich bärlauche im garten essen', 'Ja, die kannst du essen.'],
+          // die Antwort nennt eine harmlose Art, auch dekliniert, die die Liste so nicht kennt
+          ['Kann ich die Beeren auf dem Balkon essen?', 'Ja, Erdbeeren kannst du essen.'],
+          ['Kann ich die Beeren auf dem Balkon essen?', 'Die Blätter des Bärlauchs sind essbar.'],
+          ['Kann ich die Beeren auf dem Balkon essen?', 'Ja, Bärlauche kannst du essen.'],
+        ];
+        ORT_WARNT.forEach(([f, a]) => { if (!pruef(f, a)) klagen.push('(a) der Ort warnt nicht: „' + f + '" → „' + a + '"'); });
+        ORT_STILL.forEach(([f, a]) => { if (pruef(f, a)) klagen.push('(b) Fehlalarm über den Ort: „' + f + '" → „' + a + '"'); });
+        // (c) „im Garten" nennt genau die giftige Pflanzung dieses Gartens — nicht die Erdbeere daneben, nicht den Balkon
+        const imGarten = _gsLinaSicherheit('Ja, die kannst du alle essen.', _gsLinaTrefferMitPflanzen('Was kann ich im Garten essen?', _gsArtenTreffer('Was kann ich im Garten essen?')));
+        if (!/Eibe/.test(imGarten) || /Erdbeere/.test(imGarten) || /Tollkirsche/.test(imGarten)) klagen.push('(c) „im Garten" nennt nicht genau die giftige Pflanzung: ' + String(imGarten).slice(0, 120));
+        // (d) der Ort nimmt nie eine Warnung weg — über alle giftigen Namen (Art-Stufe ≥ 3) und jeden siebten harmlosen: „Ja, N kannst
+        //     du essen." und „Kann ich N auf dem Balkon essen?" → „Ja, die kannst du essen." warnen mit Garten überall, wo sie ohne Garten
+        //     warnen, und bei harmlosen Namen warnt der Ort nicht neu (das volle Orakel, sieben Formen × alle Namen, steht in STATUS (kn))
+        const alle = [], ges = {}, tox = {};
+        DB.forEach((sp) => { const n = String(sp && sp.name || '').trim(); if (!n) return; const a = (_gsArtAnzeige(sp) || sp); tox[n] = Math.max(tox[n] || 0, a.tox | 0); if (!ges[n]) { ges[n] = 1; alle.push(n); } });
+        const harmlos = alle.filter((n) => (tox[n] | 0) < 3);
+        const namen = alle.filter((n) => (tox[n] | 0) >= 3).concat(harmlos.filter((_, i) => i % 7 === 0));
+        const FORMEN = [
+          (n) => ['Kann ich die Beeren auf dem Balkon essen?', 'Ja, ' + n + ' kannst du essen.'],
+          (n) => ['Kann ich ' + n + ' auf dem Balkon essen?', 'Ja, die kannst du essen.'],
+        ];
+        const weg = [], neuHarmlos = [];
+        FORMEN.forEach((form) => {
+          const ohne = {};
+          myPlants = []; plantings = []; gardens = [];
+          namen.forEach((n) => { const [f, a] = form(n); ohne[n] = pruef(f, a); });
+          garten();
+          namen.forEach((n) => {
+            const [f, a] = form(n), mit = pruef(f, a);
+            if (ohne[n] && !mit) weg.push(n);
+            if (!ohne[n] && mit && (tox[n] | 0) < 3) neuHarmlos.push(n);
+          });
+        });
+        if (namen.length < 600) klagen.push('(d) nur ' + namen.length + ' Namen — der Fall misst nichts');
+        if (weg.length) klagen.push('(d) der Ort nimmt eine Warnung weg bei ' + weg.length + ' Namen: ' + weg.slice(0, 5).join(', '));
+        if (neuHarmlos.length) klagen.push('(d) der Ort warnt neu bei ' + neuHarmlos.length + ' harmlosen Namen: ' + neuHarmlos.slice(0, 5).join(', '));
+        // (e) der echte Weg: gsLinaSend setzt die Warnung über die Antwort — mit dem Ort der Frage, und ohne ihn bei „die Erdbeeren"
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        window.showProfileToast = () => {};
+        window.sbFetch = async () => ({ data: [{}], error: null });
+        let antwort = '';
+        window.callAI = async () => antwort;
+        const sende = async (frage, a) => {
+          antwort = a;
+          window._gsLinaSending = false; window._gsLinaConvId = 'conv-L14'; window._gsLinaMsgs = [];
+          gsLinaRender(false);
+          const f = document.getElementById('gs-lina-input');
+          if (!f) throw new Error('Lina hat kein Eingabefeld');
+          f.value = frage;
+          await gsLinaSend();
+          const m = (window._gsLinaMsgs || []).filter(x => x && x.role === 'assistant').pop();
+          return m ? String(m.content) : '';
+        };
+        const ort = (await sende('Kann ich die Pflanze im Wohnzimmer essen?', 'Ja, die kannst du essen.')).split('\n')[0];
+        if (!/^⚠️ Achtung/.test(ort) || !/Maiglöckchen/.test(ort)) klagen.push('(e) „Pflanze im Wohnzimmer": ' + ort.slice(0, 120));
+        const erdb = (await sende('Kann ich die Erdbeeren im Garten essen?', 'Ja, die kannst du essen.')).split('\n')[0];
+        if (/Achtung/.test(erdb)) klagen.push('(e) „Erdbeeren im Garten" warnt vor der Pflanzung daneben: ' + erdb.slice(0, 120));
+        if (klagen.length) return { ok: false, warum: klagen.slice(0, 8).join(' · ') + (klagen.length > 8 ? ' · (+' + (klagen.length - 8) + ')' : '') };
+        return { ok: true, info: ORT_WARNT.length + ' Ort-Fragen warnen, ' + ORT_STILL.length + ' Sätze still · über ' + namen.length + ' Namen (alle giftigen, jeder siebte harmlose) in zwei Formen: keine Warnung weggenommen, keine neue bei harmlosen Namen' };
+      } finally {
+        myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.showProfileToast = sichern.pt;
+        if (sichern.on) Object.defineProperty(navigator, 'onLine', sichern.on); else { try { delete navigator.onLine; } catch (_) {} }
+        sichern.ls.forEach(([k, v]) => { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); });
+        _gsLinaEinblickSitzung = null;
       }
     },
   },

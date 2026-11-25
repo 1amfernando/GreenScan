@@ -2359,6 +2359,23 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > 312 giftige und 404 harmlose Namen. Jede der Ausnahmen ist einzeln gezählt (`sensor_check` „Lina 12 ·
 > Gift-Gegenprobe (kj)“, 16 Gegenproben).
 
+> **Eine Regel, die erbt, erbt auch die Ausnahmen der Basis** (v33.82, Lina 13 (km); Hold-out zu #355). F erbte die Art in
+> „… und kann bedenkenlos im Garten bleiben.“ — dort steht nur der schwache Stamm „bedenkenlos“, kein Wort vom Essen. Eine
+> GEERBTE Art zählt seither nicht vor einer Standort- oder Pflege-Handlung (`nurPflegeGeerbt`, `PFLEGE_STANDORT`). Was die
+> Basis warnt, bleibt; es ist also keine neue Ausnahme an der Sicherheitslinie. Und die Lücke zwischen Stamm und Handlung ist
+> eine ORTSANGABE, kein beliebiges Wort: Mit `(?:\S+ ){0,3}` wurde „… in kleinen Mengen unbedenklich, solange du gesund
+> bleibst.“ still (Gegenprobe M02). `sensor_check` „Lina 13 · Pflege-Sätze (km)“, vier Gegenproben.
+
+> **Ein Rückfall, der aus einem Ort eine Art macht, braucht eine geschlossene Wortliste** (v33.82, Lina 14 (kn); Brett
+> 5929). „Kann ich die Beeren auf dem Balkon essen?“ nennt keine Pflanze; dort steht eine Tollkirsche. Seither warnt ein
+> zustimmender Teil ohne Namen über den Ort der Frage (`_gsLinaGiftGenannt(text, {ort})`, `_gsLinaPflanzenInFrage(frage, max,
+> ort)`). Die erste Fassung fragte nur „nennt der Teil eine Art der Liste?“ — und warnte bei 2'323 harmlosen Namen im Genitiv:
+> „Die Blätter des Bärlauchs sind essbar.“ nennt für die Liste keine Art, für einen Menschen schon. Darum zwei Tests, die NICHT
+> die Liste fragen: Die Frage trägt nur Wörter aus `GS_LINA_ORT_FREI` (`_gsLinaOrtFrageFrei`, auch klein getippt), und die
+> Antwort schreibt bis zum zustimmenden Teil kein anderes Wort gross (`_gsLinaOrtOhneNamen`) — ausser einer giftigen Art, die
+> sie selbst nennt. **Wer prüft, ob ein Text etwas nennt, prüft gegen das, was ein Name sein KANN, nicht gegen das, was die
+> Liste kennt.** Gemessen mit einem Orakel MIT Garten: „nur ohne Ort“ 0, bei harmlosen Namen 0 neu (`sensor_check` „Lina 14“).
+
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
 > lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer

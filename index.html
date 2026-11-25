@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.81.20261124">
+<meta name="app-version" content="33.82.20261124">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -80760,6 +80760,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.82', date: '24.11.2026',
+      headline: 'Lina warnt, wenn du nach einem Ort fragst und dort eine Giftpflanze steht — und nicht mehr bei Pflegetipps',
+      summary: 'Lina 13 und 14. Fragst du nach einem Ort statt nach einer Pflanze („Kann ich die Beeren auf dem Balkon essen?“) und sagt Lina „Ja, die kannst du essen.“, warnt sie jetzt vor einer giftigen Pflanze, die du dort eingetragen hast — im Garten dieses Namens oder mit dem Ort in der Notiz. Nur als letzter Rückfall: Nennen Frage oder Antwort eine Pflanze, gilt die. Und Pflegesätze wie „Die Narzisse blüht im März und kann bedenkenlos im Garten bleiben.“ lösen keinen Fehlalarm mehr aus.',
+      user_summary: 'Lina kennt die Giftpflanzen an deinen Orten — und warnt nicht mehr bei Pflegetipps.',
+      user_items: [
+        {emoji:'🏡', bold:'Warnung nach Ort:', text:' „Kann ich die Beeren auf dem Balkon essen?“ — Lina weiss, was dort steht.'},
+        {emoji:'🪴', bold:'Kein Fehlalarm bei Pflegetipps:', text:' „kann bedenkenlos im Garten bleiben“ ist kein Essenstipp.'},
+      ]
+  },
+  {
     v: 'v33.81', date: '24.11.2026',
       headline: 'Lina warnt bei giftigen Pflanzen auch in Sätzen mit „aber“ und „und“ — und nicht mehr bei „Geniess den Garten“',
       summary: 'Lina 12. Die Gift-Gegenprobe liest zusammen, was ein Satz an „aber“ oder „und“ trennt: „Die Herbstzeitlose ist aber ebenfalls essbar.“ und „Herbstzeitlose und Bärlauch sind essbar.“ warnen jetzt. Auch die Rote Rosskastanie warnt; ein Wort auf „-nie“ galt vorher als Verneinung. Still bleibt Lina bei Sätzen, die gar nichts zum Essen zusagen: „Verzehr unbedingt vermeiden.“, „Geniess den Garten, die Narzissen blühen!“ und „Der Kerbel ist essbar, der Gefleckte Schierling giftig.“ Gemessen über alle Namen der Artenliste: Was vorher gewarnt hat, warnt weiter, ausser in diesen drei benannten Fällen.',
@@ -81053,26 +81063,6 @@ window.GS_RELEASES = [
         {emoji:'🧾', bold:'Abo verwalten:', text:' wer noch nie gekauft hat, liest einen ruhigen Hinweis statt einer Fehlermeldung, und „Kündigen“ zeigt immer auf dein laufendes Abo.'},
       ],
   },
-  {
-    v: 'v33.62', date: '19.11.2026',
-      headline: 'Kein „Daten wiederherstellen?“ mehr beim Start — was fehlt, holt die App von selbst aus dem Backup',
-      summary: 'Gemeldet von Fernando, zweimal: der Banner „Daten wiederherstellen?“ stand bei jedem Start da, und er will beim Öffnen gar nicht gefragt werden. Ursache des Dauerbanners, am Quelltext gemessen: seit v30.97 wurde nur die LOKALE Seite gefragt — ist irgendeiner der zwölf snapshot-exklusiven Bereiche leer (Bodenprofil, Käufe, Gebote, eigene Heilmittel …)? Das ist der Normalzustand, also war die Antwort bei fast jedem Konto „ja“, und das × war nirgends gemerkt. Jetzt gibt es den Banner nicht mehr. EINE Rechnung (_gsSnapshotFehlt) sagt, was eine Wiederherstellung zurückbrächte: der Snapshot hat dort Inhalt UND lokal ist es leer. Ist das so, holt gsSnapshotAutoWiederherstellen es still zurück (schreibt nur in leere Bereiche, überschreibt nie) und sagt danach einen Satz. Verloren und bewusst geleert werden unterschieden: stand ein Bereich beim letzten Backup auf DIESEM Gerät noch da (gs_snapshot_had) und ist jetzt leer, wurde er hier geleert — er bleibt leer und hält die automatischen Backups nicht an. Ein Versuch je Backup-Stand, keine Schleife bei vollem Speicher.',
-      user_summary: 'Beim Öffnen der App fragt kein Hinweis mehr nach dem Backup. Fehlt auf deinem Gerät etwas, das in deinem Cloud-Backup liegt, holt GreenScan es von selbst zurück und sagt es dir danach in einem Satz.',
-      user_items: [
-        {emoji:'🔕', bold:'Keine Frage mehr beim Start:', text:' der grüne Hinweis „Daten wiederherstellen?“ ist weg.'},
-        {emoji:'💾', bold:'Von selbst zurückgeholt:', text:' nach gelöschten Browserdaten oder auf einem neuen Gerät ergänzt die App, was fehlt. Vorhandenes wird dabei nie überschrieben.'},
-        {emoji:'🧹', bold:'Was du gelöscht hast, bleibt gelöscht:', text:' einen Bereich, den du auf diesem Gerät selbst geleert hast, holt die App nicht ungefragt zurück.'},
-        {emoji:'⚙️', bold:'Von Hand geht es weiter:', text:' Einstellungen › „Aus Cloud-Backup wiederherstellen“ holt jederzeit alles zurück.'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'Eine Rechnung:', text:' _gsSnapshotFehlt(st, mitHaupt) — Snapshot hat Inhalt UND lokal leer. Stille Wiederherstellung, Verdrängungs-Schutz (_gsSnapshotWouldLoseData) und Prüfstand fragen alle sie; die alte Lückenfrage und der Banner sind entfernt.'},
-        {emoji:'🧾', bold:'Zustand mit Grund:', text:' gsSnapshotAutoWiederherstellen gibt {geholt, grund} zurück — auch wenn nichts geschieht, steht der Grund da.'},
-        {emoji:'🔀', bold:'Verloren oder geleert:', text:' gs_snapshot_had entscheidet; bewusst Geleertes steht in gs_restore_abgelehnt, wird von gsSnapshotRestore ausgelassen (opts.ohne) und verfällt, sobald der Bereich wieder Inhalt hat. Die manuelle Wiederherstellung holt alles.'},
-        {emoji:'🗂️', bold:'Zwei neue Schlüssel:', text:' gs_restore_geprueft (Snapshot-Id, Lücken-Signatur, Ergebnis, versucht) und gs_restore_abgelehnt — beide in GS_USER_KEYS.'},
-        {emoji:'👤', bold:'Nur für dieselbe Person:', text:' meldet sich jemand während des Holens ab oder wechselt das Konto, schreibt die App nichts (_gsPerson nach jedem await).'},
-        {emoji:'🧪', bold:'Prüfstand:', text:' backup_check, Fälle W1–W7 mit gestelltem Server; gegen v33.61 rot.'}
-      ]
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81283,7 +81273,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.81';
+var GS_VERSION = 'v33.82';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -92204,6 +92194,11 @@ function _gsLinaSicherheit(antwort, treffer) {
   try {
     if (!antwort) return '';
     var hoch = (treffer && treffer.zahl) ? treffer.arten.filter(function (a) { return a.tox >= 3; }) : [];
+    // (kn) Ort in der Frage (Brett 5929): Arten, die nur über einen ORT der Frage kamen („die Beeren auf dem Balkon“), sind der
+    // letzte Rückfall. Sie zählen nur in einem zustimmenden Teil, der weder selbst eine Art nennt noch sein Subjekt aus einem Teil
+    // davor erbt (F, K) — „Die Erdbeeren kannst du später essen.“ spricht von den Erdbeeren, nicht von der Eibe daneben.
+    var hochOrt = hoch.filter(function (a) { return a.ort; });
+    hoch = hoch.filter(function (a) { return !a.ort; });
     // Lina · Einblick ehrlich (24.11.2026, Brett 6bbf): Arten, die nur über den Einblick zum Modell kamen
     // (eine eigene Pflanze, die die Frage beim Spitznamen nennt) oder die erst in der ANTWORT stehen, liefen
     // hier vorbei — die Gegenprobe sah nur _gsArtenTreffer(Frage). Eine Art aus der Antwort zählt nur in
@@ -92292,6 +92287,11 @@ function _gsLinaSicherheit(antwort, treffer) {
     var GENIESS_ERLEBNIS = new RegExp('geniess\\S*\\s+' + GENIESS_ART + '\\s+' + GENIESS_LUECKE + '(?:garten|gärten|gaerten|anblick|aussicht|duft|düfte|duefte|farben|farbenpracht|blütenpracht|bluetenpracht|pracht|spaziergang|ruhe)' + GENIESS_ENDE, 'iu');
     var GENIESS_BLUETE_ORT = new RegExp('geniess\\S*\\s+' + GENIESS_ART + '\\s+' + GENIESS_LUECKE + '(?:blüten?|blueten?)' + GENIESS_ENDE + '[^.!?]*\\s(?:im|in|auf|am)\\s+(?:\\S+\\s+)?(?:garten|beet|balkon|park|wald|topf|kübel|kuebel|terrasse|wiese)(?![\\p{L}\\p{N}-])', 'iu');
     var ESSWORT = /\bess|\bisst\b|gegessen|\bnasch|verspeis|\bkost|probier|schmeck|lecker|\bkoch|gekocht|\bbrat|\bback|\broh\b|salat|\btee\b|suppe|\bsaft|marmelade|gelee|sirup|würz|wuerz|\bmund|magen|schluck|\bkau|frucht|früchte|fruechte|beere|pilz|samen|knolle|\beat|\bcook|\bmang|cuisin|cucin|\bfood/;
+    // (km) Pflege-Sätze (24.11.2026, Hold-out des Koordinators zu (kj)): F erbte die Art in „… und kann bedenkenlos im Garten
+    // bleiben.“ — ein schwacher Stamm vor einer Standort- oder Pflege-Handlung sagt nichts zum Essen. Die Handlung folgt dem Stamm
+    // direkt oder nach einer Ortsangabe („im Garten“, „draussen“); „unbedenklich, solange du gesund bleibst“ ist keine Ortsangabe.
+    var PFLEGE_ORT_LUECKE = '(?:(?:draussen|draußen|drinnen|aussen|außen|ruhig|weiter|weiterhin|ganzjährig|ganzjaehrig) |(?:im|in|ins|auf|am|an|unter|vor|neben|beim|bei|über|ueber) (?:\\S+ ){0,2}?)*';
+    var PFLEGE_STANDORT = new RegExp('(?:bedenkenlos|unbedenklich|ohne bedenken) ' + PFLEGE_ORT_LUECKE + '(?:(?:stehen|liegen) )?(?:bleib|steh|wachs|wächst|waechst|geschnitten|' + PFLEGE_TUN + ')');
     var KONTRAST = /\bdagegen\b|\bhingegen\b|\bjedoch\b|\bwährend\b|\bwaehrend\b|\bwohingegen\b|\bpar contre\b|\btandis que\b|\balors que\b|\binvece\b|\bmentre\b|\bwhereas\b|\bwhile\b|\bwhilst\b/;
     var GIFTWORT = /giftig|tödlich|toedlich|toxisch|gefährlich|gefaehrlich|poison|toxic|deadly|velenos|tossic|mortel|mortal|toxique|vénéneu|veneneu/;
     var ENTWARNT = /nicht (?:sehr |besonders |so |wirklich )?(?:giftig|gefährlich|gefaehrlich|toxisch)|ungiftig|harmlos|\bnot (?:very |really )?(?:poisonous|toxic|dangerous)\b|non (?:toxique|tossic|velenos)|pas (?:toxique|dangereu)/;
@@ -92310,6 +92310,12 @@ function _gsLinaSicherheit(antwort, treffer) {
       // „unbedenklich" nur mit einem Pflegemittel (oder „das") als Satzgegenstand — „Sie ist unbedenklich" meint die Pflanze
       if (GENIESS_ERLEBNIS.test(String(roh || '')) || GENIESS_BLUETE_ORT.test(String(roh || ''))) return true;   // G (kj), am rohen Text
       return PFLEGE_MITTEL.test(n) && PFLEGE_SUBJEKT.test(n) && !nenntArt(roh);
+    };
+    // (km): eine GEERBTE Art (F, K) zählt nicht in einem Teil, der nur einen schwachen Stamm vor einer Standort- oder
+    // Pflege-Handlung trägt. Was die Basis warnt (die Arten der Frage, imSatz), bleibt; ein Ess-Wort im Satz hebt es auf (wie B).
+    var nurPflegeGeerbt = function (n, satzN) {
+      if (STARK.test(n) || (VERZEHR.test(n) && JA_DAVOR.test(n)) || !SCHWACH.test(n) || ESSWORT.test(n) || (satzN && ESSWORT.test(satzN))) return false;
+      return PFLEGE_STANDORT.test(n);
     };
     // (kj) Lina 12 (24.11.2026, Hold-out des Koordinators zu (kg)): fünf Regeln, jede einzeln gegen die Basis gemessen
     // (Orakel über alle Namen, Vorlagen je giftigem Namen, sensor_check „Lina 12"):
@@ -92362,6 +92368,8 @@ function _gsLinaSicherheit(antwort, treffer) {
       }
       return x;
     };
+    // (kn): nennt der Teil selbst eine Art — auch in der Mehrzahl („Erdbeeren“, _gsLinaNenntArt) oder als eigene Pflanze?
+    var nenntArtM = function (t) { return nenntArt(t) || _gsLinaNenntArt(t, true); };
     // C2: Gegensatz ohne Gegensatzwort — genau die Lage, in der C eine Art fallen lässt
     var asyndetisch = function (satz) {
       var kl = satz.split(/,+/).map(function (k) { return { r: k, n: _gsLinaNorm(k) }; }).filter(function (k) { return k.n; });
@@ -92399,7 +92407,17 @@ function _gsLinaSicherheit(antwort, treffer) {
           // die Menge der Basis (hoch, sonst imSatz des Teils) bleibt immer drin; dazu A
           kand = hoch.concat(basisJa ? imSatz(teile[j]) : []);
           zustimmend.forEach(function (k) { kand = kand.concat(genanntIn(k)); });
-          kand = kand.concat(geerbt(teile, j));   // F, K (kj)
+          if (!nurPflegeGeerbt(sz, satzN)) {
+            kand = kand.concat(geerbt(teile, j));   // F, K (kj) — nicht vor einer Pflege-Handlung (km)
+            // (kn) der Ort ist der letzte Rückfall: nur in einem Teil, der selbst keine Art nennt — und nur, wenn die Antwort bis
+            // hierher kein Wort gross schreibt, das ein Name sein kann. Damit erbt der Teil auch kein Subjekt (F, K): „Die Erdbeeren
+            // sind reif und du kannst sie essen.“ meint die Erdbeeren, „des Bärlauchs“ den Bärlauch, auch wenn die Liste ihn so nicht
+            // kennt. Frei bleibt eine giftige Art, die die Antwort selbst nennt.
+            if (hochOrt.length && !nenntArtM(teile[j])) {
+              var bisher = saetzeR.slice(0, i).concat(teile.slice(0, j + 1)).join(' . ');
+              if (_gsLinaOrtOhneNamen(bisher, genanntIn(bisher))) kand = kand.concat(hochOrt);
+            }
+          }
           if (kontrast && zustimmend.every(nenntArt)) {
             kand = kand.filter(function (art) {
               if (zustimmend.some(function (k) { return genanntIn(k).some(function (x) { return gleich(x, art); }); })) return true;
@@ -92507,7 +92525,7 @@ function _gsLinaGiftArten() {
 }
 // Die giftigen Arten, die ein TEXT nennt — mit Namen (dekliniert), Binomen oder als EIGENE Pflanze beim Namen oder Spitznamen.
 // Eine ERGÄNZUNG zur Erkennung der Basis (imSatz in _gsLinaSicherheit), nie ihr Ersatz.
-function _gsLinaGiftGenannt(text) {
+function _gsLinaGiftGenannt(text, opt) {
   var out = [], gesehen = {};
   var dazu = function (a) { var k = a.key || ('n:' + _gsLinaNorm(a.name)); if (gesehen[k]) return; gesehen[k] = 1; out.push(a); };
   try {
@@ -92530,20 +92548,43 @@ function _gsLinaGiftGenannt(text) {
     }
   } catch (_) {}
   try {
-    _gsLinaPflanzenInFrage(text, 50).forEach(function (x) {
+    // (kn) Der Ort ist ein RÜCKFALL der Frage (opt.ort): nur wenn der Text weder ein giftiges Muster noch eine Art der Liste
+    // (auch in der Mehrzahl) nennt; eine eigene Pflanze beim Namen prüft _gsLinaPflanzenInFrage selbst. Die Antwort liest nur Namen.
+    var mitOrt = !!(opt && opt.ort) && !out.length && _gsLinaOrteInFrage(text).length > 0 && !_gsLinaNenntArt(text, false) && _gsLinaOrtFrageFrei(text);
+    _gsLinaPflanzenInFrage(text, 50, mitOrt).forEach(function (x) {
       var p = x && x.p; if (!p) return;
       var lat = String(p.latin || p.lat || p.species || '').trim();
       var tr = lat ? _gsArtenTreffer(lat) : null;
       if (!tr || !tr.zahl) tr = _gsArtenTreffer(String(p.name || ''));
       (tr && tr.arten || []).forEach(function (a) {
         if ((a.tox | 0) < 3) return;
-        dazu({ name: a.name, lat: a.lat || '', tox: a.tox | 0, key: (typeof _gsNormLat === 'function' ? _gsNormLat(a.lat || '') : '') || ('n:' + _gsLinaNorm(a.name)) });
+        dazu({ name: a.name, lat: a.lat || '', tox: a.tox | 0, ort: !!x.ueberOrt, key: (typeof _gsNormLat === 'function' ? _gsNormLat(a.lat || '') : '') || ('n:' + _gsLinaNorm(a.name)) });
       });
     });
   } catch (_) {}
   return out;
 }
 window._gsLinaGiftGenannt = _gsLinaGiftGenannt;
+
+// (kn) Nennt ein Text SELBST eine Art — mit ganzem Namen oder Binomen (_gsArtenTreffer), in der Mehrzahl („Erdbeeren“,
+// „Kartoffeln“: -en/-ln/-rn verlieren das n, -as/-is/-os/-us das s) oder, mit `mitPflanzen`, als eigene Pflanze beim Namen?
+// Dann meint eine Zusage darin diese Art, und ein Ort aus der Frage zählt nicht.
+function _gsLinaNenntArt(text, mitPflanzen) {
+  try {
+    var t = _gsLinaNorm(text);
+    if (!t) return false;
+    if (_gsArtenTreffer(t).zahl) return true;
+    var einz = t.split(' ').map(function (w) {
+      if (w.length >= 5 && /(?:en|ln|rn)$/.test(w)) return w.slice(0, -1);
+      if (w.length >= 5 && /[aiou]s$/.test(w)) return w.slice(0, -1);
+      return w;
+    }).join(' ');
+    if (einz !== t && _gsArtenTreffer(einz).zahl) return true;
+    if (mitPflanzen && _gsLinaPflanzenInFrage(text, 1).length) return true;
+  } catch (_) {}
+  return false;
+}
+window._gsLinaNenntArt = _gsLinaNenntArt;
 
 // Lina · Einblick ehrlich (Brett 6bbf): die Arten der Frage UND die der eigenen Pflanzen, die die Frage beim
 // Namen oder Spitznamen nennt (_gsLinaPflanzenInFrage — dieselbe Auflösung wie die Detailzeile des Einblicks).
@@ -92568,8 +92609,9 @@ function _gsLinaTrefferMitPflanzen(frage, treffer) {
   } catch (_) {}
   try {
     // (kg) A: dazu ALLE eigenen Pflanzen der Frage und die deklinierten Giftnamen („Kann ich Tollkirschen essen?")
-    _gsLinaGiftGenannt(frage).forEach(function (a) {
-      if (!out.arten.some(function (b) { return b.name === a.name; })) out.arten.push({ name: a.name, lat: a.lat, tox: a.tox, cat: '', essbar: false, nurTeilname: false });
+    // (kn) und — als letzter Rückfall — die giftigen eigenen Pflanzen an einem ORT der Frage („auf dem Balkon“), mit `ort` markiert
+    _gsLinaGiftGenannt(frage, { ort: !(treffer && treffer.zahl) }).forEach(function (a) {
+      if (!out.arten.some(function (b) { return b.name === a.name; })) out.arten.push({ name: a.name, lat: a.lat, tox: a.tox, cat: '', essbar: false, nurTeilname: false, ort: !!a.ort });
     });
   } catch (_) {}
   out.zahl = out.arten.length;
@@ -92744,7 +92786,89 @@ window.gsSchaedlingeNotiert = gsSchaedlingeNotiert;
 // aber „Rose" nicht „Rosenkohl".
 // (kg) `max`: die Gift-Gegenprobe prüft ALLE eigenen Pflanzen einer Frage (50); die Detailzeilen des Einblicks bleiben bei
 // GS_LINA_DETAIL_PFLANZEN — „Kann ich Olli, Hecke und Lilli essen?" prüfte vorher nur zwei der drei.
-function _gsLinaPflanzenInFrage(frage, max) {
+// (kn) Ort in der Frage (Brett 5929): ein Raum, ein Gartenteil oder ein Gartenname nach einer Präposition („im Wohnzimmer“, „auf
+// dem Balkon“, „im Hochbeet Süd“). Nur die Gift-Gegenprobe fragt danach, und nur als Rückfall (`ort === true`).
+var GS_LINA_ORTE = ['wohnzimmer', 'schlafzimmer', 'kinderzimmer', 'arbeitszimmer', 'esszimmer', 'badezimmer', 'bad', 'küche', 'kueche', 'büro', 'buero',
+  'flur', 'keller', 'treppenhaus', 'eingang', 'balkon', 'terrasse', 'garten', 'vorgarten', 'hochbeet', 'beet', 'gewächshaus', 'gewaechshaus',
+  'wintergarten', 'fenster', 'fensterbank', 'fensterbrett'];
+function _gsLinaOrteInFrage(frage) {
+  var orte = [];
+  try {
+    var re = /(?:^|[^a-zäöüß])(?:im|in der|in dem|in meinem|in meiner|auf dem|auf der|auf meinem|auf meiner|am|an der|beim|vor dem|vor der)\s+([a-zäöüß][a-zäöüß-]{2,})/gi, m;
+    var gaerten = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : [];
+    while ((m = re.exec(String(frage || '')))) {
+      var w = m[1].toLowerCase();
+      var garten = gaerten.some(function (g) { return g && g.name && (' ' + String(g.name).toLowerCase().replace(/[^a-z0-9äöüß]+/g, ' ') + ' ').indexOf(' ' + w + ' ') >= 0; });
+      if ((GS_LINA_ORTE.indexOf(w) >= 0 || garten) && orte.indexOf(w) < 0) orte.push(w);
+    }
+  } catch (_) {}
+  return orte;
+}
+window._gsLinaOrteInFrage = _gsLinaOrteInFrage;
+// (kn) Wörter, die eine Frage nach einem Ort tragen darf, ohne etwas Bestimmtes zu nennen — und die eine Antwort gross schreiben
+// darf, ohne dass sie ein Name sind: Funktions- und Fragewörter, Zusage- und Essverben, Farbe und Reife, „Pflanze“, Pflanzenteile,
+// Zeit, Menge, wer isst (Kind, Hund). Jedes ANDERE Wort kann ein Name sein, den die Liste nicht kennt („Bärlauche“, „des
+// Bärlauchs“, „Basi“) — dann zählt der Ort nicht. Bewusst NICHT darin: Gemüse, Obst, Kräuter, Blumen, Pilze, Zwiebel — eine
+// Gruppe ist schon eine Auswahl, und die Eibe im Beet ist kein Gemüse.
+var GS_LINA_ORT_FREI = ('ich du er sie es wir ihr man ihn ihm ihnen mich mir dich dir uns euch sich ' +
+  'die der das den dem des ein eine einen einem einer eines mein meine meinen meinem ' +
+  'meiner unser unsere unseren unserem unserer dein deine deinen deinem deiner diese dieser dieses diesen diesem alle alles etwas davon ' +
+  'welche welcher welches was wie wo ob denn eigentlich auch noch schon jetzt heute bitte wirklich einfach so da dort hier dann und oder ' +
+  'aber nur ja nein klar natürlich natuerlich sicher gerne gern genau okay ok absolut selbstverständlich selbstverstaendlich vorsicht ' +
+  'im in ins auf am an beim bei vor unter neben hinter über ueber aus von vom zum zur mit ohne für fuer ' +
+  'kann kannst können koennen darf darfst dürfen duerfen soll sollte sind ist essen isst esst iss gegessen essbar geniessbar geniess ' +
+  'geniesse ernten ernte naschen probieren probier probiere kosten koste kochen pflücken pfluecken pflück pflücke sammeln sammle nimm ' +
+  'wachsen wächst waechst wachsende wachsenden stehen steht stehende stehenden hängen haengen hängt haengt ' +
+  'roh rohe gekocht gekochte reif reife reifen unreif unreife unreifen rot rote roten schwarz schwarze schwarzen blau blaue blauen gelb ' +
+  'gelbe gelben weiss weisse weissen grün grüne grünen gruen gruene gruenen orange orangen klein kleine kleinen gross grosse grossen ' +
+  'frisch frische frischen giftig gefährlich gefaehrlich bedenkenlos bedenken unbedenklich wild wilde wilden ' +
+  'pflanze pflanzen gewächs gewaechs gewächse gewaechse blatt blätter blaetter beere beeren frucht früchte fruechte fruchtfleisch ' +
+  'samen same kern kerne knolle knollen wurzel wurzeln blüte blüten bluete blueten stängel staengel stengel stiel stiele rinde schale ' +
+  'schalen spross sprosse sprossen trieb triebe knospe knospen nadel nadeln zweig zweige teil teile ' +
+  'frühling fruehling sommer herbst winter frühjahr fruehjahr jahr monat woche tag tage morgen abend menge mengen stück stueck portion ' +
+  'kind kinder baby sohn tochter hund hunde katze katzen haustier haustiere tier tiere kaninchen meerschweinchen').split(' ');
+function _gsLinaOrtFreiMenge() {
+  var frei = {};
+  GS_LINA_ORT_FREI.concat(GS_LINA_ORTE).forEach(function (w) { frei[w] = 1; });
+  try {
+    ((typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : []).forEach(function (g) {
+      String(g && g.name || '').toLowerCase().split(/[^a-z0-9äöüéèêàâçñß]+/).forEach(function (w) { if (w) frei[w] = 1; });
+    });
+  } catch (_) {}
+  return frei;
+}
+// (kn) Trägt die Frage nur freie Wörter (und Zahlen)? Auch klein getippt: „kann ich bärlauche im wohnzimmer essen“ nennt etwas.
+function _gsLinaOrtFrageFrei(frage) {
+  try {
+    var frei = _gsLinaOrtFreiMenge();
+    var worte = String(frage || '').toLowerCase().split(/[^a-z0-9äöüéèêàâçñß-]+/).filter(Boolean);
+    return worte.length > 0 && worte.every(function (w) {
+      return frei[w] || /^\d+$/.test(w) || (w.indexOf('-') > 0 && w.split('-').every(function (t) { return !t || frei[t]; }));
+    });
+  } catch (_) { return false; }
+}
+// (kn) Schreibt die Antwort (bis zum zustimmenden Teil) nur freie Wörter gross? Ein Wort einer giftigen Art, die sie selbst nennt
+// (`gift`), zählt als frei — auch dekliniert („Tollkirschen“, „des Gefleckten Schierlings“).
+function _gsLinaOrtOhneNamen(text, gift) {
+  try {
+    var frei = _gsLinaOrtFreiMenge(), stamm = [];
+    (gift || []).forEach(function (a) {
+      _gsLinaNorm(a && a.name || '').split(' ').forEach(function (w) { if (w.length >= 4) stamm.push(w.length > 5 ? w.replace(/(?:er|es|en|em|e)$/, '') : w); });
+    });
+    var giftWort = function (k) { return stamm.some(function (st) { return k.indexOf(st) === 0; }); };
+    var worte = String(text || '').split(/\s+/);
+    for (var i = 0; i < worte.length; i++) {
+      var w = worte[i].replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}-]+$/gu, '');
+      if (!w || !/^\p{Lu}/u.test(w)) continue;
+      var k = w.toLowerCase();
+      if (frei[k] || giftWort(k)) continue;
+      if (k.indexOf('-') > 0 && k.split('-').every(function (t) { return !t || frei[t] || giftWort(t); })) continue;
+      return false;
+    }
+    return true;
+  } catch (_) { return false; }
+}
+function _gsLinaPflanzenInFrage(frage, max, ort) {
   var out = [], grenze = (typeof max === 'number' && max > 0) ? max : GS_LINA_DETAIL_PFLANZEN;
   try {
     var f = ' ' + String(frage || '').toLowerCase().replace(/[^a-z0-9äöüéèêàâçñß]+/g, ' ') + ' ';
@@ -92760,6 +92884,21 @@ function _gsLinaPflanzenInFrage(frage, max) {
         if (re.test(f)) { out.push(x); return; }
       }
     });
+    // (kn) Ort in der Frage — nur als RÜCKFALL der Gift-Gegenprobe (`ort === true`) und nur, wenn die Frage keine eigene Pflanze
+    // beim Namen nennt („die Erdbeeren im Garten“ meint die Erdbeeren): die Pflanzungen eines Gartens dieses Namens und die eigenen
+    // Pflanzen, deren Notiz oder Spitzname den Ort nennt. Was über den Ort kam, trägt `ueberOrt` (eine Kopie — der Eintrag bleibt).
+    if (ort === true && !out.length) {
+      var orte = _gsLinaOrteInFrage(frage);
+      if (orte.length) {
+        var hat = function (t, w) { return (' ' + String(t || '').toLowerCase().replace(/[^a-z0-9äöüß]+/g, ' ') + ' ').indexOf(' ' + w + ' ') >= 0; };
+        var gaerten = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : [];
+        alle.forEach(function (x) {
+          if (out.length >= grenze) return;
+          var p = x.p, g = (x.liste === 'plantings') ? gaerten.find(function (z) { return z && z.id === p.gardenId; }) : null;
+          if (orte.some(function (w) { return (g && hat(g.name, w)) || (x.liste === 'myPlants' && (hat(p.notes, w) || hat(p.nick, w))); })) out.push(Object.assign({}, x, { ueberOrt: true }));
+        });
+      }
+    }
   } catch (_) {}
   return out;
 }
