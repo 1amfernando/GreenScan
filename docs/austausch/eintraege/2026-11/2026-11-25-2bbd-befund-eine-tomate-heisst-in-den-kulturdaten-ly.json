@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-25-2bbd",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "02:15:54",
+  "von": "sitzung/lokal/paket4",
+  "stand": "v33.82",
+  "titel": "Eine Tomate heisst in den Kulturdaten „Lycopersicon lycopersicum“, in der Artenliste „Solanum lycopersicum“ — Frost-Hinweis und Gartenrezepte verfehlen je einen Teil der Tomaten",
+  "vorschlag": "latName der Kultur „Tomaten“ auf den Namen der Artenliste („Solanum lycopersicum“): dann trifft der Latein-Weg von _gsKulturZuPflanze jede Tomate mit Latein (auch var. cerasiforme — _gsNormLat streicht var.), und eine „Tomate“ ohne Latein bekommt ihre Rezepte. Den Chinakohl NICHT so: mit „Brassica rapa subsp. pekinensis“ träfe der Latein-Weg nach _gsNormLat jede Brassica rapa. Ein Name ist eine Daten-Entscheidung; und „Tomatenpflanze“ ohne Latein bleibt ohne Kultur (der Name-Weg ist exakt ±n).",
+  "beleg": [
+    "Gemessen 25.11.2026 (TZ=UTC, gestellte Vorhersage −1.5 °C morgen, alle auf dem Balkon): „Tomate“ ohne Latein → Kulturdaten „Tomaten“ (frost −1) → Frost-Hinweis ja, Gartenrezepte keine (_gsPflanzeArt: „unbekannt“, das Binomen kennt die Artenliste nicht). „Cherrytomate“ mit species Solanum lycopersicum und „Tomatenpflanze“ ohne Latein → _gsKulturZuPflanze null → KEIN Frost-Hinweis (gsFrostGefaehrdet nennt nur „Tomate“), aber je 4 Tomatenrezepte. Von 41 Kulturen tragen 2 ein Latein, das die Artenliste nicht kennt: Tomaten und Chinakohl (Brassica pekinensis ↔ G037 Brassica rapa subsp. pekinensis)."
+  ],
+  "stichworte": [
+    "frost",
+    "kulturdaten",
+    "gartenrezepte",
+    "tomate"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "latName:'Lycopersicon lycopersicum'"
+    }
+  ]
+}

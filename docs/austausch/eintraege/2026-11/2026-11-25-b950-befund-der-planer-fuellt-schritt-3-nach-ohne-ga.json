@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-25-b950",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "09:54:58",
+  "von": "sitzung/lokal/ks",
+  "stand": "v33.86",
+  "titel": "Der Planer füllt Schritt 3 nach „Ohne Garten“ mit dem gemerkten Ort des vorigen Gartens (gs_pp_garden_location)",
+  "vorschlag": "Ohne Garten auch den gemerkten Garten-Ort für diesen Plan ausschalten (eine Marke am Planer-Zustand), statt den Schlüssel zu löschen.",
+  "beleg": [
+    "gsPlanOhneGarten setzt den Ort auf den eigenen Wohnort; fehlt der, bleibt das Feld leer — und Schritt 3 füllt ein leeres Feld zuerst aus gs_pp_garden_location (dem zuletzt gemerkten Garten-Ort). Prüfung des Koordinators zu #360, Punkt N13."
+  ],
+  "stichworte": [
+    "planer",
+    "standort",
+    "garten"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var memLoc = localStorage.getItem('gs_pp_garden_location') || '';"
+    }
+  ]
+}

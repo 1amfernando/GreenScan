@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-25-618e",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "08:18:07",
+  "von": "sitzung/lokal/ks",
+  "stand": "v33.86",
+  "titel": "Nach Ab- und Anmelden am selben Tag kommt die Frost-Meldung ein zweites Mal",
+  "vorschlag": "Die Tagessperre je Gerät führen (GS_KEEP_ON_LOGOUT, sie trägt keine Personendaten) oder je Konto stempeln; storage_check und sensor_check „Lina 17“ (b) um Abmelden/Anmelden am selben Tag erweitern.",
+  "beleg": [
+    "gs_notif_kat (die Sperre „eine je Kategorie und Tag“ von gsNotif.showKategorie) steht in GS_USER_KEYS und wird beim Abmelden geräumt; gsFrostMelden fragt nur diese Sperre. Gemeldet vom Koordinator zu #360 (F6), am Kopf 5a0cf24 nachgelesen, nicht gefahren."
+  ],
+  "stichworte": [
+    "frost",
+    "meldung",
+    "abmelden",
+    "gsnotif"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "'gs_notif_log','gs_notif_kat',   // v32.54: lokale Meldungen"
+    }
+  ]
+}

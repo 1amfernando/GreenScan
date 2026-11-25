@@ -1,0 +1,33 @@
+{
+  "id": "2026-11-25-4dad",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "08:18:26",
+  "von": "sitzung/lokal/ks",
+  "stand": "v33.86",
+  "titel": "Artenliste und Kulturdaten nennen für Gurke, Kürbis und Minze verschiedene Arten — Rezepte aus dem Garten sind dort nicht geprüft",
+  "vorschlag": "Botanik, kein Code: die Einträge mit einer Flora prüfen (FD1172 „Gurke“ heisst vermutlich Zuckermelone; die Kürbis-Binomen sativus/melo/alba gibt es nicht), dann misst sensor_check „Lina 17 · #360“ R5 neu.",
+  "beleg": [
+    "Gemessen am Folge-Commit zu #360 (Lauf über 135 Namen): „Gurke“ = Cucumis melo (FD1172, die Melone), Kulturdaten „Gurken“ = Cucumis sativus; „Kürbis“ = vier Einträge (Cucurbita pepo, sativus, melo, alba — zwei davon keine Arten), Kulturdaten Cucurbita maxima; „Minze“ = sieben Mentha-Arten, Kulturdaten Mentha spicata. Seit #360 gelten diese Namen als mehrdeutig (nicht geprüft): Gurken verlor 3, Kürbis 5 Rezepte, die vorher kamen."
+  ],
+  "stichworte": [
+    "rezepte",
+    "artenliste",
+    "kulturdaten",
+    "gurke",
+    "kuerbis",
+    "minze"
+  ],
+  "anker": [
+    {
+      "datei": "data/plants.v1.js",
+      "text": "{id:'FD1172',name:'Gurke',lat:'Cucumis melo'"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-25-2bbd"
+    }
+  ]
+}

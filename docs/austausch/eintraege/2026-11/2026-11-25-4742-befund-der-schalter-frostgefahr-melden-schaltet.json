@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-25-4742",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "09:54:46",
+  "von": "sitzung/lokal/ks",
+  "stand": "v33.86",
+  "titel": "Der Schalter „🥶 Frostgefahr melden“ schaltet das Frost-Banner der Startseite und seinen Toast nicht ab",
+  "vorschlag": "Banner und Toast aus derselben Rechnung wie die Meldung (gsFrostGefaehrdet) — oder mindestens hinter s.frost !== false; dazu der Satz unter dem Schalter, was er abschaltet.",
+  "beleg": [
+    "gsCheckFrostWarning liest gs_push_settings nicht (0 Zugriffe in der Funktion): Banner, Toast und die Zeile in frost_history kommen auch mit abgewähltem Schalter; die lokale Meldung (gsFrostMelden) und der Server (notify_frost) folgen ihm. Prüfung des Koordinators zu #360, Punkt N4b; nachgelesen am Kopf des zweiten Folge-Commits."
+  ],
+  "stichworte": [
+    "frost",
+    "schalter",
+    "startseite"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "function gsCheckFrostWarning() {"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-25-bd2d",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "09:54:54",
+  "von": "sitzung/lokal/ks",
+  "stand": "v33.86",
+  "titel": "_gsPflanzTag liest „10.05.2026“ als 5. Oktober, und ein date mit Uhrzeit fällt auf added zurück",
+  "vorschlag": "Ein ISO-Präfix (YYYY-MM-DD am Anfang) als Tag nehmen und DD.MM.YYYY ausdrücklich lesen; alles andere ist kein Datum (null), nie new Date(roh).",
+  "beleg": [
+    "new Date('10.05.2026') ergibt in V8 2026-10-05 (US-Reihenfolge, in Node 22 nachgemessen); die Regel /^\\d{4}-\\d{2}-\\d{2}$/ nimmt '2026-05-10T08:00' nicht und liest dann added. Für die Frost-Saison (_gsFrostSaison: Pflanzjahr, Zukunft) zählt dann ein falscher Tag. Prüfung des Koordinators zu #360, Punkt N12."
+  ],
+  "stichworte": [
+    "frost",
+    "datum",
+    "pflanzdatum"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "if (typeof d === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(d)) return d;"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "2026-11-25-e9a4",
+  "art": "frage",
+  "datum": "2026-11-25",
+  "zeit": "02:16:45",
+  "von": "sitzung/lokal/paket4",
+  "stand": "v33.82",
+  "titel": "Kommt der Frost zweimal? Die neue lokale Frost-Meldung (gsFrostMelden) und der Frost-Push des Servers (weather-alert-checker) wissen nichts voneinander",
+  "text": "Lokal (Lina 17, gemessen in sensor_check „Lina 17“): Kategorie „frost“ über gsNotif.showKategorie, eine je Tag und GERÄT, nennt die gefährdeten Pflanzen; sie hört auf dieselbe Wahl gs_push_settings.frost („🥶 Frostgefahr“). Server (nur gelesen, nicht ausgeführt): buildAlerts sendet bei notify_frost und Tiefstwert ≤ 2 °C „🥶 Frostgefahr in den nächsten …h“ für den ORT; seine Tagessperre (fn_push_already_sent_today, Kategorie frost) kennt die lokale Meldung nicht. Beide zusammen sind möglich. Zu entscheiden: beide lassen (Ort und Pflanzen sind zwei Aussagen), die lokale schweigen lassen, wenn ein Server-Abo besteht, oder den Server die Pflanzen nennen lassen.",
+  "an": "alle",
+  "haengt_daran": "ob eine Person mit Push-Abo und offener App am selben Tag zwei Frost-Meldungen bekommt",
+  "stichworte": [
+    "frost",
+    "push",
+    "meldung"
+  ]
+}

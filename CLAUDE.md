@@ -2440,6 +2440,70 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > Dazu sagen die Karten „heute“ (die Werkzeuge kennen kein Datum), und `gsLinaResolvePlant` nimmt nur einen eindeutigen Treffer.
 > (`sensor_check` „Lina 16“ (p)–(v), 23 Gegenproben.)
 
+> **„Leer“ heisst geprüft — und ein Werkzeug, das man aufruft, tut schon etwas, bevor man es ruft** (v33.86, Lina 17 (ks);
+> Paket 4 „Mit dir denken“). Frost ist EINE Rechnung (`gsFrostGefaehrdet`) für Kalender, „Braucht Hilfe“ und eine lokale Meldung;
+> Rezepte aus dem Garten gibt es nur zu exakt derselben Art (`gsGartenRezepte`); die Beetplanung ist der vorhandene Planer. Die
+> gegnerische Prüfung fand neun Stellen, an denen eine Anzeige mehr sagte, als gerechnet war:
+> - Eine „Tomate“ ohne Latein hiess „kein Rezept“, obwohl die App vier hat: Sie war nur keiner Art zuzuordnen. Was nicht geprüft
+>   werden konnte, steht als „nicht geprüft“ mit Namen da (`pflanzen.ungeprueft`), nie als leeres Ergebnis — dieselbe Klasse wie
+>   „Keine Daten ist nicht keine Gefahr“ (v33.36).
+> - „Übernimmt dessen Masse, Licht und Boden“ stimmte nicht. `openGardenAI` belegt still aus `gardens[0]` vor, und der Planer
+>   behält Licht und Boden der vorigen Sitzung. Der Fall plante den Garten an erster Stelle und mass damit die Vorbelegung (Rückbau
+>   M1 grün). **Wer eine Zusage über ein vorhandenes Werkzeug macht, sieht zuerst nach, was es von selbst tut, und stellt im Fall den
+>   Zustand her, den es vorfindet:** der Zielgarten an zweiter Stelle, die vorige Sitzung gesetzt.
+> - Eine Vorhersage hat ein Alter und eine Tageszeit. Ein Frost-TAG ist nicht „Frost kommt“: am Nachmittag ist der Frost von heute
+>   früh vorbei (`kommt`, `_gsFrostHeuteKommt`). Eine abgelaufene Vorhersage ist nicht „kein Frost“, und eine von vor Tagen meldet
+>   nichts (`GS_FROST_MELDEN_ALTER_H`).
+> - Der Verlauf ist ein Weg zur KI. Ohne Einblick ging Linas Zusatzsatz („Einen Garten ‚Kartoffelacker‘ finde ich nicht“) über
+>   `content` mit der nächsten Frage hinaus. Jetzt steht er nur auf dem Bildschirm (`zusatz`).
+> - Ein Fall, der zwei Rechnungen auf Gleichheit prüft, sieht keine Kopie: W5 blieb grün, als R6 die alte Rechnung selbst trug.
+>   **Wer prüfen will, dass A die Funktion B LIEST, setzt für B einen Stellwert und verlangt ihn in A** (W5 Lage 6).
+>
+> (`sensor_check` „Lina 17“, `kalender_check` W5, `datum_check` T8; 33 Gegenproben beim Bau und 20 aus der Prüfung.)
+>
+> **Und ein Name ist eine zweite Aussage über die Art — er wird geprüft, auch wenn ein Latein daneben steht** (#360, Folge-Commit;
+> Prüfung des Koordinators). Eine Pflanze „Maiglöckchen“ mit dem Latein des Bärlauchs (der Scan hatte sich geirrt, die Person
+> benannte um) bekam 26 Bärlauch-Rezepte: `_gsPflanzeArt` las neben eigenem Latein nur das Latein. Jetzt fragt es beide
+> (`_gsNamensArten`): Ein giftiger Name sperrt, ein Name, der eine andere Art meint, macht die Art „nicht geprüft“.
+> - **Pilze bestimmt man nicht an einem Namen:** `_gsPflanzeIstPilz` sperrt jedes Rezept (Steinpilz 16, Pfifferling 17).
+> - **„Kein Rezept“ ist ein geprüftes Nein — und ein Name kann mehr meinen als die Liste:**
+>   - Einzahl und Mehrzahl sind ein Name; Artenliste und Kulturdaten müssen dasselbe sagen. „Gurke“ war Cucumis melo, „Gurken“
+>     Cucumis sativus.
+>   - „Kein Rezept“ gilt nicht, wenn ein Rezept dieselbe Art mit Unterart nennt (Karotten → Rüebli) oder der Name der Stamm eines
+>     Rezept-Namens ist (Linde → Winterlinde).
+>   - Gemessen über 135 Namen: kein neues Ja, 10 falsche Nein weniger; Lauch und Rettich bezahlen die Stamm-Regel mit „nicht geprüft“.
+> - **Eine Pflanzung hat ein Lebensende:** eine frostempfindliche Sommerkultur zählt nur in ihrer Saison (`_gsFrostSaison`: April
+>   bis Oktober, gepflanzt, im Pflanzjahr). Über 0 °C heisst es „Frost möglich“, nicht „Frost kommt“.
+> - **Gezählt wird, was erscheint:** `gsNotif.show` protokolliert erst nach `new Notification`. Der Konstruktor wirft auf
+>   Chrome/Android.
+> - **Ein Schalter, der in einem zugeklappten Panel liegt, gibt es für die Person nicht:** „🥶 Frostgefahr melden“ steht als eigene
+>   Zeile.
+> - **Der Zwilling gehört zu seiner Fläche:** Er geht nur in den Auftrag, wenn die geplante Fläche seine ist (`_gsPlanTwinPasst`).
+>   Sein Hinweis folgt derselben Bedingung (`_gsPPtwinHinweis`).
+> (`sensor_check` „Lina 17 · #360“, 26 Gegenproben: 24 rot, die Basis rot, 1 grün wie erwartet.)
+>
+> **Und ein Name ist mehr als sein ganzer Wortlaut** (#360, zweiter Folge-Commit). Die Namens-Sperre kannte nur den GANZEN Namen:
+> „Maiglöckchen (Topf)“, „Mein Maiglöckchen“ und ein Maiglöckchen in NFD bekamen mit dem Latein des Bärlauchs wieder 26 Rezepte,
+> {Bärlauch, „Convallaria“} auch (ein Latein mit nur einer Gattung galt gar nicht als Latein).
+> - **Ein Name trägt seinen giftigen Teil weiter.** NFC zuerst, dann jede Wortfolge (`_gsRezWoerter`) gegen die Namen giftiger
+>   Einträge und der Pilze. Ein Wort zählt ab 4 Zeichen (`GS_REZ_WORT_MIN`): die kürzesten giftigen Namen sind „Eibe“ und „Efeu“.
+> - **Eine Gattung ist keine Art:** sie wird gegen die Gattungen giftiger Arten und der Pilze gehalten und fällt sonst auf
+>   „unbekannt“, nie auf den Namen zurück.
+> - **Die Unterart gilt auch für ein eigenes Latein ohne Unterart** (Zucchini, Cucurbita pepo: nicht geprüft).
+> - **Ein Pilz-Rezept erkennt man auch am Titel:** zwei kamen ohne Pilz-Art unter den Zutaten über Edelkastanie und Mais in den
+>   Garten, eines mit Waldpilzen und ohne Warnung (`GS_REZ_PILZ_WORT`).
+> - **Eine Warnung heisst nur dann Verwechslungswarnung, wenn sie das sagt** (20 von 211; `GS_REZ_VERWECHSLUNG`).
+> - **Eine Grenze aus der Kulturdauer schliesst das Vorziehen aus:** die 200 Tage zählten ab dem Anlegen, und wer beim Säen anlegt,
+>   bekam im Oktober keine Frost-Meldung. Es bleiben Kalender, Pflanzdatum und Pflanzjahr.
+> - **Eine Lücke ist keine Entwarnung:** ohne einen Tiefstwert ab heute ist der Frost nicht prüfbar (`_gsWetterTage().mit`), und
+>   das Startseiten-Banner liest `null` nicht als 0 °C. Ausserhalb der Saison steht der Frost unter „nicht geprüft“.
+> - **Ein Schalter zeigt, was gespeichert ist:** EIN Spiegel (`_gsPushSettingsSpiegeln`) nach Abmelden, Abgleich und Backup; bei
+>   vollem Speicher springt er zurück, ein Satz, kein PATCH; jede Wahl merkt den state-Blob vor.
+> - **Ein Rückfallwert ist keine Eingabe:** leere Masse (Vorgabe 3 × 3 m) holten einen 3 × 3-m-Zwilling in den Planer-Auftrag.
+> - **Ein Fall, der zwei Stellen in EINEM Text sucht, sieht nicht, wenn eine zurückfällt:** die alte Release-Notiz blieb grün,
+>   weil die Zusammenfassung „beim Start“ noch trug. Er prüft jetzt beide einzeln.
+> (`sensor_check` „Lina 17 · #360 zwei“, `speicher_check` „Push-Schalter“; 28 Gegenproben rot, die Basis rot.)
+
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
 > lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer

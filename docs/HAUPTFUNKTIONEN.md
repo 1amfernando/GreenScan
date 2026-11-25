@@ -193,6 +193,34 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     im Verlauf an die KI; beim Tipp wird gegen den aktuellen Stand geprüft (umgezogen, anderswo abgehakt, umbenannt → nichts);
     zwei gleichnamige am selben Ort stehen zur Auswahl, mit Sorte, Pflanzdatum oder Anzahl beschriftet; die Karten sagen „heute“;
     eine Pflanzung zeigt ihren Verlauf im Gartentagebuch; und der Text einer Karte geht durch die Gift-Gegenprobe.
+17. ✅ v33.86 (`sensor_check` „Lina 17", `kalender_check` W5, Paket 4 „Mit dir denken", (ks)) — **Lina dachte nicht mit.** Frost
+    stand nur im Kalender (R6, eine eigene Rechnung im Prüfwerk); „Tomaten brauchen Schutz — Frost kommt!" musste die Person selbst
+    finden. Rezepte gab es nur im Rezept-Bereich, ohne Bezug zum eigenen Garten, und die Beetplanung kannte Lina nur als Weg im Text.
+    Jetzt ist Frost EINE Rechnung (`gsFrostGefaehrdet`) für den Kalender, „Braucht Hilfe" und eine lokale Meldung (eine je Tag, nie
+    in der Stille, nur mit Erlaubnis); Rezepte aus dem Garten nur zu exakt derselben Art und nie giftig (`gsGartenRezepte`); und
+    zwei lesende Werkzeuge öffnen die Rezepte mit Garten-Filter und den vorhandenen Planer für genau den genannten Garten — ohne
+    neuen KI-Aufruf. Nach der Gegenprüfung: eine Pflanze ohne eindeutige Art heisst „nicht geprüft", nicht „kein Rezept"; der Planer
+    nimmt nur, was zu DIESEM Garten hinterlegt ist, und bleibt dort stehen, wo etwas fehlt; „Frost kommt" nur für Frost, der noch
+    kommt, und nur aus einer frischen Vorhersage; ohne Einblick geht Linas Zusatzsatz nicht an die KI. Offen: die Kulturdaten nennen
+    die Tomate „Lycopersicon lycopersicum", die Artenliste „Solanum lycopersicum" —
+    eine „Tomate" ohne Latein bekommt keine Tomatenrezepte (sie steht als „nicht geprüft" da), eine „Cherrytomate" mit Latein
+    keinen Frost-Hinweis (brett:2026-11-25-2bbd, Daten-Entscheidung); 11 Rezept-Arten gelten als nicht essbar
+    (brett:2026-11-25-5769); lokale Frost-Meldung und Server-Push wissen nichts voneinander (brett:2026-11-25-e9a4).
+    Folge zu #360 (Prüfung des Koordinators, `sensor_check` „Lina 17 · #360"): Name UND Latein werden geprüft (ein
+    „Maiglöckchen" mit Bärlauch-Latein bekommt kein Rezept), Pilze nie, „kein Rezept" nur bei eindeutiger Art (Gurke/Gurken,
+    Minze, Linde, Karotten: nicht geprüft); Frost nur in der Saison einer Sommerkultur und über 0 °C „möglich"; eine Meldung zählt
+    erst, wenn sie erscheint; der Frost-Schalter steht als eigene Zeile; der Planer nimmt nichts vom vorigen Garten und den Zwilling
+    nur zu seiner Fläche. Offen: nach Ab- und Anmelden am selben Tag eine zweite Frost-Meldung (brett:2026-11-25-618e);
+    Gurke/Kürbis/Minze in Artenliste und Kulturdaten (brett:2026-11-25-4dad); Meldungen über den Service Worker
+    (brett:2026-11-25-bd8a).
+    Zweiter Folge-Commit (`sensor_check` „Lina 17 · #360 zwei“): ein Name mit Zusatz („Maiglöckchen (Topf)“), in NFD oder mit nur
+    einer Gattung als Latein bekommt kein Rezept; die Unterart gilt auch bei Latein (Zucchini: nicht geprüft); kein Pilz-Rezept über
+    ein Kraut, auch nicht über den Titel; je Grund ein Satz; Linas Zeile nennt den Warnvermerk eines Rezepts; Frost ohne die
+    200 Tage, ausserhalb der Saison „nicht geprüft“, ohne Tiefstwert nicht prüfbar, Wort und Wert vom kältesten Tag; das
+    Startseiten-Banner liest keine Lücke als 0 °C; der Frost-Schalter zeigt, was gespeichert ist. Offen: brett:2026-11-25-4742
+    (der Schalter schaltet das Banner nicht ab), brett:2026-11-25-72ca (Android), brett:2026-11-25-ad1b (Server ohne Saison),
+    brett:2026-11-25-bd2d (Datumsformat), brett:2026-11-25-b950 (Planer-Ort), brett:2026-11-25-dedf (Latein klein),
+    brett:2026-11-25-12f1 (Frage an Fernando).
 
 ## Offen — Suche
 

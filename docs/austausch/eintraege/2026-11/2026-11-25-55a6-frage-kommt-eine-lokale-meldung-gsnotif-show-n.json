@@ -1,0 +1,12 @@
+{
+  "id": "2026-11-25-55a6",
+  "art": "frage",
+  "datum": "2026-11-25",
+  "zeit": "03:38:55",
+  "von": "sitzung/lokal/ks",
+  "stand": "v33.85",
+  "titel": "Kommt eine lokale Meldung (gsNotif.show → new Notification) auf Android-Chrome und in der Android-Hülle überhaupt an?",
+  "text": "gsNotif.show baut nur new Notification(…); showNotification steht nur in sw.js. Android-Chrome lehnt den Konstruktor bekanntlich ab („Illegal constructor“), und die WebView der Hülle kennt Notification nicht — beides nicht gemessen: von hier läuft kein Android, gemessen ist nur Chromium am Desktop mit gestellter Notification (sensor_check „Lina 17“, datum_check T8). Gefunden von der Gegenprüfung zu Lina 17 (ks).",
+  "an": "alle",
+  "haengt_daran": "ob die Frost-Meldung aus Lina 17 (und jede lokale Meldung: Aufgaben-Erinnerung, Sensor-Alarm) auf einem Android-Telefon erscheint"
+}

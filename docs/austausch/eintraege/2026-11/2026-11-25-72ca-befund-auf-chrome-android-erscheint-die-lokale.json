@@ -1,0 +1,31 @@
+{
+  "id": "2026-11-25-72ca",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "09:55:15",
+  "von": "sitzung/lokal/ks",
+  "stand": "v33.86",
+  "titel": "Auf Chrome/Android erscheint die lokale Frost-Meldung nie — unter dem Schalter steht kein Satz dazu",
+  "vorschlag": "Bis registration.showNotification gebaut ist (Brett 2026-11-25-bd8a): ein Satz unter dem Schalter, wenn gsNotif.letzterGrund() 'fehler' war oder der Browser keinen Notification-Konstruktor hat.",
+  "beleg": [
+    "new Notification wirft dort (TypeError: Illegal constructor); seit #360 F2 zählt die Meldung dann nicht und letzterGrund ist 'fehler', aber die Zeile „🥶 Frostgefahr melden“ verspricht weiter eine Meldung. Prüfung des Koordinators zu #360, Punkt N10."
+  ],
+  "stichworte": [
+    "frost",
+    "schalter",
+    "android",
+    "meldung"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "id=\"frost-melden-row\""
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-25-bd8a"
+    }
+  ]
+}

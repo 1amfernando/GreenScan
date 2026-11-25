@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-25-bd8a",
+  "art": "idee",
+  "datum": "2026-11-25",
+  "zeit": "08:18:12",
+  "von": "sitzung/lokal/ks",
+  "stand": "v33.86",
+  "titel": "Lokale Meldungen über den Service Worker zeigen (registration.showNotification)",
+  "nutzen": "new Notification wirft auf Chrome/Android („Illegal constructor“); dort erscheint die Frost- und die Aufgaben-Meldung nie. Seit #360 zählt sie dann wenigstens nicht mehr (gsNotif.show protokolliert erst nach der Meldung, letzterGrund 'fehler').",
+  "pruefbar": "sensor_check: Notification-Konstruktor wirft, registration.showNotification gestellt → die Meldung kommt über den Worker, genau einmal; offline_check mit echtem Worker. Ob sie auf einem Telefon erscheint, zeigt nur ein Gerät (brett:2026-11-25-55a6).",
+  "stichworte": [
+    "meldung",
+    "gsnotif",
+    "service-worker",
+    "android"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-25-55a6"
+    }
+  ]
+}
