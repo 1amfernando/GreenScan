@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-25-c0d7",
+  "art": "abschluss",
+  "datum": "2026-11-25",
+  "zeit": "02:03:26",
+  "von": "sitzung/lokal/ku",
+  "stand": "v33.83",
+  "titel": "erledigt: Lina: 20 kurze Namen giftiger Arten erkennt die Gift-Gegenprobe gar nicht — Goldregen, Germer, Nieswurz, Buchsbaum, Akelei, Clivia …",
+  "ergebnis": "erledigt",
+  "wohin": "v33.84 (ku) — Lina 15b: ein kurzes letztes Wort (5–9 Zeichen) gilt allein, wenn jeder geprüfte Eintrag damit giftig ist; in _gsLinaGiftArten UND _gsArtenTreffer (ARTEN-Zeile, Scan-Chat), dort nur ausserhalb eines ganzen Namens",
+  "geschwister": "gesucht: grep -n 'length >= 10' index.html → genau zwei Namensregeln, beide umgestellt (_gsLinaGiftArten, _gsArtenTreffer); die übrigen Treffer sind Zähler und Formulargrenzen. Von den 18 Wörtern des Befunds bleiben „Zeitlose“ (auch ein Adjektiv) und „Rosenbaum“ (meist ein Rosenstämmchen) bewusst draussen, ebenso die zwei Zusätze Zwerg und weiss; 16 warnen jetzt in allen Formen. Die Umschrift ohne Umlaut („Roetling“) betrifft alle Namen — eigene Idee 057d.",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-25-9c9c"
+    }
+  ]
+}

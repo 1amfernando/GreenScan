@@ -1,0 +1,22 @@
+{
+  "id": "2026-11-25-057d",
+  "art": "idee",
+  "datum": "2026-11-25",
+  "zeit": "02:02:58",
+  "von": "sitzung/lokal/ku",
+  "stand": "v33.83",
+  "titel": "Gift-Gegenprobe: Namen in Umschrift ohne Umlaut erkennen („Roetling“, „Faelbling“, „Maigloeckchen“)",
+  "nutzen": "_gsLinaNorm faltet nur ß → ss. Wer ohne Umlaut tippt (Fremdtastatur, Kopie aus einer Mail) oder eine Antwort so liest, bekommt für „Kann ich Roetling essen?“ → „Ja, den kannst du essen.“ keine Warnung — für JEDEN Namen mit Umlaut, nicht nur die kurzen aus (ku). Vorschlag: ä/ö/ü und ae/oe/ue in _gsLinaNorm gleich falten (beide Richtungen auf eine Form), wie quizKategorie es seit v33.29 tut.",
+  "pruefbar": "Orakel über alle Namen der Liste in einer Umschrift-Form (ä→ae, ö→oe, ü→ue): „nur Basis“ 0 und bei harmlosen Namen 0 neu; dazu die Fehlalarm-Richtung an harmlosen Sätzen, deren Wörter erst durch das Falten einem Giftnamen gleichen.",
+  "stichworte": [
+    "lina",
+    "gift-gegenprobe",
+    "artenerkennung"
+  ],
+  "bezug": [
+    {
+      "art": "gehoert_zu",
+      "id": "2026-11-11-a874"
+    }
+  ]
+}

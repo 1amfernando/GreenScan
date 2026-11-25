@@ -12,6 +12,49 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-25 (ku) - v33.84: Lina 15b — kurze Namen giftiger Arten warnen („Goldregen“, „Germer“, „Nieswurz“, „Akelei“ …)
+
+**Auftrag:** Befund 9c9c, vom Koordinator als (ku) VOR die neuen Lina-Fähigkeiten gestellt („eine falsche Entwarnung über eine
+giftige Pflanze geht vor“). Bedingungen: Orakel „nur Basis“ 0, Hold-out-Regressionen 0, Vorlagen über alle Namen in beiden
+Richtungen, Gegenproben; der „Bindestrich-Teilname“ („Goldregen-Samen“) gehört dazu.
+
+**Gebaut** (`_gsLinaGiftArten`, `_gsArtenTreffer`, `GS_LINA_KURZ_MIN`, `GS_LINA_KURZ_KEIN_NAME`):
+- **Ein kurzes letztes Wort (5–9 Zeichen) gilt allein wie ein langes**: nur wenn jeder geprüfte Eintrag mit diesem Wort giftig ist
+  (dasselbe Veto wie ab zehn Zeichen), und nur als Name — nicht als Zusatz, der im Eintrag klein steht („Echter Oleander weiss“),
+  und nicht, wenn es auch etwas anderes meint (`GS_LINA_KURZ_KEIN_NAME`: „Zwerg“, „zeitlose“ — „ein zeitloses Rezept“ —, und
+  „Rosenbaum“, im Garten meist ein Rosenstämmchen mit essbaren Blüten). 25 Wörter; 16 davon erkannte die Gegenprobe vorher in
+  keiner Form. „Zeitlose“ und „Rosenbaum“ aus dem Befund bleiben bewusst draussen (die Herbstzeitlose erkennt ihr voller Name).
+- **`_gsArtenTreffer` liest dieselbe Menge.** Damit sehen sie auch die ARTEN-Zeile, der Scan-Chat (er liest die Frage nur hiermit),
+  `_gsSammelSicher` (Doppelgänger im Saisontipp) und die Ort-Regel (kn). Ein kurzes Wort zählt dort nur AUSSERHALB eines ganzen
+  Namens, den der Text nennt (die längsten zuerst ausgeblendet), und ausserhalb der Hüllen der Gift-Gegenprobe (kg), die auch die
+  Mehrzahl kennen: „Nieswurz-Schafgarbe“ und „Nieswurz-Schafgarben“ sind keine Nieswurz. Beide Lücken fand das Orakel, nicht der Fall
+  (die zweite erst das Garten-Orakel mit seiner Mehrzahl-Form).
+
+**Gemessen** (Basis `0c2e662` → Kopf):
+- Je Wort sechs Formen (Antwort „Ja, W ist essbar.“, Frage „Kann ich W essen?“ → „Ja, den kannst du essen.“, „W-Samen“,
+  „Wsamen“, Mehrzahl, Scan-Chat) und die ARTEN-Zeile: für 16 Wörter **0 → 6 von 6**; Lorchel und Risspilz warnten schon in fünf
+  Formen, jetzt auch im Scan-Chat. Keine Form verliert eine Warnung.
+- **Orakel ohne Garten** (6 Formen × 3'138 Namen): identisch mit der Basis — „nur Basis“ 0, bei harmlosen Namen 0 neu. Die erste
+  Fassung hatte 1 neu: „Nieswurz-Schafgarbe“ in der Frage-Form, über `_gsArtenTreffer`.
+- **Orakel mit Garten** (7 Formen): identisch mit der Basis. Die zweite Fassung hatte 1 neu: „Nieswurz-Schafgarben“ in der
+  Mehrzahl-Form; seither nimmt `_gsArtenTreffer` dieselbe Hülle wie die Gift-Gegenprobe.
+- **Die 42 Vorlagen aus (ko)** über 312 giftige und 404 harmlose Namen: identisch mit der Basis (0 von 42 mit Unterschied).
+
+**Prüfstand:** `sensor_check` „Lina 15b · Kurze Giftnamen (ku)“: 16 Wörter × 5 Formen und die ARTEN-Zeile, jedes als kurz geführte
+Wort warnt, 11 Sätze still (Täubling, Milchling, Koralle; „zeitloses Rezept“, Rosenbaum, Zwerg-Erdbeeren, weisse Johannisbeeren;
+Goldregen ohne Zusage und mit Verneinung; „Nieswurz-Schafgarbe“ und „Nieswurz-Schafgarben“, auch im Scan-Chat), der echte Weg über
+`gsLinaSend`. **Neun Gegenproben, jede einzeln rot mit dem erwarteten Satz:** kurze Wörter aus · `_gsArtenTreffer` ohne sie
+(Scan-Chat und ARTEN-Zeile rot) · ohne Veto · ohne Ausschlussliste · ohne „klein = Zusatz“ · die Basis `0c2e662` · ohne Ausblenden
+der ganzen Namen · Ausblenden ohne „längste zuerst“ · ohne die Hüllen (die Mehrzahl warnt).
+**Lokal (TZ=UTC), vor dem Bump:** der Fall „Lina 15b“ einzeln grün, statik, austausch und robust grün (die ganze Reihe läuft nach dem
+Bump, Zeile darunter).
+
+**Brett:** 9c9c geschlossen (`c0d7`); neue Idee `057d` — Namen in Umschrift ohne Umlaut („Roetling“, „Maigloeckchen“), für alle Namen.
+**Offen:** brett:2026-11-25-057d
+**Nicht geprüft:** echte KI-Antworten (gestellt) und der Hold-out des Koordinators zu (ku); Umschriften ohne Umlaut („Roetling“,
+„Faelbling“ — gilt für alle Namen, `_gsLinaNorm` faltet nur ß); ein kurzes Wort unter fünf Zeichen (in der Liste trägt keines nur
+giftige Einträge).
+
 ### 2026-11-25 (ko) - v33.83: Lina 15 — eine Entwarnung ist keine Verneinung („Keine Sorge, die kannst du essen.“)
 
 **Auftrag:** Hold-out des Koordinators zu (kj), als (ko) vor die neuen Lina-Fähigkeiten gestellt. 5 von 16 stillen Zusagen

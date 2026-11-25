@@ -176,6 +176,11 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     essen." blieben ohne Warnung: der Verneinungsstamm verneinte nur die Sorge, nicht das Essen. Jetzt liest die Gegenprobe eine
     stille Antwort ein zweites Mal, mit diesen Wendungen als „ja" — aber nur einen Satz ohne echte Verneinung („Keine Sorge, essen
     solltest du sie aber nicht." bleibt still). Vorlagen über 312 giftige Namen: 0 → 311 je Wendung; beide Orakel unverändert.
+15b. ✅ v33.84 (`sensor_check` „Lina 15b · Kurze Giftnamen (ku)", Brett 9c9c) — **18 kurze Namen giftiger Arten erkannte die
+    Gegenprobe gar nicht.** „Ja, Goldregen ist essbar.", „Kann ich Goldregen-Samen essen?" → „Ja, die kannst du essen." und
+    dasselbe mit Germer, Nieswurz, Akelei, Buchsbaum, Clivia und zwölf weiteren blieben ohne Warnung, im Scan-Chat ebenso, und die
+    KI bekam keine ARTEN-Zeile. Jetzt gilt ein kurzes Wort wie ein langes, wenn die Liste es nur für Gift kennt — nicht als Zusatz
+    („weiss"), nicht, wenn es auch etwas anderes meint („zeitlos", „Rosenbaum"), und nie innerhalb eines ganzen harmlosen Namens.
 
 ## Offen — Suche
 

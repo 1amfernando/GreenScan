@@ -92051,13 +92051,20 @@ function _gsArtenTreffer(text) {
     var q = ' ' + _gsLinaNorm(text) + ' ';
     if (q.length < 5) return leer;
     var gefunden = [];
+    // (ku) Befund 9c9c: kurze letzte Wörter (5–9 Zeichen), deren geprüfte Einträge ALLE giftig sind — dieselbe Menge wie in der
+    // Gift-Gegenprobe (_gsLinaGiftArten). „Kann ich Goldregen essen?" bekam sonst keine ARTEN-Zeile, und der Scan-Chat, der die
+    // Frage nur hiermit liest, sah die Art nicht.
+    // Ein kurzes Wort zählt nur AUSSERHALB eines ganzen Namens, den der Text nennt — „Nieswurz-Schafgarbe" (harmlos) ist keine
+    // Nieswurz. Die Gift-Gegenprobe kennt dafür die Hülle (kg); hier werden die ganzen Namen erst gesammelt, dann ausgeblendet.
+    var kurzGift = {}, kurzKand = [], ganzeNamen = [];
+    try { kurzGift = (_gsLinaGiftArten() || {}).kurz || {}; } catch (_) {}
     for (var i = 0; i < DB.length; i++) {
       var sp = DB[i];
       if (!sp) continue;
       var n = _gsLinaNorm(sp.name), l = _gsLinaNorm(sp.lat);
       // Ganzer Name (> 3 Zeichen) oder ganzes Binomen (> 5), an Wortgrenzen.
-      if ((n.length > 3 && q.indexOf(' ' + n + ' ') !== -1) ||
-          (l.length > 5 && q.indexOf(' ' + l + ' ') !== -1)) { gefunden.push(sp); continue; }
+      var ganz = n.length > 3 && q.indexOf(' ' + n + ' ') !== -1;
+      if (ganz || (l.length > 5 && q.indexOf(' ' + l + ' ') !== -1)) { gefunden.push(sp); if (ganz) ganzeNamen.push(n); continue; }
       // Deutsch dekliniert: „Kann ich den GRÜNEN Knollenblätterpilz essen?"
       // trifft „Grüner Knollenblätterpilz" nie als ganzen Namen. Das LETZTE
       // Wort eines mehrteiligen Namens bleibt dabei unverändert — und es ist
@@ -92079,8 +92086,21 @@ function _gsArtenTreffer(text) {
         if (letztes.length >= 10 && q.indexOf(' ' + letztes + ' ') !== -1) {
           sp = Object.create(sp); sp._nurTeilname = true;   // gemerkt, siehe unten
           gefunden.push(sp);
-        }
+        } else if (letztes.length < 10 && kurzGift[letztes] === true && q.indexOf(' ' + letztes + ' ') !== -1) kurzKand.push([sp, letztes]);
       }
+    }
+    if (kurzKand.length) {
+      var qOhne = q;   // die längsten Namen zuerst — sonst zerschnitte „Schafgarbe" die „Nieswurz-Schafgarbe", bevor sie ausgeblendet ist
+      ganzeNamen.slice().sort(function (a, b) { return b.length - a.length; })
+        .forEach(function (gn) { qOhne = qOhne.split(' ' + gn + ' ').join('  '); });
+      // dazu die Hüllen der Gift-Gegenprobe (kg): harmlose, geprüfte Namen aus mehreren Wörtern, auch dekliniert —
+      // „Kann ich Nieswurz-Schafgarben … essen?" nennt die Schafgarbe in der Mehrzahl, nicht die Nieswurz
+      try { ((_gsLinaGiftArten() || {}).huellen || []).forEach(function (h) { qOhne = qOhne.replace(new RegExp(h.source, 'g'), ' '); }); } catch (_) {}
+      kurzKand.forEach(function (kk) {
+        if (qOhne.indexOf(' ' + kk[1] + ' ') === -1) return;
+        var t = Object.create(kk[0]); t._nurTeilname = true;
+        gefunden.push(t);
+      });
     }
     if (!gefunden.length) return leer;
     // Der UMGANGSNAME zieht seine Familie mit. „Ist Holunder essbar?" trifft
@@ -92496,6 +92516,14 @@ window._gsLinaSicherheit = _gsLinaSicherheit;
 // nur, wenn jeder Eintrag dieses Namens giftig ist — „Holunder (Roth)" ohne Zusatz heisst „Holunder" wie der Schwarze, und
 // „Ja, Holunderblüten kannst du essen." warnte sonst vor dem Roten Holunder (gemessen an 80 Ess-Sätzen).
 var GS_LINA_TEILWORT = '(?:blätter|blaetter|blatt|blüten|blueten|blüte|bluete|beeren|beere|früchte|fruechte|frucht|samen|wurzeln|wurzel|knollen|knolle|zwiebeln|zwiebel|rinde|stängel|staengel|stengel|triebe|trieb|kerne|schoten|nadeln|tee|saft)';
+// (ku) Befund 9c9c: ein KURZES letztes Wort (5 bis 9 Zeichen) gilt allein, wenn jeder geprüfte Eintrag mit diesem Wort giftig
+// ist — dieselbe Regel wie ab zehn Zeichen. Gemessen 25.11.2026: „Goldregen", „Germer", „Nieswurz", „Buchsbaum", „Akelei",
+// „Clivia" und zwölf weitere erkannte die Gegenprobe in KEINER Form, also auch nicht „Goldregen-Samen". Kein Name ist ein
+// Zusatz, der im Eintrag klein steht („Echter Oleander weiss"), und ein Wort aus GS_LINA_KURZ_KEIN_NAME, das auch etwas anderes
+// meint: „Zwerg" ist eine Wuchsform, „zeitlose" auch ein Adjektiv („ein zeitloses Rezept" — die Herbstzeitlose erkennt ihr voller
+// Name), und ein „Rosenbaum" im Garten ist meist ein Rosenstämmchen mit essbaren Blüten, nicht der Oleander der Liste.
+var GS_LINA_KURZ_MIN = 5;
+var GS_LINA_KURZ_KEIN_NAME = /^(?:zwerg|zeitlose|rosenbaum)$/;
 var _gsLinaGiftCache = null, _gsLinaGiftCacheN = -1;
 function _gsLinaGiftArten() {
   var n = (typeof DB !== 'undefined' && DB && DB.length) ? DB.length : 0;
@@ -92520,6 +92548,7 @@ function _gsLinaGiftArten() {
     letzte[lw] = letzte[lw] || { gift: 0, veto: 0, mehrteilig: false };
     if (giftig) letzte[lw].gift++; else if (!rumpf) letzte[lw].veto++;
     if (tokens.length > 1 || tokens[0].length > 1) letzte[lw].mehrteilig = true;
+    if (!/^\p{Lu}/u.test(roh.split(/\s+/).pop().split('-').pop())) letzte[lw].klein = true;   // (ku) ein Zusatz, kein Name
     var nk = _gsLinaNorm(roh).replace(/ /g, '');   // „Birken-Reizker" und „Birkenreizker" sind EIN Name
     namen[nk] = namen[nk] || { gift: 0, veto: 0 };
     if (giftig) namen[nk].gift++; else if (!rumpf && exakt) namen[nk].veto++;
@@ -92553,15 +92582,21 @@ function _gsLinaGiftArten() {
     if (l.length > 5 && l.indexOf(' ') > 0) { var ql = '(?:^| )' + esc(l) + '(?= |$)'; if (!art.quellen[ql]) { art.quellen[ql] = 1; art.muster.push(new RegExp(ql)); } }
     (art.letzte = art.letzte || []).push(lw);
   }
+  var kurz = {};
   reihe.forEach(function (art) {
     (art.letzte || []).forEach(function (lw) {
       var z = letzte[lw];
-      if (!z || !z.mehrteilig || lw.length < 10 || z.veto > 0) return;
+      if (!z || !z.mehrteilig || z.veto > 0) return;
+      if (lw.length < 10) {   // (ku) kurz: nur ein Name, kein Zusatz
+        if (lw.length < GS_LINA_KURZ_MIN || z.klein || GS_LINA_KURZ_KEIN_NAME.test(lw)) return;
+        kurz[lw] = true;
+      }
       var ql = '(?:^| )' + nomen(lw) + '(?= |$)';
       if (!art.quellen[ql]) { art.quellen[ql] = 1; art.muster.push(new RegExp(ql)); }
     });
   });
   reihe.huellen = huellen;
+  reihe.kurz = kurz;   // (ku) dieselben Wörter liest _gsArtenTreffer — die ARTEN-Zeile und der Scan-Chat sehen sie auch
   _gsLinaGiftCache = reihe; _gsLinaGiftCacheN = n;
   return reihe;
 }

@@ -3615,6 +3615,106 @@ const FAELLE = [
     },
   },
   {
+    // (ku) Befund 9c9c (25.11.2026): 18 kurze Namen giftiger Arten — das letzte Wort eines mehrteiligen Namens mit weniger als
+    // zehn Zeichen — erkannte die Gift-Gegenprobe in KEINER Form: „Ja, Goldregen ist essbar.", „Kann ich Goldregen essen?" →
+    // „Ja, den kannst du essen.", „Goldregen-Samen". Der Scan-Chat liest die Frage nur über _gsArtenTreffer und sah die Art auch
+    // nicht, und die ARTEN-Zeile fehlte. Jetzt gilt ein kurzes letztes Wort (5–9 Zeichen) wie ein langes: nur wenn JEDER geprüfte
+    // Eintrag damit giftig ist, nur als Name (im Eintrag gross geschrieben, nicht „… weiss") und nicht, wenn es auch etwas anderes
+    // meint (GS_LINA_KURZ_KEIN_NAME: „zeitlos", „Rosenbaum", „Zwerg"). Der Fall misst die 16 Wörter aus der Messung mit Namen und
+    // jedes Wort, das die Gegenprobe als kurz führt — und still bleiben, wo die Regel nicht greifen darf.
+    name: 'Lina 15b · Kurze Giftnamen (ku): „Goldregen", „Germer", „Nieswurz", „Akelei", „Buchsbaum" … warnen in Antwort, Frage, Mehrzahl, „Goldregen-Samen", im Scan-Chat und mit ARTEN-Zeile — ein Wort auch harmloser Einträge („Täubling") und eines, das auch etwas anderes meint („zeitlos", „Rosenbaum", „Zwerg", „weiss"), bleibt still',
+    lauf: async () => {
+      const sichern = { mp: myPlants, pl: plantings, ga: gardens, ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, pt: window.showProfileToast,
+        on: Object.getOwnPropertyDescriptor(navigator, 'onLine') };
+      const klagen = [];
+      try {
+        myPlants = []; plantings = []; gardens = [];
+        const pruef = (frage, antwort) => _gsLinaSicherheit(antwort, _gsLinaTrefferMitPflanzen(frage, _gsArtenTreffer(frage)));
+        const scan = (frage, antwort) => _gsLinaSicherheit(antwort, _gsArtenTreffer(frage));   // so liest der Scan-Chat die Frage
+        const E = 'Was kann ich essen?';
+        // (a) Die 20 Wörter aus Befund 9c9c als Vorlage, damit jeder ohne eine Liste aus einer Nachricht nachmessen kann: 16 warnen in
+        //     fünf Formen und mit ARTEN-Zeile; vier sind bewusst KEINE kurzen Giftnamen — „Zeitlose" ist auch ein Adjektiv („ein
+        //     zeitloses Rezept"; die Herbstzeitlose erkennt ihr voller Name), ein „Rosenbaum" ist im Garten meist ein Rosenstämmchen mit
+        //     essbaren Blüten, „Zwerg" eine Wuchsform und „weiss" ein Zusatz, der im Eintrag klein steht (ihre Sätze stehen in (b)).
+        const BEFUND_9C9C = {
+          warnt: ['Nieswurz', 'Clivia', 'Adenium', 'Germer', 'Buchsbaum', 'Flämmling', 'Goldregen', 'Hautkopf', 'Hautpilz', 'Rasling',
+            'Rötling', 'Akelei', 'Raukopf', 'Kahlkopf', 'Fälbling', 'Lantana'],
+          bewusst_nicht: ['Zeitlose', 'Rosenbaum', 'Zwerg', 'Weiss'],
+        };
+        const KURZ = BEFUND_9C9C.warnt;
+        const FORMEN = [
+          ['Antwort', (w) => pruef(E, 'Ja, ' + w + ' ist essbar.')],
+          ['Frage', (w) => pruef('Kann ich ' + w + ' essen?', 'Ja, den kannst du essen.')],
+          ['Bindestrich', (w) => pruef(E, 'Ja, ' + w + '-Samen kannst du essen.')],
+          ['Mehrzahl', (w) => pruef(E, 'Ja, die ' + w + (/e$/.test(w) ? 'n' : 'e') + ' kannst du essen.')],
+          ['Scan-Chat', (w) => scan('Kann ich ' + w + ' essen?', 'Ja, den kannst du essen.')],
+        ];
+        let formenOk = 0;
+        KURZ.forEach((w) => {
+          FORMEN.forEach(([k, f]) => { if (!f(w)) klagen.push('(a) ' + w + ': keine Warnung (' + k + ')'); else formenOk++; });
+          const z = _gsLinaArtenZeile('Kann ich ' + w + ' essen?');
+          if (!/giftig/.test(z)) klagen.push('(a) ' + w + ': keine ARTEN-Zeile mit „giftig" — ' + JSON.stringify(String(z).slice(0, 80)));
+        });
+        // dieselbe Regel für JEDES Wort, das die Gegenprobe als kurz führt (auch für künftige Einträge der Liste)
+        const kurz = Object.keys((_gsLinaGiftArten() || {}).kurz || {});
+        if (kurz.length < KURZ.length) klagen.push('(a) nur ' + kurz.length + ' kurze Wörter in der Gegenprobe');
+        KURZ.forEach((w) => { if (kurz.indexOf(_gsLinaNorm(w)) < 0) klagen.push('(a) ' + w + ' fehlt in der Menge der kurzen Wörter'); });
+        kurz.forEach((lw) => { const w = lw.charAt(0).toUpperCase() + lw.slice(1); if (!pruef(E, 'Ja, ' + w + ' ist essbar.')) klagen.push('(a) als kurz geführt, warnt nicht: ' + w); });
+        BEFUND_9C9C.bewusst_nicht.forEach((w) => { if (kurz.indexOf(_gsLinaNorm(w)) >= 0) klagen.push('(a) „' + w + '" gilt als kurzer Giftname — es meint auch etwas anderes'); });
+        // (b) still: ein Wort, das auch harmlose geprüfte Einträge tragen (Täubling: 2 giftige, 26 harmlose), Wörter, die auch etwas
+        //     anderes meinen, ein Zusatz, der kein Name ist — und der Goldregen ohne Zusage oder mit echter Verneinung
+        const S = [
+          [E, 'Ja, Täubling ist essbar.'],
+          [E, 'Ja, Milchling ist essbar.'],
+          [E, 'Ja, Koralle ist essbar.'],
+          [E, 'Ein zeitloses Rezept: die Erdbeeren kannst du essen.'],
+          [E, 'Die Blüten vom Rosenbaum kannst du essen.'],
+          [E, 'Die Zwerg-Erdbeeren kannst du essen.'],
+          [E, 'Die weissen Johannisbeeren kannst du essen.'],
+          ['Was blüht im Mai?', 'Der Goldregen blüht im Mai leuchtend gelb.'],
+          ['Kann ich Goldregen essen?', 'Nein, der Goldregen ist giftig — nicht essen.'],
+          // ein kurzes Wort IN einem ganzen harmlosen Namen meint nicht die giftige Art (Hülle (kg); in _gsArtenTreffer ausgeblendet)
+          ['Kann ich Nieswurz-Schafgarbe essen?', 'Ja, die kannst du essen.'],
+          ['Kann ich Nieswurz-Schafgarben im Wohnzimmer essen?', 'Ja, die kannst du essen.'],   // auch dekliniert (die Hülle)
+        ];
+        S.forEach(([f, a]) => { if (pruef(f, a)) klagen.push('(b) Fehlalarm: „' + f + '" → „' + a + '"'); });
+        ['Kann ich Nieswurz-Schafgarbe essen?', 'Kann ich Nieswurz-Schafgarben im Wohnzimmer essen?'].forEach((f) => {
+          if (scan(f, 'Ja, die kannst du essen.')) klagen.push('(b) Fehlalarm im Scan-Chat: „' + f + '" gilt als Nieswurz');
+        });
+        // (e) der echte Weg: gsLinaSend setzt die Warnung über die Antwort
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        window.showProfileToast = () => {};
+        window.sbFetch = async () => ({ data: [{}], error: null });
+        let antwort = '';
+        window.callAI = async () => antwort;
+        const sende = async (frage, a) => {
+          antwort = a;
+          window._gsLinaSending = false; window._gsLinaConvId = 'conv-L15b'; window._gsLinaMsgs = [];
+          gsLinaRender(false);
+          const f = document.getElementById('gs-lina-input');
+          if (!f) throw new Error('Lina hat kein Eingabefeld');
+          f.value = frage;
+          await gsLinaSend();
+          const m = (window._gsLinaMsgs || []).filter(x => x && x.role === 'assistant').pop();
+          return m ? String(m.content) : '';
+        };
+        const ja = (await sende('Kann ich Goldregen-Samen essen?', 'Ja, die kannst du essen.')).split('\n')[0];
+        if (!/^⚠️ Achtung/.test(ja) || !/Goldregen/.test(ja)) klagen.push('(e) „Goldregen-Samen" ohne Warnung: ' + ja.slice(0, 120));
+        const nein = (await sende('Kann ich Goldregen-Samen essen?', 'Nein, die Samen sind giftig — nicht essen.')).split('\n')[0];
+        if (/Achtung/.test(nein)) klagen.push('(e) die Verneinung warnt: ' + nein.slice(0, 120));
+        if (klagen.length) return { ok: false, warum: klagen.slice(0, 8).join(' · ') + (klagen.length > 8 ? ' · (+' + (klagen.length - 8) + ')' : '') };
+        return { ok: true, info: 'Befund 9c9c: ' + KURZ.length + ' von 20 Wörtern × ' + FORMEN.length + ' Formen warnen (' + formenOk + '), je mit ARTEN-Zeile; ' + BEFUND_9C9C.bewusst_nicht.length + ' bewusst nicht · ' + kurz.length + ' kurze Wörter in der Gegenprobe, jedes warnt · ' + S.length + ' Sätze still · echter Weg über gsLinaSend' };
+      } finally {
+        myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.showProfileToast = sichern.pt;
+        if (sichern.on) Object.defineProperty(navigator, 'onLine', sichern.on); else { try { delete navigator.onLine; } catch (_) {} }
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
     // LINA-9 (24.11.2026). Gemessen am Stand davor: wer während „Lina denkt nach…" auf „＋ Neu" tippte,
     // sah das neue Gespräch mit der Antwort auf eine Frage beginnen, die dort nicht stand — und die
     // nächste Frage ging mit dieser fremden Antwort als Vorgeschichte an die KI. Wer ein früheres
