@@ -12,6 +12,41 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-25 (Prüfstand, ohne Versionsnummer) - offline_check: ein Worker-Wechsel hängt nicht mehr bis zur Zeitgrenze
+
+**Auftrag:** Koordinator, nach #355: der erste CI-Lauf endete am 60-Minuten-Limit des Jobs, `offline_check` kam in 23 min nicht
+zurück. Bekannt seit Brett 75c2, die Ursache eingegrenzt in 8949. Bedingungen: der Fall wird weiter ROT, wenn der Worker wirklich
+nicht wechselt (kein Hochsetzen einer Frist, kein Überspringen), und 5 Läufe auf 4 Kernen ohne Hänger. Keine Zeile App-Code, keine
+Versionsnummer (wie #348).
+
+**Gebaut** (nur `scripts/offline_check.js`):
+- **Fall 35 misst den Worker selbst** — Version und Zustand über `ctxT.serviceWorkers()`, nicht die Caches der Seite. Bleibt der
+  Wechsel nach SKIP_WAITING aus (der Wettlauf in Chromium aus 8949: der neue Worker bleibt „installed“), gibt die Seite ihn frei:
+  `about:blank` geht nicht durch den Worker und ist kein Client des Ursprungs. Gewartet wird mit gezählten Versuchen, bis er
+  „activated“ meldet; erst dann wird `/` geladen. Wird er nie aktiv: ROT mit dem Zustand jedes Workers.
+- **Jede Seitenabfrage im Teilen-Block hat eine Frist in Node** (`warteAuf`, `stand`, die Abfragen in 34/35, das Neuladen): eine
+  Seite, die nicht mehr antwortet, macht den Fall in Sekunden rot und nennt den Schritt.
+- **Fall (g)** nennt, wenn der Wechsel ausbleibt, den Zustand jedes Workers (vorher nur „waiting danach true“).
+
+**Gemessen:**
+- **Gegenprobe „der neue Worker wird nie aktiv“** (ein zweiter `activate`-Listener mit nie endendem `waitUntil`): neu → Fall 35
+  ROT „der neue Worker wurde nicht aktiv, auch nach Freigabe der Seite — Worker [gs-v33.82 activated, gs-vTEST3 activating]“, der
+  Lauf endet nach 184 s. **Alt (a30c580) → Fall 35 GRÜN:** er hielt die Caches gegen die neue Version, und die legt der Worker
+  schon beim Installieren an — einen Worker, der nie aktiv wird, hätte er nie bemerkt.
+- **5 Runden × 4 Läufe gleichzeitig auf 4 Kernen (20 Läufe): kein Hänger**, jeder Lauf nach 184–223 s fertig. Fall 35 grün in
+  20 von 20 — in 5 davon trat der Wettlauf auf und wurde abgefangen („Wechsel nach Freigabe der Seite“). Zum Vergleich: auf v33.61
+  hingen unter derselben Last 8 von 16 Läufen (8949), und heute hing a30c580 zweimal (CI #355, Lauf des Paket-1-Agenten).
+- Andere rote Fälle unter dieser Last (keine Hänger, nicht der Teilen-Block): (g) in 2 von 20 Läufen (der Wettlauf, jetzt mit
+  „gs-vTEST2 installed“ im Bericht) und EIN Lauf mit vier roten Fällen — der Update-Fall (b) „kein wartender Worker nach 20 s“
+  mit zwei Folgefällen und die Warteschlange („der Scan wurde gar nicht erst eingereiht“).
+- **5 Läufe einzeln hintereinander (4 Kerne): kein Hänger**, je 49 Fragen, 0 rot, 157–160 s, Fall 35 jedes Mal „Wechsel sofort“.
+  Der fünfte wurde neu gefahren: der erste Versuch brach mit einem Neustart des Containers ab, nicht im Prüfstand.
+
+**Brett:** 75c2 geschlossen (`954f`); neue Idee `a764` (Update-Weg: ein zweites SKIP_WAITING, wenn der Wechsel ausbleibt).
+**Offen:** brett:2026-11-25-a764
+**Nicht geprüft:** die CI-Runner selbst (dort entscheidet erst der nächste Lauf); Firefox und Safari (Playwright fährt hier nur
+Chromium); ob eine echte Person den Wettlauf trifft (die offene Frage aus 8949).
+
 ### 2026-11-24 (kn) - v33.82: Lina 14 — ein Ort in der Frage ist der letzte Rückfall der Gift-Gegenprobe
 
 **Auftrag:** Brett-Idee 5929, vom Koordinator als (kn) in v33.82 freigegeben. „Kann ich die Beeren auf dem Balkon essen?“ nennt

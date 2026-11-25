@@ -1039,8 +1039,20 @@ async function haertung(br, melde) {
     let ohne = false;
     for (let i = 0; i < 40 && !ohne; i++) { await q.waitForTimeout(500); ohne = await q.evaluate(() => !!(window._gsUpdate && window._gsUpdate.angewandtOhneReload)).catch(() => false); }
     const keinWarten = await q.evaluate(() => !(window._gsSwReg && window._gsSwReg.waiting)).catch(() => false);
+    // Bleibt der Wechsel aus, sagt der Bericht, in welchem Zustand JEDER Worker steht (Brett 8949: unter Last bleibt der neue
+    // nach SKIP_WAITING „installed“, der Wettlauf liegt in Chromium) — „waiting danach true“ allein nannte keine Ursache.
+    let workerG = '';
+    if (!(ohne && keinWarten)) {
+      const st = [];
+      for (const w of ctx.serviceWorkers()) {
+        const zw = await Promise.race([w.evaluate(() => ({ v: (typeof VERSION !== 'undefined') ? VERSION : '?', zustand: self.serviceWorker ? self.serviceWorker.state : '?' })),
+          new Promise(r => setTimeout(() => r(null), 3000))]).catch(() => null);
+        if (zw) st.push(zw.v + ' ' + zw.zustand);
+      }
+      workerG = ' · Worker: ' + (st.join(' | ') || 'keiner antwortet');
+    }
     melde('Gleiche Version, neuer Worker: umschalten ohne Reload (die HTML ist schon neu)', wartet2 && ohne && keinWarten && navQ === navQ2,
-          wartet2 ? ('angewandtOhneReload ' + ohne + ' · waiting danach ' + !keinWarten + ' · Navigationen +' + (navQ - navQ2)) : 'kein wartender Worker nach 20 s');
+          wartet2 ? ('angewandtOhneReload ' + ohne + ' · waiting danach ' + !keinWarten + ' · Navigationen +' + (navQ - navQ2) + workerG) : 'kein wartender Worker nach 20 s');
     versionErsatz = null; swAnhang = '';
     s7.close();
   }
@@ -1203,16 +1215,25 @@ async function haertung(br, melde) {
       await seite.waitForEvent('domcontentloaded', { timeout: 30000 }).catch(() => {});
       return sha;
     };
-    // Wartet auf die Vorschau oder eine Meldung — Versuche zaehlen, nicht die Uhr (v32.61).
+    // Eine Seite, die nicht mehr antwortet, haelt den Pruefstand nicht fest (Brett 75c2, Ursache in 8949): jede Abfrage im
+    // Teilen-Block hat eine eigene Frist und nennt den Schritt, an dem sie ablief — vorher hing ein evaluate bis zur
+    // 25-Minuten-Grenze der Suite. Die Frist laeuft in Node, nicht in der Seite (deren Uhr kann stehen, v32.61).
+    const FRIST_MS = 8000;
+    const frist = (p, ms, schritt) => Promise.race([p, new Promise((_, nein) => setTimeout(() => nein(new Error('Frist abgelaufen: ' + schritt)), ms))]);
+    const ruhe = (ms) => new Promise(r => setTimeout(r, ms));
+    // Wartet auf die Vorschau oder eine Meldung — Versuche zaehlen, nicht die Uhr (v32.61). Antwortet die Seite gar nicht
+    // mehr, endet das Warten sofort (null), statt dreissig Fristen nacheinander abzuwarten.
     const warteAuf = async (seite, pruef, versuche) => {
       for (let i = 0; i < (versuche || 30); i++) {
-        await seite.waitForTimeout(300);
-        const r = await seite.evaluate(pruef).catch(() => null);
+        await ruhe(300);
+        let r = null;
+        try { r = await frist(seite.evaluate(pruef), FRIST_MS, 'warteAuf'); }
+        catch (e) { if (/^Frist/.test(String(e && e.message))) return null; }
         if (r) return r;
       }
       return null;
     };
-    const stand = (seite) => seite.evaluate(async () => ({
+    const stand = (seite) => frist(seite.evaluate(async () => ({
       vorschau: !!document.getElementById('gs-teilen-vorschau'),
       bild: !!document.querySelector('#gs-teilen-vorschau img'),
       adresse: location.pathname + location.search + location.hash,
@@ -1223,7 +1244,7 @@ async function haertung(br, melde) {
       gum: window.__gum,
       toasts: (window.__toasts || []).slice(),
       ruhig: (typeof _gsAppRuhig === 'function') ? _gsAppRuhig().grund : '(fehlt)',
-    })).catch(e => ({
+    })), FRIST_MS, 'stand').catch(e => ({
       // Eine Fehlerseite (Navigation gescheitert) hat kein `caches` — das ist
       // ein Befund, kein Absturz des Pruefstands.
       vorschau: false, bild: false, adresse: '(keine App-Seite: ' + String(e.message).split('\n')[0].slice(0, 60) + ')',
@@ -1621,22 +1642,22 @@ async function haertung(br, melde) {
     await t.goto(basis + '/', { waitUntil: 'domcontentloaded', timeout: 120000 }).catch(() => {});
     await t.waitForTimeout(1500);
     versionErsatz = 'vTEST3';
-    const w34 = await t.evaluate(async () => {
+    const w34 = await frist(t.evaluate(async () => {
       const reg = await navigator.serviceWorker.getRegistration();
       try { await reg.update(); } catch (_) {}
       for (let i = 0; i < 60 && !reg.waiting; i++) await new Promise(z => setTimeout(z, 300));
       return !!reg.waiting;
-    }).catch(() => false);
+    }), 30000, 'update').catch(() => false);
     const ladVor = ladungenT;
     await teile(t, { jpeg: true });
     await warteAuf(t, () => !!document.getElementById('gs-teilen-vorschau'));
     await t.waitForTimeout(1200);
-    const v34 = await t.evaluate(async () => {
+    const v34 = await frist(t.evaluate(async () => {
       const reg = await navigator.serviceWorker.getRegistration();
       const r = await gsUpdateAnwenden('rueckkehr');
       return { vorschau: !!document.getElementById('gs-teilen-vorschau'), wartet: !!(reg && reg.waiting), antwort: r && r.grund,
                eintrag: await (async () => { if (!(await caches.has('gs-geteilt'))) return false; const c = await caches.open('gs-geteilt'); return !!(await c.match('/__geteilt/letztes')); })() };
-    }).catch(e => ({ fehler: String(e.message).slice(0, 80) }));
+    }), 30000, 'gsUpdateAnwenden').catch(e => ({ fehler: String(e.message).slice(0, 80) }));
     const ok34 = w34 && v34.vorschau && v34.wartet && v34.eintrag && /teilen/.test(String(v34.antwort)) && (ladungenT - ladVor) === 1;
     melde('Teilen mit wartendem Worker: der Start wendet das Update NICHT an, solange das Foto wartet', ok34,
           ok34 ? ('1 Ladung (kein Reload) · Worker wartet weiter · gsUpdateAnwenden → „' + v34.antwort + '" · Vorschau und Eintrag da')
@@ -1644,7 +1665,24 @@ async function haertung(br, melde) {
 
     // 35 · Und wird der Worker doch gewechselt: der Cache gehoert keiner Version, und die App
     //      bietet das frische Foto auch OHNE Marke in der Adresse wieder an.
-    const u35 = await t.evaluate(async () => {
+    // Unter Last bleibt der neue Worker nach SKIP_WAITING gelegentlich „installed“: Chromium haelt den alten Worker fuer die
+    // Aktivierung an, ein Ereignis der Seite startet ihn neu, und der Versuch geht verloren. Erst eine Navigation loeste den
+    // Wechsel wieder aus — und genau diese Navigation kam nie an (Brett 75c2, Ursache in 8949: 8 von 16 Laeufen unter Last).
+    // Gemessen wird der Worker deshalb SELBST (Version und Zustand, ctxT.serviceWorkers()), nicht an den Caches der Seite. Wird
+    // er nicht aktiv, gibt die Seite ihn frei: about:blank geht nicht durch den Worker und ist kein Client des Ursprungs — der
+    // naechste Aktivierungsversuch laeuft. Erst wenn der neue Worker „activated“ meldet, wird '/' geladen. Wird er nie aktiv,
+    // ist der Fall ROT und nennt den Zustand jedes Workers. Der Einmal-Schluessel liegt in sessionStorage und bleibt im Tab.
+    const workerStand = async () => {
+      const raus = [];
+      for (const w of ctxT.serviceWorkers()) {
+        const z = await frist(w.evaluate(() => ({ v: (typeof VERSION !== 'undefined') ? VERSION : '?',
+          zustand: self.serviceWorker ? self.serviceWorker.state : '?' })), 3000, 'Worker').catch(() => null);
+        if (z) raus.push(z);
+      }
+      return raus;
+    };
+    const neuAktiv = (st) => st.some(x => x.v === 'gs-vTEST3' && x.zustand === 'activated');
+    const u35 = await frist(t.evaluate(async () => {
       const reg = await navigator.serviceWorker.getRegistration();
       if (!reg.waiting) return { fehler: 'kein wartender Worker' };
       reg.waiting.postMessage({ type: 'SKIP_WAITING' });
@@ -1654,22 +1692,34 @@ async function haertung(br, melde) {
         if (k.some(x => x.indexOf('gs-vTEST3') === 0) && !k.some(x => /^gs-v\d/.test(x) && x.indexOf('gs-vTEST3') !== 0)) break;
       }
       return { keys: await caches.keys() };
-    }).catch(e => ({ fehler: 'Seite hat neu geladen: ' + String(e.message).slice(0, 60) }));
+    }), 30000, 'SKIP_WAITING').catch(e => ({ fehler: String(e.message).slice(0, 80) }));
     // Die App laedt nach einem Worker-Wechsel unter Umstaenden selbst neu
     // (Zweit-Tab-Regel, v33.25) — diese Ladung erst abwarten, sonst laufen
     // zwei Navigationen gegeneinander.
     await t.waitForEvent('domcontentloaded', { timeout: 8000 }).catch(() => {});
-    await t.waitForTimeout(1500);
-    const keys35 = await t.evaluate(() => caches.keys()).catch(() => []);
-    let nav35 = null;
-    try { await t.goto(basis + '/', { waitUntil: 'domcontentloaded', timeout: 120000 }); }
-    catch (e) { nav35 = String(e.message).split('\n')[0].slice(0, 80); }
-    await warteAuf(t, () => !!document.getElementById('gs-teilen-vorschau'));
-    const v35 = await stand(t).catch(() => ({ vorschau: false, adresse: '(keine Seite)' }));
-    const ok35 = keys35.includes('gs-geteilt') && keys35.some(k => k.indexOf('gs-vTEST3') === 0) && v35.vorschau && v35.adresse === '/';
+    await ruhe(1500);
+    let wechsel35 = neuAktiv(await workerStand()) ? 'sofort' : null;
+    if (!wechsel35) {
+      await frist(t.goto('about:blank'), 15000, 'about:blank').catch(() => {});
+      for (let i = 0; i < 40 && !wechsel35; i++) {
+        await ruhe(300);
+        if (neuAktiv(await workerStand())) wechsel35 = 'nach Freigabe der Seite';
+      }
+    }
+    const worker35 = wechsel35 ? null : await workerStand();
+    let nav35 = null, keys35 = [], v35 = { vorschau: false, adresse: '(nicht geladen)' };
+    if (wechsel35) {
+      try { await frist(t.goto(basis + '/', { waitUntil: 'domcontentloaded', timeout: 30000 }), 35000, 'Neuladen'); }
+      catch (e) { nav35 = String(e.message).split('\n')[0].slice(0, 80); }
+      keys35 = await frist(t.evaluate(() => caches.keys()), FRIST_MS, 'caches').catch(() => []);
+      await warteAuf(t, () => !!document.getElementById('gs-teilen-vorschau'));
+      v35 = await stand(t);
+    }
+    const ok35 = !!wechsel35 && keys35.includes('gs-geteilt') && keys35.some(k => k.indexOf('gs-vTEST3') === 0) && v35.vorschau && v35.adresse === '/';
     melde('Teilen: ein Worker-Wechsel loescht das wartende Foto nicht — und die App bietet es danach an', ok35,
-          ok35 ? ('Caches danach: gs-geteilt + ' + keys35.filter(k => k.indexOf('gs-vTEST3') === 0).length + '× neue Version · Vorschau nach Neuladen ohne Marke')
-               : ((nav35 ? 'Neuladen scheiterte: ' + nav35 + ' · ' : '') + 'Antwort ' + JSON.stringify(u35).slice(0, 160) + ' · Caches ' + JSON.stringify(keys35) + ' · Vorschau ' + v35.vorschau));
+          ok35 ? ('Wechsel ' + wechsel35 + ' · Caches danach: gs-geteilt + ' + keys35.filter(k => k.indexOf('gs-vTEST3') === 0).length + '× neue Version · Vorschau nach Neuladen ohne Marke')
+               : (!wechsel35 ? ('der neue Worker wurde nicht aktiv, auch nach Freigabe der Seite — Worker ' + JSON.stringify(worker35) + ' · Antwort ' + JSON.stringify(u35).slice(0, 120))
+                             : ((nav35 ? 'Neuladen scheiterte: ' + nav35 + ' · ' : '') + 'Caches ' + JSON.stringify(keys35) + ' · Vorschau ' + v35.vorschau + ' · Adresse ' + v35.adresse)));
     await verwerfen(t);
     } catch (e) {
       // Ein Pruefstand, der abstuerzt, hat nichts gemessen — er MELDET es.

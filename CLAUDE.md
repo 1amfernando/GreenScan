@@ -4206,6 +4206,17 @@ gehoert der Cache-API erst recht.
 ist von hier aus NICHT messbar — die Kachel-Server sind aus dieser Umgebung
 nicht erreichbar. Geprueft ist der Mechanismus, nicht die Zahl.
 
+> **Ein Fall, der einen Wechsel pruefen soll, misst den Wechsel selbst — und eine Frist macht aus einem Haenger einen
+> roten Fall mit Namen** (25.11.2026, Fall 35 „Teilen: ein Worker-Wechsel loescht das wartende Foto nicht“; Brett 75c2,
+> Ursache in 8949). Unter Last blieb der neue Worker nach SKIP_WAITING „installed“: Chromium verlor den
+> Aktivierungsversuch, erst eine Navigation loeste ihn wieder aus — und genau diese Navigation kam nie an. Der Fall hing bis
+> zur 25-Minuten-Grenze der Suite, in der CI bis zum 60-Minuten-Limit des Jobs (#355). Und er war auch GRUEN mit einem
+> Worker, der nie aktiv wird (Gegenprobe): er hielt die Caches gegen die neue Version, und die legt der Worker schon beim
+> INSTALLIEREN an. Seither fragt der Fall den Worker selbst (Version und Zustand ueber `ctxT.serviceWorkers()`), gibt die
+> Seite ueber `about:blank` frei, wenn der Wechsel ausbleibt (geht nicht durch den Worker, ist kein Client des Ursprungs),
+> und jede Abfrage im Teilen-Block hat eine Frist in Node. **Eine Frist ist kein Hochsetzen der Wartezeit:** sie endet in
+> Sekunden und nennt den Schritt, statt nach 25 Minuten „Zeitgrenze“ zu sagen.
+
 **`a11y_check.js` (seit v32.16) fragt, was keiner der elf anderen fragt:
 laesst sich die App bedienen, wenn man sie NICHT SIEHT oder die Maus nicht
 benutzt?** `touch_check` misst die Groesse einer Flaeche, `contrast_check` die

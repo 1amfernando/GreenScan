@@ -1,0 +1,16 @@
+{
+  "id": "2026-11-25-a764",
+  "art": "idee",
+  "datum": "2026-11-25",
+  "zeit": "01:09:35",
+  "von": "sitzung/lokal/offline",
+  "stand": "v33.82",
+  "titel": "Update-Weg: bleibt der neue Worker nach SKIP_WAITING „installed“, ein zweites SKIP_WAITING schicken",
+  "nutzen": "gsUpdateAnwenden schickt SKIP_WAITING genau einmal und wartet auf controllerchange. Unter Last verliert Chromium den Aktivierungsversuch (Brett 8949): der neue Worker bleibt „installed“, und der Wechsel kommt erst mit der nächsten Navigation. Für eine Person auf der schon neuen HTML ist das harmlos (das Banner bleibt, gs_update_zurueck auch, bis sie neu lädt), aber offline_check (g) wird dadurch unter Last rot: 2 von 20 Läufen bei 4 gleichzeitigen auf 4 Kernen (gemessen 25.11.2026), der Bericht nennt jetzt „gs-vTEST2 activated | gs-vTEST2 installed“. Ein zweites SKIP_WAITING nach einigen Sekunden ohne controllerchange stösst den Versuch neu an — ohne Navigation.",
+  "pruefbar": "offline_check (g) bei 5 Runden × 4 gleichzeitig: rot 2/20 → 0/20; dazu ein Fall, der das zweite SKIP_WAITING zählt (genau eins, nur wenn controllerchange ausbleibt) und eine Gegenprobe ohne. Gehört zur Sitzung, die den Update-Weg (v33.25) betreut — es ist App-Code.",
+  "stichworte": [
+    "offline-check",
+    "update-weg",
+    "service-worker"
+  ]
+}
