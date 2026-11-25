@@ -2342,7 +2342,7 @@ const FAELLE = [
     // („+N weitere"), nicht pruefbar (nur ein Standort fehlt), erfuellt (keine frostempfindliche draussen), eine
     // Vorhersage ohne Frost, und gar keine Vorhersage. Gemessen wird mit EIGENEN Erwartungen (Namen, Zustand),
     // nicht nur Gleichheit: zwei Rechnungen, die gemeinsam falsch liegen, waeren sonst gruen.
-    name: 'Wetter W5 · R6 und gsFrostGefaehrdet sind EINE Rechnung (Lina 17): dieselben Pflanzen in derselben Reihenfolge, derselbe Zustand und Grund — verletzt, nicht prüfbar, erfüllt, ohne Frost und ohne Vorhersage',
+    name: 'Wetter W5 · R6 und gsFrostGefaehrdet sind EINE Rechnung (Lina 17): dieselben Pflanzen in derselben Reihenfolge, derselbe Zustand und Grund — verletzt, nicht prüfbar, erfüllt, ohne Frost und ohne Vorhersage; und R6 zeigt einen Stellwert der Funktion',
     lauf: () => {
       const heute = gsHeuteTag(), morgen = _gsKalTagPlus(heute, 1);
       const alt = localStorage.getItem('gs_weather_cache');
@@ -2400,8 +2400,18 @@ const FAELLE = [
         fg = gsFrostGefaehrdet(); h = r6();
         if (h !== undefined) klagen.push('5: ohne Vorhersage gibt es ein Frost-Ereignis');
         if (!fg || fg.zustand !== 'nicht_pruefbar' || fg.tage !== null || !/keine Wettervorhersage/.test(fg.grund || '')) klagen.push('5: die Funktion sagt ' + JSON.stringify(fg && { z: fg.zustand, t: fg.tage, g: fg.grund }) + ' statt nicht_pruefbar „keine Wettervorhersage"');
+        // Lage 6 · R6 LIEST die Funktion (Lina 17, Gegenprüfung): ein Stellwert fuer gsFrostGefaehrdet muss in R6 erscheinen.
+        // Gleichheit allein blieb gruen, als R6 wieder seinen alten eigenen Rumpf bekam — beide rechneten dasselbe.
+        wetter(true);
+        const echtFG = window.gsFrostGefaehrdet;
+        try {
+          window.gsFrostGefaehrdet = function () { const t = { tag: morgen, wert: -1.5 };
+            return { zustand: 'verletzt', grund: 'PRUEFGRUND', namen: ['PRUEFNAME'], pflanzen: [{ id: 'w5x', name: 'PRUEFNAME', liste: 'myPlants' }], tage: [t], kommt: [t], erster: t, tiefst: t, alter_h: 1, unklar: 0 }; };
+          h = r6();
+        } finally { window.gsFrostGefaehrdet = echtFG; }
+        if (!h || h.zustand !== 'verletzt' || h.text !== 'trifft draussen: PRUEFNAME' || h.grund !== 'PRUEFGRUND') klagen.push('6: R6 zeigt den Stellwert der Funktion nicht (' + JSON.stringify(h) + ') — R6 rechnet selbst');
         if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
-        return { ok: true, info: 'verletzt: beide „Tomate, Paprika, Zucchini +1 weitere" · nicht prüfbar: beide „1 … ohne Standort" · erfüllt: beide · ohne Frost: kein Ereignis, Funktion „erfuellt" · ohne Vorhersage: kein Ereignis, Funktion „nicht_pruefbar"' };
+        return { ok: true, info: 'verletzt: beide „Tomate, Paprika, Zucchini +1 weitere" · nicht prüfbar: beide „1 … ohne Standort" · erfüllt: beide · ohne Frost: kein Ereignis, Funktion „erfuellt" · ohne Vorhersage: kein Ereignis, Funktion „nicht_pruefbar" · ein Stellwert der Funktion steht in R6' };
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + (e && e.message) + (klagen.length ? ' · ' + klagen.join(' · ') : '') };
       } finally { myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga; if (alt == null) localStorage.removeItem('gs_weather_cache'); else localStorage.setItem('gs_weather_cache', alt); }
     },

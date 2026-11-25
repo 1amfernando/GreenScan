@@ -2440,6 +2440,27 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > Dazu sagen die Karten „heute“ (die Werkzeuge kennen kein Datum), und `gsLinaResolvePlant` nimmt nur einen eindeutigen Treffer.
 > (`sensor_check` „Lina 16“ (p)–(v), 23 Gegenproben.)
 
+> **„Leer“ heisst geprüft — und ein Werkzeug, das man aufruft, tut schon etwas, bevor man es ruft** (v33.86, Lina 17 (ks);
+> Paket 4 „Mit dir denken“). Frost ist EINE Rechnung (`gsFrostGefaehrdet`) für Kalender, „Braucht Hilfe“ und eine lokale Meldung;
+> Rezepte aus dem Garten gibt es nur zu exakt derselben Art (`gsGartenRezepte`); die Beetplanung ist der vorhandene Planer. Die
+> gegnerische Prüfung fand neun Stellen, an denen eine Anzeige mehr sagte, als gerechnet war:
+> - Eine „Tomate“ ohne Latein hiess „kein Rezept“, obwohl die App vier hat: Sie war nur keiner Art zuzuordnen. Was nicht geprüft
+>   werden konnte, steht als „nicht geprüft“ mit Namen da (`pflanzen.ungeprueft`), nie als leeres Ergebnis — dieselbe Klasse wie
+>   „Keine Daten ist nicht keine Gefahr“ (v33.36).
+> - „Übernimmt dessen Masse, Licht und Boden“ stimmte nicht. `openGardenAI` belegt still aus `gardens[0]` vor, und der Planer
+>   behält Licht und Boden der vorigen Sitzung. Der Fall plante den Garten an erster Stelle und mass damit die Vorbelegung (Rückbau
+>   M1 grün). **Wer eine Zusage über ein vorhandenes Werkzeug macht, sieht zuerst nach, was es von selbst tut, und stellt im Fall den
+>   Zustand her, den es vorfindet:** der Zielgarten an zweiter Stelle, die vorige Sitzung gesetzt.
+> - Eine Vorhersage hat ein Alter und eine Tageszeit. Ein Frost-TAG ist nicht „Frost kommt“: am Nachmittag ist der Frost von heute
+>   früh vorbei (`kommt`, `_gsFrostHeuteKommt`). Eine abgelaufene Vorhersage ist nicht „kein Frost“, und eine von vor Tagen meldet
+>   nichts (`GS_FROST_MELDEN_ALTER_H`).
+> - Der Verlauf ist ein Weg zur KI. Ohne Einblick ging Linas Zusatzsatz („Einen Garten ‚Kartoffelacker‘ finde ich nicht“) über
+>   `content` mit der nächsten Frage hinaus. Jetzt steht er nur auf dem Bildschirm (`zusatz`).
+> - Ein Fall, der zwei Rechnungen auf Gleichheit prüft, sieht keine Kopie: W5 blieb grün, als R6 die alte Rechnung selbst trug.
+>   **Wer prüfen will, dass A die Funktion B LIEST, setzt für B einen Stellwert und verlangt ihn in A** (W5 Lage 6).
+>
+> (`sensor_check` „Lina 17“, `kalender_check` W5, `datum_check` T8; 33 Gegenproben beim Bau und 20 aus der Prüfung.)
+
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
 > lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer

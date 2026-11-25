@@ -16,8 +16,8 @@
 
 **Auftrag:** Paket 4 „Mit dir denken" aus Fernandos „Lina viel viel besser": „komplette Beetplanung", „automatisch erkennen
 ‚Tomaten brauchen Schutz — Frost kommt!'", „Rezepte aus dem eigenen Garten". Gebaut auf f1ab6d8 (Paket 1 „Lina 16", auf v33.82
-a30c580); v33.83 (ko) ist nicht darin, gestapelt wird danach. Kein Bump, kein neuer KI-Aufruf, keine Push-Quelle, kein Server,
-keine Migration; `_gsLinaSicherheit` mit allem, was dazu gehört, und die Fälle „Lina 11" bis „Lina 16" sind unberührt.
+a30c580), gestapelt auf v33.85 ((kp), 3328d52); der Bump auf v33.86 steht im eigenen Commit. Kein neuer KI-Aufruf, keine
+Push-Quelle, kein Server, keine Migration; `_gsLinaSicherheit` mit allem, was dazu gehört, und die Fälle „Lina 11" bis „Lina 16" sind unberührt.
 
 **Gebaut:**
 - **Frost ist EINE Rechnung:** `gsFrostGefaehrdet()` — die Frost-Tage aus `_gsWetterTage()` (heute und später) × frostempfindlich
@@ -33,7 +33,8 @@ keine Migration; `_gsLinaSicherheit` mit allem, was dazu gehört, und die Fälle
 - **Linas „Braucht Hilfe"** (`gsPflanzenHilfe`) nennt die gefährdeten Pflanzen: „Frost am 2.9.2025 (-1.5 °C laut Vorhersage) —
   frostempfindlich und draussen", Gewicht 200 minus Tage bis zum Frost. Der Prompt sagt, wie sie es sagt („Deine Tomaten brauchen
   Schutz — Frost kommt!", mit Tag und Tiefstwert aus der Zeile).
-- **Rezepte aus dem Garten:** `gsGartenRezepte()` — ok · leer (mit Grund) · nicht prüfbar (keine Pflanzen, keine Artenliste). Nur
+- **Rezepte aus dem Garten:** `gsGartenRezepte()` — ok · leer (mit Grund) · nicht prüfbar (keine Pflanzen, keine Artenliste, keine
+  Pflanze mit eindeutiger Art — siehe Gegenprüfung). Nur
   `type: 'recipes'`, nur über `_gsRecipeAllowedPlantIds`, je verlinktem Eintrag nur, wenn `gsIstGiftig` nein und `gsIstEssbar` ja
   sagt (an der ART). Die Art der Pflanze wird nie geraten (`_gsPflanzeArt`): eigenes Latein · alle Einträge GENAU dieses Namens mit
   EINEM Binomen · Kulturdaten. Ein gleichnamiger giftiger Eintrag nimmt dem Namen die Zusage, ein Binomen, das die Artenliste nicht
@@ -45,8 +46,8 @@ keine Migration; `_gsLinaSicherheit` mit allem, was dazu gehört, und die Fälle
   und jeder Kategorie-Chip nehmen ihn weg.
 - **Zwei lesende Lina-Werkzeuge** (`GS_LINA_LESE_TOOLS`, Knopf unter der Antwort): `open_garden_recipes` (ein Knopf nur, wenn es
   Gartenrezepte gibt — sonst ein Satz in der Antwort) und `open_planner {garden}` → `gsPlanFuerGarten` für GENAU einen Garten
-  dieses Namens (Masse, Licht, Boden, Schritt „Wünsche", generiert nicht), sonst `openGardenAI` ohne Vorauswahl und ein Satz
-  (`_gsLinaAktionSatz`). Der Knopf gehört der Person und dem Gespräch: ist inzwischen jemand anderes oder niemand angemeldet,
+  dieses Namens (was zu ihm hinterlegt ist; was fehlt, bleibt leer, und der Planer steht dort — generiert nicht), sonst
+  `gsPlanOhneGarten` (ohne die still vorbelegten Masse eines anderen Gartens) und ein Satz (`_gsLinaAktionSatz`). Der Knopf gehört der Person und dem Gespräch: ist inzwischen jemand anderes oder niemand angemeldet,
   öffnet `gsLinaAktionTun` nichts und räumt das Gespräch.
 - **Kontextzeile** „Rezepte aus deinem Garten: <drei Titel>; +N weitere." (`GS_GARTEN_REZEPTE_NENNEN`), ZULETZT in
   `GS_LINA_ZEILEN_RANG` (sie fällt vor jeder Angabe der Person); ohne Einblick geht sie nicht mit.
@@ -70,7 +71,8 @@ keine Migration; `_gsLinaSicherheit` mit allem, was dazu gehört, und die Fälle
 **Prüfstand:** `sensor_check` „Lina 17" (a) Frost · (b) Meldung · (c) Rezepte · (d) Lina über den echten Weg (gestellte Uhr,
 gestelltes Wetter, gestellte KI und Mitteilungen; `gsLinaSend` → Knopf → Klick; frisch geladenes Wetter über `loadGardenWeather`
 mit gestelltem Wetterdienst) und `kalender_check` „Wetter W5" (R6 und `gsFrostGefaehrdet` in fünf Lagen gleich). **33 Gegenproben
-in einer Kopie, die Datei danach md5-gleich; 31 rot mit dem erwarteten Satz:** R6 rechnet selbst (auch W5 rot) · ohne Kultur-Tor ·
+in einer Kopie, die Datei danach md5-gleich; 31 rot mit dem erwarteten Satz:** R6 rechnet selbst anders (auch W5 rot — mit einer
+KOPIE derselben Rechnung blieb W5 grün, siehe Gegenprüfung: Lage 6) · ohne Kultur-Tor ·
 drinnen zählt · ohne Vorhersage = „kein Frost" (auch W5 rot) · „Braucht Hilfe" ohne Frost · an der Tagesgrenze vorbei · Stille ohne
 Nachholen · alter Timer nicht abgeräumt · an `gsNotif` vorbei · „Frostgefahr" überhört · Draht nach frischem Wetter fehlt · halber
 Name · Name vor Latein · gleichnamig giftig zählt nicht · Unterart = Art · alle Giftprüfungen weg · Giftprüfung an der Pflanze weg ·
@@ -85,11 +87,57 @@ dieselbe Art schon).
 nutzersicht 17/0 · rezept_link ok (524 Einträge) · robust 38/0 · i18n 23/0 · wiring grün (0 kaputt) · statik 10/0 · escape 18/0 ·
 sicherheit (person, schluss, senken) 104/0 · datum 8/0 · austausch 17/0.
 
-**Offen:** brett:2026-11-25-2bbd, brett:2026-11-25-5769, brett:2026-11-25-e9a4, brett:2026-11-16-c72c
+**Gegenprüfung (ein Widerleger über den Diff, 9 Funde: 2 mittel, 7 klein — alle behoben, jeder mit Fall und Gegenprobe):**
+- **Rezepte: „kein Rezept" stand da, wo die Art nur nicht bestimmt war (mittel).** Eine „Tomate" ohne Latein (Formular, Zwilling und
+  Pflanzungen schreiben keines) ergab `leer` und „Zu deinen Pflanzen führt die App kein Rezept." — die App hat vier Tomatenrezepte;
+  bei der „Brennnessel" (mehrdeutig) zwölf. Von 65 gängigen Einzelnamen endeten 14 so (9 unbekannt, 5 mehrdeutig). Jetzt:
+  `pflanzen.ungeprueft` (unbekannt · mehrdeutig, nicht gift), ohne jede bestimmte Art `nicht_pruefbar`, und Kontextzeile, Satz unter
+  der Antwort und der Hinweis über der Liste nennen die Namen („Ohne eindeutige Art, nicht geprüft: Tomate"); „gift" heisst im Hinweis
+  „Kein Rezept (Name oder Latein führt auch eine giftige Art)". Der alte Fall hatte `leer` verlangt.
+- **Planer: „übernimmt dessen Masse, Licht und Boden" stimmte nicht (mittel, Ursache vorbestehend).** `openGardenAI` belegt Breite und
+  Länge still aus `gardens[0]` vor, und Licht und Boden bleiben von der vorigen Sitzung stehen; `gsPlanFuerGarten` sprang trotzdem zu
+  „Wünsche" mit „Masse, Licht, Boden und Art übernommen". Ein Garten ohne Masse bekam so die des ersten Gartens. Jetzt
+  `gsPPvorlageNehmen(i, {fuerGarten})`: was der Garten nicht trägt, wird geleert (Licht: Vorgabe des Formulars, Boden: „Weiss ich
+  nicht") und steht in `fehlt`; der Planer springt nur über Schritte, deren Angaben der Garten trägt (ohne Masse „Fläche", ohne Licht
+  „Licht + Wetter"); EIN Satz nennt, was übernommen ist und was nicht (`_gsPlanFuerGartenSatz`). Das gilt auch für den Knopf auf der
+  Gartenkarte. Ohne Garten öffnet Lina `gsPlanOhneGarten` (keine Masse von `gardens[0]`, Licht und Boden auf der Vorgabe; der
+  Garten-Scan und die eigene Lichtmessung bleiben, sie sagen selbst, woher sie kommen); der Satz heisst „… wähl im Planer unter
+  ‚Fläche' einen deiner Gärten oder trag die Fläche selbst ein", nie mehr „ohne Vorauswahl".
+- **Frost: eine abgelaufene Vorhersage galt als „kein Frost".** Ein 8 Tage alter Zwischenspeicher ergab `erfuellt`. Jetzt
+  `nicht_pruefbar` („die Wettervorhersage ist abgelaufen"); die Meldung schweigt bei einer Vorhersage älter als
+  `GS_FROST_MELDEN_ALTER_H` (24 h; `gs_weather_cache` schreibt nur `loadGardenWeather`, und das läuft nicht beim Start), „Braucht
+  Hilfe" nennt ihr Alter („Stand vor 96 h").
+- **Frost: „Frost kommt" am Nachmittag für den Frost von heute früh.** `gsFrostGefaehrdet` trägt jetzt `kommt`: heute nur, wenn ein
+  Stundenwert ab jetzt die Frostgrenze erreicht (`_gsFrostHeuteKommt`, Stundenwerte des Zwischenspeichers, Ortszeit), dann mit dem
+  Tiefstwert der kommenden Stunden; ohne Stundenwerte für heute zählt heute nicht. Die Meldung (`vorbei`) und „Braucht Hilfe" lesen
+  `kommt`, R6 im Kalender weiter den Frost-TAG.
+- **Die Meldung „eine je Tag" rechnete den UTC-Tag** (`showKategorie`, vorbestehend): um 00:30 und 08:30 desselben Ortstags gingen
+  zwei hinaus. Jetzt `_gsDayKey()`; `datum_check` T8 (Europe/Zurich, 01:30), der Deckel T0 sinkt auf 31.
+- **Ohne Einblick ging Linas Zusatzsatz trotzdem an die KI.** „Einen Garten ‚Kartoffelacker' finde ich nicht" und „kein Rezept" standen
+  im `content` und kamen über den Verlauf und `coach_messages` bei der nächsten Frage an. Jetzt stehen sie ohne Einblick nur auf dem
+  Bildschirm (`zusatz`, `_gsLinaSatzAnhaengen`) — dasselbe für die Rückfragen der Karten aus Lina 16.
+- **Ein langer Gartenname wie im Kontext** („Gemüsegarten hinter dem Haus…") — im gestapelten Stand schon behoben (`_gsLinaGartenWahl`
+  aus der (kp)-Gegenprüfung); nachgemessen und als Fall dazu.
+- **Prüfstand:** „Lina 17" (d) plante den Garten an erster Stelle, den die Vorbelegung ohnehin traf (Rückbau M1 blieb grün) — jetzt
+  „Kräuterbeet Nord" an zweiter Stelle mit anderen Massen, Licht und Boden; dazu ein Garten ohne Angaben, ein langer Name, ein
+  unbekannter Garten ohne Vorbelegung, Einblick aus. `kalender_check` W5 mass nur Gleichheit (R6 mit eigenem Rumpf blieb grün, und
+  der Satz „auch W5 rot" stimmte nur für eine Rechnung, die ANDERS rechnet) — Lage 6 setzt einen Stellwert für `gsFrostGefaehrdet`, R6 muss ihn zeigen.
+- **20 Gegenproben in Kopien, jede einzeln rot mit dem erwarteten Satz, `index.html` danach md5-gleich:** ohne Art bleibt „leer" ·
+  Kontextzeile ohne die ungeprüften Namen · Satz ohne sie · der Hinweis sagt „dazu kein Rezept" · Planer für einen Garten nicht streng ·
+  springt immer zu „Wünsche" · Licht und Boden der vorigen Sitzung bleiben · Lina ohne Garten über `openGardenAI` · Rückbau M1 der
+  Prüfung (Dispatch `openGardenAI(); gsPPgoStep(4)`) · abgelaufene Vorhersage = „kein Frost" · Meldung aus einer alten Vorhersage ·
+  „kommt" ohne Stundenwerte · Meldung liest nicht `kommt` · „Braucht Hilfe" liest den Frost-TAG · Hilfe ohne das Alter ·
+  `showKategorie` im UTC-Tag (`datum_check` T8) · ohne Einblick geht der Satz in den Verlauf · ohne Einblick fehlt er auf dem
+  Bildschirm · R6 mit einer KOPIE der Rechnung (W5 Lage 6) · ein langer Gartenname nur exakt.
+- Neu auf dem Brett: brett:2026-11-25-55a6 (kommt eine lokale Meldung auf Android an? — nicht messbar), brett:2026-11-25-391d (der
+  Planer belegt aus dem Menü still `gardens[0]` vor, und die Licht-Übernahme aus dem Garten-Scan trifft nur „Schatten").
+
+**Offen:** brett:2026-11-25-2bbd, brett:2026-11-25-5769, brett:2026-11-25-e9a4, brett:2026-11-16-c72c, brett:2026-11-25-55a6, brett:2026-11-25-391d
 **Nicht geprüft:** echte KI-Antworten (gestellt — ob Lina die Werkzeuge nur auf Wunsch nutzt, sagt erst der Betrieb); eine echte
 Mitteilung auf einem Gerät (`Notification` gestellt) und der Draht beim START (gefahren ist der nach frisch geladenem Wetter); was
 der Planer danach rechnet (der Knopf öffnet nur); der Garten-Hinweis im Dunkelmodus und mit Screenreader (`contrast_check` und
-`a11y_check` öffnen ihn nicht); die Android-Hülle.
+`a11y_check` öffnen ihn nicht); die Android-Hülle; „Frost kommt" aus den Stundenwerten auf einem Gerät ausserhalb der Zürcher
+Zeitzone (die Stundenwerte sind Zürcher Zeit, die Stunde „jetzt" ist die des Geräts — gemessen in UTC und Europe/Zurich).
 
 ### 2026-11-25 (kp) - v33.85: Lina 16 — Lina hakt ab, schreibt in den Pflegeverlauf, notiert Schädlinge und Krankheiten, entfernt und zieht Pflanzungen um, immer erst nach einem Tipp auf ihre Karte
 

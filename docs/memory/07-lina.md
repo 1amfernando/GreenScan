@@ -162,7 +162,10 @@ die Karte. *(sensor_check „Lina 16", 13 Gegenproben; dazu 7 aus der Gegenpruef
    `nicht_pruefbar` (`tage: null`). Drei Anzeigen lesen sie: R6 im Kalender, „Braucht Hilfe" und die lokale Meldung
    `gsFrostMelden()` (Kategorie `frost` ueber `gsNotif.showKategorie` — eine je Tag, nie in der Stille, nur mit Erlaubnis und
    nur, wenn „Frostgefahr" in den Push-Einstellungen nicht abgewaehlt ist; in der Stille EIN Timer an ihr Ende). Gerufen beim
-   Start und nach frisch geladenem Wetter (`loadGardenWeather` — der Fall faehrt diesen Draht). *(kalender_check W5)* Das
+   Start und nach frisch geladenem Wetter (`loadGardenWeather` — der Fall faehrt diesen Draht). `tage` sind die Frost-TAGE (R6),
+   `kommt` ist, was davon noch kommt — heute nur mit einem Stundenwert ab jetzt (`_gsFrostHeuteKommt`); die Meldung und „Braucht
+   Hilfe" lesen `kommt`. Eine Vorhersage ohne Tag ab heute ist `nicht_pruefbar` („abgelaufen"), eine aelter als
+   `GS_FROST_MELDEN_ALTER_H` (24 h) meldet nicht. *(kalender_check W5, mit Stellwert-Lage 6)* Das
    Frost-BANNER (`gsCheckFrostWarning`) beantwortet die Ortsfrage mit eigener Schwelle (< 2) und rundet — brett:2026-11-16-c72c.
 2. **Rezepte nur zu exakt derselben Art, nie giftig:** `gsGartenRezepte()` — Art der Pflanze ueber `_gsPflanzeArt` (eigenes
    Latein · eindeutiger Name der Artenliste · Kulturdaten; ein gleichnamiger giftiger Eintrag nimmt dem Namen die Zusage; ein
@@ -170,11 +173,16 @@ die Karte. *(sensor_check „Lina 16", 13 Gegenproben; dazu 7 aus der Gegenpruef
    Rezept-Sperre; eine Unterart des Rezept-Eintrags muss die Pflanze genau tragen: Broccoli bekommt kein Weisskohl-Rezept),
    Rezept-Seite `_gsRecipeAllowedPlantIds` + `gsIstGiftig`/`gsIstEssbar` an der ART (Wermut: giftig; Lavendel: nicht essbar
    laut Liste — beide ohne Rezept, brett:2026-11-25-5769). Die Saison sortiert nur. Eine „Tomate" ohne Latein steht unter
-   „ohne Art": die Kulturdaten nennen sie Lycopersicon, die Artenliste Solanum (brett:2026-11-25-2bbd).
+   „ohne Art": die Kulturdaten nennen sie Lycopersicon, die Artenliste Solanum (brett:2026-11-25-2bbd). **„Leer" heisst
+   GEPRUEFT:** eine Pflanze ohne eindeutige Art (unbekannt · mehrdeutig) steht in `pflanzen.ungeprueft` und mit Namen als „nicht
+   geprüft" in Kontextzeile, Satz und Hinweis; ohne jede bestimmte Art ist das Ergebnis `nicht_pruefbar`.
 3. **Zwei lesende Werkzeuge** (Knopf unter der Antwort, keine KI dahinter): `open_garden_recipes` → `gsGartenRezepteOeffnen`
    (Rezeptliste mit Garten-Filter, „✕ Alle" nimmt ihn weg); `open_planner {garden}` → `gsPlanFuerGarten` fuer GENAU einen
-   Garten dieses Namens (Masse, Licht, Boden, Schritt „Wünsche", generiert nicht), sonst `openGardenAI` ohne Vorauswahl. Was
-   der Knopf nicht sagen kann, steht als Satz in der Antwort (`_gsLinaAktionSatz`). *(sensor_check „Lina 17")*
+   Garten dieses Namens (`gsPPvorlageNehmen(i, {fuerGarten})`: was der Garten nicht traegt, wird geleert und steht in `fehlt`;
+   der Planer springt nur ueber Schritte, deren Angaben der Garten traegt; generiert nicht), sonst `gsPlanOhneGarten` (keine
+   still vorbelegten Masse aus `gardens[0]`). Was der Knopf nicht sagen kann, steht als Satz in der Antwort
+   (`_gsLinaAktionSatz`) — ohne Einblick nur auf dem Bildschirm (`zusatz`, `_gsLinaSatzAnhaengen`), nie im Verlauf an die KI;
+   dasselbe fuer die Rueckfragen der Karten (Lina 16). *(sensor_check „Lina 17")*
 
 ## Die sechs Regeln, die fuer jeden Freitext-Weg gelten
 

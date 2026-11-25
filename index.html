@@ -17947,7 +17947,9 @@ window.gsNotif = (function(){
   // `dringend` (z.B. ein verstummtes Geraet) darf trotzdem.
   function showKategorie(kat, opts){
     opts = opts || {};
-    var heute = new Date().toISOString().slice(0, 10), m = {};
+    // Lina 17 (Gegenprüfung): „eine je Tag" meint den Tag der Person — der UTC-Tag wechselt in der Schweiz um 01:00/02:00
+    // (CLAUDE.md §4f Regel 6): um 00:30 und 08:30 desselben Tages kamen zwei Frost-Meldungen.
+    var heute = _gsDayKey(), m = {};
     try { m = JSON.parse(localStorage.getItem('gs_notif_kat') || '{}') || {}; } catch(_){}
     if (!opts.dringend && m[kat] === heute) { letzterGrund = 'kategorie'; return false; }
     var ok = show(Object.assign({}, opts, { kat: kat }));
@@ -28888,6 +28890,32 @@ window._gsWetterTage = _gsWetterTage;
 window._gsWetterTitel = _gsWetterTitel;
 window._gsWetterRat = _gsWetterRat;
 
+// Kommt heute (`tag`, lokal) noch Frost? Aus den Stundenwerten des Wetter-Zwischenspeichers (Open-Meteo mit
+// timezone=Europe/Zurich, `hourly.time` lokal): { wert } — der tiefste Wert ab dieser Stunde, wenn er die Frostgrenze
+// erreicht · false — Stunden fuer heute da, keine erreicht sie · null — keine Stundenwerte fuer heute.
+function _gsFrostHeuteKommt(tag) {
+  try {
+    var c = JSON.parse(localStorage.getItem('gs_weather_cache') || 'null');
+    var h = c && c.data && c.data.hourly;
+    if (!h || !Array.isArray(h.time) || !Array.isArray(h.temperature_2m)) return null;
+    var jetzt = new Date(), ab = String(tag) + 'T' + String(jetzt.getHours()).padStart(2, '0') + ':00', da = false, tief = null;
+    for (var i = 0; i < h.time.length; i++) {
+      var t = String(h.time[i] || '');
+      if (t.slice(0, 10) !== tag) continue;
+      da = true;
+      if (t.slice(0, 16) < ab) continue;
+      var w = Number(h.temperature_2m[i]);
+      if (isFinite(w) && (tief === null || w < tief)) tief = w;
+    }
+    if (!da) return null;
+    return (tief !== null && tief <= GS_WETTER_GRENZEN.frost) ? { wert: Math.round(tief * 10) / 10 } : false;
+  } catch (_) { return null; }
+}
+window._gsFrostHeuteKommt = _gsFrostHeuteKommt;
+// Aelter als das, und die lokale Meldung schweigt: eine Frost-Meldung, die der Wetterdienst laengst anders sieht,
+// ist keine (gs_weather_cache schreibt nur loadGardenWeather, und das laeuft nicht beim Start).
+var GS_FROST_MELDEN_ALTER_H = 24;
+
 // ══ Lina 17 (Paket 4 „Mit dir denken", 25.11.2026): FROST VON SELBST — EINE Rechnung ═══════════════════════
 // Fernando: „automatisch erkennen ‚Tomaten brauchen Schutz — Frost kommt!'". Die Frage „trifft der Frost der
 // Vorhersage eine frostempfindliche Pflanze, die draussen steht?" rechnete bis hier NUR das Kalender-Pruefwerk
@@ -28901,19 +28929,30 @@ window._gsWetterRat = _gsWetterRat;
 // (Gartenart oder Standort); unbekannt heisst „nicht bekannt", nie „draussen".
 // Drei Zustaende, und jeder traegt seinen Grund: verletzt · erfuellt · nicht_pruefbar (ohne Vorhersage: `tage`
 // ist null — nie die leere Liste, die „kein Frost" hiesse).
+// Lina 17 (Gegenprüfung): `tage` sind die Frost-TAGE (R6 haengt am Frost-Ereignis eines Tages und sagt, wen der Tag
+// trifft) — `kommt` ist, was davon noch KOMMT: heute nur, wenn ein Stundenwert ab jetzt bis Tagesende die Frostgrenze
+// erreicht (der Tiefstwert des Tages liegt meist am Morgen; um 15:30 war „Frost kommt" fuer den Frost von heute frueh
+// gemeldet). Ohne Stundenwerte fuer heute zaehlt heute nicht als „kommt". Die Meldung und „Braucht Hilfe" lesen
+// `kommt`, der Kalender `tage`. Und eine Vorhersage ohne einen einzigen Tag ab heute ist abgelaufen — nicht pruefbar,
+// nie „kein Frost" (gemessen: ein 8 Tage alter Zwischenspeicher ergab „erfuellt").
 function gsFrostGefaehrdet() {
-  var aus = { zustand: 'nicht_pruefbar', grund: '', tage: null, erster: null, tiefst: null, alter_h: null, pflanzen: [], namen: [], unklar: 0 };
+  var aus = { zustand: 'nicht_pruefbar', grund: '', tage: null, kommt: null, erster: null, tiefst: null, alter_h: null, pflanzen: [], namen: [], unklar: 0 };
   try {
     var heute = gsHeuteTag();
     var wt = _gsWetterTage();
     if (!wt) { aus.grund = _gsSatz('Frost: keine Wettervorhersage geladen'); return aus; }
-    var tage = [];
+    var tage = [], imFenster = 0;
     wt.forEach(function (w) {
       if (!w || !w.tag || w.tag < heute) return;            // eine Vorhersage fuer gestern ist keine
+      imFenster++;
       if (aus.alter_h == null && w.alter_h != null) aus.alter_h = w.alter_h;
       (w.treffer || []).forEach(function (t) { if (t && t.k === 'frost') tage.push({ tag: w.tag, wert: t.wert }); });
     });
+    if (!imFenster) { aus.grund = _gsSatz('Frost: die Wettervorhersage ist abgelaufen'); return aus; }
     aus.tage = tage;
+    var hk = _gsFrostHeuteKommt(heute);
+    aus.kommt = tage.filter(function (t) { return t.tag !== heute; });
+    if (hk && tage.some(function (t) { return t.tag === heute; })) aus.kommt.unshift({ tag: heute, wert: hk.wert });
     if (!tage.length) { aus.zustand = 'erfuellt'; aus.grund = _gsSatz('kein Frost in der Wettervorhersage'); return aus; }
     aus.erster = tage[0];
     aus.tiefst = tage.reduce(function (a, b) { return (b.wert < a.wert) ? b : a; }, tage[0]);
@@ -28952,6 +28991,7 @@ window.gsFrostGefaehrdet = gsFrostGefaehrdet;
 // Lauf plant nicht noch einmal. Gerufen beim Start und dort, wo das Wetter frisch geladen wird
 // (loadGardenWeather) — keine Schleife.
 // Rueckgabe { gemeldet, grund, frost, geplant }: grund ist 'aus' · 'abgewaehlt' · der Zustand der Rechnung ·
+// 'vorbei' (der Frost von heute ist durch, nichts kommt mehr) · 'alt' (Vorhersage aelter als GS_FROST_MELDEN_ALTER_H) ·
 // 'stille' / 'pause' · 'kategorie' (heute schon gemeldet).
 var _gsFrostTimer = null;
 function gsFrostMelden(ausTimer) {
@@ -28964,6 +29004,10 @@ function gsFrostMelden(ausTimer) {
     var fg = gsFrostGefaehrdet();
     erg.frost = fg;
     if (fg.zustand !== 'verletzt' || !fg.erster) { erg.grund = fg.zustand; return erg; }
+    // Lina 17 (Gegenprüfung): nur, was noch KOMMT (heute nur mit einem Stundenwert ab jetzt), und nur aus einer frischen
+    // Vorhersage — sonst stuende „Frost kommt" fuer den Frost von heute frueh oder eine Vorhersage von vor Tagen da.
+    if (!fg.kommt || !fg.kommt.length) { erg.grund = 'vorbei'; return erg; }
+    if (fg.alter_h != null && fg.alter_h > GS_FROST_MELDEN_ALTER_H) { erg.grund = 'alt'; return erg; }
     var st = gsNotif.stille();
     if (st.aktiv) {
       erg.grund = st.grund;
@@ -28977,10 +29021,10 @@ function gsFrostMelden(ausTimer) {
     var n = fg.namen.length, sicht = fg.namen.slice(0, 3), rest = n - sicht.length;
     var wer = sicht.join(', ') + (rest > 0 ? ' ' + _gsSatz('+{1} weitere', rest) : '');
     var titel = (n === 1) ? _gsSatz('❄️ Frost kommt — {1} braucht Schutz', wer) : _gsSatz('❄️ Frost kommt — {1} brauchen Schutz', wer);
-    var tag = _gsLinaTag(fg.erster.tag);
+    var k0 = fg.kommt[0], tag = _gsLinaTag(k0.tag);
     var text = (fg.alter_h != null)
-      ? _gsSatz('Tiefstwert {1} °C am {2} — Vorhersage vom Wetterdienst, Stand vor {3} h. Abdecken oder hereinholen.', fg.erster.wert, tag, fg.alter_h)
-      : _gsSatz('Tiefstwert {1} °C am {2} — Vorhersage vom Wetterdienst. Abdecken oder hereinholen.', fg.erster.wert, tag);
+      ? _gsSatz('Tiefstwert {1} °C am {2} — Vorhersage vom Wetterdienst, Stand vor {3} h. Abdecken oder hereinholen.', k0.wert, tag, fg.alter_h)
+      : _gsSatz('Tiefstwert {1} °C am {2} — Vorhersage vom Wetterdienst. Abdecken oder hereinholen.', k0.wert, tag);
     var ok = gsNotif.showKategorie('frost', { title: titel, body: text, tag: 'gs-frost' });
     erg.gemeldet = !!ok;
     if (!ok) erg.grund = gsNotif.letzterGrund();
@@ -66554,12 +66598,51 @@ window.gsPlanFuerGarten = function (gartenId) {
     if (i < 0) { if (typeof gsToast === 'function') gsToast('Garten nicht gefunden', 'warn'); return; }
     if (typeof openGardenAI === 'function') openGardenAI();
     setTimeout(function () {
+      // Lina 17 (Gegenprüfung): „Plan für DIESEN Garten" nimmt nur, was zu diesem Garten hinterlegt ist. openGardenAI
+      // belegt Breite und Laenge still aus gardens[0] vor, und Licht und Boden stehen noch auf der vorigen Sitzung — fuer
+      // einen Garten ohne Masse standen so die Masse eines ANDEREN Gartens in Schritt 1, und der Planer sprang trotzdem
+      // zu „Wünsche" mit „Masse, Licht, Boden und Art übernommen". Jetzt (fuerGarten): was fehlt, wird geleert (Licht:
+      // die Vorgabe des Formulars, Boden: „Weiss ich nicht"), gesprungen wird nur ueber Schritte, deren Angaben dieser
+      // Garten traegt — ohne Masse bleibt der Planer bei „Fläche", ohne Licht geht er zu „Licht + Wetter" —, und der
+      // Satz nennt, was uebernommen ist und was nicht. Generiert wird nie von selbst.
+      var r = null;
       try { if (typeof gsPPgartenVorlage === 'function') gsPPgartenVorlage(); } catch (_) {}
-      try { if (typeof gsPPvorlageNehmen === 'function') gsPPvorlageNehmen(i); } catch (_) {}
-      // Schritt 4 ist der letzte VOR dem Plan — dort steht „Plan generieren".
-      try { if (typeof gsPPgoStep === 'function') gsPPgoStep(4); } catch (_) {}
-      try { if (typeof gsToast === 'function') gsToast('\u2713 Masse, Licht, Boden und Art \u00fcbernommen \u2014 nur noch W\u00fcnsche und los.', 'success', 4000); } catch (_) {}
+      try { if (typeof gsPPvorlageNehmen === 'function') r = gsPPvorlageNehmen(i, { fuerGarten: true, leise: true }); } catch (_) {}
+      if (!r) return;
+      var fehlt = r.fehlt || [], ziel = fehlt.indexOf('Masse') >= 0 ? 1 : (fehlt.indexOf('Licht') >= 0 ? 3 : 4);
+      try { if (typeof gsPPgoStep === 'function') gsPPgoStep(ziel); } catch (_) {}
+      try { if (typeof gsToast === 'function') gsToast(_gsPlanFuerGartenSatz(r, ziel), (ziel === 4 && !fehlt.length) ? 'success' : 'info', 5000); } catch (_) {}
     }, 320);
+  } catch (_) {}
+};
+// Der eine Satz nach „Plan für diesen Garten": was uebernommen ist, was nicht, und wo der Planer steht.
+function _gsPlanFuerGartenSatz(r, ziel) {
+  var nm = (r && r.name) || 'Garten', ub = ((r && r.uebernommen) || []).join(', ');
+  var fe = ((r && r.fehlt) || []).filter(function (x) { return !(ziel === 1 && x === 'Masse') && !(ziel === 3 && x === 'Licht'); }).join(', ');
+  var satz = (ziel === 1) ? _gsSatz('„{1}“ hat noch keine Masse — trag sie hier ein.', nm)
+           : (ziel === 3) ? _gsSatz('„{1}“ hat kein Licht hinterlegt — wähl es hier.', nm)
+           : _gsSatz('✓ „{1}“ übernommen — nur noch Wünsche und los.', nm);
+  if (ub) satz += ' ' + _gsSatz('Übernommen: {1}.', ub);
+  if (fe) satz += ' ' + _gsSatz('Nicht hinterlegt: {1}.', fe);
+  return satz;
+}
+window._gsPlanFuerGartenSatz = _gsPlanFuerGartenSatz;
+// Lina 17 (Gegenprüfung): der Planer OHNE einen Garten der Person — fuer Linas open_planner ohne (oder mit unbekanntem)
+// Garten. openGardenAI belegt Breite und Laenge still aus gardens[0] vor; die fallen weg, ebenso Licht und Boden der
+// vorigen Sitzung (vor dem Oeffnen auf die Vorgabe des Formulars). Was bleibt, sagt selbst, woher es kommt: der
+// Garten-Scan (sein Hinweis in Schritt 1) und die eigene Lichtmessung (Schritt 3 nennt sie). In Schritt 1 steht die
+// Liste „Einen deiner Gärten übernehmen".
+window.gsPlanOhneGarten = function () {
+  try {
+    var lel = document.getElementById('pp-light');
+    if (lel) { var d = Array.prototype.find.call(lel.options, function (o) { return o.defaultSelected; }) || lel.options[0]; if (d) lel.value = d.value; }
+    var sel = document.getElementById('pp-soil-type'); if (sel) sel.value = 'unknown';
+    if (typeof openGardenAI === 'function') openGardenAI();
+    var tw = (typeof gsTwinGet === 'function') ? gsTwinGet() : null;
+    if (!(tw && tw.bed)) {
+      ['pp-width', 'pp-length'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = ''; });
+      try { if (typeof gsPPcalcArea === 'function') gsPPcalcArea(); } catch (_) {}
+    }
   } catch (_) {}
 };
 
@@ -66595,15 +66678,25 @@ window.gsPPgartenVorlage = gsPPgartenVorlage;
 
 // Was uebernommen wurde, wird GEZEIGT — sonst weiss niemand, welche Felder
 // jetzt woher kommen, und korrigiert im Zweifel das Falsche.
-function gsPPvorlageNehmen(idx) {
+// Lina 17 (Gegenprüfung): Rueckgabe { name, uebernommen, fehlt }. `opts.fuerGarten` (gsPlanFuerGarten): was dieser Garten
+// nicht traegt, wird geleert statt stehen gelassen — Breite und Laenge leer, Licht auf die Vorgabe des Formulars, Boden
+// auf „Weiss ich nicht" — und steht in `fehlt` (Masse · Licht · Boden). `opts.leise`: kein Toast, der Aufrufer sagt es.
+// Ohne opts (die Knoepfe in Schritt 1) bleibt es, wie es war: die Person waehlt eine Vorlage zu dem, was schon dasteht.
+function gsPPvorlageNehmen(idx, opts) {
+  opts = opts || {};
+  var aus = { name: '', uebernommen: [], fehlt: [] };
   try {
     var g = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens[idx] : null;
-    if (!g) return;
-    var uebernommen = [];
+    if (!g) return aus;
+    aus.name = String(g.name || 'Garten');
+    var uebernommen = aus.uebernommen, streng = !!opts.fuerGarten;
     function setz(id, wert, name) {
       var el = document.getElementById(id);
       if (el && wert != null && wert !== '') { el.value = wert; uebernommen.push(name); }
     }
+    // Der Hinweis „Aus deinem Garten-Scan übernommen: B × L" stimmt nicht mehr, sobald die Masse eines Gartens dastehen
+    // (oder, streng, geleert sind) — er wird mit ihnen weggenommen.
+    var scanHinweisWeg = function () { var h = document.getElementById('pp-twin-hint'); if (h) { h.style.display = 'none'; h.innerHTML = ''; } };
     if (g.width && g.length) {
       setz('pp-width',  g.width,  'Breite');
       setz('pp-length', g.length, 'L\u00e4nge');
@@ -66611,6 +66704,11 @@ function gsPPvorlageNehmen(idx) {
       // gsPPcalcArea aus Breite x Laenge berechnet. Eine zweite Stelle, die
       // dieselbe Zahl schreibt, laeuft frueher oder spaeter auseinander.
       uebernommen.push('Fl\u00e4che');
+      scanHinweisWeg();
+    } else if (streng) {
+      ['pp-width', 'pp-length'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = ''; });
+      scanHinweisWeg();
+      aus.fehlt.push('Masse');
     }
     setz('pp-location', g.location, 'Standort');
     // v31.82: Unter Glas ist keine Nebensache — es verschiebt Aussaatfenster,
@@ -66633,26 +66731,34 @@ function gsPPvorlageNehmen(idx) {
     // Licht: die Gartenstufen heissen anders als die Planerstufen.
     var lichtKarte = { full_sun: 'Vollsonne', part_sun: 'Halbschatten', shade: 'Schatten' };
     var lel = document.getElementById('pp-light');
-    if (lel && lichtKarte[g.light]) {
+    var lichtDa = false, bodenDa = false;
+    if (lel && _gsNachschlag(lichtKarte, g.light, null)) {
       var treffer = Array.prototype.find.call(lel.options, function (o) {
         return o.value === lichtKarte[g.light] || o.textContent.indexOf(lichtKarte[g.light]) >= 0;
       });
-      if (treffer) { lel.value = treffer.value; uebernommen.push('Licht'); }
+      if (treffer) { lel.value = treffer.value; uebernommen.push('Licht'); lichtDa = true; }
+    }
+    if (streng && lel && !lichtDa) {
+      var vorgabe = Array.prototype.find.call(lel.options, function (o) { return o.defaultSelected; }) || lel.options[0];
+      if (vorgabe) lel.value = vorgabe.value;
+      aus.fehlt.push('Licht');
     }
     var sel = document.getElementById('pp-soil-type');
     if (sel && g.soil) {
-      var st = Array.prototype.find.call(sel.options, function (o) { return o.value === g.soil; });
-      if (st) { sel.value = st.value; uebernommen.push('Boden'); }
+      var st = Array.prototype.find.call(sel.options, function (o) { return o.value === g.soil && o.value !== 'unknown'; });
+      if (st) { sel.value = st.value; uebernommen.push('Boden'); bodenDa = true; }
     }
+    if (streng && sel && !bodenDa) { sel.value = 'unknown'; aus.fehlt.push('Boden'); }
     try { if (typeof gsPPcalcArea === 'function') gsPPcalcArea(); } catch (_) {}
     if (typeof gsHaptic === 'function') gsHaptic('tap');
-    if (typeof gsToast === 'function') {
+    if (!opts.leise && typeof gsToast === 'function') {
       gsToast(uebernommen.length
         ? '\u2713 Aus „' + (g.name || 'Garten') + '" \u00fcbernommen: ' + uebernommen.join(', ')
         : 'In „' + (g.name || 'Garten') + '" sind noch keine Angaben hinterlegt \u2014 nichts zu \u00fcbernehmen.',
         uebernommen.length ? 'success' : 'warn', 4500);
     }
   } catch (_) {}
+  return aus;
 }
 window.gsPPvorlageNehmen = gsPPvorlageNehmen;
 
@@ -81922,7 +82028,14 @@ function gsGartenRezepte() {
     liste.sort(function (a, b) { return ((a.jetzt === true ? 0 : 1) - (b.jetzt === true ? 0 : 1)) || (a._i - b._i); });
     liste.forEach(function (x) { delete x._i; });
     aus.rezepte = liste;
+    // Lina 17 (Gegenprüfung): „leer" heisst GEPRUEFT — eine Pflanze ohne eindeutige Art (unbekannt · mehrdeutig) ist
+    // ungeprueft, nicht rezeptlos: eine „Tomate" ohne Latein hat in der App vier Rezepte, die nur keiner Art zugeordnet
+    // werden koennen. Gezaehlt nach Namen (`ungeprueft`); eine Pflanze, deren Name auch eine giftige Art traegt (gift),
+    // IST geprueft — fuer sie gibt es bewusst kein Rezept.
+    aus.pflanzen.ungeprueft = [];
+    aus.pflanzen.ohneArt.forEach(function (x) { if (x.grund !== 'gift' && aus.pflanzen.ungeprueft.indexOf(x.name) < 0) aus.pflanzen.ungeprueft.push(x.name); });
     if (liste.length) { aus.zustand = 'ok'; aus.grund = _gsSatz('{1} Rezepte zu Arten, die du hast', liste.length); }
+    else if (!aus.pflanzen.mitArt && aus.pflanzen.ungeprueft.length) { aus.zustand = 'nicht_pruefbar'; aus.grund = _gsSatz('Zu deinen Pflanzen kennt die App keine eindeutige Art — welche Rezepte passen, ist nicht geprüft.'); }
     else { aus.zustand = 'leer'; aus.grund = _gsSatz('Zu deinen Pflanzen führt die App kein Rezept.'); }
   } catch (e) {
     aus.zustand = 'nicht_pruefbar'; aus.rezepte = [];
@@ -81931,6 +82044,15 @@ function gsGartenRezepte() {
   return aus;
 }
 window.gsGartenRezepte = gsGartenRezepte;
+// Die Namen der Pflanzen, zu denen gsGartenRezepte nichts pruefen konnte — hoechstens `max`, der Rest gezaehlt. Fuer den
+// Satz unter Linas Antwort, den Hinweis ueber der Rezeptliste und (mit `kontext`) Linas Kontextzeile: dort gekuerzt wie
+// jeder Pflanzenname im Kontext (_gsLinaKurz, 30 Zeichen).
+function _gsGartenRezepteUngeprueft(g, max, kontext) {
+  var un = (g && g.pflanzen && g.pflanzen.ungeprueft) || [];
+  if (!un.length) return '';
+  var n = max || 3, sicht = un.slice(0, n).map(function (x) { return (kontext && typeof _gsLinaKurz === 'function') ? _gsLinaKurz(x, 30) : x; });
+  return sicht.join(', ') + (un.length > n ? (kontext ? ', +' + (un.length - n) + ' weitere' : ' ' + _gsSatz('+{1} weitere', un.length - n)) : '');
+}
 // Die Rezeptliste mit dem Garten-Filter oeffnen (Linas Werkzeug open_garden_recipes). Der Filter ist ein SIEB auf
 // der Liste (wie der Art-Filter _gsRecipePlantFilter); Kategorie und „Favoriten" stehen dabei auf „Alle", sonst
 // versteckte ein alter Chip die Gartenrezepte. „✕ Alle" und jeder Kategorie-Chip nehmen ihn wieder weg.
@@ -81953,8 +82075,12 @@ function _gsRecipeGartenBanner() {
     var satz = (g.zustand === 'ok')
       ? _gsSatz('🌿 Aus deinem Garten: {1}', pf.slice(0, 4).join(', ') + (pf.length > 4 ? ' ' + _gsSatz('+{1} weitere', pf.length - 4) : ''))
       : '🌿 ' + (g.grund || '');
-    var oa = (g.pflanzen && g.pflanzen.ohneArt) || [];
-    var zusatz = oa.length ? _gsSatz('Ohne eindeutige Art (dazu kein Rezept): {1}', oa.slice(0, 3).map(function (x) { return x.name; }).join(', ') + (oa.length > 3 ? ' ' + _gsSatz('+{1} weitere', oa.length - 3) : '')) : '';
+    // Lina 17 (Gegenprüfung): zwei Gruende, zwei Saetze — „nicht geprueft" (keine eindeutige Art) ist etwas anderes als
+    // „kein Rezept, weil derselbe Name auch eine giftige Art meint"
+    var un = _gsGartenRezepteUngeprueft(g, 3), gi = ((g.pflanzen && g.pflanzen.ohneArt) || []).filter(function (x) { return x.grund === 'gift'; });
+    var zusatz = [un ? _gsSatz('Ohne eindeutige Art, nicht geprüft: {1}', un) : '',
+                  gi.length ? _gsSatz('Kein Rezept (Name oder Latein führt auch eine giftige Art): {1}', gi.slice(0, 3).map(function (x) { return x.name; }).join(', ') + (gi.length > 3 ? ' ' + _gsSatz('+{1} weitere', gi.length - 3) : '')) : '']
+                 .filter(Boolean).join(' · ');
     return '<div data-gs-garten-rezepte="1" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;margin:0 0 8px;background:var(--surface2);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;color:var(--g-dark);">' +
       '<span>' + _gsRecEsc(satz) + (zusatz ? '<br><span style="font-weight:600;color:var(--text2);">' + _gsRecEsc(zusatz) + '</span>' : '') + '</span>' +
       '<button type="button" data-gs-action="recipe-plant-filter-clear" style="border:none;background:transparent;font-weight:800;cursor:pointer;color:var(--g-main);font-family:inherit;flex-shrink:0;">✕ ' + _gsRecT('filter_clear', 'Alle') + '</button></div>';
@@ -92245,7 +92371,7 @@ var LINA_SYSTEM =
   '• Lichtmessung für Standorte: Menü (⋯) → „Licht".\n\n' +
   'Pro & Lifetime existieren, aber du bewirbst sie NIE und bringst sie nur zur Sprache, wenn jemand ausdrücklich danach fragt — dann nennst du nüchtern die Fakten und kommst freundlich zur Natur zurück.\n\n' +
   // Der Einblick (gsLinaEinblick): was die Zeilen bedeuten und was Lina daraus NICHT machen darf.
-  'DEIN EINBLICK IN DEN GARTEN: Im KONTEXT können diese Zeilen stehen — „Braucht Hilfe" (von der App gerechnet: überfällige Aufgaben, notierte Schädlinge oder Krankheiten und Frost laut Vorhersage für frostempfindliche Pflanzen, die draussen stehen), „Im Detail" (eine Pflanze der Person, nach der sie gerade fragt: Ort, Aufgaben, Tagebuch, Fotos), „Wetter" (Vorhersage für ihren Ort), „Pflanzen" (ihre Pflanzen beim Namen), „Gärten" (Beete mit Pflanzungen), „Frühere Scans", „Funde auf deiner Karte" und „Rezepte aus deinem Garten" (Rezepte der App zu Arten, die die Person hat — dieselbe Art, nie eine giftige). Nutze sie wie eine Freundin, die den Garten kennt: sprich die Pflanzen beim Namen an und verbinde Wetter, Beet und Pflanze zu EINEM konkreten Rat. Fragt die Person allgemein, wie es ihren Pflanzen geht oder was zu tun ist, nenne zuerst, was unter „Braucht Hilfe" steht. Steht dort Frost, sag es klar (z. B. „Deine Tomaten brauchen Schutz — Frost kommt!") mit Tag und Tiefstwert aus der Zeile, und rate, abzudecken oder hereinzuholen. Als Rezepte aus ihrem Garten nennst du nur, was unter „Rezepte aus deinem Garten" steht. Steht eine Zeile nicht da, liegt dazu nichts vor — sag das und frag nach, statt zu raten.\n' +
+  'DEIN EINBLICK IN DEN GARTEN: Im KONTEXT können diese Zeilen stehen — „Braucht Hilfe" (von der App gerechnet: überfällige Aufgaben, notierte Schädlinge oder Krankheiten und Frost laut Vorhersage für frostempfindliche Pflanzen, die draussen stehen), „Im Detail" (eine Pflanze der Person, nach der sie gerade fragt: Ort, Aufgaben, Tagebuch, Fotos), „Wetter" (Vorhersage für ihren Ort), „Pflanzen" (ihre Pflanzen beim Namen), „Gärten" (Beete mit Pflanzungen), „Frühere Scans", „Funde auf deiner Karte" und „Rezepte aus deinem Garten" (Rezepte der App zu Arten, die die Person hat — dieselbe Art, nie eine giftige). Nutze sie wie eine Freundin, die den Garten kennt: sprich die Pflanzen beim Namen an und verbinde Wetter, Beet und Pflanze zu EINEM konkreten Rat. Fragt die Person allgemein, wie es ihren Pflanzen geht oder was zu tun ist, nenne zuerst, was unter „Braucht Hilfe" steht. Steht dort Frost, sag es klar (z. B. „Deine Tomaten brauchen Schutz — Frost kommt!") mit Tag und Tiefstwert aus der Zeile, und rate, abzudecken oder hereinzuholen. Als Rezepte aus ihrem Garten nennst du nur, was unter „Rezepte aus deinem Garten" steht; Pflanzen, die dort als „nicht geprüft" stehen, hat die App keiner Art sicher zugeordnet — sag das, statt „kein Rezept". Steht eine Zeile nicht da, liegt dazu nichts vor — sag das und frag nach, statt zu raten.\n' +
   'GRENZEN DES EINBLICKS: Du siehst KEINE Fotos — nur, dass und von wann es welche gibt. Wie eine Pflanze aussieht oder ob sie krank ist, beurteilst du nie aus dem Kontext; bitte um eine Beschreibung oder schlage einen Scan vor. Die App misst kein Wachstum und keinen Gesundheitswert — nenne keinen. Wetterangaben nur aus den Zeilen „Wetter" und „Braucht Hilfe".\n' +
   'WANDERN UND SAMMELN: Bei Ausflügen hilfst du mit Region, Jahreszeit, Wetter und den eigenen Funden der Person: was um diese Zeit zu finden ist, worauf sie achten soll, welche Verwechslungen gefährlich sind. Erfinde NIE einen genauen Fundplatz, Weg oder eine Entfernung — eigene Fundorte zeigt die Karte. Für Arten kannst du search_species anbieten.\n\n' +
   // v30.69: Lina kann handeln (sicher per Whitelist + Nutzer-Bestätigung). Sie schlägt vor — der Nutzer bestätigt.
@@ -92260,7 +92386,7 @@ var LINA_SYSTEM =
   '• open_saekalender {} — öffnet den Säkalender (39 Kulturen: drinnen vorziehen, draussen säen, Ernte).\n' +
   // Lina 17 (Paket 4): zwei lesende Werkzeuge — ein Knopf unter der Antwort, keine KI dahinter.
   '• open_garden_recipes {} — öffnet die Rezepte der App zu Arten, die die Person hat (dieselbe Liste wie „Rezepte aus deinem Garten" im KONTEXT). Nur anbieten, wenn diese Zeile Rezepte nennt.\n' +
-  '• open_planner {"garden":"..."} — öffnet den KI-Gartenplaner für die Beetplanung. garden ist der Name eines Gartens der Person, genau wie er unter „Gärten" im KONTEXT steht; dann übernimmt der Planer dessen Masse, Licht und Boden. Ohne garden öffnet er ohne Vorauswahl. Der Planer rechnet Licht, Nachbarn und Platz selbst — entwirf keinen eigenen Beetplan mit Massen oder Abständen im Chat, sondern biete den Planer an.\n' +
+  '• open_planner {"garden":"..."} — öffnet den KI-Gartenplaner für die Beetplanung. garden ist der Name eines Gartens der Person, genau wie er unter „Gärten" im KONTEXT steht; dann übernimmt der Planer, was zu diesem Garten hinterlegt ist (Masse, Licht, Boden), und zeigt, was fehlt. Ohne garden öffnet er ohne einen Garten der Person: dort wählt sie einen aus oder trägt die Fläche selbst ein. Der Planer rechnet Licht, Nachbarn und Platz selbst — entwirf keinen eigenen Beetplan mit Massen oder Abständen im Chat, sondern biete den Planer an.\n' +
   '• prefill_form {"name":"...","emoji":"...","notes":"..."} — öffnet das Pflanze-Hinzufügen-Formular vorausgefüllt (der Nutzer tippt selbst auf Speichern).\n' +
   '• propose_add_plant {"name":"...","emoji":"...","notes":"..."} — schlägt vor, eine Pflanze zu Meine Pflanzen hinzuzufügen (Nutzer bestätigt mit einem Tipp).\n' +
   '• propose_reminder {"task":"...","plantName":"...","intervalDays":N} — richtet eine Pflege-Erinnerung für eine VORHANDENE Pflanze ein. Erlaubte task: water, fertilize, repot, rotate, mist, dust, prune, check.\n' +
@@ -92437,12 +92563,15 @@ function gsLinaZahlen(){
     // Lina 17 (Paket 4): Rezepte aus dem eigenen Garten — aus der EINEN Rechnung (gsGartenRezepte: nur Essen, exakt
     // dieselbe Art, nie giftig). Nur Titel, hoechstens GS_GARTEN_REZEPTE_NENNEN, der Rest gezaehlt. Hat die Person
     // Pflanzen, aber kein Rezept passt, sagt die Zeile das — sonst erfaende die KI „Rezepte aus deinem Garten".
-    // Ohne Pflanzen oder ohne Artenliste (nicht pruefbar): keine Zeile.
+    // Ohne Pflanzen oder ohne Artenliste (nicht pruefbar): keine Zeile. Lina 17 (Gegenprüfung): Pflanzen ohne eindeutige
+    // Art stehen mit Namen als „nicht geprüft" dabei — sonst hiesse „keine" auch „zu deiner Tomate gibt es nichts".
     try {
-      var gr = gsGartenRezepte();
+      var gr = gsGartenRezepte(), grUn = _gsGartenRezepteUngeprueft(gr, 3, true);
+      var grNg = grUn ? ' Ohne eindeutige Art, nicht geprüft: ' + grUn + '.' : '';
       if (gr.zustand === 'ok') teile.push('Rezepte aus deinem Garten: ' + gr.rezepte.slice(0, GS_GARTEN_REZEPTE_NENNEN).map(function (x) { return x.titel; }).join('; ')
-        + (gr.rezepte.length > GS_GARTEN_REZEPTE_NENNEN ? '; +' + (gr.rezepte.length - GS_GARTEN_REZEPTE_NENNEN) + ' weitere' : '') + '.');
-      else if (gr.zustand === 'leer') teile.push('Rezepte aus deinem Garten: keine — die App führt zu den Arten deiner Pflanzen kein Rezept.');
+        + (gr.rezepte.length > GS_GARTEN_REZEPTE_NENNEN ? '; +' + (gr.rezepte.length - GS_GARTEN_REZEPTE_NENNEN) + ' weitere' : '') + '.' + grNg);
+      else if (gr.zustand === 'leer') teile.push('Rezepte aus deinem Garten: keine — die App führt zu den Arten deiner Pflanzen kein Rezept.' + grNg);
+      else if (grUn) teile.push('Rezepte aus deinem Garten: nicht geprüft — die App kennt zu deinen Pflanzen keine eindeutige Art (' + grUn + ').');
     } catch (_) {}
     return _gsLinaDeckeln(teile, GS_LINA_ZAHLEN_MAX);
   } catch(_){ return ''; }
@@ -93277,10 +93406,12 @@ function gsPflanzenHilfe() {
   // keine dritte. Der Frost ist das dringendste Signal (heute oder morgen kann die Pflanze erfrieren): Gewicht
   // 200 minus die Tage bis zum ersten Frost. Ohne Vorhersage, ohne Kulturdaten oder drinnen: kein Frost-Grund.
   try {
-    var fg = gsFrostGefaehrdet();
-    if (fg.zustand === 'verletzt' && fg.erster) {
-      var bis = Math.max(0, Math.round((new Date(fg.erster.tag + 'T12:00:00').getTime() - new Date(gsHeuteTag() + 'T12:00:00').getTime()) / 864e5));
-      var fGrund = 'Frost am ' + _gsLinaTag(fg.erster.tag) + ' (' + fg.erster.wert + ' °C laut Vorhersage) — frostempfindlich und draussen';
+    // Gegenprüfung: was noch KOMMT (`kommt`, wie die Meldung) — und eine Vorhersage von vor mehr als einem Tag sagt ihr Alter.
+    var fg = gsFrostGefaehrdet(), fk = (fg.kommt && fg.kommt[0]) || null;
+    if (fg.zustand === 'verletzt' && fk) {
+      var bis = Math.max(0, Math.round((new Date(fk.tag + 'T12:00:00').getTime() - new Date(gsHeuteTag() + 'T12:00:00').getTime()) / 864e5));
+      var fAlt = (fg.alter_h != null && fg.alter_h > GS_FROST_MELDEN_ALTER_H) ? ', Stand vor ' + fg.alter_h + ' h' : '';
+      var fGrund = 'Frost am ' + _gsLinaTag(fk.tag) + ' (' + fk.wert + ' °C laut Vorhersage' + fAlt + ') — frostempfindlich und draussen';
       fg.pflanzen.forEach(function (x) {
         var f = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(x.id) : null;
         if (f && f.p) merk(f.p, fGrund, 200 - Math.min(bis, 7));
@@ -93854,7 +93985,7 @@ window._gsLinaAuszeichnung = _gsLinaAuszeichnung;
 // Pruefung: was der Dispatcher nicht ausfuehren wuerde, bekommt keinen Knopf.
 // Lina 17 (Paket 4): zwei lesende Werkzeuge mehr — open_garden_recipes (die Rezepte zu Arten, die die Person hat:
 // gsGartenRezepteOeffnen) und open_planner (der vorhandene KI-Gartenplaner, fuer einen Garten genau dieses Namens
-// mit seinen Massen, Licht und Boden: gsPlanFuerGarten; sonst ohne Vorauswahl). Beide rufen KEINE KI — der Planer
+// mit dem, was zu ihm hinterlegt ist: gsPlanFuerGarten; sonst ohne einen Garten: gsPlanOhneGarten). Beide rufen KEINE KI — der Planer
 // generiert erst, wenn die Person dort „Plan generieren" tippt, und er rechnet Licht, Nachbarn und Platz selbst.
 var GS_LINA_LESE_TOOLS = ['navigate', 'open_calendar', 'open_saekalender', 'search_species', 'prefill_form', 'open_garden_recipes', 'open_planner'];
 // Welchen Garten meint open_planner? Genau EINER mit diesem Namen (dieselbe Vergleichsregel wie die Karten,
@@ -93864,8 +93995,8 @@ function _gsLinaPlanerGarten(name) {
   if (!nm) return { garten: null, satz: '' };
   var gw = _gsLinaGartenWahl(_gsLinaKartenText(name, 0));
   if (gw.gaerten.length === 1) return { garten: gw.gaerten[0], satz: '' };
-  if (gw.gaerten.length > 1) return { garten: null, satz: _gsSatz('Den Garten „{1}“ gibt es mehrmals — der Planer öffnet ohne Vorauswahl.', nm) };
-  return { garten: null, satz: _gsSatz('Einen Garten „{1}“ finde ich nicht — der Planer öffnet ohne Vorauswahl.', nm) };
+  if (gw.gaerten.length > 1) return { garten: null, satz: _gsSatz('Den Garten „{1}“ gibt es mehrmals — wähl im Planer unter „Fläche“ den richtigen.', nm) };
+  return { garten: null, satz: _gsSatz('Einen Garten „{1}“ finde ich nicht — wähl im Planer unter „Fläche“ einen deiner Gärten oder trag die Fläche selbst ein.', nm) };
 }
 function _gsLinaAktionLabel(act){
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
@@ -93889,8 +94020,9 @@ function _gsLinaAktionLabel(act){
   return '';
 }
 // Lina 17: was ein lesendes Werkzeug der Person SAGEN muss, weil der Knopf allein es nicht sagt — kein Rezept zu
-// ihren Pflanzen (kein Knopf), ein Garten, den es nicht oder mehrmals gibt (der Planer oeffnet ohne Vorauswahl).
-// Der Satz haengt an Linas Antwort und geht mit ihr in den Verlauf (wie die Rueckfrage einer Karte, Lina 16).
+// ihren Pflanzen (kein Knopf), ein Garten, den es nicht oder mehrmals gibt (der Planer oeffnet ohne einen Garten).
+// Der Satz haengt an Linas Antwort und geht mit ihr in den Verlauf (wie die Rueckfrage einer Karte, Lina 16) — bei
+// ausgeschaltetem Einblick nur auf den Bildschirm (`zusatz`, gsLinaSend): er traegt Daten der Person.
 function _gsLinaAktionSatz(act){
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   try {
@@ -93899,7 +94031,10 @@ function _gsLinaAktionSatz(act){
     if (act.tool === 'open_garden_recipes') {
       var g = gsGartenRezepte();
       if (g.zustand === 'ok') return '';
-      return (g.zustand === 'leer') ? _t('lina_rez_keine', 'Zu deinen Pflanzen führt die App gerade kein Rezept.') : (g.grund || '');
+      // Lina 17 (Gegenprüfung): die Pflanzen ohne eindeutige Art stehen mit Namen da — „kein Rezept" waere fuer sie falsch
+      var un = _gsGartenRezepteUngeprueft(g, 3);
+      var satz = (g.zustand === 'leer') ? _t('lina_rez_keine', 'Zu deinen Pflanzen führt die App gerade kein Rezept.') : (g.grund || '');
+      return satz + (un ? ' ' + _gsSatz('Ohne eindeutige Art, nicht geprüft: {1}', un) : '');
     }
     if (act.tool === 'open_planner') return _gsLinaPlanerGarten(a.garden).satz;
   } catch(_){}
@@ -94358,10 +94493,12 @@ async function gsLinaSend(){
     } catch(_){}
     window._gsLinaNotfallHinweis = false;
     var _msgA = { role:'assistant', content:reply };
-    // Prüfung des Koordinators (M1, Brett 6bbf „Aus heisst aus"): ein Satz der APP zu Linas Antwort — die Rückfrage einer
-    // Karte — nennt Daten der Person (Gartennamen, Spitznamen, Standort, wie oft es einen Namen gibt). Mit Einblick geht er in
-    // den Verlauf: die KI sieht bei der nächsten Frage, was die App gefragt hat. OHNE Einblick steht er nur auf dem
-    // Bildschirm (`zusatz`) — über `hist`, den Spiegel und coach_messages käme er sonst doch bei der KI an.
+    // Ein Satz der APP zu Linas Antwort — die Rückfrage einer Karte (Lina 16), „kein Rezept", „Garten nicht gefunden" (Lina 17) —
+    // nennt Daten der Person (Gartennamen, Spitznamen, Standort, wie oft es einen Namen gibt). Mit Einblick geht er in den Verlauf:
+    // die KI sieht bei der nächsten Frage, was die App gesagt hat. OHNE Einblick steht er nur auf dem Bildschirm (`zusatz`) — über
+    // `hist`, den Spiegel und coach_messages käme er sonst doch bei der KI an (Prüfung von #359, Brett 6bbf „Aus heisst aus"; Lina 17,
+    // Gegenprüfung: „Einen Garten ‚Kartoffelacker' finde ich nicht" verriet, dass es keinen gibt — und das Fehlen des Satzes, dass
+    // es „Hochbeet Süd" gibt).
     var _gsLinaSatzAnhaengen = function (satz) {
       var _an = true; try { _an = (typeof gsLinaEinblickAn === 'function') ? gsLinaEinblickAn() : true; } catch (_) {}
       if (_an) { reply = String(reply || '') + '\n\n' + satz; _msgA.content = reply; }
@@ -94375,7 +94512,7 @@ async function gsLinaSend(){
       // und was der Knopf nicht sagen kann (kein Gartenrezept, ein unbekannter Garten), steht als Satz in der Antwort.
       if (_gsLinaAktionLabel(_linaAct)) { _msgA.aktion = _linaAct; _msgA.aktionWer = _wer; _msgA.aktionGnr = _gsLinaGespraechNr; }
       var _asz = _gsLinaAktionSatz(_linaAct);
-      if (_asz) { reply = String(reply || '') + '\n\n' + _asz; _msgA.content = reply; }
+      if (_asz) _gsLinaSatzAnhaengen(_asz);
       _linaAct = null;
     }
     // Lina 16 (kp): die schreibenden Karten-Werkzeuge — eine Karte unter der Antwort, die erst der Tipp der Person
@@ -95092,15 +95229,16 @@ async function gsLinaDispatch(act){
       _close(); setTimeout(function(){ try { gsGartenRezepteOeffnen(); } catch(_){} }, 140);
       return;
     }
-    // Lina 17 (Paket 4): die Beetplanung ist der vorhandene Planer — fuer einen Garten genau dieses Namens mit dessen
-    // Massen, Licht und Boden (gsPlanFuerGarten springt zu „Wünsche", generiert NICHT von selbst), sonst ohne Vorauswahl.
-    // Der Garten wird beim Tipp neu aufgeloest: was inzwischen umbenannt oder geloescht ist, oeffnet ohne Vorauswahl.
+    // Lina 17 (Paket 4): die Beetplanung ist der vorhandene Planer — fuer einen Garten genau dieses Namens mit dem, was
+    // zu ihm hinterlegt ist (gsPlanFuerGarten: was fehlt, bleibt leer, und der Planer steht dort; generiert NICHT von
+    // selbst), sonst ohne einen Garten der Person (gsPlanOhneGarten: keine still vorbelegten Masse eines anderen).
+    // Der Garten wird beim Tipp neu aufgeloest: was inzwischen umbenannt oder geloescht ist, oeffnet ohne Garten.
     case 'open_planner': {
       var pg = _gsLinaPlanerGarten(a.garden);
       _close(); setTimeout(function(){
         try {
           if (pg.garten && typeof window.gsPlanFuerGarten === 'function') window.gsPlanFuerGarten(pg.garten.id);
-          else if (typeof openGardenAI === 'function') openGardenAI();
+          else if (typeof window.gsPlanOhneGarten === 'function') window.gsPlanOhneGarten();
         } catch(_){}
       }, 140);
       return;

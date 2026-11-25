@@ -52,7 +52,11 @@ const HEUTE_LOKAL = '2026-07-16', HEUTE_UTC = '2026-07-15';
 //   offen (7): das Wetter-Tagesprotokoll (Datum UTC, Werte Zuercher Tag),
 //     gsSnoozeTask, zwei unklare — sie stehen in STATUS Sektion 2.
 // Die Zahl darf SINKEN. Steigt sie, ist eine neue Stelle dazugekommen.
-const UTC_TAG_DECKEL = 32;
+// Lina 17 (Gegenprüfung, 25.11.2026): 31 — der Tages-Riegel von `gsNotif.showKategorie` (eine lokale Meldung je
+// Kategorie und Tag) rechnet jetzt den Tag der Person (T8). Er hiess „wie der Server (alreadySentToday)", liegt aber
+// nur auf dem Geraet und wird nie gegen den Server gehalten (die lokale Meldung und der Push des Servers kennen
+// einander nicht, brett:2026-11-25-e9a4).
+const UTC_TAG_DECKEL = 31;
 
 function ohneKommentareUndChangelog(q) {
   const a = q.indexOf('window.GS_RELEASES = [');
@@ -304,6 +308,38 @@ const SEITE = [
       return { ok: true, info: '2 faellig → „' + r.text.slice(0, 44).trim() + '…" · nichts faellig → kein Banner · Name als Text' };
     },
   },
+  {
+    // Lina 17 (Gegenprüfung): „eine Meldung je Kategorie und Tag" (gsNotif.showKategorie — Frost, Sensor-Alarm) merkte
+    // sich den UTC-Tag. Um 01:30 Ortszeit ist das der Vortag: eine Meldung um 00:30 und eine um 08:30 desselben Tages
+    // gingen beide hinaus. Die Stille-Zeit wird so gestellt, dass sie 01:30 nicht deckt (die Vorgabe 22–7 taete es).
+    name: 'T8 · Eine Meldung je Kategorie und Tag zaehlt den Tag der Person: um 01:30 traegt die Marke den 16.07., nicht den 15. — und ein zweiter Versuch am selben Tag geht nicht hinaus',
+    lauf: () => {
+      const alt = { no: window.Notification, en: localStorage.getItem('gs_notif_enabled'), ps: localStorage.getItem('gs_push_settings'), kat: localStorage.getItem('gs_notif_kat'), log: localStorage.getItem('gs_notif_log') };
+      const nots = [];
+      try {
+        window.Notification = class { constructor(t, o) { nots.push(t); } static get permission() { return 'granted'; } static requestPermission() { return Promise.resolve('granted'); } };
+        localStorage.setItem('gs_notif_enabled', '1');
+        localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: 22, quietEnd: 23 }));
+        localStorage.removeItem('gs_notif_kat');
+        const n = window.gsNotif || (typeof gsNotif !== 'undefined' ? gsNotif : null);
+        if (!n || typeof n.showKategorie !== 'function') return { fehlt: true };
+        const erst = n.showKategorie('pruef_tag', { title: 'Prüfung', body: 'T8' });
+        const marke = (JSON.parse(localStorage.getItem('gs_notif_kat') || '{}') || {}).pruef_tag || null;
+        const zweit = n.showKategorie('pruef_tag', { title: 'Prüfung', body: 'T8' });
+        return { erst, zweit, grund: n.letzterGrund ? n.letzterGrund() : null, marke, nots: nots.length };
+      } finally {
+        window.Notification = alt.no;
+        ['en', 'ps', 'kat', 'log'].forEach(k => { const key = { en: 'gs_notif_enabled', ps: 'gs_push_settings', kat: 'gs_notif_kat', log: 'gs_notif_log' }[k]; if (alt[k] == null) localStorage.removeItem(key); else localStorage.setItem(key, alt[k]); });
+      }
+    },
+    urteil: (r) => {
+      if (r.fehlt) return { ok: false, warum: 'gsNotif.showKategorie fehlt' };
+      if (r.erst !== true || r.nots < 1) return { ok: false, warum: 'die erste Meldung ging nicht hinaus (' + JSON.stringify(r) + ') — der Fall stellt seinen Zustand nicht her' };
+      if (r.marke !== HEUTE_LOKAL) return { ok: false, warum: 'die Tagesmarke ist „' + r.marke + '" statt „' + HEUTE_LOKAL + '" — ' + (r.marke === HEUTE_UTC ? 'der UTC-Tag' : 'ein anderer Tag') };
+      if (r.zweit !== false || r.nots !== 1 || r.grund !== 'kategorie') return { ok: false, warum: 'ein zweiter Versuch am selben Tag: ' + JSON.stringify(r) };
+      return { ok: true, info: 'Marke „' + r.marke + '" um 01:30 Ortszeit · zweiter Versuch: „' + r.grund + '"' };
+    },
+  },
 ];
 
 (async () => {
@@ -347,7 +383,7 @@ const SEITE = [
   // v33.72 (Gegenlesen): hier stand „zwoelf Tages-Riegel in UTC" als offen — der Kopf
   // dieser Datei ordnet die Tages-Riegel als BEWUSST UTC ein, offen sind sieben andere.
   console.log('  Grenze: geprueft sind diese Faelle und der Deckel. Offen (STATUS Sektion 2, „Faelligkeit ueber die');
-  console.log('  Zeitumstellung"): die Faelligkeit in den Naechten 28./29.03. und 24./25.10. und sieben lokal gemeinte');
-  console.log('  Tagesschnitte in UTC (T0 zaehlt sie mit; bewusst UTC sind 25, siehe Kopf dieser Datei).');
+  console.log('  Zeitumstellung"): die Faelligkeit in den Naechten 28./29.03. und 24./25.10. und die lokal gemeinten');
+  console.log('  Tagesschnitte in UTC, die noch da sind (T0 zaehlt sie mit; die Einordnung steht im Kopf dieser Datei).');
   process.exitCode = (kaputt || errs.length) ? 1 : 0;
 })();

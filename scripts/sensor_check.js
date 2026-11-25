@@ -4451,9 +4451,14 @@ const FAELLE = [
         const heute = gsHeuteTag(), morgen = _gsKalTagPlus(heute, 1);
         const wetter = (minMorgen) => { const t = [], mi = [], ma = []; for (let i = 0; i < 3; i++) { t.push(_gsKalTagPlus(heute, i)); mi.push(i === 1 ? minMorgen : 9); ma.push(18); }
           localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: jetzt - 2 * 3600e3, lat: 47.37, lon: 8.55, data: { daily: { time: t, temperature_2m_min: mi, temperature_2m_max: ma } } })); };
+        // Gegenprüfung: der Planer-Fall plant „Kräuterbeet Nord" — an ZWEITER Stelle, mit anderen Massen, Licht und Boden als
+        // gardens[0] (an erster Stelle hätte die stille Vorbelegung von openGardenAI denselben Wert geliefert); dazu ein
+        // Garten ohne jede Angabe (Gewächshaus) und ein langer Name (im Kontext gekürzt)
         gardens = [{ id: 'g17a', name: 'Hochbeet Süd', kind: 'hochbeet', width: 1.2, length: 2, light: 'full_sun', soil: 'loam' },
+                   { id: 'g17k', name: 'Kräuterbeet Nord', kind: 'freiland', width: 2.5, length: 0.8, light: 'shade', soil: 'sand' },
                    { id: 'g17b', name: 'Gewächshaus', kind: 'gewaechshaus' },
-                   { id: 'g17x', name: XSS + 'Beet', kind: 'freiland' }];
+                   { id: 'g17x', name: XSS + 'Beet', kind: 'freiland' },
+                   { id: 'g17l', name: 'Gemüsegarten hinter dem Haus am Bach', kind: 'freiland', width: 4, length: 6, light: 'part_sun', soil: 'humus' }];
         // Tomate (Balkon, eigenes Latein) und Zucchini (Hochbeet) sind frostempfindlich UND draussen; Basilikum und der
         // „Kräutertopf" (Basilikum-Latein) stehen drinnen, Gurken unter Glas, Monstera hat keine Kultur, Petersilie ist winterhart.
         myPlants = [
@@ -4504,6 +4509,40 @@ const FAELLE = [
         const fgOhne = gsFrostGefaehrdet();
         if (fgOhne.zustand !== 'nicht_pruefbar' || !/keine Wettervorhersage/.test(fgOhne.grund || '') || fgOhne.namen.length) klagen.push('(a) ohne Vorhersage: ' + JSON.stringify({ z: fgOhne.zustand, g: fgOhne.grund, n: fgOhne.namen }));
         if (gsPflanzenHilfe().some(x => (x.gruende || []).some(g => /^Frost am /.test(g)))) klagen.push('(a) ohne Vorhersage steht trotzdem Frost bei „Braucht Hilfe"');
+        // Gegenprüfung · eine ABGELAUFENE Vorhersage (kein Tag ab heute) ist nicht prüfbar — nie „kein Frost"
+        { const t = [], mi = []; for (let i = 8; i > 5; i--) { t.push(_gsKalTagPlus(heute, -i)); mi.push(-3); }
+          localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: jetzt - 8 * T, lat: 47.37, lon: 8.55, data: { daily: { time: t, temperature_2m_min: mi, temperature_2m_max: [5, 5, 5] } } })); }
+        const fgAb = gsFrostGefaehrdet();
+        if (fgAb.zustand !== 'nicht_pruefbar' || !/abgelaufen/.test(fgAb.grund || '') || fgAb.tage !== null) klagen.push('(a) eine abgelaufene Vorhersage: ' + JSON.stringify({ z: fgAb.zustand, g: fgAb.grund, t: fgAb.tage }) + ' statt nicht_pruefbar „abgelaufen"');
+        // Gegenprüfung · Frost NUR heute: was noch kommt, sagen die Stunden ab jetzt (die Uhr steht auf 12:00) — der Kalender
+        // (R6) haengt am Frost-TAG und nennt ihn weiter; „Braucht Hilfe" nur, solange er noch kommt
+        const wetterHeute = (frostStunden) => {
+          const t = [heute, _gsKalTagPlus(heute, 1), _gsKalTagPlus(heute, 2)], ht = [], hv = [];
+          for (let h = 0; h < 24; h++) { ht.push(heute + 'T' + String(h).padStart(2, '0') + ':00'); hv.push((frostStunden || []).indexOf(h) >= 0 ? -1 : 6); }
+          const d = { daily: { time: t, temperature_2m_min: [-1, 5, 5], temperature_2m_max: [10, 12, 12] } };
+          if (frostStunden) d.hourly = { time: ht, temperature_2m: hv };
+          localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: jetzt - 2 * 3600e3, lat: 47.37, lon: 8.55, data: d }));
+        };
+        const hilfeFrostHeute = () => gsPflanzenHilfe().filter(x => (x.gruende || []).some(g => /^Frost am /.test(g))).map(x => x.name);
+        const r6Heute = () => { const fr = gsKalenderEreignisse(heute, _gsKalTagPlus(heute, 2)).find(e => e.art === 'wetter' && e.datum === heute && /^frost:/.test(e.id));
+          return fr ? ((fr.hinweise || []).find(x => x.regel === 'frost_pflanzen') || null) : null; };
+        wetterHeute([4, 5, 6, 7]);   // heute frueh
+        const fgFrueh = gsFrostGefaehrdet(), r6F = r6Heute();
+        if (fgFrueh.zustand !== 'verletzt' || !fgFrueh.tage || fgFrueh.tage.length !== 1 || !Array.isArray(fgFrueh.kommt) || fgFrueh.kommt.length) klagen.push('(a) Frost nur heute früh: ' + JSON.stringify({ z: fgFrueh.zustand, t: fgFrueh.tage, k: fgFrueh.kommt }) + ' — erwartet: ein Frost-TAG, aber nichts, was noch kommt');
+        if (!r6F || r6F.zustand !== 'verletzt') klagen.push('(a) Frost heute früh: R6 am Frost-Ereignis von heute sagt ' + JSON.stringify(r6F) + ' — der Kalender nennt den Tag weiter');
+        if (hilfeFrostHeute().length) klagen.push('(a) Frost heute früh, Uhr 12:00: „Braucht Hilfe" nennt noch Frost für ' + JSON.stringify(hilfeFrostHeute()));
+        wetterHeute([21, 22, 23]);   // heute Abend
+        const fgAbend = gsFrostGefaehrdet();
+        if (!fgAbend.kommt || fgAbend.kommt.length !== 1 || fgAbend.kommt[0].tag !== heute || fgAbend.kommt[0].wert !== -1) klagen.push('(a) Frost heute Abend kommt nicht: ' + JSON.stringify(fgAbend.kommt));
+        if (JSON.stringify(hilfeFrostHeute()) !== JSON.stringify(sollFrost)) klagen.push('(a) Frost heute Abend: „Braucht Hilfe" nennt ' + JSON.stringify(hilfeFrostHeute()) + ' statt ' + JSON.stringify(sollFrost));
+        wetterHeute(null);   // ohne Stundenwerte: der Tagesfrost von heute kommt nicht
+        const fgOhneStd = gsFrostGefaehrdet();
+        if (!fgOhneStd.kommt || fgOhneStd.kommt.length || !fgOhneStd.tage || fgOhneStd.tage.length !== 1) klagen.push('(a) Frost heute ohne Stundenwerte: ' + JSON.stringify({ t: fgOhneStd.tage, k: fgOhneStd.kommt }) + ' — erwartet: der Tag ja, „kommt" nein');
+        // Gegenprüfung · eine Vorhersage von vor 4 Tagen: „Braucht Hilfe" sagt ihr Alter
+        { const t = [], mi = []; for (let i = -4; i < 3; i++) { t.push(_gsKalTagPlus(heute, i)); mi.push(i === 1 ? -1.5 : 8); }
+          localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: jetzt - 96 * 3600e3, lat: 47.37, lon: 8.55, data: { daily: { time: t, temperature_2m_min: mi, temperature_2m_max: mi.map(() => 15) } } })); }
+        const gAlt = ((gsPflanzenHilfe().find(x => x.name === 'Tomate') || {}).gruende || []).find(g => /^Frost am /.test(g)) || '';
+        if (!/Stand vor 96 h/.test(gAlt)) klagen.push('(a) eine 4 Tage alte Vorhersage: der Frost-Grund sagt ihr Alter nicht: „' + gAlt + '"');
 
         // ── (b) die Meldung: einmal je Tag, nie in der Stille, nie ohne Erlaubnis, nie abgewählt ──
         window.__nots = [];
@@ -4548,6 +4587,16 @@ const FAELLE = [
         localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: (std + 2) % 24, quietEnd: (std + 3) % 24, frost: false }));
         const b7 = gsFrostMelden();
         if (window.__nots.length || (b7 && b7.grund) !== 'abgewaehlt') klagen.push('(b) „Frostgefahr" abgewählt und trotzdem gemeldet (' + JSON.stringify(b7) + ')');
+        // Gegenprüfung · eine Vorhersage von vor 4 Tagen meldet nicht ('alt'), der Frost von heute früh nicht mehr ('vorbei')
+        ruhig(); localStorage.removeItem('gs_notif_kat');
+        { const t = [], mi = []; for (let i = -4; i < 3; i++) { t.push(_gsKalTagPlus(heute, i)); mi.push(i === 1 ? -1.5 : 8); }
+          localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: jetzt - 96 * 3600e3, lat: 47.37, lon: 8.55, data: { daily: { time: t, temperature_2m_min: mi, temperature_2m_max: mi.map(() => 15) } } })); }
+        const bAlt = gsFrostMelden();
+        wetterHeute([4, 5, 6, 7]); const bVorbei = gsFrostMelden();
+        wetterHeute([21, 22, 23]); const bAbend = gsFrostMelden(); const nAbend = window.__nots.slice();
+        if ((bAlt && bAlt.grund) !== 'alt' || (bVorbei && bVorbei.grund) !== 'vorbei' || !bAbend || !bAbend.gemeldet || nAbend.length !== 1) klagen.push('(b) alte Vorhersage / Frost heute früh / heute Abend: ' + JSON.stringify([bAlt && bAlt.grund, bVorbei && bVorbei.grund, bAbend && (bAbend.gemeldet || bAbend.grund)]) + ', ' + nAbend.length + ' Meldungen — erwartet: alt, vorbei, eine Meldung');
+        else if (String(nAbend[0].o.body || '').indexOf('-1 °C') < 0) klagen.push('(b) Frost heute Abend: der Text nennt nicht den Tiefstwert der kommenden Stunden: „' + nAbend[0].o.body + '"');
+        window.__nots = []; localStorage.removeItem('gs_notif_kat');
         // ohne Vorhersage und ohne Frost: keine Meldung
         ruhig(); localStorage.removeItem('gs_weather_cache');
         const b8 = gsFrostMelden(); wetter(6); const b9 = gsFrostMelden();
@@ -4628,12 +4677,21 @@ const FAELLE = [
         if (gLeer.zustand !== 'nicht_pruefbar' || !gLeer.grund) klagen.push('(c) ohne Pflanzen: ' + JSON.stringify({ z: gLeer.zustand, g: gLeer.grund }));
         myPlants = [{ id: 'm17mo', name: 'Monstera', species: 'Monstera deliciosa', tasks: {} }];
         const gKeine = gsGartenRezepte();
-        if (gKeine.zustand !== 'leer' || gKeine.rezepte.length || !gKeine.grund) klagen.push('(c) nur eine Monstera: ' + JSON.stringify({ z: gKeine.zustand, n: gKeine.rezepte.length }));
+        if (gKeine.zustand !== 'leer' || gKeine.rezepte.length || !gKeine.grund || (gKeine.pflanzen.ungeprueft || []).length) klagen.push('(c) nur eine Monstera (giftig — geprüft, kein Rezept): ' + JSON.stringify({ z: gKeine.zustand, n: gKeine.rezepte.length, u: gKeine.pflanzen.ungeprueft }));
+        const banKeine = _gsRecipeGartenBanner();
+        if (banKeine.indexOf('giftige Art') < 0 || banKeine.indexOf('nicht geprüft') >= 0) klagen.push('(c) der Hinweis über der Liste sagt bei der Monstera nicht „giftig" bzw. „nicht geprüft": ' + banKeine.replace(/<[^>]+>/g, ' ').slice(0, 160));
         // ein Binomen, das die Artenliste nicht kennt, ist keine Art für Rezepte — und das wird GESAGT: eine „Tomate"
-        // ohne Latein (Kulturdaten: Lycopersicon lycopersicum, Artenliste: Solanum lycopersicum) steht unter „ohne Art"
+        // ohne Latein (Kulturdaten: Lycopersicon lycopersicum, Artenliste: Solanum lycopersicum) steht unter „ohne Art".
+        // Gegenprüfung: das ist NICHT „kein Rezept" (die App hat vier Tomatenrezepte) — es ist nicht geprüft.
         myPlants = [{ id: 'm17tk', name: 'Tomate', tasks: {} }];
         const gTom = gsGartenRezepte(), oaTom = (gTom.pflanzen.ohneArt || [])[0] || {};
-        if (gTom.zustand !== 'leer' || oaTom.name !== 'Tomate' || oaTom.grund !== 'unbekannt') klagen.push('(c) eine „Tomate" ohne Latein steht nicht mit Grund „unbekannt" unter „ohne Art": ' + JSON.stringify({ z: gTom.zustand, oa: gTom.pflanzen.ohneArt }));
+        if (gTom.zustand !== 'nicht_pruefbar' || oaTom.name !== 'Tomate' || oaTom.grund !== 'unbekannt' || JSON.stringify(gTom.pflanzen.ungeprueft) !== '["Tomate"]' || !/keine eindeutige Art/.test(gTom.grund || '')) klagen.push('(c) eine „Tomate" ohne Latein ist nicht „nicht prüfbar" mit Namen: ' + JSON.stringify({ z: gTom.zustand, g: gTom.grund, oa: gTom.pflanzen.ohneArt, u: gTom.pflanzen.ungeprueft }));
+        const banTom = _gsRecipeGartenBanner().replace(/<[^>]+>/g, ' ');
+        if (banTom.indexOf('nicht geprüft: Tomate') < 0 || /kein Rezept\./.test(banTom)) klagen.push('(c) der Hinweis über der Liste nennt die Tomate nicht als „nicht geprüft": ' + banTom.slice(0, 200));
+        // mit einer geprüften Art ohne Rezept (Lavendel: nicht essbar) bleibt es „leer" — und die Tomate steht trotzdem da
+        myPlants = [{ id: 'm17tk2', name: 'Tomate', tasks: {} }, { id: 'm17la2', name: 'Lavendel', species: 'Lavandula angustifolia', tasks: {} }];
+        const gTomLa = gsGartenRezepte();
+        if (gTomLa.zustand !== 'leer' || JSON.stringify(gTomLa.pflanzen.ungeprueft) !== '["Tomate"]') klagen.push('(c) Tomate (ohne Art) + Lavendel (kein Rezept): ' + JSON.stringify({ z: gTomLa.zustand, u: gTomLa.pflanzen.ungeprueft }));
         // die Gegenrichtung der Unterart-Regel: ein Weisskohl bekommt die Weisskohl-Rezepte
         myPlants = [{ id: 'm17wk', name: 'Weisskohl', tasks: {} }];
         const gWk = gsGartenRezepte();
@@ -4645,13 +4703,20 @@ const FAELLE = [
         const knopf = () => { const b = Array.from(document.querySelectorAll('#gs-lina-scroll [data-lina-aktion]')); return b[b.length - 1] || null; };
         const aktion = (tool, args) => '\n[[GS_ACTION]]' + JSON.stringify({ tool: tool, args: args || {} });
         const letzte = () => String(((window._gsLinaMsgs || []).filter(m => m.role === 'assistant').slice(-1)[0] || {}).content || '');
+        let letzteHist = null;
         const senden = async (frage, antwort) => {
-          window.callAI = async () => { kiRufe++; return antwort; };
+          window.callAI = async (hist) => { kiRufe++; letzteHist = hist; return antwort; };
           const f = document.getElementById('gs-lina-input'); if (!f) throw new Error('kein Eingabefeld');
           f.value = frage; window._gsLinaSending = false; laeufe++;
           await gsLinaSend(); await warte(120);
         };
         const planerOffen = () => { const m = document.getElementById('modal-planner-pro'); return !!(m && m.classList.contains('open')); };
+        const planerWerte = () => { const v = (id) => String((document.getElementById(id) || {}).value || '');
+          const akt = [1, 2, 3, 4, 5].find(n => { const e = document.getElementById('pp-view-' + n); return e && e.classList.contains('active'); });
+          return { w: v('pp-width'), l: v('pp-length'), licht: v('pp-light'), boden: v('pp-soil-type'), schritt: akt || null }; };
+        // was eine VORIGE Planer-Sitzung stehen liess — der Fall stellt es her, statt darauf zu hoffen
+        const vorigeSitzung = () => { const l = document.getElementById('pp-light'), b = document.getElementById('pp-soil-type'); if (l) l.value = 'full_sun'; if (b) b.value = 'clay'; };
+        const toasts = []; window.gsToast = (t) => { toasts.push(String(t)); };
         window._gsLinaMsgs = []; window._gsLinaConvId = null;
         await gsOpenLina(); await warte(120);
         // 1 · open_garden_recipes: Knopf → Rezepte mit dem Garten-Filter, Pflanzen als Text
@@ -4672,31 +4737,60 @@ const FAELLE = [
           if (document.querySelector('#recipes-list [data-gs-garten-rezepte]') || document.querySelectorAll('#recipes-list .recipe-card').length <= g.rezepte.length) klagen.push('(d) „✕ Alle" nimmt den Garten-Filter nicht weg');
         }
         await gsOpenLina(); await warte(120);
-        // 2 · open_planner mit einem Garten, den es genau einmal gibt: Masse übernommen, Schritt 4, nichts generiert
-        await senden('Hilf mir, das Hochbeet zu planen', 'Gern — der Planer rechnet Licht, Nachbarn und Platz.' + aktion('open_planner', { garden: 'Hochbeet Süd' }));
+        // 2 · open_planner mit einem Garten, den es genau einmal gibt — an ZWEITER Stelle: Masse, Licht und Boden DIESES
+        //     Gartens (auch über eine vorige Sitzung hinweg), Schritt 4, nichts generiert
+        await senden('Hilf mir, das Kräuterbeet zu planen', 'Gern — der Planer rechnet Licht, Nachbarn und Platz.' + aktion('open_planner', { garden: 'Kräuterbeet Nord' }));
         const k2 = knopf();
-        if (!k2 || (k2.textContent || '').indexOf('Beetplanung für „Hochbeet Süd“') < 0) klagen.push('(d) kein Knopf „Beetplanung für „Hochbeet Süd“": ' + (k2 && k2.textContent));
+        if (!k2 || (k2.textContent || '').indexOf('Beetplanung für „Kräuterbeet Nord“') < 0) klagen.push('(d) kein Knopf „Beetplanung für „Kräuterbeet Nord“": ' + (k2 && k2.textContent));
         else {
           const kiVor = kiRufe;
+          vorigeSitzung(); toasts.length = 0;
           k2.click(); await warte(1000);
-          const w = (document.getElementById('pp-width') || {}).value, l = (document.getElementById('pp-length') || {}).value;
-          const v4 = document.getElementById('pp-view-4');
+          const pv = planerWerte(), satz = toasts.join(' | ');
           if (!planerOffen()) klagen.push('(d) der Planer ist nach dem Tipp nicht offen');
-          if (String(w) !== '1.2' || String(l) !== '2') klagen.push('(d) die Masse des Hochbeets sind nicht übernommen: ' + w + ' × ' + l);
-          if (!v4 || !v4.classList.contains('active')) klagen.push('(d) der Planer steht nicht bei „Wünsche" (Schritt 4)');
+          if (pv.w !== '2.5' || pv.l !== '0.8') klagen.push('(d) die Masse des Kräuterbeets sind nicht übernommen: ' + pv.w + ' × ' + pv.l);
+          if (pv.licht !== 'shade' || pv.boden !== 'sand') klagen.push('(d) Licht und Boden des Kräuterbeets sind nicht übernommen (die vorige Sitzung stand auf full_sun/clay): ' + JSON.stringify(pv));
+          if (pv.schritt !== 4) klagen.push('(d) der Planer steht nicht bei „Wünsche" (Schritt 4), sondern bei ' + pv.schritt);
+          if (!/Kräuterbeet Nord/.test(satz) || /Nicht hinterlegt/.test(satz)) klagen.push('(d) der Satz zum Kräuterbeet ist „' + satz + '"');
           if (kiRufe !== kiVor || planerLaeufe) klagen.push('(d) der Knopf hat die KI gerufen (' + (kiRufe - kiVor) + ' Lina, ' + planerLaeufe + ' Planer)');
           try { closeModal('modal-planner-pro'); } catch (_) {}
         }
         await gsOpenLina(); await warte(120);
-        // 3 · ein Garten, den es nicht gibt: der Satz sagt es, der Planer öffnet ohne Vorauswahl (Schritt 1)
+        // 2b · Gegenprüfung: ein Garten OHNE Masse, Licht und Boden — die Felder sind leer (nicht die Masse von gardens[0]),
+        //      Licht und Boden nicht die der vorigen Sitzung, der Planer bleibt bei „Fläche", und der Satz sagt es
+        await senden('Plane das Gewächshaus', 'Gern.' + aktion('open_planner', { garden: 'Gewächshaus' }));
+        const k2b = knopf();
+        if (!k2b || (k2b.textContent || '').indexOf('Beetplanung für „Gewächshaus“') < 0) klagen.push('(d) kein Knopf „Beetplanung für „Gewächshaus“": ' + (k2b && k2b.textContent));
+        else {
+          vorigeSitzung(); toasts.length = 0;
+          k2b.click(); await warte(1000);
+          const pv = planerWerte(), satz = toasts.join(' | ');
+          if (pv.w !== '' || pv.l !== '') klagen.push('(d) ein Garten ohne Masse: im Planer stehen ' + pv.w + ' × ' + pv.l + ' — die eines anderen Gartens');
+          if (pv.boden !== 'unknown' || pv.licht !== 'part_sun') klagen.push('(d) ein Garten ohne Licht und Boden: der Planer zeigt ' + JSON.stringify(pv) + ' — die vorige Sitzung stand auf full_sun/clay');
+          if (pv.schritt !== 1) klagen.push('(d) ein Garten ohne Masse: der Planer steht bei Schritt ' + pv.schritt + ' statt bei „Fläche"');
+          if (!/hat noch keine Masse/.test(satz) || /nur noch Wünsche/.test(satz) || /Masse, Licht, Boden und Art übernommen/.test(satz) || !/Nicht hinterlegt: Licht, Boden/.test(satz)) klagen.push('(d) ein Garten ohne Masse: der Satz ist „' + satz + '"');
+          try { closeModal('modal-planner-pro'); } catch (_) {}
+        }
+        await gsOpenLina(); await warte(120);
+        // 2c · ein langer Name, so zurückgegeben, wie der KONTEXT ihn zeigt (gekürzt) — derselbe Garten
+        const zG = (gsLinaContext('') .match(/^Gärten:[^\n]*/m) || [''])[0];
+        await senden('Plane den Gemüsegarten', 'Gern.' + aktion('open_planner', { garden: 'Gemüsegarten hinter dem Haus…' }));
+        const k2c = knopf();
+        if (!k2c || (k2c.textContent || '').indexOf('Beetplanung für „Gemüsegarten hinter dem Haus am Bach“') < 0) klagen.push('(d) ein langer Gartenname wie im Kontext (' + zG.slice(0, 80) + '…): Knopf ' + (k2c && k2c.textContent));
+        await gsOpenLina(); await warte(120);
+        // 3 · ein Garten, den es nicht gibt: der Satz sagt es, und der Planer öffnet ohne einen Garten der Person — keine
+        //     still vorbelegten Masse aus gardens[0], Licht und Boden nicht die der vorigen Sitzung (Schritt 1)
         await senden('Plane den Kartoffelacker', 'Mach ich.' + aktion('open_planner', { garden: 'Kartoffelacker' }));
-        if (letzte().indexOf('Einen Garten „Kartoffelacker“ finde ich nicht') < 0) klagen.push('(d) kein Satz zum unbekannten Garten: ' + letzte().slice(-120));
+        if (letzte().indexOf('Einen Garten „Kartoffelacker“ finde ich nicht — wähl im Planer') < 0) klagen.push('(d) kein Satz zum unbekannten Garten: ' + letzte().slice(-140));
+        if (/ohne Vorauswahl/.test(letzte())) klagen.push('(d) der Satz verspricht „ohne Vorauswahl"');
         const k3 = knopf();
         if (!k3 || !/Beetplanung öffnen/.test(k3.textContent || '') || /für „/.test(k3.textContent || '')) klagen.push('(d) unbekannter Garten: Knopf ' + (k3 && k3.textContent));
         else {
+          vorigeSitzung();
           k3.click(); await warte(700);
-          const v1 = document.getElementById('pp-view-1');
-          if (!planerOffen() || !v1 || !v1.classList.contains('active')) klagen.push('(d) ohne Garten öffnet der Planer nicht bei Schritt 1');
+          const pv = planerWerte();
+          if (!planerOffen() || pv.schritt !== 1) klagen.push('(d) ohne Garten öffnet der Planer nicht bei Schritt 1');
+          if (pv.w !== '' || pv.l !== '' || pv.boden !== 'unknown' || pv.licht !== 'part_sun') klagen.push('(d) ohne Garten zeigt der Planer ' + JSON.stringify(pv) + ' — Masse von gardens[0] (1.2 × 2) oder die vorige Sitzung');
           try { closeModal('modal-planner-pro'); } catch (_) {}
         }
         await gsOpenLina(); await warte(120);
@@ -4720,16 +4814,52 @@ const FAELLE = [
         const mpS2 = myPlants, plS2 = plantings;
         myPlants = [{ id: 'm17mo2', name: 'Monstera', species: 'Monstera deliciosa', tasks: {}, diary: [] }]; plantings = [];
         await senden('Was kann ich kochen?', 'Schau mal.' + aktion('open_garden_recipes'));
-        myPlants = mpS2; plantings = plS2;
         if (knopf()) klagen.push('(d) ohne Gartenrezepte steht trotzdem ein Knopf da');
         if (letzte().indexOf('Zu deinen Pflanzen führt die App gerade kein Rezept.') < 0) klagen.push('(d) ohne Gartenrezepte fehlt der Satz: ' + letzte().slice(-100));
+        // 6b · Gegenprüfung: eine Pflanze OHNE eindeutige Art ist nicht „kein Rezept" — Satz und Kontextzeile nennen sie
+        myPlants = [{ id: 'm17tk3', name: 'Tomate', tasks: {}, diary: [] }];
+        await senden('Was kann ich aus meiner Tomate kochen?', 'Schau mal.' + aktion('open_garden_recipes'));
+        if (knopf()) klagen.push('(d) eine Tomate ohne Art: trotzdem ein Rezepte-Knopf');
+        if (/kein Rezept/.test(letzte()) || letzte().indexOf('nicht geprüft: Tomate') < 0) klagen.push('(d) eine Tomate ohne Art: der Satz ist „' + letzte().slice(-160) + '"');
+        const zTom = (gsLinaContext('').match(/^Rezepte aus deinem Garten:[^\n]*/m) || [''])[0];
+        if (zTom.indexOf('nicht geprüft') < 0 || zTom.indexOf('Tomate') < 0 || /keine —/.test(zTom)) klagen.push('(d) eine Tomate ohne Art: die Kontextzeile ist „' + zTom + '"');
+        // 6c · Gegenprüfung: OHNE Einblick steht der Satz auf dem Bildschirm, geht aber nicht in den Verlauf — weder bei der
+        //      nächsten Frage an die KI noch in coach_messages (er nennt Daten der Person)
+        const cloudInhalte = [];
+        const sfVor = window.sbFetch;
+        window.sbFetch = async (pfad, o) => { if (/coach_messages/.test(pfad) && o && o.body) { try { cloudInhalte.push(JSON.parse(o.body).content); } catch (_) {} } return sfVor(pfad, o); };
+        try {
+          if (typeof gsLinaEinblickSchalten === 'function' && gsLinaEinblickAn()) gsLinaEinblickSchalten();
+          myPlants = [{ id: 'm17mo3', name: 'Monstera', species: 'Monstera deliciosa', tasks: {}, diary: [] }];
+          await senden('Was kann ich kochen?', 'Schau mal, ganz allgemein.' + aktion('open_garden_recipes'));
+          const zus = Array.from(document.querySelectorAll('#gs-lina-scroll [data-lina-zusatz]')).pop();
+          if (!zus || (zus.textContent || '').indexOf('kein Rezept') < 0) klagen.push('(d) ohne Einblick steht der Satz nicht auf dem Bildschirm: ' + (zus && zus.textContent));
+          if (/kein Rezept/.test(letzte())) klagen.push('(d) ohne Einblick steht der Satz im Verlauf (content): „' + letzte().slice(-100) + '"');
+          if (cloudInhalte.some(c => /kein Rezept/.test(String(c)))) klagen.push('(d) ohne Einblick ging der Satz nach coach_messages');
+          await senden('Und sonst?', 'Gern.');
+          // die Antwort von eben, wie sie mit der nächsten Frage an die KI ging (frühere Sätze MIT Einblick gehen zu Recht mit)
+          const ebenAn = (letzteHist || []).filter(m => m && m.role === 'assistant' && /^Schau mal, ganz allgemein\./.test(String(m.content || '')));
+          if (ebenAn.length !== 1 || /kein Rezept/.test(String(ebenAn[0].content))) klagen.push('(d) ohne Einblick bekam die KI den Satz mit der nächsten Frage: ' + JSON.stringify(ebenAn.map(m => m.content)));
+          // und die Rückfrage einer Karte (Lina 16) ebenso
+          await senden('Ich habe die Erdbeere gegossen', 'Gut gemacht.' + aktion('propose_task_done', { task: 'water', plantName: 'Erdbeere' }));
+          const zus2 = Array.from(document.querySelectorAll('#gs-lina-scroll [data-lina-zusatz]')).pop();
+          if (!zus2 || (zus2.textContent || '').indexOf('„Erdbeere"') < 0) klagen.push('(d) ohne Einblick steht die Rückfrage der Karte nicht auf dem Bildschirm: ' + (zus2 && zus2.textContent));
+          if ((letzte() || '').indexOf('Erdbeere') >= 0) klagen.push('(d) ohne Einblick steht die Rückfrage der Karte im Verlauf: „' + letzte().slice(-120) + '"');
+        } finally {
+          window.sbFetch = sfVor;
+          if (typeof gsLinaEinblickSchalten === 'function' && !gsLinaEinblickAn()) gsLinaEinblickSchalten();
+        }
+        myPlants = mpS2; plantings = plS2;
         // 7 · die Kontextzeile: nur Titel, gedeckelt, eingeordnet — ZULETZT: sie fällt vor den Messwerten der Person
         //     (die Geräte früherer Fälle füllen den Deckel; hier ohne Geräte, damit die Zeile Platz hat)
         localStorage.setItem('gs_geraete', '[]');
         const ctxR = gsLinaContext('');
         const zR = (ctxR.match(/^Rezepte aus deinem Garten:[^\n]*/m) || [''])[0];
         const N = (typeof GS_GARTEN_REZEPTE_NENNEN === 'number') ? GS_GARTEN_REZEPTE_NENNEN : 3;
-        const sollZ = 'Rezepte aus deinem Garten: ' + g.rezepte.slice(0, N).map(x => x.titel).join('; ') + (g.rezepte.length > N ? '; +' + (g.rezepte.length - N) + ' weitere' : '') + '.';
+        const unZ = g.pflanzen.ungeprueft || [];   // die Pflanzen ohne eindeutige Art („Tomat") stehen als „nicht geprüft" dabei
+        const sollZ = 'Rezepte aus deinem Garten: ' + g.rezepte.slice(0, N).map(x => x.titel).join('; ') + (g.rezepte.length > N ? '; +' + (g.rezepte.length - N) + ' weitere' : '') + '.'
+          + (unZ.length ? ' Ohne eindeutige Art, nicht geprüft: ' + unZ.slice(0, 3).join(', ') + (unZ.length > 3 ? ', +' + (unZ.length - 3) + ' weitere' : '') + '.' : '');
+        if (JSON.stringify(unZ) !== '["Tomat"]') klagen.push('(d) ungeprüft im Garten: ' + JSON.stringify(unZ) + ' statt ["Tomat"]');
         if (zR !== sollZ) klagen.push('(d) die Kontextzeile ist „' + zR + '" statt „' + sollZ + '"');
         if (GS_LINA_ZEILEN_RANG[GS_LINA_ZEILEN_RANG.length - 1] !== 'Rezepte aus deinem Garten:') klagen.push('(d) die Rezept-Zeile steht nicht ZULETZT in GS_LINA_ZEILEN_RANG: ' + JSON.stringify(GS_LINA_ZEILEN_RANG.slice(-3)));
         if (!/open_garden_recipes/.test(LINA_SYSTEM) || !/open_planner/.test(LINA_SYSTEM)) klagen.push('(d) der Systemprompt nennt die zwei Werkzeuge nicht');
@@ -4738,7 +4868,7 @@ const FAELLE = [
         await warte(300);
         if (window.__pwned) klagen.push('__pwned wurde gesetzt');
         if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
-        return { ok: true, info: 'Frost: Kalender, Hilfe, Hinweise, Meldung nennen „Tomate, Zucchini" · Meldung 1× je Tag, in der Stille 0 (ein Timer), ohne Erlaubnis 0, abgewählt 0, frisches Wetter 1 · ' + g.rezepte.length + ' Gartenrezepte, Bärlauch(Herbstzeitlose)/Monstera/Tomat/Wermut/Lavendel/Broccoli keine, Weisskohl seine, „Tomate" ohne Latein „unbekannt", Hundspetersilie nimmt der Petersilie ihre · Lina: Rezepte-Knopf (' + g.rezepte.length + ' Karten), Planer mit Hochbeet (Schritt 4, keine KI), unbekannter Garten gesagt, <img> als Text, andere Person: nichts' };
+        return { ok: true, info: 'Frost: Kalender, Hilfe, Hinweise, Meldung nennen „Tomate, Zucchini" · Meldung 1× je Tag, in der Stille 0 (ein Timer), ohne Erlaubnis 0, abgewählt 0, frisches Wetter 1 · ' + g.rezepte.length + ' Gartenrezepte, Bärlauch(Herbstzeitlose)/Monstera/Tomat/Wermut/Lavendel/Broccoli keine, Weisskohl seine, „Tomate" ohne Latein nicht geprüft (nie „kein Rezept"), Hundspetersilie nimmt der Petersilie ihre · Frost heute früh kommt nicht, heute Abend schon, alte Vorhersage meldet nicht, abgelaufene nicht prüfbar · Lina: Rezepte-Knopf (' + g.rezepte.length + ' Karten), Planer für das Kräuterbeet an zweiter Stelle (Masse, Licht, Boden, Schritt 4, keine KI), ohne Masse leer bei „Fläche", langer Name wie im Kontext, unbekannter Garten ohne Vorbelegung, ohne Einblick kein Satz im Verlauf, <img> als Text, andere Person: nichts' };
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + (e && e.message) + (klagen.length ? ' · ' + klagen.join(' · ') : '') };
       } finally {
         window.setTimeout = echtT; window.clearTimeout = echtCT;

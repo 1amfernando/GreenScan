@@ -199,8 +199,11 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     Jetzt ist Frost EINE Rechnung (`gsFrostGefaehrdet`) für den Kalender, „Braucht Hilfe" und eine lokale Meldung (eine je Tag, nie
     in der Stille, nur mit Erlaubnis); Rezepte aus dem Garten nur zu exakt derselben Art und nie giftig (`gsGartenRezepte`); und
     zwei lesende Werkzeuge öffnen die Rezepte mit Garten-Filter und den vorhandenen Planer für genau den genannten Garten — ohne
-    neuen KI-Aufruf. Offen: die Kulturdaten nennen die Tomate „Lycopersicon lycopersicum", die Artenliste „Solanum lycopersicum" —
-    eine „Tomate" ohne Latein bekommt keine Tomatenrezepte (sie steht mit Grund unter „ohne Art"), eine „Cherrytomate" mit Latein
+    neuen KI-Aufruf. Nach der Gegenprüfung: eine Pflanze ohne eindeutige Art heisst „nicht geprüft", nicht „kein Rezept"; der Planer
+    nimmt nur, was zu DIESEM Garten hinterlegt ist, und bleibt dort stehen, wo etwas fehlt; „Frost kommt" nur für Frost, der noch
+    kommt, und nur aus einer frischen Vorhersage; ohne Einblick geht Linas Zusatzsatz nicht an die KI. Offen: die Kulturdaten nennen
+    die Tomate „Lycopersicon lycopersicum", die Artenliste „Solanum lycopersicum" —
+    eine „Tomate" ohne Latein bekommt keine Tomatenrezepte (sie steht als „nicht geprüft" da), eine „Cherrytomate" mit Latein
     keinen Frost-Hinweis (brett:2026-11-25-2bbd, Daten-Entscheidung); 11 Rezept-Arten gelten als nicht essbar
     (brett:2026-11-25-5769); lokale Frost-Meldung und Server-Push wissen nichts voneinander (brett:2026-11-25-e9a4).
 

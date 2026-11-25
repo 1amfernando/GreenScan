@@ -1,0 +1,23 @@
+{
+  "id": "2026-11-25-391d",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "03:39:06",
+  "von": "sitzung/lokal/ks",
+  "stand": "v33.85",
+  "titel": "Planer: openGardenAI belegt Breite und Länge still aus gardens[0] vor — und das Licht aus dem Garten-Scan trifft nur bei „Schatten“",
+  "beleg": [
+    "Gemessen 25.11.2026 (Gegenprüfung Lina 17): Wer den Planer aus dem Menü öffnet, sieht in Schritt 1 die Masse des ERSTEN Gartens, ohne Hinweis woher (der Code-Kommentar zum Garten-Scan sagt selbst: „eine stille Vorbelegung, die der Nutzer nicht erklaeren kann, ist schlimmer als ein leeres Feld“); Licht und Boden bleiben von der vorigen Sitzung stehen. Lina und der Knopf auf der Gartenkarte gehen seit v33.86 an beidem vorbei (gsPlanFuerGarten streng, gsPlanOhneGarten). Zweitens: die Licht-Übernahme aus den Zonen des Garten-Scans bildet auf 'full' und 'partial' ab — pp-light kennt nur full_sun · part_sun · shade; die passt-Prüfung verhindert einen falschen Wert, aber nur „Schatten“ wird je übernommen."
+  ],
+  "stichworte": [
+    "planer",
+    "vorbelegung",
+    "garten-scan"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var karte = { 'Sonne': 'full', 'Halbschatten': 'partial', 'Schatten': 'shade' };"
+    }
+  ]
+}
