@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-25-2f05",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "04:40:02",
+  "von": "sitzung/lokal/kp2",
+  "stand": "v33.85",
+  "titel": "Lina-Karte „Umziehen“: ein Garten, den ein anderes Gerät inzwischen gelöscht hat, hinterlässt nach dem Abgleich eine Pflanzung ohne Garten",
+  "vorschlag": "sync_check: Garten auf B gelöscht, Umzug auf A, Abgleich → die Pflanzung bekommt einen Garten (oder einen Satz); dieselbe Frage für jede Pflanzung, deren Garten fehlt",
+  "beleg": [
+    "_gsPflanzungUmziehen prüft den Zielgarten nur lokal (gardens.find). Gerät B löscht den Garten, Gerät A zieht eine Pflanzung hinein (gestempelt) — _gsMergeEintraege führt Gärten und Pflanzungen je Liste zusammen, eine Pflanzung mit gardenId eines gelöschten Gartens bleibt stehen. Gelesen, nicht gemessen (kein zweites Gerät hier); Prüfung des Koordinators zu #359."
+  ],
+  "stichworte": [
+    "lina",
+    "lina-16",
+    "sync",
+    "waise",
+    "pflanzungen"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "function _gsPflanzungUmziehen(id, zielId) {"
+    }
+  ]
+}

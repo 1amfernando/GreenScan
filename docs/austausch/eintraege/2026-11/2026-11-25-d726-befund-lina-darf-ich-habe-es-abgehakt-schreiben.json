@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-25-d726",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "04:40:05",
+  "von": "sitzung/lokal/kp2",
+  "stand": "v33.85",
+  "titel": "Lina darf „ich habe es abgehakt“ schreiben — die Regel „schreib nie, etwas SEI eingetragen“ steht nur im Prompt",
+  "vorschlag": "neben einer Karte (und nach einer Rückfrage) eine Erfolgs-Behauptung im Antworttext erkennen (eingetragen/abgehakt/entfernt/umgezogen ohne Verneinung) und durch einen Satz ersetzen — in fünf Sprachen gemessen, mit harmlosen Gegenbeispielen",
+  "beleg": [
+    "LINA_SYSTEM: „Schreib nie, etwas SEI eingetragen, entfernt oder umgezogen: das sagt die App, nachdem die Person getippt hat.“ Kein Code prüft Linas Antworttext neben einer Karte; eine gestellte Antwort „Ich habe das Giessen eingetragen.“ + Karte steht so da, bevor jemand getippt hat. CLAUDE.md §4a.2: was der Prompt verlangt, braucht zusätzlich eine rechnende Prüfung. Prüfung des Koordinators zu #359."
+  ],
+  "stichworte": [
+    "lina",
+    "lina-16",
+    "prompt",
+    "zusage"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "Schreib nie, etwas SEI eingetragen, entfernt oder umgezogen"
+    }
+  ]
+}

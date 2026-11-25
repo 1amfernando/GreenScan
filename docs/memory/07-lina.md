@@ -15,7 +15,9 @@ gsLinaSend()                                index.html, grep "async function gsL
  ├─ callAI(hist.slice(-16), LINA_SYSTEM + ctx, 900)   kein Tool-Use: {model, max_tokens, system, messages}
  ├─ _gsLinaSicherheit(antwort, treffer)      Zusage „essbar" ueber eine Art mit tox ≥ 3 → Warnzeile darueber
  │    └─ _gsLinaTrefferMitPflanzen(text, t) dazu die Arten eigener Pflanzen, die die Frage (auch beim Spitznamen) nennt
- └─ gsLinaDispatch(aktion)                   EINE Textzeile am Antwortende, Whitelist, Schreiben nur nach gsConfirmModal
+ ├─ _gsLinaKarteBauen(aktion, frage)         die fuenf Karten-Werkzeuge (Lina 16): eine KARTE unter der Antwort — oder eine Rueckfrage
+ │    └─ gsLinaKarteTun(mi, wahl, nr)        erst der Tipp schreibt: Person, Gespraech, Karte, Stand geprueft → EIN Schreiber, EIN Satz
+ └─ gsLinaDispatch(aktion)                   EINE Textzeile am Antwortende, Whitelist, die aelteren Schreib-Tools nach gsConfirmModal
 ```
 
 Ohne Netz oder Schluessel antwortet `getSmartAnswer` (Offline-Chat) — seine
@@ -65,8 +67,8 @@ die Wetter-Zeile heisst dann „Wetter am gewählten Ort".
 
 | Zeile | Quelle | Deckel |
 |---|---|---|
-| Braucht Hilfe | `gsPflanzenHilfe()` — Aufgabe ≥ `GS_HILFE_UEBERFAELLIG_TAGE` (2) im Verzug (`gsGetDueTasks`) oder Schaedling an der Pflanze in den letzten `GS_HILFE_SCHAEDLING_TAGE` (14) Tagen (`gsSchaedlingeNotiert`) | 4 + „+N weitere“; ohne Signal nennt die Zeile, WAS geprueft wurde — „kein Schädling" nur, wenn das Cloud-Tagebuch geladen ist (`gs_garden_diary_cache`) |
-| Schädlinge im Tagebuch | `gsSchaedlingeNotiert()` über `gsTagebuchAlle` — `pest` und `pest_observation`; die Schreiber (`gsPestAddToDiary`, `gsDiaryAddEntry`) legen sie OHNE Pflanze in der Cloud an, `gsCloudTagebuchLaden` spiegelt sie | 3 + „+N weitere" |
+| Braucht Hilfe | `gsPflanzenHilfe()` — Aufgabe ≥ `GS_HILFE_UEBERFAELLIG_TAGE` (2) im Verzug (`gsGetDueTasks`) oder Schaedling bzw. Krankheit an der Pflanze in den letzten `GS_HILFE_SCHAEDLING_TAGE` (14) Tagen (`gsSchaedlingeNotiert`; „Schädling notiert am …", seit Lina 16 auch „Krankheit notiert am …") | 4 + „+N weitere“; ohne Signal nennt die Zeile, WAS geprueft wurde — „kein Schädling" nur, wenn das Cloud-Tagebuch geladen ist (`gs_garden_diary_cache`) |
+| Schädlinge im Tagebuch | `gsSchaedlingeNotiert()` über `gsTagebuchAlle` — `pest` und `pest_observation`, seit Lina 16 auch `disease` (jeder Eintrag sagt in `art`, was er ist); die Cloud-Schreiber (`gsPestAddToDiary`, `gsDiaryAddEntry`) legen sie OHNE Pflanze an, `gsCloudTagebuchLaden` spiegelt sie; Lina schreibt sie an die Pflanze (`p.diary`). Krankheiten ohne Pflanze stehen in einer eigenen Zeile „Krankheiten im Tagebuch" | je 3 + „+N weitere" |
 | Im Detail — <Pflanze> | eigene Pflanzen, die in der FRAGE stehen (`_gsLinaPflanzenInFrage`: ganzer Name an Wortgrenzen, Mehrzahl-Endung) → Ort, Aufgaben (`_gsTaskDays`), 3 Tagebuch-Eintraege, Foto-ZAEHLER, Notiz | 2 Pflanzen, je `GS_LINA_DETAIL_MAX` 420 Zeichen — ganze Angaben fallen von hinten |
 | Wetter <Ort> | `gs_weather_cache` (Rohwerte Open-Meteo), Schwellen aus `_gsWetterTage` | 3 Tage, 3 Warnungen. Nur wenn die Vorhersage zum gewaehlten Ort gehoert UND den heutigen Tag enthaelt |
 | Pflanzen | beide Listen (`_gsLinaPflanzenAlle`) mit Ort | 8 + „+N weitere“ |
@@ -95,11 +97,60 @@ Gartentagebuch mit `quelle: 'lina'` und `bestaetigt_am`, geprueft am
 Rueckgabewert von `gsTagebuchSave`; im Kalender steht er mit dem Grund „von
 Lina vorgeschlagen, von dir bestaetigt am …“. Kein zweiter Speicher
 (V1 Regel 2), und ein Filter-Argument gibt es bewusst nicht — Lina verstellt
-nichts an der Wahl der Person. Unbekanntes Tool → nichts. Kein Loeschen, keine
+nichts an der Wahl der Person. Unbekanntes Tool → nichts. Keine
 Einstellungen, keine Rollen, keine Zahlungen — es gibt keinen Fall dafuer, also
-keinen Weg. `sensor_check` prueft die lesenden Tools und ein erfundenes
+keinen Weg. Loeschen nur EINES, als Karte: eine Pflanzung aus einem Garten (unten).
+`sensor_check` prueft die lesenden Tools und ein erfundenes
 („Lina · handeln“), `add_calendar_note` (T1) und seit v33.39 auch die zwei
 alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
+
+### Seit Lina 16 (kp, v33.85): fuenf Werkzeuge mit KARTE
+
+`GS_LINA_KARTEN_TOOLS` — `propose_task_done {task, plantName?, gardenName?}` (abhaken, „Habe gegossen!"),
+`propose_diary_entry {plantName, gardenName?, text}`, `propose_pest_note {plantName, gardenName?, what, kind: pest|disease}`,
+`propose_remove_planting {plantName, gardenName?}`, `propose_move_planting {plantName, gardenName?, toGarden}`. Sie laufen NICHT
+ueber `gsLinaDispatch` (dort ein leerer `case`), sondern so:
+
+1. **Karte statt Dialog.** `gsLinaSend` baut beim Eintreffen der Antwort `_gsLinaKarteBauen(aktion)`: eine Karte unter der
+   Antwort (`_gsLinaKarteHtml`, nur im Arbeitsspeicher — nach dem Schliessen ist sie weg) oder EIN Satz in der Antwort.
+   Erst der Tipp (`gsLinaKarteTun`) schreibt. Ohne `plantName` bietet `propose_task_done` die Pflanzen zur AUSWAHL an, bei
+   denen genau diese Aufgabe heute faellig ist (`gsGetDueTasks`, beide Listen, hoechstens `GS_LINA_KARTE_WAHL_MAX`).
+2. **Nie raten.** `_gsLinaPflanzenWahl` nimmt ALLE Treffer von `_gsLinaPflanzenTreffer` (Name oder Spitzname exakt, beide
+   Listen). Unbekannt oder ein Teilname → keine Karte, sondern eine Rueckfrage. Mehrdeutig an VERSCHIEDENEN Orten (je ein
+   Garten, „Meine Pflanzen") → eine Rueckfrage, denn die KI kann den Garten nennen; mehrdeutig am SELBEN Ort → die Karte zeigt
+   sie zur AUSWAHL (`{ wahl, labels, gleich }`), beschriftet von `_gsLinaWahlLabels` mit so vielen Merkmalen wie noetig
+   (`_gsLinaPflanzeMerkmal`: Sorte, Pflanzdatum, Anzahl — gezaehlt ueber ALLE eigenen Pflanzen); was sich auch so nicht
+   unterscheiden laesst, wird nicht angeboten (gezaehlt bzw. ein Satz). Eine Rueckfrage, deren Antwort die KI nicht in Name und
+   Garten SAGEN kann, waere eine Schleife. `gardenName` grenzt ein; „Meine Pflanzen" meint die Liste. Entfernen und Umziehen nur
+   fuer Pflanzungen; ein Zielgarten nur mit genau diesem Namen. `gsLinaResolvePlant` nimmt nur einen eindeutigen Treffer.
+3. **Die Karte gehoert der Person und dem Gespraech** (§3.6): sie traegt `_gsPerson()`, `_gsLinaGespraechNr` und ihre eigene
+   Nummer; stimmt beim Tipp eines davon nicht, wird nichts geschrieben (abgemeldet / andere Person: Lina schliesst und
+   vergisst das Gespraech). **Und was eine Wahl ZEIGT, muss beim Tipp noch stimmen:** jede merkt sich Liste, Name, Garten,
+   Gartenname, beim Abhaken den letzten Eintrag der Aufgabe, beim Umziehen den vollen Namen des Ziels (`_gsLinaStand`);
+   `_gsLinaStandPruefen` haelt das beim Tipp gegen den Stand — sonst ein Satz und nichts geschrieben (eine liegen gelassene
+   Karte „aus Beet A" entfernte sonst die inzwischen umgezogene Pflanze aus Beet B). Zwischen Pruefung und Schreiben steht
+   kein `await`.
+4. **Ein Schreiber je Werkzeug, erst schreiben, dann melden** — jeder gibt `true` · `false` · `null`, jeder Wert EINEN Satz:
+   abhaken = `gsQuickDone`; Notiz, Schaedling, Krankheit = `_gsPflegeEintragSchreiben` (derselbe Kern wie das Formular
+   `gsAddDiaryEntry`, Deckel `GS_PFLEGEVERLAUF_MAX` nach Zeit, `quelle: 'lina'`); Entfernen = `_gsPflanzungEntfernen` (die
+   Loeschmarke `_gsLoeschmarke` ZUERST — laesst sie sich nicht schreiben, wird nicht entfernt; `deletePlanting` nimmt denselben
+   Weg); Umziehen = `_gsPflanzungUmziehen` (gestempelt — der neue Garten gewinnt im Abgleich). Was nur eine PFLANZUNG
+   aendert, schreibt `_gsPflanzungenSpeichern` (nur `gs_plantings`; `saveGardenData` schreibt zwei Schluessel unabhaengig,
+   und ein Nein bei `gs_gardens` hiesse „nicht umgezogen", obwohl die Pflanzung schon neu im Speicher steht).
+   Bei `false` steht alles wie vorher, auch der Aenderungsstempel (alle vier Schreiber), und die Wahl bleibt offen.
+   Ein Name, wie ihn der KONTEXT gekuerzt zeigt („Echter Monstera Thai…", mit oder ohne „…"), meint genau diesen Eintrag
+   (`_gsLinaKontextFormen`) — ein Teilname weiter nicht.
+5. **Fremdtext bleibt Text:** Namen und Notiz nur durch `escHtml`; im `onclick` nur Zahlen.
+6. **Heute.** Die Werkzeuge kennen kein Datum, jeder Tipp schreibt jetzt — die Karten sagen es („… als heute erledigt
+   eintragen?", „… mit dem heutigen Datum?"), und der Prompt erlaubt abhaken, Notiz und Schaedling nur fuer heute.
+7. **Ohne Einblick bleibt ein Satz der App auf dem Bildschirm** (`_gsLinaSatzAnhaengen` in `gsLinaSend`): die Rueckfrage einer
+   Karte nennt Gaerten, Spitznamen, Standorte — mit Einblick geht sie in den Verlauf, ohne nur in `zusatz` (nicht in `hist`,
+   nicht in den Spiegel, nicht in `coach_messages`).
+8. **Der Text einer Karte geht durch die Gift-Gegenprobe** (`_gsLinaKarteGiftPruefen` → `_gsLinaSicherheit`): er kommt von der
+   KI und geht in die Daten. Warnt sie, steht die Warnung auf der Karte und der Knopf heisst „Trotzdem …".
+
+Was Lina darueber sagt, steht im Prompt: nur auf ausdruecklichen Wunsch, nie raten, nie „ist eingetragen" schreiben — das sagt
+die Karte. *(sensor_check „Lina 16", 13 Gegenproben; dazu 7 aus der Gegenpruefung und 23 aus der Pruefung von #359, Faelle (p)–(v))*
 
 ## Die sechs Regeln, die fuer jeden Freitext-Weg gelten
 
@@ -176,7 +227,9 @@ alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
 - Tool: ein `case` im Dispatcher, im Prompt deklariert (`GS_LINA_SCREENS` /
   Tool-Liste), schreibend nur mit `gsConfirmModal`, dessen Text VORHER und
   NACHHER nennt; Pflanze ueber `_gsPflanzeFinden`; ein Fall in `sensor_check`
-  „Lina · handeln" — auch fuer die Ablehnung im Dialog.
+  „Lina · handeln" — auch fuer die Ablehnung im Dialog. Ein NEUES schreibendes
+  Werkzeug geht seit Lina 16 als Karte (`GS_LINA_KARTEN_TOOLS`): Bauen in
+  `_gsLinaKarteBauen`, Ausfuehren in `_gsLinaKarteAusfuehren` — mit den fuenf Regeln oben.
 - Nie: `gsTagebuchDelete` (die einzige loeschende Funktion ohne Rueckfrage,
   0 UI-Aufrufer) als Tool. Nie eine zweite Rechnung fuer etwas, das der
   Kalender beantwortet (`06-kalender.md`).

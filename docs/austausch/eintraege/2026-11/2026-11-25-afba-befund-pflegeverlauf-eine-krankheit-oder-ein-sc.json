@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-25-afba",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "04:40:21",
+  "von": "sitzung/lokal/kp2",
+  "stand": "v33.85",
+  "titel": "Pflegeverlauf: eine Krankheit oder ein Schädling, den Lina vorgeschlagen hat, steht dort ohne Herkunft — wie eine eigene Diagnose",
+  "vorschlag": "im Pflegeverlauf (und im Gartentagebuch) bei quelle 'lina' eine Zeile „von Lina vorgeschlagen, von dir bestätigt am …“ — derselbe Satz wie im Kalender; escape_check-Fall mit Fremdtext",
+  "beleg": [
+    "_gsPflegeEintragSchreiben legt quelle 'lina' und bestaetigt_am ab; der Kalender sagt „von Lina vorgeschlagen, von dir bestätigt am …“ (gsTagebuchAlle). openPlantDiary zeigt nur den Titel (_gsTbTitel) und das Datum — „🦠 Echter Mehltau“ sieht dort aus wie von der Person selbst bestimmt. Eine KI-Diagnose ohne Foto (Lina sieht keine Fotos) ist eine Vermutung. Prüfung des Koordinators zu #359."
+  ],
+  "stichworte": [
+    "lina",
+    "lina-16",
+    "pflegeverlauf",
+    "herkunft",
+    "krankheit"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "'<div style=\"font-size:var(--fs-md);font-weight:700;color:var(--text);\">'+escHtml(_gsTbTitel(e) || (actionEmoji+' Eintrag'))+'</div>'+"
+    }
+  ]
+}

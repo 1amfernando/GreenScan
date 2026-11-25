@@ -181,6 +181,18 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     dasselbe mit Germer, Nieswurz, Akelei, Buchsbaum, Clivia und zwölf weiteren blieben ohne Warnung, im Scan-Chat ebenso, und die
     KI bekam keine ARTEN-Zeile. Jetzt gilt ein kurzes Wort wie ein langes, wenn die Liste es nur für Gift kennt — nicht als Zusatz
     („weiss"), nicht, wenn es auch etwas anderes meint („zeitlos", „Rosenbaum"), und nie innerhalb eines ganzen harmlosen Namens.
+16. ✅ v33.85 (`sensor_check` „Lina 16 · Abhaken, Tagebuch, Schädling, Beet", Paket 1 „Next Level Aktionen", (kp)) — **Lina
+    konnte nichts eintragen, was die Person getan hat.** „Habe gegossen!" blieb ein Satz im Chat; ins Tagebuch einer Pflanze,
+    einen Schädling notieren, eine Pflanzung entfernen oder umziehen ging nur von Hand. Jetzt schlägt Lina es als KARTE unter der
+    Antwort vor, und erst der Tipp schreibt — abhaken über `gsQuickDone` (ohne Pflanze: die heute fälligen zur Auswahl), Notiz,
+    Schädling und Krankheit über denselben Schreiber wie das Formular, Entfernen mit Löschmarke, Umziehen gestempelt. Mehrdeutig
+    oder unbekannt gibt eine Rückfrage statt einer Karte; voller Speicher, Abmelden, eine andere Person oder ein anderes Gespräch
+    schreiben nichts. Notierte Krankheiten kommen jetzt bei „Braucht Hilfe" an. Die drei älteren Schreib-Werkzeuge haben diese
+    Prüfungen noch nicht (brett:2026-11-25-370c).
+    **Nach der Prüfung von #359 (Folge-Commit, Fälle (p)–(v)):** ohne Einblick steht eine Rückfrage nur auf dem Bildschirm, nie
+    im Verlauf an die KI; beim Tipp wird gegen den aktuellen Stand geprüft (umgezogen, anderswo abgehakt, umbenannt → nichts);
+    zwei gleichnamige am selben Ort stehen zur Auswahl, mit Sorte, Pflanzdatum oder Anzahl beschriftet; die Karten sagen „heute“;
+    eine Pflanzung zeigt ihren Verlauf im Gartentagebuch; und der Text einer Karte geht durch die Gift-Gegenprobe.
 
 ## Offen — Suche
 

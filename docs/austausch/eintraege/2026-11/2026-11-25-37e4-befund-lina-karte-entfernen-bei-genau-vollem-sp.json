@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-25-37e4",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "04:39:55",
+  "von": "sitzung/lokal/kp2",
+  "stand": "v33.85",
+  "titel": "Lina-Karte „Entfernen“: bei genau vollem Speicher scheitert schon die Löschmarke — die Pflanzung bleibt (bewusst), und das ist ein neuer Abbruch im Normalfall",
+  "vorschlag": "Fernando ehrlich sagen (PR-Text #359); später prüfen, ob die Marke einen Platz-Vorrang bekommen kann (z. B. vor dem Schreiben eine alte Marke räumen), statt das Entfernen abzulehnen",
+  "beleg": [
+    "_gsPflanzungEntfernen schreibt die Löschmarke ZUERST (gs_geloescht wächst); lässt sie sich nicht schreiben, wird nicht entfernt. sensor_check „Lina 16“ (i) „nur die Löschmarke lässt sich nicht schreiben: dann wird NICHT entfernt“ misst genau das. Vor Lina 16 schrieb deletePlanting eine SCHRUMPFENDE Liste, die bei vollem Speicher oft noch durchging (Gegenprüfung (kp), echte Quote in Chromium) — dort klappte Entfernen, ohne Marke. Jetzt sagt die Karte „Nicht entfernt — der Speicher ist voll“. Prüfung des Koordinators zu #359."
+  ],
+  "stichworte": [
+    "lina",
+    "lina-16",
+    "speicher-voll",
+    "loeschmarke"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "if (mitMarke && !_gsLoeschmarke('gs_plantings', k)) return false;"
+    }
+  ]
+}

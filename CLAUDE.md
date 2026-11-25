@@ -2407,6 +2407,39 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > Gemessen: 16 Wörter 0 → 6 von 6 Zusage-Formen, beide Orakel und die 42 Vorlagen aus (ko) identisch mit der Basis
 > (`sensor_check` „Lina 15b“, neun Gegenproben).
 
+> **Eine schreibende KI-Aktion ist eine Karte, kein Befehl — und ein `false` heisst nur dann „nichts geschrieben“, wenn nur
+> EIN Schlüssel geschrieben wird** (v33.85, Lina 16 (kp); Paket 1 „Next Level Aktionen“). Lina hakt ab, schreibt in den
+> Pflegeverlauf, notiert Schädlinge und Krankheiten, entfernt und zieht Pflanzungen um. Jede dieser fünf Aktionen steht als
+> Karte unter ihrer Antwort und schreibt erst beim Tipp (`GS_LINA_KARTEN_TOOLS`, `gsLinaKarteTun`); die Karte trägt Person,
+> Gespräch und ihre Nummer, und zwischen Prüfung und Schreiben steht kein `await`. Drei Lehren aus der gegnerischen Prüfung:
+> - `saveGardenData` schreibt `gs_gardens` und `gs_plantings` unabhängig. Scheiterte nur der eine, hiess „nicht umgezogen“
+>   eine Pflanzung, die schon neu im Speicher stand. Was nur Pflanzungen ändert, schreibt `_gsPflanzungenSpeichern`.
+> - Eine Rücknahme, die kein Fall misst, gibt es nicht: Unter der gestellten Uhr stempelte ein gescheiterter Versuch „jetzt“
+>   auf „jetzt“, und die fehlende Stempel-Rücknahme in `gsQuickDone` fiel nicht auf. Der Fall legt den Stempel vorher zwei
+>   Tage zurück.
+> - Was die KI zurückgeben soll, muss sie so zurückgeben KÖNNEN, wie sie es sah: Der Kontext kürzt Namen auf 30 Zeichen,
+>   die Karte verlangte den vollen. Jetzt meint die gekürzte Form genau diesen Eintrag (`_gsLinaKontextFormen`), ein
+>   Teilname weiter nicht.
+>
+> (`sensor_check` „Lina 16“, 13 Gegenproben beim Bau und 7 aus der Prüfung.)
+>
+> **Und was eine Karte ZEIGT, muss beim Tipp noch stimmen** (Prüfung des Koordinators zu #359, drei MITTEL-Funde). Drei
+> Lehren, die über die Karte hinausgehen:
+> - **Ein Schreiber nach Id, eine Anzeige nach Name und Ort — dazwischen liegt Zeit.** Eine liegen gelassene Karte „Tomate aus
+>   Beet A entfernen“ entfernte nach einem Umzug die Tomate aus Beet B. Jede Wahl merkt sich, was sie zeigt (`_gsLinaStand`), und
+>   `_gsLinaStandPruefen` hält es beim Tipp gegen den Stand; sonst ein Satz und nichts geschrieben.
+> - **Eine Rückfrage hilft nur, wenn sich ihre Antwort SAGEN lässt.** Die KI nennt Name und Garten; zwei „Tomate“ im selben
+>   Hochbeet lassen sich so nicht trennen, die Rückfrage wäre eine Schleife. Am selben Ort zeigt die Karte deshalb eine Auswahl,
+>   beschriftet mit so vielen Merkmalen wie nötig (`_gsLinaWahlLabels`, über ALLE eigenen Pflanzen gezählt); was sich auch so nicht
+>   unterscheiden lässt, wird nicht angeboten.
+> - **Ein Satz der App, der Daten der Person nennt, ist Kontext — „Einblick aus“ gilt auch für ihn.** Die Rückfrage stand im
+>   Verlauf und ging bei der nächsten Frage an die KI. Ohne Einblick steht sie nur auf dem Bildschirm (`_gsLinaSatzAnhaengen`,
+>   `zusatz`). Und was die KI in die DATEN schreibt (Notiz, Schädlingsname), geht durch dieselbe Gift-Gegenprobe wie ihre
+>   Antwort (`_gsLinaKarteGiftPruefen`).
+>
+> Dazu sagen die Karten „heute“ (die Werkzeuge kennen kein Datum), und `gsLinaResolvePlant` nimmt nur einen eindeutigen Treffer.
+> (`sensor_check` „Lina 16“ (p)–(v), 23 Gegenproben.)
+
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
 > lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer
