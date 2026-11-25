@@ -77,6 +77,27 @@ erste Lauf 103/1, oben) · robust 38/0 · sync 26/0 · kalender 57/0 · speicher
 i18n 23/0 · wiring grün (0 kaputt) · statik 10/0 · austausch 17/0 · dazu versprechen 0 rot (105 Schreibvorgänge) und offline
 49/0 (a30c580 ebenso 49/0; ein erster Lauf blieb neben zwei anderen Prüfständen nach Fall 34 stehen und wurde abgebrochen).
 
+**Gegenprüfung** (ein zweiter Agent, nur lesend, gegen den Diff; Gegenproben auf Kopien, Quota in Chromium echt gefüllt): kein
+kritischer Fund — kein Schreiben ohne Tipp, Person/Gespräch/Kartennummer halten, Fremdtext bleibt Text. Fünf Schwächen, alle behoben:
+- **Prüfstand (mittel):** (i) kannte den Fall „die Marke geht, die LISTE nicht“ nicht — ohne Rücknahme der Liste oder der Marke
+  blieb er grün, und eine stehengebliebene Marke würfe die Pflanzung beim nächsten Abgleich weg (gemessen). Und die Stempel-Rücknahme
+  mass kein Fall (unter der gestellten Uhr stempelte ein gescheiterter Versuch „jetzt“ auf „jetzt“). Jetzt: `voll('gs_plantings')`
+  mit Prüfung von Variable, Speicher und Marke; vor jedem gescheiterten Tipp liegt der Stempel zwei Tage zurück und muss es danach tun.
+- **`gsQuickDone`** gab bei `false` den Änderungsstempel nicht zurück (seit v33.65; die Karte stützt sich darauf) — jetzt wie die drei
+  anderen Schreiber.
+- **Lange Namen:** der Kontext kürzt auf 30 Zeichen („Echter Monstera Thai…“), die Karte verlangte den vollen Namen — Lina widersprach
+  ihrem eigenen Kontext. Jetzt meint die gekürzte Form (mit „…“, „...“ oder ohne) genau diesen Eintrag (`_gsLinaKontextFormen`,
+  `GS_LINA_KONTEXT_KURZ`), nur wenn kein Name exakt passt; „Echter Monstera“ (ein Teilname) weiter keine Karte. Gartennamen ebenso.
+- **`saveGardenData` schreibt zwei Schlüssel unabhängig:** scheitert nur `gs_gardens`, stand ein Umzug schon im Speicher, während die
+  Karte „nicht umgezogen“ sagte. Was nur eine Pflanzung ändert (abhaken, eintragen, entfernen, umziehen), schreibt jetzt
+  `_gsPflanzungenSpeichern` — nur `gs_plantings`, und nur ein gelungener Schreibversuch wird zum Hochladen vorgemerkt.
+- **`deletePlanting`:** die Begründung im Kommentar war widerlegt (Chromium lässt bei voller Quote eine schrumpfende Schreibung oft
+  durch — dann war die Pflanzung weg, nur ohne Marke) und steht jetzt so da, wie sie gemessen wurde.
+
+Sieben Gegenproben dazu, jede einzeln rot mit dem erwarteten Satz: Entfernen ohne Rücknahme der Liste · ohne Rücknahme der Marke (dann
+fehlt die Tomate auch nach dem Abgleich) · Abhaken, Notiz, Umziehen je ohne Stempel-Rücknahme · Umziehen über `saveGardenData` (schreibt
+`gs_gardens` mit) · lange Namen nicht wie im Kontext.
+
 **Offen:** brett:2026-11-25-370c (die drei älteren Schreib-Werkzeuge).
 **Nicht geprüft:** echte KI-Antworten (gestellt — ob die KI die Werkzeuge nur auf Wunsch nutzt, sagt erst der Betrieb); ein
 echtes zweites Gerät und ein echter Server (der Abgleich ist gestellt); die Karte mit Screenreader und als Antippfläche

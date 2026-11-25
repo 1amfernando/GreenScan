@@ -10448,7 +10448,10 @@ function gsQuickDone(plantId, taskKey) {
   if (!p || !p.tasks || !p.tasks[taskKey]) return null;   // v33.65: null = Aufgabe nicht gefunden, false = nicht gespeichert, true = erledigt (gsDueCardDone liest es)
   var nowIso = new Date().toISOString();
   // v33.65: den Stand VOR dem Abhaken merken — gibt der Speicher `false`, wird er zurueckgegeben.
-  var _qvor = { t: Object.assign({}, p.tasks[taskKey]), diary: Array.isArray(p.diary) ? p.diary.slice() : null };
+  // Lina 16 (Gegenprüfung): dazu der Änderungsstempel — _gsStempeln setzt ihn beim Speichern auch dann, wenn der Speicher Nein
+  // sagt; ein stehengebliebener Stempel liesse diese unveränderte Pflanze im Zwei-Geräte-Abgleich gegen eine neuere gewinnen.
+  var _qvor = { t: Object.assign({}, p.tasks[taskKey]), diary: Array.isArray(p.diary) ? p.diary.slice() : null,
+                hatStempel: Object.prototype.hasOwnProperty.call(p, 'geaendert'), stempel: p.geaendert };
   p.tasks[taskKey].lastDone = nowIso;
   delete p.tasks[taskKey].snoozedUntil;   // v32.46: erledigt hebt die Verschiebung auf
   delete p.tasks[taskKey].vorgezogenAuf; delete p.tasks[taskKey].vorgezogenGrund;   // v32.53: … und das Vorziehen durch einen Sensor
@@ -10463,10 +10466,11 @@ function gsQuickDone(plantId, taskKey) {
     // gsAddDiaryEntry haengt hinten an, hier wird vorn angesetzt (kalender_check „Pflegeverlauf · der Deckel“).
     p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit');
   } catch(_){}
-  var _qok = (_f && _f.liste === 'plantings') ? saveGardenData() : savePlantsToStorage();
+  var _qok = (_f && _f.liste === 'plantings') ? _gsPflanzungenSpeichern() : savePlantsToStorage();
   if (_qok === false) {
     // v33.65 (H2): nicht gespeichert → nichts ist erledigt. Zustand zurueck, ein Satz, kein Erfolg.
     p.tasks[taskKey] = _qvor.t; if (_qvor.diary) p.diary = _qvor.diary; else delete p.diary;
+    if (_qvor.hatStempel) p.geaendert = _qvor.stempel; else delete p.geaendert;
     try { showProfileToast(_gsSatz('Nicht gespeichert — der Speicher ist voll. Die Aufgabe bleibt offen; bitte alte Fotos oder Scans löschen.'), 'error'); } catch(_){}
     return false;
   }
@@ -42118,7 +42122,7 @@ function _gsPflegeEintragSchreiben(plantId, eintrag) {
   p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit'); // v30.35 Cap, v31.08 mit Archiv, Scheibe 2: nach Zeit
   // Auch lastDone der entsprechenden Aufgabe updaten falls action eine Pflege-Aktion ist
   if (task) task.lastDone = new Date().toISOString();
-  if (f.speichern() === false) {
+  if ((f.liste === 'plantings' ? _gsPflanzungenSpeichern() : f.speichern()) === false) {
     if (vor.diary) p.diary = vor.diary; else delete p.diary;
     if (task) { if (vor.last === undefined) delete task.lastDone; else task.lastDone = vor.last; }
     if (vor.hatStempel) p.geaendert = vor.stempel; else delete p.geaendert;
@@ -78587,6 +78591,20 @@ function saveGardenData() {
   try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('garden'); } catch(_){}
   return okG && okP;
 }
+// Lina 16 (Gegenprüfung, 25.11.2026): Abhaken, ein Eintrag, Entfernen und Umziehen einer PFLANZUNG ändern nur `plantings`.
+// saveGardenData schreibt zwei Schlüssel unabhängig (`okG && okP`): scheitert nur gs_gardens, steht die Pflanzung schon neu im
+// Speicher, während die Rücknahme die Variable zurückdreht — nach dem Neuladen wäre geschehen, was die Karte „nicht geschehen“
+// nannte. Dieser Weg schreibt nur gs_plantings: `false` heisst dann wirklich „nichts geschrieben“, und nur ein gelungener
+// Schreibversuch wird zum Hochladen vorgemerkt.
+function _gsPflanzungenSpeichern() {
+  try { _gsStempeln('gs_plantings', plantings); } catch (_) {}
+  var ok = gsStore.setJSON('gs_plantings', plantings);
+  if (ok === false) return false;
+  try { if (typeof gsPushGardenNow === 'function') gsPushGardenNow(); } catch (_) {}
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('garden'); } catch (_) {}
+  return true;
+}
+window._gsPflanzungenSpeichern = _gsPflanzungenSpeichern;
 
 // ── Wetter abrufen via Open-Meteo (kostenlos, kein Key nötig!) ──
 // v23.98: Multi-Strategie-Geocoding — Open-Meteo → Bindestrich-Splits → Nominatim-Fallback
@@ -79541,8 +79559,11 @@ async function deletePlanting(id) {
   if (!(await gsConfirmModal('Pflanzung entfernen?'))) return;
   if (typeof _gsPerson === 'function' && _gsPerson() !== wer) return;
   // Lina 16: derselbe Weg wie Linas Karte — Loeschmarke zuerst, und der Rueckgabewert wird gelesen. Bis hier
-  // stand `saveGardenData();` ohne Blick: bei vollem Speicher schloss das Fenster, als waere die Pflanzung weg,
-  // und nach dem Neuladen stand sie wieder da.
+  // stand `saveGardenData();` ohne Blick: scheiterte das Schreiben, schloss das Fenster trotzdem, als waere die
+  // Pflanzung weg. Gemessen in der Gegenpruefung (Chromium, echte Quote): eine SCHRUMPFENDE Schreibung geht bei
+  // vollem Speicher oft noch durch — dann war die Pflanzung weg, aber ohne Loeschmarke, und ein Abgleich mit einem
+  // Cloud-Stand, der sie noch hat, braechte sie zurueck. Die Marke zuerst verweigert in diesem schmalen Fenster das
+  // Entfernen ganz — gewollt: lieber nicht entfernt (mit Satz) als still von einem anderen Geraet zurueckgebracht.
   var r = _gsPflanzungEntfernen(id);
   if (r === false) {
     try { gsToast(_t('lina_k_voll_weg', 'Nicht entfernt — der Speicher ist voll. Die Pflanzung bleibt; bitte alte Fotos oder Scans löschen.'), 'error', 7000); } catch(_){}
@@ -79571,7 +79592,7 @@ function _gsPflanzungEntfernen(id) {
   if (mitMarke && !_gsLoeschmarke('gs_plantings', k)) return false;
   var vorher = plantings;
   plantings = plantings.filter(function (x) { return !x || x.id !== id; });
-  if (saveGardenData() === false) {
+  if (_gsPflanzungenSpeichern() === false) {
     plantings = vorher;
     if (mitMarke) { try { _gsLoeschmarkenZurueck('gs_plantings', [k]); } catch (_) {} }
     return false;
@@ -79582,7 +79603,7 @@ function _gsPflanzungEntfernen(id) {
 }
 window._gsPflanzungEntfernen = _gsPflanzungEntfernen;
 
-// Lina 16: eine Pflanzung in einen anderen, VORHANDENEN Garten umziehen. Geschrieben wird ueber saveGardenData —
+// Lina 16: eine Pflanzung in einen anderen, VORHANDENEN Garten umziehen. Geschrieben wird ueber _gsPflanzungenSpeichern —
 // dort stempelt _gsStempeln die geaenderte Pflanzung (`geaendert`), und mit dem Stempel gewinnt der neue Garten im
 // Abgleich gegen einen aelteren Cloud-Stand (_gsMergeEintraege), auch wenn dieses Geraet nichts mehr ungesendet hat.
 // Sagt der Speicher `false`, steht alles wie vorher, auch der Stempel. Rueckgabe: true · false · null (Pflanzung
@@ -79595,7 +79616,7 @@ function _gsPflanzungUmziehen(id, zielId) {
   if (p.gardenId === g.id) return true;
   var alt = { garten: p.gardenId, hatStempel: Object.prototype.hasOwnProperty.call(p, 'geaendert'), stempel: p.geaendert };
   p.gardenId = g.id;
-  if (saveGardenData() === false) {
+  if (_gsPflanzungenSpeichern() === false) {
     p.gardenId = alt.garten;
     if (alt.hatStempel) p.geaendert = alt.stempel; else delete p.geaendert;
     return false;
@@ -94077,19 +94098,38 @@ function gsLinaResolvePlant(id, name){
 // Lina 16 (kp): ALLE eigenen Pflanzen mit genau diesem Namen oder Spitznamen (ohne Gross/klein, ohne Rand), in beiden
 // Listen — je Treffer mit seiner Liste und, bei einer Pflanzung, ihrem Garten. gsLinaResolvePlant nimmt davon den
 // ersten (so seit v33.33); ein Schreibvorgang mit Karte fragt bei mehr als einem nach (_gsLinaPflanzenWahl).
+// Lina 16 (Gegenprüfung): der KONTEXT kürzt Namen (_gsLinaKurz, 30 bzw. 40 Zeichen) — „Echter Monstera Thai…“. Gibt die KI einen
+// Namen so zurück, wie er dort stand (mit „…“, „...“ oder ohne), meint sie genau diesen Eintrag. Kein Teilname: verglichen wird
+// nur mit der Form, die der Kontext wirklich zeigte, und nur, wenn kein Name und kein Spitzname exakt passt.
+var GS_LINA_KONTEXT_KURZ = [30, 40];
+function _gsLinaKontextFormen(roh, norm) {
+  var s = String(roh == null ? '' : roh).replace(/\s+/g, ' ').trim(), aus = [];
+  GS_LINA_KONTEXT_KURZ.forEach(function (n) {
+    if (s.length <= n) return;
+    var k = _gsLinaKurz(s, n);
+    aus.push(norm(k), norm(k.replace(/…$/, '')));
+  });
+  return aus;
+}
 function _gsLinaPflanzenTreffer(name) {
   var norm = function (s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').toLowerCase().trim(); };   // Leerraum gefaltet wie in _gsLinaKartenText
-  var n = norm(name), aus = { name: [], nick: [] };
+  var n = norm(name).replace(/\.\.\.$/, '…'), aus = { name: [], nick: [] };
   if (!n) return aus;
   var gaerten = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : [];
-  var nimm = function (p, liste) {
-    if (!p || typeof p !== 'object') return;
-    var t = { p: p, liste: liste, garten: liste === 'plantings' ? (gaerten.find(function (g) { return g && g.id === p.gardenId; }) || null) : null };
-    if (norm(p.name) === n) aus.name.push(t);
-    else if (norm(p.nick) === n) aus.nick.push(t);
-  };
-  try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) myPlants.forEach(function (p) { nimm(p, 'myPlants'); }); } catch (_) {}
-  try { if (typeof plantings !== 'undefined' && Array.isArray(plantings)) plantings.forEach(function (p) { nimm(p, 'plantings'); }); } catch (_) {}
+  var alle = [];
+  try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) myPlants.forEach(function (p) { alle.push([p, 'myPlants']); }); } catch (_) {}
+  try { if (typeof plantings !== 'undefined' && Array.isArray(plantings)) plantings.forEach(function (p) { alle.push([p, 'plantings']); }); } catch (_) {}
+  var t = function (p, liste) { return { p: p, liste: liste, garten: liste === 'plantings' ? (gaerten.find(function (g) { return g && g.id === p.gardenId; }) || null) : null }; };
+  alle.forEach(function (x) {
+    var p = x[0]; if (!p || typeof p !== 'object') return;
+    if (norm(p.name) === n) aus.name.push(t(p, x[1]));
+    else if (norm(p.nick) === n) aus.nick.push(t(p, x[1]));
+  });
+  if (!aus.name.length && !aus.nick.length) alle.forEach(function (x) {
+    var p = x[0]; if (!p || typeof p !== 'object') return;
+    if (_gsLinaKontextFormen(p.name, norm).indexOf(n) >= 0) aus.name.push(t(p, x[1]));
+    else if (_gsLinaKontextFormen(p.nick, norm).indexOf(n) >= 0) aus.nick.push(t(p, x[1]));
+  });
   return aus;
 }
 function gsLinaAddPlant(nm, a){
@@ -94176,8 +94216,10 @@ function _gsLinaPflanzeOrt(t) {
 function _gsLinaGartenWahl(gn) {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
   var norm = function (s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').toLowerCase().trim(); };
-  var gl = norm(gn);
-  var gs = ((typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : []).filter(function (g) { return g && norm(g.name) === gl; });
+  var gl = norm(gn).replace(/\.\.\.$/, '…');
+  var alleG = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : [];
+  var gs = alleG.filter(function (g) { return g && norm(g.name) === gl; });
+  if (!gs.length) gs = alleG.filter(function (g) { return g && _gsLinaKontextFormen(g.name, norm).indexOf(gl) >= 0; });   // wie im Kontext gekürzt
   var meine = !gs.length && (gl === 'meine pflanzen' || gl === String(_t('lina_k_meine', 'Meine Pflanzen')).toLowerCase());
   return { gaerten: gs, ids: gs.map(function (g) { return g.id; }), meine: meine };
 }

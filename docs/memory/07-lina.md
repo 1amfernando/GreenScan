@@ -125,12 +125,16 @@ ueber `gsLinaDispatch` (dort ein leerer `case`), sondern so:
    abhaken = `gsQuickDone`; Notiz, Schaedling, Krankheit = `_gsPflegeEintragSchreiben` (derselbe Kern wie das Formular
    `gsAddDiaryEntry`, Deckel `GS_PFLEGEVERLAUF_MAX` nach Zeit, `quelle: 'lina'`); Entfernen = `_gsPflanzungEntfernen` (die
    Loeschmarke `_gsLoeschmarke` ZUERST — laesst sie sich nicht schreiben, wird nicht entfernt; `deletePlanting` nimmt denselben
-   Weg); Umziehen = `_gsPflanzungUmziehen` (ueber `saveGardenData`, also gestempelt — der neue Garten gewinnt im Abgleich).
-   Bei `false` steht alles wie vorher, auch der Aenderungsstempel, und die Wahl bleibt offen.
+   Weg); Umziehen = `_gsPflanzungUmziehen` (gestempelt — der neue Garten gewinnt im Abgleich). Was nur eine PFLANZUNG
+   aendert, schreibt `_gsPflanzungenSpeichern` (nur `gs_plantings`; `saveGardenData` schreibt zwei Schluessel unabhaengig,
+   und ein Nein bei `gs_gardens` hiesse „nicht umgezogen", obwohl die Pflanzung schon neu im Speicher steht).
+   Bei `false` steht alles wie vorher, auch der Aenderungsstempel (alle vier Schreiber), und die Wahl bleibt offen.
+   Ein Name, wie ihn der KONTEXT gekuerzt zeigt („Echter Monstera Thai…", mit oder ohne „…"), meint genau diesen Eintrag
+   (`_gsLinaKontextFormen`) — ein Teilname weiter nicht.
 5. **Fremdtext bleibt Text:** Namen und Notiz nur durch `escHtml`; im `onclick` nur Zahlen.
 
 Was Lina darueber sagt, steht im Prompt: nur auf ausdruecklichen Wunsch, nie raten, nie „ist eingetragen" schreiben — das sagt
-die Karte. *(sensor_check „Lina 16", 13 Gegenproben)*
+die Karte. *(sensor_check „Lina 16", 13 Gegenproben; dazu 7 aus der Gegenpruefung)*
 
 ## Die sechs Regeln, die fuer jeden Freitext-Weg gelten
 

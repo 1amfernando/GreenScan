@@ -3894,6 +3894,7 @@ const FAELLE = [
           { id: 'mp_l16_tom', name: 'Tomate', nick: 'Balkon', diary: [], tasks: { water: { active: true, intervalDays: 2, lastDone: iso(jetzt - 2 * T) } } },
           { id: 'mp_l16_mon', name: 'Monstera', diary: [], tasks: { water: { active: true, intervalDays: 7, lastDone: iso(jetzt - 1 * T) } } },
           { id: 'mp_l16_xss', name: '<img src=x onerror="window.__pwned=1">Efeu', diary: [], tasks: { water: { active: true, intervalDays: 2, lastDone: iso(jetzt - 5 * T) } } },
+          { id: 'mp_l16_lang', name: 'Echter Monstera Thai Constellation', diary: [], tasks: { water: { active: true, intervalDays: 7, lastDone: iso(jetzt) } } },
         ];
         gardens = [{ id: 'g_l16_a', name: 'Balkon Süd', kind: 'balkon' }, { id: 'g_l16_b', name: 'Hochbeet', kind: 'hochbeet' }];
         plantings = [
@@ -4063,17 +4064,27 @@ const FAELLE = [
         await senden('Der Kürbis kommt ins Hoch', 'Ok.' + aktion('propose_move_planting', { plantName: 'Kürbis', toGarden: 'Hoch' }));
         if (karten().length !== n0 || !/Einen Garten „Hoch" finde ich nicht/.test(letzteAntwort())) klagen.push('(h) „Hoch" (Teilname) als Ziel: eine Karte oder kein Satz');
         await senden('Der Kürbis kommt ins Hochbeet', 'Ok.' + aktion('propose_move_planting', { plantName: 'Kürbis', toGarden: 'Hochbeet' }));
-        await tippe(0);
+        const schreibH = []; localStorage.setItem = function (k) { schreibH.push(String(k)); return sichern.si.apply(this, arguments); }; await tippe(0); leer();
         if ((plS('pl_l16_k') || {}).gardenId !== 'g_l16_b' || (plV('pl_l16_k') || {}).gardenId !== 'g_l16_b') klagen.push('(h) der Kürbis steht nicht im Hochbeet (Speicher ' + (plS('pl_l16_k') || {}).gardenId + ' · Variable ' + (plV('pl_l16_k') || {}).gardenId + ')');
+        // Gegenprüfung: Umziehen schreibt NUR gs_plantings (_gsPflanzungenSpeichern) — mit saveGardenData hiesse ein Nein bei gs_gardens
+        // „nicht umgezogen“, obwohl die Pflanzung schon neu im Speicher stand
+        if (schreibH.indexOf('gs_gardens') >= 0 || schreibH.indexOf('gs_plantings') < 0) klagen.push('(h) Umziehen schreibt ' + JSON.stringify(schreibH.filter(k => /^gs_(gardens|plantings)$/.test(k))) + ' statt nur gs_plantings');
 
         // (i) voller Speicher: nichts geändert (Speicher UND Variable), ein Satz auf der Karte, die Wahl bleibt offen
         const tomVor = mpS('mp_l16_tom').tasks.water.lastDone;
         await senden('Habe die Tomate auf dem Balkon gegossen', 'Gut.' + aktion('propose_task_done', { task: 'water', plantName: 'Tomate', gardenName: 'Meine Pflanzen' }));
+        // Gegenprüfung: der Änderungsstempel liegt vorher zwei Tage zurück — unter der gestellten Uhr stempelte ein gescheiterter
+        // Versuch sonst „jetzt“ auf „jetzt“, und eine fehlende Rücknahme fiele nicht auf
+        const STEMPEL = jetzt - 2 * T;
+        mpV('mp_l16_tom').geaendert = STEMPEL;
         voll(); await tippe(0); leer();
         if (mpS('mp_l16_tom').tasks.water.lastDone !== tomVor || mpV('mp_l16_tom').tasks.water.lastDone !== tomVor) klagen.push('(i) Abhaken bei vollem Speicher: Zustand geändert');
+        if (mpV('mp_l16_tom').geaendert !== STEMPEL) klagen.push('(i) Abhaken bei vollem Speicher: der Änderungsstempel blieb stehen (' + mpV('mp_l16_tom').geaendert + ')');
         if (!/Die Aufgabe bleibt offen/.test((letzteKarte() || {}).textContent || '') || !knopf(0)) klagen.push('(i) Abhaken bei vollem Speicher: kein Satz oder keine zweite Chance');
         await senden('Notiz bei Basilikum', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Basilikum', text: 'VOLL-NOTIZ' }));
+        mpV('mp_l16_bas').geaendert = STEMPEL;
         voll(); await tippe(0); leer();
+        if (mpV('mp_l16_bas').geaendert !== STEMPEL) klagen.push('(i) Notiz bei vollem Speicher: der Änderungsstempel blieb stehen');
         if (notizen(mpS('mp_l16_bas')).indexOf('VOLL-NOTIZ') >= 0 || notizen(mpV('mp_l16_bas')).indexOf('VOLL-NOTIZ') >= 0) klagen.push('(i) Notiz bei vollem Speicher: sie steht da');
         if (!/Es wurde nichts eingetragen/.test((letzteKarte() || {}).textContent || '')) klagen.push('(i) Notiz bei vollem Speicher: kein Satz');
         const markenVor = localStorage.getItem('gs_geloescht');
@@ -4084,8 +4095,15 @@ const FAELLE = [
         // nur die Löschmarke lässt sich nicht schreiben: dann wird NICHT entfernt (sonst brächte der Abgleich sie zurück)
         voll('gs_geloescht'); await tippe(0); leer();
         if (!plS('pl_l16_t') || !plV('pl_l16_t')) klagen.push('(i) ohne Löschmarke wurde trotzdem entfernt — der nächste Abgleich brächte die Tomate zurück');
+        // Gegenprüfung: die Marke geht, die LISTE nicht — dann steht die Pflanzung wieder da (Variable UND Speicher), und die Marke ist
+        // zurückgenommen; eine stehengebliebene Marke liesse den nächsten Abgleich die Pflanzung wegwerfen (_gsMergeEintraege)
+        voll('gs_plantings'); await tippe(0); leer();
+        if (!plS('pl_l16_t') || !plV('pl_l16_t')) klagen.push('(i) nur die Liste scheiterte: die Tomate fehlt (Speicher ' + !!plS('pl_l16_t') + ' · Variable ' + !!plV('pl_l16_t') + ')');
+        if (Object.prototype.hasOwnProperty.call(_gsGeloeschtLesen()['gs_plantings'] || {}, 'pl_l16_t')) klagen.push('(i) nur die Liste scheiterte: die Löschmarke für die Tomate blieb stehen — der nächste Abgleich würfe sie weg');
         await senden('Kürbis zurück auf den Balkon', 'Ok.' + aktion('propose_move_planting', { plantName: 'Kürbis', toGarden: 'Balkon Süd' }));
+        plV('pl_l16_k').geaendert = STEMPEL;
         voll(); await tippe(0); leer();
+        if (plV('pl_l16_k').geaendert !== STEMPEL) klagen.push('(i) Umziehen bei vollem Speicher: der Änderungsstempel blieb stehen');
         if ((plS('pl_l16_k') || {}).gardenId !== 'g_l16_b' || (plV('pl_l16_k') || {}).gardenId !== 'g_l16_b') klagen.push('(i) Umziehen bei vollem Speicher: der Garten wurde geändert (Variable ' + (plV('pl_l16_k') || {}).gardenId + ')');
         if (!/bleibt im Garten „Hochbeet"/.test((letzteKarte() || {}).textContent || '')) klagen.push('(i) Umziehen bei vollem Speicher: kein Satz');
 
@@ -4108,6 +4126,18 @@ const FAELLE = [
         await tippe(0);
         if (notizen(mpS('mp_l16_bas')).indexOf('NR-NOTIZ') >= 0) klagen.push('(j) nach einem Wechsel der Gesprächsnummer wurde geschrieben');
         if (!/Diese Karte gehört zu einem anderen Gespräch/.test(text())) klagen.push('(j) kein Satz, dass die Karte zu einem anderen Gespräch gehört');
+
+        // (o) Gegenprüfung: ein langer Name, wie ihn der Kontext zeigt — gekürzt auf 30 Zeichen, mit „…“, „...“ oder ohne — meint genau
+        //     diese Pflanze; ein Teilname weiter nicht. Vorher sagte Lina zu ihrem eigenen Kontext „… finde ich bei dir nicht“.
+        const kurzN = _gsLinaKurz('Echter Monstera Thai Constellation', 30);
+        for (const nm of [kurzN, kurzN.replace(/…$/, ''), kurzN.replace(/…$/, '...')]) {
+          const vorK = karten().length;
+          await senden('Notiz bei meiner Monstera', 'Gern.' + aktion('propose_diary_entry', { plantName: nm, text: 'LANG-NOTIZ' }));
+          if (karten().length !== vorK + 1 || !/Echter Monstera Thai Constellation/.test((letzteKarte() || {}).textContent || '')) klagen.push('(o) „' + nm + '“ (wie im Kontext): keine Karte für die lange Monstera');
+        }
+        const vorT = karten().length;
+        await senden('Notiz bei meiner Monstera', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Echter Monstera', text: 'TEIL-NOTIZ' }));
+        if (karten().length !== vorT) klagen.push('(o) „Echter Monstera“ (ein Teilname) bekam eine Karte');
 
         // (k) Abgemeldet bzw. eine andere Person angemeldet (zweiter Tab, derselbe Speicher) zwischen Karte und Tipp: nichts
         // geschrieben, Lina geht zu und vergisst das Gespräch
