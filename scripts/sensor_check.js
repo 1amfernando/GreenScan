@@ -3487,6 +3487,134 @@ const FAELLE = [
     },
   },
   {
+    // (ko) Lina 15 · NEIN-Rolle (25.11.2026, Hold-out des Koordinators zu (kj)): 5 von 16 stillen Zusagen trugen einen
+    // Verneinungsstamm, der nur eine Sorge oder das Gift verneint — „Keine Sorge, die kannst du essen.", „… ist kein Problem.",
+    // „nicht giftig, … kannst du essen". NEIN machte den Teil still. Die Gegenprobe liest eine Antwort, in der sie nichts fand, jetzt
+    // ein zweites Mal, mit den Wendungen aus GS_LINA_NEIN_ROLLE als „ja" — und nur einen Satz, in dem danach keine echte Verneinung
+    // mehr steht. Der erste Durchgang ist der unveränderte: was die Basis warnt, warnt weiter, mit demselben Satz.
+    // Eine Entwarnung OHNE Zusage („Die Tollkirsche ist nicht giftig.") bleibt hier still: der Fall prüft die Zusage, nicht die
+    // Aussage über das Gift (Brett: Idee „Entwarnung ohne Zusage").
+    name: 'Lina 15 · NEIN-Rolle (ko): „Keine Sorge, die kannst du essen.", „… zu essen ist kein Problem." und „nicht giftig, du kannst sie essen" warnen — „Keine Sorge, essen solltest du sie aber nicht." und jede echte Verneinung bleiben still',
+    lauf: async () => {
+      const sichern = { mp: myPlants, pl: plantings, ga: gardens, ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, pt: window.showProfileToast,
+        on: Object.getOwnPropertyDescriptor(navigator, 'onLine') };
+      const klagen = [];
+      try {
+        myPlants = []; plantings = []; gardens = [];
+        const pruef = (frage, antwort) => _gsLinaSicherheit(antwort, _gsLinaTrefferMitPflanzen(frage, _gsArtenTreffer(frage)));
+        const E = 'Was kann ich essen?', TK = 'Kann ich Tollkirschen essen?';
+        // (a) muss warnen — die Entwarnung ist die Zusage (deutsch, englisch, französisch, italienisch)
+        const W = [
+          [TK, 'Keine Sorge, die kannst du essen.'],
+          [E, 'Keine Sorge, die Herbstzeitlose ist essbar.'],
+          ['Ist die Eibe giftig?', 'Nein, die ist nicht giftig, du kannst die Beeren essen.'],
+          [E, 'Die Tollkirsche zu essen ist kein Problem.'],
+          ['Kann ich Maiglöckchen essen?', 'Kein Problem — die jungen Blätter kannst du roh essen.'],
+          [E, 'Es spricht nichts dagegen, Eibenbeeren zu essen.'],
+          [E, 'Mach dir keine Sorgen, den Fingerhut kannst du roh essen.'],
+          ['Kann ich die Herbstzeitlose essen?', 'Keine Angst, beim Verzehr besteht keine Gefahr.'],
+          [E, 'Der Gemeine Goldregen ist nicht nur essbar, sondern auch lecker.'],
+          [E, "Don't worry, you can eat the Tollkirsche berries."],
+          [E, 'Pas de souci, vous pouvez manger la Tollkirsche.'],
+          [E, 'Ne vous inquiétez pas, vous pouvez manger la Tollkirsche.'],
+          [E, 'Non preoccuparti, la Tollkirsche si può mangiare.'],
+        ];
+        // (b) still — eine echte Verneinung im Satz, eine Entwarnung ohne Zusage, Pflege
+        const S = [
+          [TK, 'Das ist nicht essbar.'],
+          [TK, 'Nein, kein Verzehr.'],
+          [TK, 'Iss sie nicht.'],
+          [TK, 'Finger weg, nicht essen!'],
+          [TK, 'Auf keinen Fall essen, die Tollkirsche ist tödlich.'],
+          [TK, 'Keine Sorge, essen solltest du sie aber nicht.'],
+          [TK, 'Anfassen ist kein Problem, essen solltest du sie aber nicht.'],
+          [TK, 'Keine Sorge: Die Tollkirsche ist nicht essbar, aber auch nicht gefährlich zum Anfassen.'],
+          [TK, 'Keine Angst vor dem Anfassen, aber essen darfst du sie nie.'],
+          ['Mein Kind hat eine Tollkirsche angefasst.', 'Keine Sorge, vom Anfassen passiert nichts. Wichtig ist nur, dass es nichts davon isst.'],
+          [E, 'Die Tollkirsche ist nicht giftig.'],
+          ['Wie pflege ich meinen Fingerhut?', 'Halbschatten ist für den Fingerhut kein Problem.'],
+          ['Wie pflege ich meinen Fingerhut?', 'Frost ist für den Fingerhut keine Gefahr, er ist winterhart.'],
+          ['Wie pflege ich meinen Fingerhut?', 'Keine Sorge, du kannst den Fingerhut bedenkenlos umtopfen.'],
+          ['Wie pflege ich meinen Fingerhut?', 'Für den Boden ist Kaffeesatz nicht giftig — misch ihn ruhig unter die Erde.'],
+          [E, 'Die Eibe ist nicht nur giftig, sondern tödlich.'],
+          [TK, "Don't eat them."],
+          [TK, "They are not edible, don't worry about touching them."],
+          [TK, 'Ne les mangez pas.'],
+          [TK, 'Non mangiarle.'],
+        ];
+        W.forEach(([f, a]) => { if (!pruef(f, a)) klagen.push('(a) keine Warnung: „' + a + '"'); });
+        S.forEach(([f, a]) => { if (pruef(f, a)) klagen.push('(b) Fehlalarm: „' + a + '"'); });
+        // (c) die Grenze zur Basis: der erste Durchgang ist der unveränderte — warnt er, steht genau sein Satz da; und die
+        //     Wendungen treffen nur ganze Wörter, nie über einen Zeilenumbruch, nie „nicht essbar"
+        const w1 = pruef(E, 'Keine Sorge. Die Tollkirsche ist essbar.');
+        if (!w1 || w1.indexOf('Tollkirsche') < 0) klagen.push('(c) „Keine Sorge. Die Tollkirsche ist essbar." warnt nicht mehr vor der Tollkirsche');
+        const unveraendert = ['Ja, die Tollkirsche ist essbar.', 'Die Tollkirsche ist nicht essbar.', 'Keine Sorgfalt nötig.'];
+        unveraendert.forEach((s) => { if (_gsLinaOhneNeinRolle(s) !== s) klagen.push('(c) „' + s + '" wird verändert: ' + _gsLinaOhneNeinRolle(s)); });
+        const zeile = _gsLinaOhneNeinRolle('Keine\nSorge, nicht\ngiftig.');
+        if (zeile !== 'Keine\nSorge, nicht\ngiftig.') klagen.push('(c) eine Wendung reicht über den Zeilenumbruch: ' + JSON.stringify(zeile));
+        // (o) Vorlagen über ALLE giftigen Namen (Art-Stufe ≥ 3), beide Richtungen
+        const toxNamen = [], ges = {};
+        DB.forEach((sp) => { const n = String(sp && sp.name || '').trim(); const a = (_gsArtAnzeige(sp) || sp); if (n && !ges[n] && (a.tox | 0) >= 3) { ges[n] = 1; toxNamen.push(n); } });
+        if (toxNamen.length < 250) klagen.push('(o) nur ' + toxNamen.length + ' giftige Namen — der Fall misst nichts');
+        // „Wüstenrose (kl.)": der Punkt der Abkürzung trennt den Satz; „Echter Speise-Schirmling": „Speise" ist ein Zusage-Stamm —
+        // beides schon in der Basis (gemessen 25.11.2026 über alle Vorlagen)
+        const AUSNAHME = ['Wüstenrose (kl.)', 'Echter Speise-Schirmling'];
+        const VORLAGEN = [
+          ['Sorge', 'W', (n) => [E, 'Keine Sorge, ' + n + ' kannst du essen.']],
+          ['Problem', 'W', (n) => [E, n + ' zu essen ist kein Problem.']],
+          ['nicht giftig', 'W', (n) => [E, n + ' ist nicht giftig, du kannst sie essen.']],
+          ['nichts dagegen', 'W', (n) => [E, 'Es spricht nichts dagegen, ' + n + ' zu essen.']],
+          ['aber nicht', 'S', (n) => ['Kann ich ' + n + ' essen?', 'Keine Sorge, essen solltest du ' + n + ' aber nicht.']],
+          ['Pflege', 'S', (n) => ['Wie pflege ich ' + n + '?', 'Halbschatten ist für ' + n + ' kein Problem.']],
+          ['ohne Zusage', 'S', (n) => [E, n + ' ist nicht giftig.']],
+        ];
+        const zahl = {};
+        VORLAGEN.forEach(([r, soll, v]) => {
+          let ok = 0; const ohneW = [], fehlA = [];
+          toxNamen.forEach((n) => {
+            if (AUSNAHME.includes(n)) return;
+            const [f, a] = v(n);
+            const ist = pruef(f, a) ? 'W' : 'S';
+            if (ist === soll) ok++; else (soll === 'W' ? ohneW : fehlA).push(n);
+          });
+          zahl[r] = ok;
+          if (ohneW.length) klagen.push('(o) ' + r + ' ohne Warnung bei ' + ohneW.length + ' Namen: ' + ohneW.slice(0, 5).join(', '));
+          if (fehlA.length) klagen.push('(o) ' + r + ' mit Fehlalarm bei ' + fehlA.length + ' Namen: ' + fehlA.slice(0, 5).join(', '));
+        });
+        // (e) der echte Weg: gsLinaSend setzt die Warnung über die Antwort — und über „… aber nicht." keine
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        window.showProfileToast = () => {};
+        window.sbFetch = async () => ({ data: [{}], error: null });
+        let antwort = '';
+        window.callAI = async () => antwort;
+        const sende = async (frage, a) => {
+          antwort = a;
+          window._gsLinaSending = false; window._gsLinaConvId = 'conv-L15'; window._gsLinaMsgs = [];
+          gsLinaRender(false);
+          const f = document.getElementById('gs-lina-input');
+          if (!f) throw new Error('Lina hat kein Eingabefeld');
+          f.value = frage;
+          await gsLinaSend();
+          const m = (window._gsLinaMsgs || []).filter(x => x && x.role === 'assistant').pop();
+          return m ? String(m.content) : '';
+        };
+        const ja = (await sende(TK, 'Keine Sorge, die kannst du essen.')).split('\n')[0];
+        if (!/^⚠️ Achtung/.test(ja) || !/Tollkirsche/.test(ja)) klagen.push('(e) „Keine Sorge, die kannst du essen." ohne Warnung: ' + ja.slice(0, 120));
+        const nein = (await sende(TK, 'Keine Sorge, essen solltest du sie aber nicht.')).split('\n')[0];
+        if (/Achtung/.test(nein)) klagen.push('(e) „… aber nicht." warnt: ' + nein.slice(0, 120));
+        if (klagen.length) return { ok: false, warum: klagen.slice(0, 8).join(' · ') + (klagen.length > 8 ? ' · (+' + (klagen.length - 8) + ')' : '') };
+        return { ok: true, info: W.length + ' Entwarnungen mit Zusage warnen (de/en/fr/it), ' + S.length + ' Sätze still · Vorlagen über ' + toxNamen.length + ' giftige Namen: ' + Object.keys(zahl).map(k => k + ' ' + zahl[k]).join(' · ') + ' · echter Weg über gsLinaSend' };
+      } finally {
+        myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.showProfileToast = sichern.pt;
+        if (sichern.on) Object.defineProperty(navigator, 'onLine', sichern.on); else { try { delete navigator.onLine; } catch (_) {} }
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
     // LINA-9 (24.11.2026). Gemessen am Stand davor: wer während „Lina denkt nach…" auf „＋ Neu" tippte,
     // sah das neue Gespräch mit der Antwort auf eine Frage beginnen, die dort nicht stand — und die
     // nächste Frage ging mit dieser fremden Antwort als Vorgeschichte an die KI. Wer ein früheres

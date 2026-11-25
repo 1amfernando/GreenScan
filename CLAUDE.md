@@ -2376,6 +2376,17 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > sie selbst nennt. **Wer prüft, ob ein Text etwas nennt, prüft gegen das, was ein Name sein KANN, nicht gegen das, was die
 > Liste kennt.** Gemessen mit einem Orakel MIT Garten: „nur ohne Ort“ 0, bei harmlosen Namen 0 neu (`sensor_check` „Lina 14“).
 
+> **Ein Verneinungsstamm verneint nicht immer das Essen — und eine Erweiterung, die nur ADDIEREN darf, läuft als zweiter
+> Durchgang** (v33.83, Lina 15 (ko); Hold-out zu (kj)). „Keine Sorge, die kannst du essen.“, „… zu essen ist kein Problem.“ und
+> „nicht giftig, du kannst sie essen“ waren still: NEIN sah „kein“ und „nicht“, und die Entwarnung selbst war die falsche Zusage.
+> Statt die Regel der Basis umzubauen, liest `_gsLinaSicherheit` eine Antwort, in der es nichts fand, ein ZWEITES Mal — mit den
+> Wendungen aus `GS_LINA_NEIN_ROLLE` als „ja“ (`_gsLinaOhneNeinRolle`). So bleibt der erste Durchgang Byte für Byte der alte, und
+> „was die Basis warnt, warnt weiter“ gilt durch den Bau, nicht nur durch die Messung. Zwei Grenzen machen es sicher: Ersetzt wird
+> nur in einem Satz, in dem danach KEINE echte Verneinung mehr steht („Keine Sorge, essen solltest du sie aber nicht.“ — das „aber“
+> trennt den Teil vom „nicht“), und eine Wendung reicht nie über einen Zeilenumbruch. Eine Wendung wird zu „ja“, nicht zu
+> nichts: „Die Tollkirsche zu essen ist kein Problem.“ hat sonst kein Zusage-Wort mehr (Gegenprobe K03). Gemessen: Vorlagen über
+> 312 giftige Namen 0 → 311 je Wendung (de/en/fr/it), beide Orakel unverändert (`sensor_check` „Lina 15“, fünf Gegenproben).
+
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
 > lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer
@@ -4211,6 +4222,17 @@ gehoert der Cache-API erst recht.
 **Und die Grenze, ehrlich benannt:** wie gross der Cache in der Praxis wird,
 ist von hier aus NICHT messbar — die Kachel-Server sind aus dieser Umgebung
 nicht erreichbar. Geprueft ist der Mechanismus, nicht die Zahl.
+
+> **Ein Fall, der einen Wechsel pruefen soll, misst den Wechsel selbst — und eine Frist macht aus einem Haenger einen
+> roten Fall mit Namen** (25.11.2026, Fall 35 „Teilen: ein Worker-Wechsel loescht das wartende Foto nicht“; Brett 75c2,
+> Ursache in 8949). Unter Last blieb der neue Worker nach SKIP_WAITING „installed“: Chromium verlor den
+> Aktivierungsversuch, erst eine Navigation loeste ihn wieder aus — und genau diese Navigation kam nie an. Der Fall hing bis
+> zur 25-Minuten-Grenze der Suite, in der CI bis zum 60-Minuten-Limit des Jobs (#355). Und er war auch GRUEN mit einem
+> Worker, der nie aktiv wird (Gegenprobe): er hielt die Caches gegen die neue Version, und die legt der Worker schon beim
+> INSTALLIEREN an. Seither fragt der Fall den Worker selbst (Version und Zustand ueber `ctxT.serviceWorkers()`), gibt die
+> Seite ueber `about:blank` frei, wenn der Wechsel ausbleibt (geht nicht durch den Worker, ist kein Client des Ursprungs),
+> und jede Abfrage im Teilen-Block hat eine Frist in Node. **Eine Frist ist kein Hochsetzen der Wartezeit:** sie endet in
+> Sekunden und nennt den Schritt, statt nach 25 Minuten „Zeitgrenze“ zu sagen.
 
 **`a11y_check.js` (seit v32.16) fragt, was keiner der elf anderen fragt:
 laesst sich die App bedienen, wenn man sie NICHT SIEHT oder die Maus nicht

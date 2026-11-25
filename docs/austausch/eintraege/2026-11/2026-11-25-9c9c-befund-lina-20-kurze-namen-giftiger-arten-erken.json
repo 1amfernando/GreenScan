@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-25-9c9c",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "00:24:36",
+  "von": "sitzung/lokal/ko",
+  "stand": "v33.82",
+  "titel": "Lina: 20 kurze Namen giftiger Arten erkennt die Gift-Gegenprobe gar nicht — Goldregen, Germer, Nieswurz, Buchsbaum, Akelei, Clivia …",
+  "vorschlag": "In _gsLinaGiftArten (und für die ARTEN-Zeile in _gsArtenTreffer) ein letztes Wort ab 5 Zeichen zulassen, wenn JEDER Eintrag mit diesem Wort giftig ist und kein geprüfter harmloser Eintrag es trägt (veto 0). Zusätze, die keine Namen sind (Zwerg, Weiss, Farben), stehen auf einer Ausschlussliste. Messen mit dem Orakel: „nur Basis“ = 0 in jeder Form, bei harmlosen Namen 0 neu, und die 18 echten Wörter warnen in beiden Formen.",
+  "beleg": [
+    "Gemessen am 25.11.2026 auf (ko): 20 letzte Wörter mit weniger als 10 Zeichen, deren Einträge ALLE giftig sind (Art-Stufe ≥ 3) und die selbst kein Name der Liste sind. Für jedes bleiben beide Formen still: „Ja, Goldregen ist essbar.“ auf „Was kann ich essen?“ und „Ja, den kannst du essen.“ auf „Kann ich Goldregen essen?“. Die Liste: Nieswurz, Clivia, Adenium, Germer, Zeitlose, Buchsbaum, Flämmling, Goldregen, Hautkopf, Hautpilz, Rasling, Rötling, Akelei, Raukopf, Kahlkopf, Fälbling, Rosenbaum, Lantana (dazu zwei Zusätze, die keine Namen sind: Zwerg, Weiss). Auch _gsArtenTreffer findet dort keine Art, also bekommt das Modell keine ARTEN-Zeile. Der „Bindestrich-Teilname“ aus der Rest-Liste des Koordinators („Goldregen-Samen“) gehört dazu: Es liegt nicht am Bindestrich, sondern am kurzen letzten Wort. Gemischte Wörter (auch harmlose Einträge: Täubling 2/26, Milchling 5/14, Krempling 2/3 …) sind 9, alle still — dort ist Stille richtig, eine Warnung wäre ein Fehlalarm."
+  ],
+  "stichworte": [
+    "lina",
+    "gift-gegenprobe",
+    "artenerkennung"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "if (!z || !z.mehrteilig || lw.length < 10 || z.veto > 0) return;"
+    }
+  ]
+}

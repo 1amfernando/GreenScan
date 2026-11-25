@@ -12,6 +12,105 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-25 (ko) - v33.83: Lina 15 — eine Entwarnung ist keine Verneinung („Keine Sorge, die kannst du essen.“)
+
+**Auftrag:** Hold-out des Koordinators zu (kj), als (ko) vor die neuen Lina-Fähigkeiten gestellt. 5 von 16 stillen Zusagen
+trugen einen Verneinungsstamm, der nur eine Sorge oder das Gift verneint: „… kein Problem“, „Keine Sorge, …“, „nicht giftig, …
+kannst du essen“. Das ist die häufigste Form, in der ein Modell eine falsche Zusage schreibt. Bedingungen: Vorlagen über die 312
+giftigen Namen warnen, die Gegenrichtung bleibt still („Das ist nicht essbar.“, „Nein, kein Verzehr.“, „Iss sie nicht.“, „Finger
+weg, nicht essen“, „nicht giftig“ ohne Zusage, Pflegefragen), und die Basis verliert nichts.
+
+**Gebaut** (`_gsLinaSicherheit`, `GS_LINA_NEIN_ROLLE`, `_gsLinaOhneNeinRolle`):
+- **Ein zweiter Durchgang statt einer neuen Regel im ersten.** Findet die Gegenprobe nichts, liest sie die Antwort noch einmal,
+  mit den Entwarnungen als „ja“. Der erste Durchgang bleibt Byte für Byte der alte; was die Basis warnt, warnt weiter, mit
+  demselben Satz.
+- **Die Wendungen** (eine Liste, elf Einträge): „kein(e) Sorge(n)/Angst/Panik/Bedenken/Gefahr/Risiko/Problem/Gift/Frage“, „kein
+  Grund zur Sorge“, „(gar/überhaupt) nicht (sehr/so/mehr) giftig/gefährlich/toxisch/schädlich/bedenklich/schlimm“, „nichts dagegen/
+  einzuwenden/zu befürchten/passieren“, „macht nichts“; englisch „don't worry“, „not poisonous/toxic/a problem“; französisch „ne
+  vous inquiétez pas“, „pas de souci/problème“, „pas toxique“; italienisch „non preoccuparti“, „non è velenosa/tossica“. „Nicht
+  nur … sondern auch“ verneint nichts und fällt weg.
+- **Nur in einem Satz ohne echte Verneinung danach.** „Keine Sorge, essen solltest du sie aber nicht.“ bleibt, wie er ist: das
+  „aber“ trennt den Teil vom „nicht“, und ohne diese Sperre warnte er (Gegenprobe K02).
+- **„ja“, nicht nichts:** „Die Tollkirsche zu essen ist kein Problem.“ trägt sonst kein Zusage-Wort mehr (Gegenprobe K03).
+- Eine Wendung trifft nur ganze Wörter und reicht nie über einen Zeilenumbruch. Eine Entwarnung OHNE Zusage („Die Tollkirsche ist
+  nicht giftig.“) bleibt still, wie verlangt; als Idee auf dem Brett (a9d6).
+
+**Gemessen** (Vorlagen über 312 giftige und 404 harmlose Namen, Basis 255665c · v33.82 · (ko)):
+
+| Vorlage | soll | Basis | v33.82 | (ko) |
+|---|---|---|---|---|
+| „Keine Sorge, N kannst du essen.“ · „Keine Sorge, N ist essbar.“ · „Mach dir keine Sorgen, …“ · „Keine Angst, …“ · „Keine Bedenken: …“ | warnen | 0 | 0 | 311 je |
+| „N zu essen ist kein Problem.“ · „Kein Problem, N ist essbar.“ | warnen | 0 | 0 | 311 je |
+| „N ist (gar) nicht giftig, du kannst sie essen.“ · „N ist nicht gefährlich, roh essen kannst du sie.“ | warnen | 0 | 0 | 311 je |
+| „Es spricht nichts dagegen, N zu essen.“ · „… hast du nichts zu befürchten.“ · „… besteht keine Gefahr.“ | warnen | 0 / 0 / 1 | 1 / 0 / 1 | 311 / 311 / 312 |
+| „N ist nicht nur essbar, sondern auch lecker.“ | warnen | 0 | 0 | 311 |
+| englisch, französisch, italienisch (je zwei Wendungen) | warnen | 0 | 0 | 311–312 |
+| „Das ist nicht essbar.“ · „Nein, kein Verzehr.“ · „Iss sie nicht.“ · „Finger weg, nicht essen!“ | still | 0 | 0 | 0 |
+| „Keine Sorge, essen solltest du sie aber nicht.“ · „Anfassen ist kein Problem, essen solltest du N aber nicht.“ | still | 0 | 0 | 0 / 1 |
+| „N ist nicht giftig.“ · „Halbschatten ist für N kein Problem.“ · „Frost ist für N keine Gefahr …“ | still | 0 | 0 | 1 je |
+| „Keine Sorge, du kannst N bedenkenlos umtopfen.“ | still | 1 | 0 | 36 |
+
+Erläuterungen zur Tabelle:
+- **Die 1 in den stillen Vorlagen** ist „Echter Speise-Schirmling“ („Speise“ ist ein Zusage-Stamm im Namen) bzw. „Wüstenrose (kl.)“
+  (der Punkt der Abkürzung trennt den Satz). Beide sind bekannt seit (kg).
+- **Die 36** sind dieselben 36 Namen mit einem Ess-Wort („…pilz“, „…beere“), die auch ohne „Keine Sorge“ im Pflegesatz warnen (km).
+- **Bei harmlosen Namen** warnen die Vorlagen neu genau dort, wo die Basis dieselbe Zusage ohne Wendung warnt: 6 bzw. 23 Namen, die
+  Fehlalarme sind dieselben wie in (kj) und (km) (Efeu-Geranie, Scharfer Hahnenfuss …).
+- **Gegen v33.82 verliert keine Vorlage eine Warnung** (0 Namen). Gegen die Basis ist es einer: „Wüstenrose (kl.)“ im
+  Pflegesatz, und das seit (kg) — dort ist Stille richtig.
+- **Orakel ohne Garten** (6 Formen × 3'138 Namen): identisch mit v33.82 in jeder Form, Basis → Kopf „nur Basis“ 0. **Orakel mit
+  Garten** (7 Formen): identisch mit v33.82. Die Orakel-Formen tragen keine Wendung, der zweite Durchgang greift dort nie.
+
+**Prüfstand:** `sensor_check` „Lina 15 · NEIN-Rolle (ko)“ — 13 Entwarnungen mit Zusage warnen (de/en/fr/it), 20 Sätze still, die
+Grenze zur Basis (der erste Durchgang warnt mit seinem Satz; ein Satz ohne Wendung, „nicht essbar“ und ein Zeilenumbruch bleiben
+unverändert), Vorlagen über alle giftigen Namen in beiden Richtungen (je 310), der echte Weg über `gsLinaSend`. Fünf Gegenproben
+einzeln rot, je mit dem erwarteten Satz: zweiter Durchgang aus · Satz-Sperre aus · Wendung als Leerstelle statt „ja“ · jedes Nomen
+nach „kein“ · Wendung über den Zeilenumbruch.
+
+**Brett:** neuer Befund 9c9c — 20 kurze Namen giftiger Arten (Goldregen, Germer, Nieswurz, Buchsbaum, Akelei, Clivia …) erkennt
+die Gegenprobe gar nicht, in keiner Form; der „Bindestrich-Teilname“ („Goldregen-Samen“) aus der Rest-Liste gehört dazu. Neue Idee
+a9d6: eine Entwarnung ohne Zusage über eine giftige Art.
+
+**Offen:** brett:2026-11-25-9c9c, brett:2026-11-25-a9d6
+**Nicht geprüft:** echte KI-Antworten (gestellt) und der Hold-out des Koordinators zu (ko); Wendungen, die nicht in der Liste
+stehen („halb so wild“, „unbedenklich zu geniessen“ trifft schon die Basis); Spanisch (die Gegenprobe kennt dort keine Zusage-Stämme,
+Rest-Liste „fremde Sprachen“); eine Zusage über die Satzgrenze („Tollkirschen essen? Kein Problem!“ — das ist (kt)).
+
+### 2026-11-25 (Prüfstand, ohne Versionsnummer) - offline_check: ein Worker-Wechsel hängt nicht mehr bis zur Zeitgrenze
+
+**Auftrag:** Koordinator, nach #355: der erste CI-Lauf endete am 60-Minuten-Limit des Jobs, `offline_check` kam in 23 min nicht
+zurück. Bekannt seit Brett 75c2, die Ursache eingegrenzt in 8949. Bedingungen: der Fall wird weiter ROT, wenn der Worker wirklich
+nicht wechselt (kein Hochsetzen einer Frist, kein Überspringen), und 5 Läufe auf 4 Kernen ohne Hänger. Keine Zeile App-Code, keine
+Versionsnummer (wie #348).
+
+**Gebaut** (nur `scripts/offline_check.js`):
+- **Fall 35 misst den Worker selbst** — Version und Zustand über `ctxT.serviceWorkers()`, nicht die Caches der Seite. Bleibt der
+  Wechsel nach SKIP_WAITING aus (der Wettlauf in Chromium aus 8949: der neue Worker bleibt „installed“), gibt die Seite ihn frei:
+  `about:blank` geht nicht durch den Worker und ist kein Client des Ursprungs. Gewartet wird mit gezählten Versuchen, bis er
+  „activated“ meldet; erst dann wird `/` geladen. Wird er nie aktiv: ROT mit dem Zustand jedes Workers.
+- **Jede Seitenabfrage im Teilen-Block hat eine Frist in Node** (`warteAuf`, `stand`, die Abfragen in 34/35, das Neuladen): eine
+  Seite, die nicht mehr antwortet, macht den Fall in Sekunden rot und nennt den Schritt.
+- **Fall (g)** nennt, wenn der Wechsel ausbleibt, den Zustand jedes Workers (vorher nur „waiting danach true“).
+
+**Gemessen:**
+- **Gegenprobe „der neue Worker wird nie aktiv“** (ein zweiter `activate`-Listener mit nie endendem `waitUntil`): neu → Fall 35
+  ROT „der neue Worker wurde nicht aktiv, auch nach Freigabe der Seite — Worker [gs-v33.82 activated, gs-vTEST3 activating]“, der
+  Lauf endet nach 184 s. **Alt (a30c580) → Fall 35 GRÜN:** er hielt die Caches gegen die neue Version, und die legt der Worker
+  schon beim Installieren an — einen Worker, der nie aktiv wird, hätte er nie bemerkt.
+- **5 Runden × 4 Läufe gleichzeitig auf 4 Kernen (20 Läufe): kein Hänger**, jeder Lauf nach 184–223 s fertig. Fall 35 grün in
+  20 von 20 — in 5 davon trat der Wettlauf auf und wurde abgefangen („Wechsel nach Freigabe der Seite“). Zum Vergleich: auf v33.61
+  hingen unter derselben Last 8 von 16 Läufen (8949), und heute hing a30c580 zweimal (CI #355, Lauf des Paket-1-Agenten).
+- Andere rote Fälle unter dieser Last (keine Hänger, nicht der Teilen-Block): (g) in 2 von 20 Läufen (der Wettlauf, jetzt mit
+  „gs-vTEST2 installed“ im Bericht) und EIN Lauf mit vier roten Fällen — der Update-Fall (b) „kein wartender Worker nach 20 s“
+  mit zwei Folgefällen und die Warteschlange („der Scan wurde gar nicht erst eingereiht“).
+- **5 Läufe einzeln hintereinander (4 Kerne): kein Hänger**, je 49 Fragen, 0 rot, 157–160 s, Fall 35 jedes Mal „Wechsel sofort“.
+  Der fünfte wurde neu gefahren: der erste Versuch brach mit einem Neustart des Containers ab, nicht im Prüfstand.
+
+**Brett:** 75c2 geschlossen (`954f`); neue Idee `a764` (Update-Weg: ein zweites SKIP_WAITING, wenn der Wechsel ausbleibt).
+**Offen:** brett:2026-11-25-a764
+**Nicht geprüft:** die CI-Runner selbst (dort entscheidet erst der nächste Lauf); Firefox und Safari (Playwright fährt hier nur
+Chromium); ob eine echte Person den Wettlauf trifft (die offene Frage aus 8949).
+
 ### 2026-11-24 (kn) - v33.82: Lina 14 — ein Ort in der Frage ist der letzte Rückfall der Gift-Gegenprobe
 
 **Auftrag:** Brett-Idee 5929, vom Koordinator als (kn) in v33.82 freigegeben. „Kann ich die Beeren auf dem Balkon essen?“ nennt
@@ -17821,9 +17920,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.82` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.81) · SW-Cache `gs-v33.82` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.83` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.82) · SW-Cache `gs-v33.83` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **103'868 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.82; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.62).
+- **Frontend:** `index.html` **103'910 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.83; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.63).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **48** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.72: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 48** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (jv). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

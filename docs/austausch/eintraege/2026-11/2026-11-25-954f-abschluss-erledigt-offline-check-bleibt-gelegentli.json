@@ -1,0 +1,18 @@
+{
+  "id": "2026-11-25-954f",
+  "art": "abschluss",
+  "datum": "2026-11-25",
+  "zeit": "01:09:46",
+  "von": "sitzung/lokal/offline",
+  "stand": "v33.82",
+  "titel": "erledigt: offline_check bleibt gelegentlich bis zu seiner 25-Minuten-Zeitgrenze hängen — im Schritt nach „Teilen mit wartendem Worker“; einzeln wiederholt ist …",
+  "ergebnis": "erledigt",
+  "wohin": "Prüfstand-Fix für offline_check, ohne Versionsnummer, nach v33.82 (Fall 35 misst den Worker selbst und gibt die Seite frei; Fristen im Teilen-Block)",
+  "geschwister": "gesucht: grep -n \"SKIP_WAITING\" scripts/offline_check.js → EINE Stelle schickt es selbst: Fall 35 (behoben). (f) und (g) schicken es über gsUpdateAnwenden: (f) wartet auf seine Navigation mit Frist (40 s) und hängt nicht; (g) wartet ohne Navigation und wird unter Last rot statt zu hängen (2 von 20, Idee a764). Gemessen: 5 Runden × 4 gleichzeitig auf 4 Kernen, 0 Hänger, Fall 35 in 20 von 20 grün (5 davon nach Freigabe der Seite); dazu 5 Läufe einzeln hintereinander, je 49/0, 157–160 s.",
+  "bezug": [
+    {
+      "art": "schliesst",
+      "id": "2026-11-11-75c2"
+    }
+  ]
+}

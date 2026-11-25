@@ -171,6 +171,11 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     „Kann ich die Beeren auf dem Balkon essen?" → „Ja, die kannst du essen." schwieg, obwohl dort eine Tollkirsche steht. Jetzt
     warnt der Ort als letzter Rückfall: nur wenn Frage und Antwort keine Pflanze nennen — auch keine, die die Liste so nicht kennt
     („des Bärlauchs"). Orakel mit Garten: keine Warnung weggenommen, bei harmlosen Namen keine neue.
+15. ✅ v33.83 (`sensor_check` „Lina 15 · NEIN-Rolle (ko)", Hold-out zu (kj)) — **Eine Entwarnung machte die Zusage still.**
+    „Keine Sorge, die kannst du essen.", „Die Tollkirsche zu essen ist kein Problem." und „Sie ist nicht giftig, du kannst sie
+    essen." blieben ohne Warnung: der Verneinungsstamm verneinte nur die Sorge, nicht das Essen. Jetzt liest die Gegenprobe eine
+    stille Antwort ein zweites Mal, mit diesen Wendungen als „ja" — aber nur einen Satz ohne echte Verneinung („Keine Sorge, essen
+    solltest du sie aber nicht." bleibt still). Vorlagen über 312 giftige Namen: 0 → 311 je Wendung; beide Orakel unverändert.
 
 ## Offen — Suche
 
