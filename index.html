@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.85.20261125">
+<meta name="app-version" content="33.86.20261125">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -81114,6 +81114,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.86', date: '25.11.2026',
+      headline: 'Lina denkt mit: sie warnt vor Frost, kennt Rezepte aus deinem Garten und öffnet die Beetplanung',
+      summary: 'Lina 17. Stehen frostempfindliche Pflanzen draussen und meldet der Wetterdienst Frost, sagt die App es von selbst — einmal am Tag, nie in deiner Stille-Zeit und nur, solange der Frost noch kommt. Lina nennt es auch, wenn du sie nach deinem Garten fragst. Sie kennt die Rezepte der App zu den Pflanzen, die du hast: nur zu genau derselben Art und nie zu einer giftigen. Kann die App einer Pflanze keine Art sicher zuordnen, sagt sie das, statt „kein Rezept“. Für die Beetplanung öffnet Lina den Planer mit dem, was zu deinem Garten hinterlegt ist; was fehlt, trägst du dort ein.',
+      user_summary: 'Lina warnt vor Frost, kennt Rezepte aus deinem Garten und öffnet die Beetplanung für dein Beet.',
+      user_items: [
+        {emoji:'❄️', bold:'Frost kommt:', text:' stehen frostempfindliche Pflanzen draussen, meldet die App den Frost von selbst — mit Tiefstwert und Tag, einmal am Tag und nie in deiner Stille-Zeit.'},
+        {emoji:'🍲', bold:'Rezepte aus deinem Garten:', text:' Lina zeigt die Rezepte zu Pflanzen, die du hast — nur zu genau derselben Art und nie zu einer giftigen.'},
+        {emoji:'🧠', bold:'Beetplanung:', text:' Lina öffnet den Planer für dein Beet mit Masse, Licht und Boden, die du dort hinterlegt hast. Fehlt etwas, bleibt das Feld leer.'},
+        {emoji:'🔒', bold:'Einblick aus:', text:' dann gehen auch Linas Hinweise zu deinen Gärten und Rezepten nicht an die KI.'},
+      ]
+  },
+  {
     v: 'v33.85', date: '25.11.2026',
       headline: 'Lina trägt ein, was du im Garten getan hast — erst nach deinem Tipp',
       summary: 'Lina 16. Schreibst du Lina „Habe die Tomaten gegossen!“, schlägt sie unter ihrer Antwort eine Karte vor: die Aufgabe abhaken, einen Eintrag in den Pflegeverlauf schreiben, einen Schädling oder eine Krankheit notieren, eine Pflanzung aus dem Beet nehmen oder in einen anderen Garten ziehen. Geschrieben wird erst, wenn du auf die Karte tippst. Ist unklar, welche Pflanze gemeint ist, fragt Lina nach, statt zu raten. Notierte Krankheiten erscheinen jetzt auch bei „Braucht Hilfe“.',
@@ -81395,19 +81407,6 @@ window.GS_RELEASES = [
         {emoji:'ℹ️', bold:'Ehrlich zum Kontingent:', text:' war das Foto schon zur KI unterwegs, sagt dir die App, dass dieser Versuch für heute zählen kann.'}
       ],
   },
-  {
-    v: 'v33.66', date: '19.11.2026',
-      headline: 'Neu eingetragene Pflanzen gehen nicht mehr verloren und stehen sofort überall da',
-      summary: 'Auftrag P-F: Pflanzen und Gärten werden beim Anmelden EINZELN zusammengeführt (je Eintrag mit Änderungsstempel, gelöschte Einträge als Löschmarken) statt als ganze Liste ersetzt; das Abhaken, das ein zweites Gerät noch nicht gesendet hatte, überschreibt keine neue Pflanze mehr und eine gelöschte kommt nicht zurück. Beim Speichern wird erst gesichert, dann gemeldet: bei vollem Speicher wird die Pflanze, die Pflanzung oder das Abhaken zurückgenommen und ein Satz gesagt. Eine neue Pflanzung zieht Kopfzahlen, Tagesplan und Zähler sofort mit; eine Änderung während eines laufenden Sicherns geht nicht mehr verloren, und beim Schliessen gehen alle drei Pakete gleichzeitig hinaus.',
-      user_summary: 'Was du einträgst, bleibt: zwei Geräte überschreiben einander nicht mehr, und ist der Speicher voll, sagt dir die App das, statt „gespeichert“ zu melden.',
-      user_items: [
-        {emoji:'📱', bold:'Zwei Geräte, ein Konto:', text:' eine neue Pflanze oder ein neuer Garten von einem Gerät geht beim Anmelden auf dem anderen nicht mehr verloren — auch nicht durch ein Abhaken dort.'},
-        {emoji:'🗑️', bold:'Gelöscht bleibt gelöscht:', text:' eine Pflanze, die du auf einem Gerät löschst, kommt vom anderen nicht zurück.'},
-        {emoji:'💾', bold:'Ehrlich bei vollem Speicher:', text:' Pflanze, Pflanzung und Abhaken werden nur gemeldet, wenn sie wirklich gespeichert sind; sonst bleibt das Fenster offen und ein Satz sagt warum.'},
-        {emoji:'🌱', bold:'Sofort sichtbar:', text:' eine neue Pflanzung steht gleich in den Pflanzen-Zahlen, im Tagesplan und in den Zählern.'},
-        {emoji:'🌳', bold:'Garten ohne Garten:', text:' wählst du „Garten“, ohne einen angelegt zu haben, legt die App nicht still eine Wohnungs-Pflanze an.'}
-      ],
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81618,7 +81617,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.85';
+var GS_VERSION = 'v33.86';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

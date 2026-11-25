@@ -16,7 +16,7 @@
 
 **Auftrag:** Paket 4 „Mit dir denken" aus Fernandos „Lina viel viel besser": „komplette Beetplanung", „automatisch erkennen
 ‚Tomaten brauchen Schutz — Frost kommt!'", „Rezepte aus dem eigenen Garten". Gebaut auf f1ab6d8 (Paket 1 „Lina 16", auf v33.82
-a30c580), gestapelt auf v33.85 ((kp), 3328d52); der Bump auf v33.86 steht im eigenen Commit. Kein neuer KI-Aufruf, keine
+a30c580), gestapelt auf v33.85 ((kp), seit #359 auf main); der Bump auf v33.86 steht im eigenen Commit. Kein neuer KI-Aufruf, keine
 Push-Quelle, kein Server, keine Migration; `_gsLinaSicherheit` mit allem, was dazu gehört, und die Fälle „Lina 11" bis „Lina 16" sind unberührt.
 
 **Gebaut:**
@@ -83,9 +83,11 @@ lässt den Filter · ein Schlüssel fehlt (`i18n_check`). **2 grün, und so erwa
 Erlaubnis-Prüfung allein weg (`gsNotif.show` prüft selbst) · die Giftprüfung am Rezept-Eintrag allein weg (die Pflanzenseite sperrt
 dieselbe Art schon).
 
-**Lokal (TZ=UTC) auf f1ab6d8 mit diesem Paket:** sensor 74/0 (vorher 73/0) · kalender 58/0 (vorher 57/0) · einstellungen 39/0 ·
-nutzersicht 17/0 · rezept_link ok (524 Einträge) · robust 38/0 · i18n 23/0 · wiring grün (0 kaputt) · statik 10/0 · escape 18/0 ·
-sicherheit (person, schluss, senken) 104/0 · datum 8/0 · austausch 17/0.
+**Auf dem Stapel nach dem Bump (v33.86), TZ=UTC, 23 Prüfstände:** sensor 76/0 · scan 150/0 · sicherheit (person, schluss, senken)
+104/0 · nutzersicht 17/0 · robust 38/0 · speicher 29/0 · modell 23/0 · kalender 58/0 · statik 10/0 · datum 9/0 · austausch 17/0 ·
+i18n 23/0 · wiring 0 kaputt · render 0 JS-Fehler / 0 abgeschnitten · field grün · contrast 0 unter AA · sync 26/0 · save 29/0 ·
+escape 18/0 · versprechen 0 rot (105 Schreibvorgänge) · einstellungen 39/0 · rezept_link ok (524 Einträge) · planer 25/0; dazu
+risiko 4/0.
 
 **Gegenprüfung (ein Widerleger über den Diff, 9 Funde: 2 mittel, 7 klein — alle behoben, jeder mit Fall und Gegenprobe):**
 - **Rezepte: „kein Rezept" stand da, wo die Art nur nicht bestimmt war (mittel).** Eine „Tomate" ohne Latein (Formular, Zwilling und
@@ -18251,9 +18253,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v33.85` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.84) · SW-Cache `gs-v33.85` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v33.86` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.85) · SW-Cache `gs-v33.86` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **104'681 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Folge-Commit zu v33.85; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.65).
+- **Frontend:** `index.html` **105'203 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.86; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.66).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **48** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.72: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 48** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (jv). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

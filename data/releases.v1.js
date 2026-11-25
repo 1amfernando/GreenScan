@@ -30,6 +30,19 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.66', date: '19.11.2026',
+      headline: 'Neu eingetragene Pflanzen gehen nicht mehr verloren und stehen sofort überall da',
+      summary: 'Auftrag P-F: Pflanzen und Gärten werden beim Anmelden EINZELN zusammengeführt (je Eintrag mit Änderungsstempel, gelöschte Einträge als Löschmarken) statt als ganze Liste ersetzt; das Abhaken, das ein zweites Gerät noch nicht gesendet hatte, überschreibt keine neue Pflanze mehr und eine gelöschte kommt nicht zurück. Beim Speichern wird erst gesichert, dann gemeldet: bei vollem Speicher wird die Pflanze, die Pflanzung oder das Abhaken zurückgenommen und ein Satz gesagt. Eine neue Pflanzung zieht Kopfzahlen, Tagesplan und Zähler sofort mit; eine Änderung während eines laufenden Sicherns geht nicht mehr verloren, und beim Schliessen gehen alle drei Pakete gleichzeitig hinaus.',
+      user_summary: 'Was du einträgst, bleibt: zwei Geräte überschreiben einander nicht mehr, und ist der Speicher voll, sagt dir die App das, statt „gespeichert“ zu melden.',
+      user_items: [
+        {emoji:'📱', bold:'Zwei Geräte, ein Konto:', text:' eine neue Pflanze oder ein neuer Garten von einem Gerät geht beim Anmelden auf dem anderen nicht mehr verloren — auch nicht durch ein Abhaken dort.'},
+        {emoji:'🗑️', bold:'Gelöscht bleibt gelöscht:', text:' eine Pflanze, die du auf einem Gerät löschst, kommt vom anderen nicht zurück.'},
+        {emoji:'💾', bold:'Ehrlich bei vollem Speicher:', text:' Pflanze, Pflanzung und Abhaken werden nur gemeldet, wenn sie wirklich gespeichert sind; sonst bleibt das Fenster offen und ein Satz sagt warum.'},
+        {emoji:'🌱', bold:'Sofort sichtbar:', text:' eine neue Pflanzung steht gleich in den Pflanzen-Zahlen, im Tagesplan und in den Zählern.'},
+        {emoji:'🌳', bold:'Garten ohne Garten:', text:' wählst du „Garten“, ohne einen angelegt zu haben, legt die App nicht still eine Wohnungs-Pflanze an.'}
+      ],
+  },
+  {
     v: 'v33.65', date: '19.11.2026',
       headline: 'Abhaken auf der Pflanzenkarte, Notfall-Nummern in der Suche, „Tödlich giftig“ lesbar — und die Übersetzungsleiste des Browsers soll nicht mehr aufpoppen',
       summary: 'Auftrag P-R: der Rest von PR #329 ohne den Zahlungsteil (der steht seit v33.63 auf main) auf den Stand von main gebracht; wo main dieselbe Stelle schon anders gelöst hatte (Scan-Auswahl, Art-Eingang, Rückkehr aus Stripe), gilt main. Abhaken: der Knopf auf der Pflanzenkarte schreibt einen Pflegeeintrag (gsQuickDone), „Alle erledigt“ zählt in Tagebuch, Kalender und Wochenrückblick als erledigt, und jeder Eintrag trägt seine eigene Zeit. Notfall: GS_NOTFALL_NUMMERN (Tox Info Suisse 145, Ausland, 144, 112) ist über die Menü-Suche in fünf Sprachen auffindbar. Artendetail: „Tödlich giftig“ und rund zwanzig weitere Stellen erreichen AA; die Verzehr-Zeile des Scanners wird aus der Gegenprobe gerechnet (_gsListeZumEssen, fünf Zustände). Foto-Ansicht (gsFotoAnsicht) mit escapter Adresse im Pflanzentagebuch; Saatgut-Leiste mit Aussaatfenster und Frost in drei Zuständen. Neu: translate="no" an <html> und <meta name="google" content="notranslate"> — Fernando meldete, die eingestellte Sprache poppe bei jedem Neuladen auf; im Code gibt es keinen Sprachdialog, vermutet wird die Übersetzungsleiste des Browsers. Gemessen ist das Dokument (i18n_check), nicht ein echtes Telefon. contrast_check und touch_check messen ganze Tabs und warten auf den Anmeldebildschirm (anmeldebildWeg); contrast_check, render_check und field_check sind ein Tor.',
