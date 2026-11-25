@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.82.20261124">
+<meta name="app-version" content="33.83.20261125">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -80760,6 +80760,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.83', date: '25.11.2026',
+      headline: 'Lina warnt auch, wenn eine falsche Zusage mit „Keine Sorge“ beginnt',
+      summary: 'Lina 15. „Keine Sorge, die kannst du essen.“, „Das zu essen ist kein Problem.“ und „Sie ist nicht giftig, du kannst sie essen.“ sagen etwas über eine Giftpflanze zu — die Warnung blieb trotzdem aus, weil „kein“ und „nicht“ wie eine Verneinung aussahen. Jetzt liest Lina eine solche Antwort ein zweites Mal und warnt. Eine echte Verneinung („Keine Sorge, essen solltest du sie aber nicht.“) bleibt ohne Warnung.',
+      user_summary: 'Lina erkennt auch beruhigend formulierte Zusagen über Giftpflanzen.',
+      user_items: [
+        {emoji:'🛡️', bold:'Keine falsche Beruhigung:', text:' „Keine Sorge, die kannst du essen.“ über eine Giftpflanze bekommt jetzt eine Warnung.'},
+        {emoji:'✅', bold:'Echte Verbote bleiben ruhig:', text:' „Keine Sorge, essen solltest du sie aber nicht.“ löst keinen Alarm aus.'},
+      ]
+  },
+  {
     v: 'v33.82', date: '24.11.2026',
       headline: 'Lina warnt, wenn du nach einem Ort fragst und dort eine Giftpflanze steht — und nicht mehr bei Pflegetipps',
       summary: 'Lina 13 und 14. Fragst du nach einem Ort statt nach einer Pflanze („Kann ich die Beeren auf dem Balkon essen?“) und sagt Lina „Ja, die kannst du essen.“, warnt sie jetzt vor einer giftigen Pflanze, die du dort eingetragen hast — im Garten dieses Namens oder mit dem Ort in der Notiz. Nur als letzter Rückfall: Nennen Frage oder Antwort eine Pflanze, gilt die. Und Pflegesätze wie „Die Narzisse blüht im März und kann bedenkenlos im Garten bleiben.“ lösen keinen Fehlalarm mehr aus.',
@@ -81052,17 +81062,6 @@ window.GS_RELEASES = [
         {emoji:'💬', bold:'Verständliche Meldung:', text:' klappt die Bestimmung nicht, steht ein ganzer Satz da statt eines technischen Kürzels.'}
       ],
   },
-  {
-    v: 'v33.63', date: '19.11.2026',
-      headline: 'Der Zahlungsweg in EINER Fassung — und ein Kauf, der nicht mehr an einem falschen Parameter scheitern kann',
-      summary: 'Auftrag P-C2: der Zahlungsweg aus PR #329 und der aus v33.59 zu EINER Fassung vereint. Das eine Modul ist supabase/functions/_shared/zahlung_regeln.mjs (ein zweites, stripe_regeln.mjs, gibt es nicht). Aus #329: stripe-checkout schickt kein automatic_payment_methods mehr an Checkout (den Parameter gibt es dort nicht — Stripe lehnt ihn mit 400 ab, gefolgert aus der API-Referenz, nicht gegen Stripe gemessen) und nur noch Namen aus CHECKOUT_PARAMETER; kein zweites Abo neben einem laufenden und nichts neben Lifetime (Stripe wird gefragt, ob das Abo läuft); ein unbekannter gemerkter Kunde wird gesucht statt mit 500 abzubrechen; checkout.session.async_payment_succeeded; Abo-Zeitraum und Rechnung in beiden API-Formen; ein Lifetime-Kauf beendet ein laufendes Abo zum Periodenende; die volle Erstattung gibt den Launch-Platz frei; processed=true; ein Live-Ereignis an einem Test-Schlüssel wird als Satz gemeldet; Portal: Kündigen nur auf ein echtes laufendes Abo, Fortsetzen ohne Plan-Wechsel-Seite. Von main bleiben: eine Zahlung setzt nie verified (W1), eine Rückbuchung entzieht Lifetime (W2), nach aussen nur Kennungen (W3), Rückkehr nur auf die eigenen Ursprünge (W4), exakte Versionen (W5), ein unbekannter Preis ist 500 (W6), Launch am Preis (W7), Entzug über den PaymentIntent (W8), constructEventAsync (W9). stripe-admin-extend-webhook abonniert aus STRIPE_EREIGNISSE. Neu in der Suite: stripe_check (51 Fälle); die Stripe-Attrappe von edge_check lehnt einen unbekannten Checkout-Parameter ab und ist am alten stripe-checkout rot. Nichts davon ist ausgeliefert: die Stripe-Functions warten auf Fernandos Modus-Prüfung (FUER-FERNANDO §30i).',
-      user_summary: 'Hinter den Kulissen: der Weg zum Abo-Kauf ist zusammengeführt und geprüft. Die App sagt dir genauer, warum ein Kauf nicht nötig ist oder das Portal noch nicht geht.',
-      user_items: [
-        {emoji:'💳', bold:'Abo kaufen:', text:' hast du schon ein laufendes Abo oder Pro auf Lebenszeit, sagt dir die App das, statt einen zweiten Kauf anzubieten — der Server prüft es selbst.'},
-        {emoji:'🌐', bold:'Bezahlseite in deiner Sprache:', text:' die Seite von Stripe erscheint auf Deutsch, Französisch, Italienisch oder Englisch — wie die App.'},
-        {emoji:'🧾', bold:'Abo verwalten:', text:' wer noch nie gekauft hat, liest einen ruhigen Hinweis statt einer Fehlermeldung, und „Kündigen“ zeigt immer auf dein laufendes Abo.'},
-      ],
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81273,7 +81272,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.82';
+var GS_VERSION = 'v33.83';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
