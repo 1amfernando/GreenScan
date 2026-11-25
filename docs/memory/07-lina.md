@@ -189,10 +189,18 @@ die Karte. *(sensor_check „Lina 16", 13 Gegenproben; dazu 7 aus der Gegenpruef
    sind EIN Name, Artenliste und Kulturdaten muessen dasselbe sagen (Gurke/Gurken, Minze: mehrdeutig), und „kein Rezept" zu einer
    Art aus dem Namen gilt nicht, wenn ein Rezept dieselbe Art mit Unterart nennt (Karotten → Rüebli) oder den Namen als Stamm
    traegt (Linde → Winterlinde). Frost zaehlt nur in der Saison einer Sommerkultur (`_gsFrostSaison`: April–Oktober, gepflanzt,
-   dieses Jahr, hoechstens `GS_FROST_SAISON_TAGE` 200 Tage); ueber 0 °C heisst es „Frost möglich". `gsNotif.show` protokolliert
+   im Pflanzjahr); ueber 0 °C heisst es „Frost möglich". `gsNotif.show` protokolliert
    erst NACH `new Notification` (wirft auf Chrome/Android). Der Schalter „🥶 Frostgefahr melden" steht als eigene Zeile, nicht im
    Push-Panel. Ist der Frost nicht pruefbar, sagt „Braucht Hilfe" das (`gsPflanzenHilfe().frost`), nie „niemand". Der Zwilling
    geht nur zu seiner Flaeche in den Planer-Auftrag (`_gsPlanTwinPasst`, Hinweis `_gsPPtwinHinweis`). *(sensor_check „Lina 17 · #360")*
+   **Zweiter Folge-Commit:** ein Name mit Zusatz traegt seinen giftigen Teil weiter — NFC, dann jede Wortfolge (`_gsRezWoerter`)
+   gegen die Namen giftiger Eintraege und der Pilze, ein Wort ab `GS_REZ_WORT_MIN` (4: „Eibe", „Efeu"); ein Latein mit nur einer
+   Gattung ist keine Art (gift · pilz · unbekannt, nie der Name); die Unterart gilt auch fuer ein Latein ohne Unterart; ein
+   Pilz-Rezept erkennt man auch an Titel und Zutaten (`GS_REZ_PILZ_WORT`); je Grund ein Satz (`_gsGartenRezepteOffenSaetze`);
+   hinter einem Rezept mit Warnung steht in Linas Zeile „(Rezept mit Verwechslungswarnung)" (`GS_REZ_VERWECHSLUNG`) oder „(Rezept
+   mit Warnhinweis)". Frost: keine 200 Tage mehr; ausserhalb der Saison „nicht geprüft"; ohne Tiefstwert ab heute nicht prüfbar
+   (`_gsWetterTage().mit`); Wort und Wert vom kaeltesten Tag. Der Frost-Schalter zeigt, was gespeichert ist
+   (`_gsPushSettingsSpiegeln`, auch nach Abmelden, Abgleich und Backup). *(sensor_check „Lina 17 · #360 zwei")*
 
 ## Die sechs Regeln, die fuer jeden Freitext-Weg gelten
 

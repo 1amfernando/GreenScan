@@ -813,6 +813,36 @@ const FAELLE = [
       return { ok: true, info: 'Fehler: Plan bleibt, Satz „' + r1.satz[0].slice(0, 60) + '…" · voll: „' + r2.satz[0].slice(0, 40) + '…"' };
     },
   },
+  {
+    // #360 (N5, zweiter Folge-Commit): die Wahl eines Push-Schalters (auch „🥶 Frostgefahr melden") bei vollem Speicher. Bis
+    // hier schrieb gsSavePushSettings ohne Blick auf den Rueckgabewert: der Schalter blieb auf der neuen Wahl, die das Geraet
+    // nicht kannte, und der PATCH an den Server ging trotzdem.
+    name: 'Push-Schalter (gsSavePushSettings) bei vollem Speicher: der Schalter springt zurück, ein Satz, kein PATCH — mit Platz gespeichert',
+    lauf: async () => {
+      if (typeof gsSavePushSettings !== 'function') return { ok: false, warum: 'gsSavePushSettings fehlt' };
+      const sw = document.getElementById('push-cat-frost');
+      if (!sw) return { ok: false, warum: 'der Schalter push-cat-frost fehlt' };
+      const echt = { sf: window.sbFetch };
+      const patches = [];
+      window.sbFetch = async (pfad) => { if (/push_subscriptions/.test(String(pfad))) patches.push(String(pfad)); return { data: [], error: null }; };
+      try {
+        localStorage.setItem('gs_push_settings', JSON.stringify({ frost: true }));
+        sw.checked = false;   // die Person tippt „aus"
+        __voll(true); const r = await gsSavePushSettings({ frost: false }); __voll(false);
+        if (!__VOLL_LOG.some(k => k === 'gs_push_settings')) return { ok: false, warum: 'kein Schreibversuch auf gs_push_settings — Fall nicht hergestellt' };
+        if (r !== false) return { ok: false, warum: 'Rückgabe ' + r + ' statt false' };
+        if (!sw.checked) return { ok: false, warum: 'der Schalter steht auf „aus", gespeichert ist „an"' };
+        if (patches.length) return { ok: false, warum: patches.length + ' PATCH an den Server, obwohl das Gerät die Wahl nicht kennt' };
+        if (!__TOASTS.some(t => /Nicht gespeichert/.test(t))) return { ok: false, warum: 'still verloren, keine Meldung: ' + JSON.stringify(__TOASTS.slice(0, 3)) };
+        // Gegenrichtung: mit Platz geht die Wahl durch
+        sw.checked = false;
+        const r2 = await gsSavePushSettings({ frost: false });
+        const gesp = JSON.parse(localStorage.getItem('gs_push_settings') || '{}');
+        if (r2 !== true || gesp.frost !== false) return { ok: false, warum: 'mit Platz: Rückgabe ' + r2 + ', gespeichert ' + JSON.stringify(gesp) };
+        return { ok: true, info: 'voll → Schalter zurück, „' + (__TOASTS.find(t => /Nicht gespeichert/.test(t)) || '').slice(0, 40) + '…", 0 PATCH · mit Platz → gespeichert' };
+      } finally { window.sbFetch = echt.sf; try { localStorage.removeItem('gs_push_settings'); } catch (_) {} }
+    },
+  },
 ];
 
 (async () => {

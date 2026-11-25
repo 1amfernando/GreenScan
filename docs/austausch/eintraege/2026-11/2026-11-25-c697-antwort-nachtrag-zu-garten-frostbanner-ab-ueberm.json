@@ -1,0 +1,22 @@
+{
+  "id": "2026-11-25-c697",
+  "art": "antwort",
+  "datum": "2026-11-25",
+  "zeit": "09:59:18",
+  "von": "sitzung/lokal/ks",
+  "stand": "v33.86",
+  "titel": "Nachtrag zu: Garten-Frostbanner: ab übermorgen ein Tag zu spät benannt (Mittwoch steht als Donnerstag da) — und Frost erst unter 2 °C, der Kalender ab ≤ 2 °C",
+  "text": "Nachtrag (#360, zweiter Folge-Commit, N4a): gsCheckFrostWarning überspringt jetzt eine Lücke im Tagesminimum (null, '' — vorher war null < 2 wahr und das Banner sagte „0°C“). Die Schwelle (< 2 gegen ≤ 2 im Kalender) und der Wochentag (days[new Date(d).getDay()] mit abMontag) sind unverändert — der Befund bleibt offen; die Zeile heisst jetzt „if (tmin < 2) {“.",
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "    if (tmin < 2) {"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-c72c"
+    }
+  ]
+}

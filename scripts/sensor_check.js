@@ -4863,7 +4863,10 @@ const FAELLE = [
         const zR = (ctxR.match(/^Rezepte aus deinem Garten:[^\n]*/m) || [''])[0];
         const N = (typeof GS_GARTEN_REZEPTE_NENNEN === 'number') ? GS_GARTEN_REZEPTE_NENNEN : 3;
         const unZ = g.pflanzen.ungeprueft || [];   // die Pflanzen ohne eindeutige Art („Tomat") stehen als „nicht geprüft" dabei
-        const sollZ = 'Rezepte aus deinem Garten: ' + g.rezepte.slice(0, N).map(x => _gsLinaKurz(x.titel, 40)).join('; ') + (g.rezepte.length > N ? '; +' + (g.rezepte.length - N) + ' weitere' : '') + '.'
+        // #360 (RZ-8): ein Rezept mit Warnung traegt seinen Vermerk — gerechnet aus der Warnung des Rezepts selbst
+        const vermerk = (x) => { const r = recipesData.find(y => y && String(y.id) === x.id), w = !!(r && r.warning && !gsWarnungLeer(r.warning));
+          return w ? (/verwechs|doppelg|einwandfrei bestimm|sicher bestimm/i.test(String(r.warning)) ? ' (Rezept mit Verwechslungswarnung)' : ' (Rezept mit Warnhinweis)') : ''; };
+        const sollZ = 'Rezepte aus deinem Garten: ' + g.rezepte.slice(0, N).map(x => _gsLinaKurz(x.titel, 40) + vermerk(x)).join('; ') + (g.rezepte.length > N ? '; +' + (g.rezepte.length - N) + ' weitere' : '') + '.'
           + (unZ.length ? ' Ohne eindeutige Art, nicht geprüft: ' + unZ.slice(0, 3).join(', ') + (unZ.length > 3 ? ', +' + (unZ.length - 3) + ' weitere' : '') + '.' : '');
         if (JSON.stringify(unZ) !== '["Tomat","Gurken"]') klagen.push('(d) ungeprüft im Garten: ' + JSON.stringify(unZ) + ' statt ["Tomat","Gurken"]');
         if (zR !== sollZ) klagen.push('(d) die Kontextzeile ist „' + zR + '" statt „' + sollZ + '"');
@@ -4907,8 +4910,9 @@ const FAELLE = [
     //     Linas Zeile; der Salbei daneben behält seine.
     //  R5 „leer" nur geprüft — Gurke, Gurken, Minze (mehrdeutig) und Linde (Namen-Stamm) sind nicht geprüft; Bärlauch,
     //     Salbei, Basilikum, Petersilie und Zucchini behalten ihre Rezepte, ein Broccoli MIT Sorte bleibt ein Nein.
-    //  F1 Frost in der Saison — gepflanzt im Mai: Meldung; Pflanzdatum in der Zukunft, aus dem Vorjahr oder älter als
-    //     200 Tage: keine; im November (gestellter Tag): keine; +1 °C heisst „Frost möglich", −1 °C „Frost kommt"; der
+    //  F1 Frost in der Saison — gepflanzt im Mai: Meldung; Pflanzdatum in der Zukunft oder aus dem Vorjahr: keine (die
+    //     200 Tage gibt es seit dem zweiten Folge-Commit nicht mehr, N1); im November (gestellter Tag): keine; +1 °C heisst
+    //     „Frost möglich", −1 °C „Frost kommt"; der
     //     Schalter steht ausserhalb des Push-Panels, er schaltet die Meldung ab, und er spiegelt auch ohne Web-Push.
     //  F2 ein Konstruktor, der wirft (Chrome/Android): kein Protokoll, kein Tagesstempel, Zähler 0; einer, der geht: 1.
     //  F4 ohne Vorhersage sagt „Braucht Hilfe" nicht „niemand", sondern „Frost: nicht prüfbar (…)"; mit Vorhersage ohne
@@ -5004,7 +5008,7 @@ const FAELLE = [
         if (m.n !== 1 || !/Frost möglich — Tomaten braucht Schutz/.test(m.t) || /Frost kommt/.test(m.t)) klagen.push('F1 +1 °C heisst „Frost möglich": „' + m.t + '"');
         wetter(-1);
         [['Pflanzdatum in der Zukunft', ppf('f1b', 'Kartoffeln', '2026-04-01')], ['aus dem Vorjahr', ppf('f1c', 'Tomaten', '2024-08-01')],
-         ['älter als 200 Tage', ppf('f1d', 'Zucchini', '2025-01-20')], ['added im Vorjahr', { id: 'f1e', gardenId: 'gF1', name: 'Gurken', count: 1, tasks: {}, added: '2024-07-01T10:00:00.000Z' }]].forEach(([lbl, p]) => {
+         ['added im Vorjahr', { id: 'f1e', gardenId: 'gF1', name: 'Gurken', count: 1, tasks: {}, added: '2024-07-01T10:00:00.000Z' }]].forEach(([lbl, p]) => {
           const mm = melde([p]); const fg = gsFrostGefaehrdet();
           if (mm.n || fg.zustand !== 'erfuellt' || !/Saison/.test(fg.grund)) klagen.push('F1 ' + lbl + ': ' + mm.n + ' Meldungen, ' + fg.zustand + ' „' + fg.grund + '"'); });
         // November: derselbe Fall, der Tag gestellt
@@ -5094,6 +5098,261 @@ const FAELLE = [
         myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
         window.Notification = sichern.no; window.gsHeuteTag = sichern.ht; window.callAI = sichern.ai; window.sbFetch = sichern.sf; window.gsPushSupportStatus = sichern.ps;
         try { while (recipesData.length > sichern.rdn) { const ix = recipesData.findIndex(x => x && x.id === 'L360T'); if (ix < 0) break; recipesData.splice(ix, 1); } } catch (_) {}
+        try { const mt = document.getElementById('push-master-toggle'); if (mt) mt.disabled = false; } catch (_) {}
+        try { closeModal('modal-planner-pro'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // #360 — zweiter Folge-Commit (Prüfung des Koordinators zu 3f5b336). Je Punkt der Fall, der am Kopf 3f5b336 ROT ist, und
+    // die Gegenrichtung. Gestellte Uhr (01.09.2025 12:00 UTC); für Oktober und November wird der Tag gestellt (gsHeuteTag).
+    //  RZ-1 Name mit Zusatz, NFD, nur Gattung — „Maiglöckchen (Topf)", „Mein Maiglöckchen", „Herbstzeitlose (Wiese)",
+    //       „Tollkirsche (Hecke)", „Eibe (Hecke)", „Gefleckter Schierling (Wiese)", ein Maiglöckchen in NFD, {Bärlauch,
+    //       „Convallaria"} und {Petersilie, „Conium"}: kein Rezept (gift); ein Fund mit „Boletus": Pilz. Gegenrichtung:
+    //       {Bärlauch, Allium ursinum} so viele Rezepte wie der Bärlauch ohne Latein, ein Latein ohne Buchstaben („—") ist
+    //       keines, „Salbei (Topf)" behält seine.
+    //  RZ-2 ein Latein ohne Unterart ist nicht geprüft, wenn die Rezepte eine Sorte derselben Art führen — Zucchini, Karotte,
+    //       Weisskohl, Mais; Broccoli (var. italica) und Melone (Cucumis melo) bleiben ein geprüftes Nein.
+    //  RZ-5 kein Rezept mit einer Pilz-Zutat über ein Kraut; die Kräuter behalten die übrigen.
+    //  RZ-3/4 je Grund ein Satz — Banner, Linas Satz, Linas Zeile; die Tomate bleibt „Ohne eindeutige Art".
+    //  RZ-6 Linas Satz trennt mit Punkt.   RZ-8 der Warnvermerk in Linas Zeile, und der Prompt sagt, was die KI damit tut.
+    //  N1  ohne 200 Tage — vorgezogen am 1.3., am 26.10. Frost: Meldung; aus dem Vorjahr und 2027: keine.
+    //  N2  im November steht der Frost in „Braucht Hilfe" unter „nicht geprüft", eine Pflanze aus dem Vorjahr ebenso; eine
+    //      Pflanzung mit Datum in der Zukunft ist geprüft.
+    //  N3  ohne Tiefstwert ab heute nicht prüfbar — Lücken, fehlendes Feld, nur gestern; mit Tiefstwerten weiter „kein Frost".
+    //  N4a das Startseiten-Banner liest eine Lücke nicht als 0 °C.
+    //  N5  der Schalter folgt dem Speicher nach dem Abmelden, nach dem Abgleich und nach einem Backup; bei vollem Speicher
+    //      springt er zurück, ein Satz, kein PATCH.   N6 eine geänderte Wahl merkt den state-Blob vor.
+    //  N7  leere Masse sind keine 3 × 3 m.   N8 Wort und Wert nach dem kältesten Tag, der erste dabei; kein „Stand vor 0 h".
+    //  N9  die Release-Notiz sagt „beim Start" und „solange die App offen ist".
+    name: 'Lina 17 · #360 zwei — Name mit Zusatz, NFD und nur Gattung sperren; Unterart auch bei Latein; keine Pilz-Zutat; je Grund ein Satz mit Punkt; Warnvermerk; Frost ohne 200 Tage, ausserhalb der Saison „nicht geprüft", ohne Tiefstwert nicht prüfbar, kältester Tag; Banner ohne Lücke; Schalter folgt dem Speicher; Zwilling nur zu eingegebenen Massen',
+    lauf: async () => {
+      const klagen = [];
+      const speicherAlt = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); speicherAlt[k] = localStorage.getItem(k); }
+      const sichern = { mp: myPlants, pl: plantings, ga: gardens, no: window.Notification, ht: window.gsHeuteTag, ai: window.callAI, sf: window.sbFetch,
+        ps: window.gsPushSupportStatus, wd: _gsWeatherData, toa: window.gsToast, pto: window.showProfileToast, isd: window._gsInitialSyncDone,
+        rs: window._gsRestoreStats, ro: window._gsRestoreOhne };
+      const echtSet = localStorage.setItem, echtMD = (window.gsCloudSync && gsCloudSync.markDirty) || null;
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      try {
+        window.sbFetch = async () => ({ data: [], error: null });
+        const rez = (pfl) => { myPlants = pfl; plantings = []; return gsGartenRezepte(); };
+        const grund = (g, n) => { const x = (g.pflanzen.ohneArt || []).find(y => y.name === n); return x ? x.grund : null; };
+        // ── RZ-1 · Name mit Zusatz, NFD, nur Gattung ──────────────────────────────────────────────────
+        const nfd = 'Maiglöckchen'.normalize('NFD');
+        [['Maiglöckchen (Topf)', 'Allium ursinum'], ['Mein Maiglöckchen', 'Allium ursinum'], ['Herbstzeitlose (Wiese)', 'Allium ursinum'],
+         ['Tollkirsche (Hecke)', 'Vaccinium myrtillus'], ['Eibe (Hecke)', 'Vaccinium myrtillus'], ['Gefleckter Schierling (Wiese)', 'Anthriscus cerefolium'],
+         [nfd, 'Allium ursinum'], ['Bärlauch', 'Convallaria'], ['Petersilie', 'Conium']].forEach(([n, l]) => {
+          const g = rez([{ id: 'z1', name: n, lat: l }]);
+          if (g.rezepte.length || grund(g, n) !== 'gift') klagen.push('RZ-1 {„' + n + '", ' + l + '}: ' + g.rezepte.length + ' Rezepte, Grund ' + grund(g, n)); });
+        let g = rez([{ id: 'z1', name: 'Mein Fund', lat: 'Boletus' }]);
+        if (g.rezepte.length || grund(g, 'Mein Fund') !== 'pilz') klagen.push('RZ-1 {Mein Fund, „Boletus"}: ' + g.rezepte.length + ' Rezepte, Grund ' + grund(g, 'Mein Fund'));
+        const nBl = rez([{ id: 'z1', name: 'Bärlauch' }]).rezepte.length;
+        g = rez([{ id: 'z1', name: 'Bärlauch', lat: 'Allium ursinum' }]);
+        if (!nBl || g.rezepte.length !== nBl) klagen.push('RZ-1 Gegenrichtung: {Bärlauch, Allium ursinum} ' + g.rezepte.length + ' Rezepte, ohne Latein ' + nBl);
+        g = rez([{ id: 'z1', name: 'Bärlauch', lat: '—' }]);
+        if (g.rezepte.length !== nBl) klagen.push('RZ-1 Gegenrichtung: ein Latein ohne Buchstaben („—") sperrt den Bärlauch (' + g.rezepte.length + ' Rezepte, ' + grund(g, 'Bärlauch') + ')');
+        g = rez([{ id: 'z1', name: 'Salbei (Topf)' }]);
+        if (!g.rezepte.length) klagen.push('RZ-1 Gegenrichtung: „Salbei (Topf)" hat kein Rezept mehr (' + grund(g, 'Salbei (Topf)') + ')');
+        // ── RZ-2 · die Unterart auch bei Latein ───────────────────────────────────────────────────────
+        [['Zucchini', 'Cucurbita pepo'], ['Karotte', 'Daucus carota'], ['Weisskohl', 'Brassica oleracea']].forEach(([n, l]) => {
+          const gg = rez([{ id: 'z2', name: n, lat: l }]);
+          if (gg.zustand === 'leer' || grund(gg, n) !== 'unterart') klagen.push('RZ-2 {' + n + ', ' + l + '}: ' + gg.zustand + ', Grund ' + grund(gg, n)); });
+        // {Mais, Zea mays}: das einzige Mais-Rezept ist „Polenta mit Pilzen" — seit RZ-5 kein Gartenrezept mehr; das Nein ist geprüft
+        [['Broccoli', 'Brassica oleracea var. italica'], ['Melone', 'Cucumis melo'], ['Mais', 'Zea mays']].forEach(([n, l]) => {
+          const gg = rez([{ id: 'z2', name: n, lat: l }]);
+          if (gg.zustand !== 'leer') klagen.push('RZ-2 Gegenrichtung: {' + n + ', ' + l + '} ist „' + gg.zustand + '" (' + grund(gg, n) + ') statt ein geprüftes Nein'); });
+        // ── RZ-5 · keine Pilz-Zutat über ein Kraut ────────────────────────────────────────────────────
+        // ein Pilz-Rezept: eine Pilz-Art unter den Zutaten, oder Titel und Zutaten nennen einen Pilz („Polenta mit Pilzen")
+        const pilzZutat = (x) => { const r = recipesData.find(y => y && String(y.id) === x.id); return !!(r && (/pilz|pfifferling|champignon|morchel|röhrling/i.test(String(r.title) + ' ' + String(r.ingredients || ''))
+          || _gsRecipeAllowedPlantIds(r).some(id => { const z = _gsDbFind(id); return z && _gsIstPilz(z); }))); };
+        g = rez([{ id: 'z5a', name: 'Salbei' }, { id: 'z5b', name: 'Schnittlauch' }, { id: 'z5c', name: 'Knoblauch' }]);
+        const mitPilz = g.rezepte.filter(pilzZutat);
+        if (mitPilz.length) klagen.push('RZ-5 ' + mitPilz.length + ' Rezepte mit einer Pilz-Zutat über ein Kraut: ' + mitPilz.map(x => x.titel).slice(0, 4).join(', '));
+        const g5b = rez([{ id: 'z5d', name: 'Edelkastanie' }, { id: 'z5e', name: 'Mais (Zuckermais)' }]);
+        const mitPilz2 = g5b.rezepte.filter(pilzZutat);
+        if (mitPilz2.length) klagen.push('RZ-5 Pilz-Rezepte über Edelkastanie oder Mais (der Pilz steht nur im Titel und in den Zutaten): ' + mitPilz2.map(x => x.titel).join(', '));
+        if (g5b.zustand !== 'leer') klagen.push('RZ-5 Gegenrichtung: Edelkastanie und Mais (ihre einzigen Rezepte sind Pilz-Rezepte) sind „' + g5b.zustand + '" statt ein geprüftes Nein');
+        const ohnePilz = recipesData.filter(r => r && r.type === 'recipes' && !pilzZutat({ id: String(r.id) }) && _gsRecipeAllowedPlantIds(r).some(id => { const z = _gsDbFind(id);
+          return z && !gsIstGiftig(z) && gsIstEssbar(z) && ['Salbei', 'Schnittlauch', 'Knoblauch'].indexOf(z.name) >= 0; })).length;
+        if (!ohnePilz || g.rezepte.length < ohnePilz) klagen.push('RZ-5 Gegenrichtung: die Kräuter haben ' + g.rezepte.length + ' Rezepte, ohne Pilz-Zutat führt die App ' + ohnePilz);
+        // ── RZ-3/RZ-4 · je Grund ein Satz · RZ-6 · mit Punkt ──────────────────────────────────────────
+        rez([{ id: 'z3a', name: 'Bärlauch', lat: 'Solanum lycopersicum' }, { id: 'z3b', name: 'Linde' }, { id: 'z3c', name: 'Tomate' }, { id: 'z3d', name: 'Steinpilz' }]);
+        const ban = String(_gsRecipeGartenBanner()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+        const satzL = _gsLinaAktionSatz({ tool: 'open_garden_recipes', args: {} });
+        localStorage.setItem('gs_geraete', '[]');
+        const zeileL = (gsLinaContext('').match(/^Rezepte aus deinem Garten:[^\n]*/m) || [''])[0];
+        [['das Banner', ban], ['Linas Satz', satzL], ['Linas Zeile', zeileL]].forEach(([wo, t]) => {
+          if (!/Name und Latein passen nicht zusammen, nicht geprüft: Bärlauch/.test(t)) klagen.push('RZ-3 ' + wo + ' sagt beim Widerspruch nicht „Name und Latein passen nicht zusammen": „' + t.slice(0, 260) + '"');
+          if (!/Der Name kann mehrere Rezept-Arten meinen, nicht geprüft: Linde/.test(t)) klagen.push('RZ-4 ' + wo + ' sagt bei der Linde nicht „Der Name kann mehrere Rezept-Arten meinen": „' + t.slice(0, 260) + '"');
+          if (/eindeutige Art[^.·]*(Bärlauch|Linde)/.test(t)) klagen.push('RZ-3/4 ' + wo + ' nennt Bärlauch oder Linde „ohne eindeutige Art": „' + t.slice(0, 260) + '"');
+          if (!/Ohne eindeutige Art, nicht geprüft: Tomate/.test(t)) klagen.push('RZ-3/4 Gegenrichtung: ' + wo + ' nennt die Tomate nicht „Ohne eindeutige Art": „' + t.slice(0, 260) + '"'); });
+        if (/[^.]\s(Ohne eindeutige|Unterart oder|Der Name kann|Name und Latein|Pilze bestimmt)/.test(satzL) || !/\.$/.test(satzL)) klagen.push('RZ-6 Linas Satz trennt nicht mit Punkt: „' + satzL + '"');
+        // ── RZ-8 · der Warnvermerk ────────────────────────────────────────────────────────────────────
+        const N8 = (typeof GS_GARTEN_REZEPTE_NENNEN === 'number') ? GS_GARTEN_REZEPTE_NENNEN : 3;
+        const vermerk = (x) => { const r = recipesData.find(y => y && String(y.id) === x.id), w = !!(r && r.warning && !gsWarnungLeer(r.warning));
+          return w ? (/verwechs|doppelg|einwandfrei bestimm|sicher bestimm/i.test(String(r.warning)) ? ' (Rezept mit Verwechslungswarnung)' : ' (Rezept mit Warnhinweis)') : ''; };
+        let hinweisGesehen = false;
+        [['Bärlauch'], ['Salbei'], ['Schnittlauch']].forEach(([n]) => {
+          const gg = rez([{ id: 'z8', name: n }]);
+          const z8 = (gsLinaContext('').match(/^Rezepte aus deinem Garten:[^\n]*/m) || [''])[0];
+          gg.rezepte.slice(0, N8).forEach(x => { const soll = _gsLinaKurz(x.titel, 40) + vermerk(x);
+            if (/Warnhinweis/.test(soll)) hinweisGesehen = true;
+            if (z8.indexOf(soll + (gg.rezepte.indexOf(x) < Math.min(N8, gg.rezepte.length) - 1 ? ';' : '')) < 0) klagen.push('RZ-8 Linas Zeile (' + n + ') nennt „' + soll + '" nicht: „' + z8.slice(0, 260) + '"'); });
+          if (n === 'Bärlauch' && !/\(Rezept mit Verwechslungswarnung\)/.test(z8)) klagen.push('RZ-8 die Bärlauch-Rezepte tragen keine Verwechslungswarnung: „' + z8.slice(0, 200) + '"'); });
+        if (!hinweisGesehen) klagen.push('RZ-8 kein Rezept der Kräuter trägt „mit Warnhinweis" — der Fall prüft den zweiten Vermerk nicht');
+        if (!/Vermerk „mit Verwechslungswarnung"[^.]*sicher zu bestimmen/.test(LINA_SYSTEM)) klagen.push('RZ-8 der Systemprompt sagt nicht, was die KI mit dem Vermerk tut');
+        // ── N1 · ohne 200 Tage ────────────────────────────────────────────────────────────────────────
+        const wetter = (minMorgen, ab) => { const t = [], mi = []; for (let i = 0; i < 3; i++) { t.push(_gsKalTagPlus(ab, i)); mi.push(i === 1 ? minMorgen : 9); }
+          localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now() - 2 * 3600e3, data: { daily: { time: t, temperature_2m_min: mi } } })); };
+        const nots = [];
+        window.Notification = function (t, o) { nots.push({ t: t, b: o && o.body }); };
+        window.Notification.permission = 'granted';
+        localStorage.setItem('gs_notif_enabled', '1');
+        localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: 23, quietEnd: 5 }));
+        gardens = [{ id: 'gN1', name: 'Beet N1', kind: 'freiland' }];
+        myPlants = [];
+        const melde = (pfl) => { plantings = pfl; localStorage.removeItem('gs_notif_kat'); nots.length = 0; const r = gsFrostMelden();
+          return { r: r, n: nots.length, t: nots.map(x => x.t).join(' | '), b: nots.map(x => x.b).join(' | ') }; };
+        const pf = (id, f) => Object.assign({ id: id, gardenId: 'gN1', name: 'Tomaten', count: 1, tasks: {} }, f);
+        window.gsHeuteTag = () => '2025-10-26';
+        wetter(-2, '2025-10-26');
+        let m = melde([pf('n1a', { added: '2025-03-01T09:00:00.000Z' })]);
+        if (m.n !== 1) klagen.push('N1 vorgezogen am 1.3., am 26.10. −2 °C: ' + m.n + ' Meldungen (' + (m.r && m.r.grund) + ', ' + gsFrostGefaehrdet().zustand + ' „' + gsFrostGefaehrdet().grund + '")');
+        [['aus dem Vorjahr', pf('n1b', { date: '2024-05-10' })], ['2027 gepflanzt', pf('n1c', { date: '2027-05-10' })]].forEach(([lbl, p]) => {
+          const mm = melde([p]); if (mm.n) klagen.push('N1 Gegenrichtung ' + lbl + ': ' + mm.n + ' Meldungen'); });
+        // ── N2 · ausserhalb der Saison nicht geprüft ──────────────────────────────────────────────────
+        const hilfeZeile = () => (gsLinaEinblick('').match(/^Braucht Hilfe:[^\n]*/m) || [''])[0];
+        window.gsHeuteTag = () => '2025-11-20';
+        wetter(-3, '2025-11-20');
+        plantings = [pf('n2a', { date: '2025-05-10' })];
+        let zh = hilfeZeile();
+        if (!/nicht geprüft: Frost: ausserhalb der Saison April–Oktober nicht geprüft/.test(zh) || /Frost: keine frostempfindliche/.test(zh)) klagen.push('N2 November: „' + zh + '"');
+        window.gsHeuteTag = sichern.ht;
+        wetter(-3, gsHeuteTag());
+        plantings = [pf('n2b', { date: '2024-05-10' })];
+        zh = hilfeZeile();
+        if (!/nicht geprüft: Frost: eine frostempfindliche Pflanze aus einem früheren Jahr nicht geprüft/.test(zh)) klagen.push('N2 Pflanze aus dem Vorjahr: „' + zh + '"');
+        plantings = [pf('n2c', { date: '2026-05-10' })];
+        zh = hilfeZeile();
+        if (/nicht geprüft/.test(zh) || !/Frost: keine frostempfindliche Pflanze draussen, die gerade in ihrer Saison steht/.test(zh)) klagen.push('N2 Gegenrichtung (Pflanzdatum in der Zukunft ist geprüft): „' + zh + '"');
+        // ── N3 · ohne Tiefstwert ab heute nicht prüfbar ───────────────────────────────────────────────
+        const h0 = gsHeuteTag(), tg = (i) => _gsKalTagPlus(h0, i);
+        plantings = [pf('n3', { date: '2025-05-10' })];
+        [['Lücken', { time: [tg(0), tg(1), tg(2)], temperature_2m_min: [null, null, null] }],
+         ['ohne Feld', { time: [tg(0), tg(1), tg(2)], temperature_2m_max: [20, 21, 22] }],
+         ['nur gestern', { time: [tg(-1), tg(0), tg(1)], temperature_2m_min: [3] }]].forEach(([lbl, d]) => {
+          localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now() - 3600e3, data: { daily: d } }));
+          const fg = gsFrostGefaehrdet();
+          if (fg.zustand !== 'nicht_pruefbar' || !/keine Tiefstwerte/.test(fg.grund)) klagen.push('N3 ' + lbl + ': ' + fg.zustand + ' „' + fg.grund + '"'); });
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now() - 3600e3, data: { daily: { time: [tg(0), tg(1), tg(2)], temperature_2m_min: [8, null, 9] } } }));
+        const fg3 = gsFrostGefaehrdet();
+        if (fg3.zustand !== 'erfuellt' || !/kein Frost/.test(fg3.grund)) klagen.push('N3 Gegenrichtung (Tiefstwerte da, kein Frost): ' + fg3.zustand + ' „' + fg3.grund + '"');
+        // ── N4a · das Startseiten-Banner liest eine Lücke nicht als 0 °C ──────────────────────────────
+        const ban4 = document.getElementById('frost-warning-banner');
+        let toasts4 = 0;
+        window.showProfileToast = () => { toasts4++; };
+        const banner = (mins) => { ban4.style.display = 'none'; ban4.dataset.frostKey = ''; ban4.innerHTML = ''; toasts4 = 0;
+          _gsWeatherData = { daily: { time: [tg(0), tg(1), tg(2), tg(3), tg(4)], temperature_2m_min: mins } }; gsCheckFrostWarning();
+          return { an: ban4.style.display === 'block', text: ban4.textContent || '', toasts: toasts4 }; };
+        let b4 = banner([null, '', 6, 7, 8]);
+        if (b4.an || b4.toasts) klagen.push('N4a Lücken im Tagesminimum: Banner ' + b4.an + ' „' + b4.text.slice(0, 80) + '", ' + b4.toasts + ' Toasts');
+        b4 = banner([1, null, 6, 7, 8]);
+        if (!b4.an || !/Heute: 1°C/.test(b4.text) || /0°C/.test(b4.text)) klagen.push('N4a Gegenrichtung (1 °C heute, morgen eine Lücke): Banner ' + b4.an + ' „' + b4.text.slice(0, 120) + '"');
+        window.showProfileToast = sichern.pto;
+        // ── N5 · der Schalter folgt dem Speicher ──────────────────────────────────────────────────────
+        const sw = document.getElementById('push-cat-frost');
+        window.gsPushSupportStatus = () => ({ ok: false, message: 'kein Web-Push' });
+        localStorage.setItem('gs_push_settings', JSON.stringify({ frost: false })); sw.checked = false;
+        localStorage.removeItem('gs_push_settings');   // das Abmelden: gs_push_settings steht in GS_USER_KEYS
+        GS_ABMELDEN_ZEICHNER.forEach(n => { try { if (typeof window[n] === 'function') window[n](); } catch (_) {} });
+        if (!sw.checked) klagen.push('N5 nach dem Abmelden steht der Frost-Schalter weiter auf „aus" (GS_ABMELDEN_ZEICHNER: ' + JSON.stringify(GS_ABMELDEN_ZEICHNER) + ')');
+        sw.checked = true; localStorage.setItem('gs_push_settings', JSON.stringify({ frost: true, quietStart: 23, quietEnd: 5 }));
+        localStorage.removeItem('gs_sync_dirty');
+        ['plants', 'garden', 'state'].forEach(sc => { localStorage.removeItem('gs_sync_dirty_at_' + sc); localStorage.removeItem('gs_sync_synced_at_' + sc); });
+        const TAB = /\/rest\/v1\/(user_plants|user_gardens|user_app_state)/;
+        window.sbFetch = async (pfad, opts) => { const mth = ((opts || {}).method || 'GET').toUpperCase(), tab = (String(pfad).match(TAB) || [])[1];
+          if (tab === 'user_app_state' && mth === 'GET') return { data: [{ data: { push_settings: { frost: false, quietStart: 23, quietEnd: 5 } }, updated_at: new Date().toISOString() }], error: null, status: 200 };
+          return { data: [], error: null, status: 200 }; };
+        window._gsInitialSyncDone = false;
+        const mpN5 = myPlants, plN5 = plantings, gaN5 = gardens;
+        await gsSyncUserDataOnLogin();
+        await warte(1200);
+        myPlants = mpN5; plantings = plN5; gardens = gaN5;
+        if (JSON.parse(localStorage.getItem('gs_push_settings') || '{}').frost !== false) klagen.push('N5 Grundlage: der Abgleich hat gs_push_settings nicht geschrieben');
+        else if (sw.checked) klagen.push('N5 nach dem Abgleich (Frost aus auf dem anderen Gerät) steht der Schalter auf „an"');
+        window.sbFetch = async () => ({ data: [], error: null });
+        // ein Backup ueberschreibt keine vorhandene Einstellung (_gsRestoreKey: „local behalten") — das Geraet hat noch keine
+        sw.checked = true; localStorage.removeItem('gs_push_settings');
+        window._gsRestoreStats = { written: 0, failed: 0 }; window._gsRestoreOhne = [];
+        _gsApplyStateBlob({ push_settings: { frost: false } });
+        if (JSON.parse(localStorage.getItem('gs_push_settings') || '{}').frost !== false) klagen.push('N5 Grundlage: das Backup hat gs_push_settings nicht geschrieben');
+        else if (sw.checked) klagen.push('N5 nach einem Backup (Frost aus) steht der Schalter auf „an"');
+        // voller Speicher: die Person tippt „aus", gespeichert ist „an"
+        localStorage.setItem('gs_push_settings', JSON.stringify({ frost: true })); sw.checked = false;
+        const patches = [], saetze = [];
+        window.sbFetch = async (pfad) => { if (/push_subscriptions/.test(String(pfad))) patches.push(pfad); return { data: [], error: null }; };
+        window.gsToast = (t) => { saetze.push(String(t)); };
+        let r5;
+        localStorage.setItem = function (k, v) { if (k === 'gs_push_settings') return false; return echtSet.call(localStorage, k, v); };
+        try { r5 = await gsSavePushSettings({ frost: false }); } finally { localStorage.setItem = echtSet; }
+        if (r5 !== false || !sw.checked || patches.length || saetze.length !== 1 || !/Nicht gespeichert/.test(saetze[0] || '')) klagen.push('N5 voller Speicher: Rückgabe ' + r5 + ', Schalter ' + sw.checked + ', ' + patches.length + ' PATCH, Sätze ' + JSON.stringify(saetze));
+        window.gsToast = sichern.toa;
+        // ── N6 · eine geänderte Wahl merkt den state-Blob vor ─────────────────────────────────────────
+        const dirty = [];
+        gsCloudSync.markDirty = function (sc) { dirty.push(sc); };
+        let r6;
+        try { r6 = await gsSavePushSettings({ frost: true }); } finally { if (echtMD) gsCloudSync.markDirty = echtMD; }
+        if (dirty.indexOf('state') < 0) klagen.push('N6 gsSavePushSettings merkt den state-Blob nicht vor (' + JSON.stringify(dirty) + ')');
+        if (r6 !== true) klagen.push('N6 Gegenrichtung: gespeichert, und die Rückgabe ist ' + r6);
+        // ── N7 · leere Masse sind keine 3 × 3 m ───────────────────────────────────────────────────────
+        localStorage.setItem('gs_garden_twin', JSON.stringify({ v: 1, uid: (typeof _gsPersonJetzt === 'function') ? _gsPersonJetzt() : null, ts: Date.now() - 864e5,
+          bed: { width_m: 3, length_m: 3 }, plants: [{ name: 'Tomate', x_m: 1, y_m: 1, w_m: 0.5, h_m: 0.5 }], beds: [{ label: 'Beet A', x_m: 0, y_m: 0, w_m: 3, h_m: 1 }], zones: [] }));
+        gardens = [];
+        openGardenAI();
+        let auftrag = '';
+        window.callAI = async (msgs) => { auftrag = String((msgs && msgs[0] && msgs[0].content) || ''); throw new Error('Prüfstand: kein Plan'); };
+        document.getElementById('pp-width').value = ''; document.getElementById('pp-length').value = '';
+        try { await Promise.race([gsPPrun({}), warte(8000)]); } catch (_) {}
+        if (!auftrag) klagen.push('N7 der Auftrag an die KI wurde nicht gestellt');
+        else if (/GEMESSENER BESTAND/.test(auftrag)) klagen.push('N7 leere Masse (Vorgabe 3 × 3 m) holen den Zwilling (3 × 3 m) in den Auftrag');
+        document.getElementById('pp-width').value = '3'; document.getElementById('pp-length').value = '3';
+        auftrag = '';
+        try { await Promise.race([gsPPrun({}), warte(8000)]); } catch (_) {}
+        if (!/GEMESSENER BESTAND/.test(auftrag)) klagen.push('N7 Gegenrichtung: mit eingegebenen 3 × 3 m geht der Zwilling nicht in den Auftrag');
+        try { closeModal('modal-planner-pro'); } catch (_) {}
+        // ── N8 · der kälteste Tag, kein „Stand vor 0 h" ───────────────────────────────────────────────
+        gardens = [{ id: 'gN1', name: 'Beet N1', kind: 'freiland' }];
+        localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: 23, quietEnd: 5 }));
+        const h8 = gsHeuteTag(), t1 = _gsLinaTag(_gsKalTagPlus(h8, 1)), t2 = _gsLinaTag(_gsKalTagPlus(h8, 2));
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now() - 2 * 3600e3, data: { daily: { time: [h8, _gsKalTagPlus(h8, 1), _gsKalTagPlus(h8, 2)], temperature_2m_min: [9, 1, -4] } } }));
+        m = melde([pf('n8', { date: '2025-05-10' })]);
+        if (m.n !== 1 || !/Frost kommt/.test(m.t) || m.b.indexOf('am kältesten -4 °C am ' + t2) < 0 || m.b.indexOf('ab ' + t1) < 0) klagen.push('N8 +1 °C morgen, −4 °C übermorgen: „' + m.t + '" / „' + m.b + '"');
+        const hg = ((gsPflanzenHilfe().find(x => x.name === 'Tomaten') || {}).gruende || []).find(x => /^Frost/.test(x)) || '';
+        if (!/^Frost ab /.test(hg) || hg.indexOf('am kältesten -4 °C am ' + t2) < 0) klagen.push('N8 „Braucht Hilfe": „' + hg + '"');
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now(), data: { daily: { time: [h8, _gsKalTagPlus(h8, 1), _gsKalTagPlus(h8, 2)], temperature_2m_min: [9, -1, 9] } } }));
+        m = melde([pf('n8', { date: '2025-05-10' })]);
+        if (m.n !== 1 || /Stand vor 0 h/.test(m.b) || m.b.indexOf('Tiefstwert -1 °C am ' + t1) < 0) klagen.push('N8 Gegenrichtung (ein Frost-Tag, Vorhersage eben geladen): „' + m.b + '"');
+        // ── N9 · die Release-Notiz ────────────────────────────────────────────────────────────────────
+        const rel = (window.GS_RELEASES || []).find(r => r && r.v === 'v33.86');   // liegt sie im Archiv, prüft der Fall sie nicht mehr
+        if (rel) [['die Zusammenfassung', String(rel.summary || '')], ['der Frost-Eintrag', JSON.stringify((rel.user_items || []).filter(x => x && /Frost/.test(String(x.bold || ''))))]].forEach(([wo, t]) => {
+          if (!/beim Start/.test(t) || !/solange die App offen ist/.test(t)) klagen.push('N9 ' + wo + ' der Release-Notiz sagt nicht „beim Start" und „solange die App offen ist"'); });
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'RZ-1 · RZ-2 · RZ-5 · RZ-3/4 · RZ-6 · RZ-8 · N1 · N2 · N3 · N4a · N5 · N6 · N7 · N8 · N9 je mit Gegenrichtung' };
+      } catch (e) {
+        return { ok: false, warum: 'Ausnahme: ' + (e && e.message) + ' · ' + klagen.join(' · ') };
+      } finally {
+        localStorage.setItem = echtSet;
+        if (echtMD) gsCloudSync.markDirty = echtMD;
+        try {
+          const jetztKeys = []; for (let i = 0; i < localStorage.length; i++) jetztKeys.push(localStorage.key(i));
+          jetztKeys.forEach(k => { if (!Object.prototype.hasOwnProperty.call(speicherAlt, k)) localStorage.removeItem(k); });
+          Object.keys(speicherAlt).forEach(k => { if (localStorage.getItem(k) !== speicherAlt[k]) localStorage.setItem(k, speicherAlt[k]); });
+        } catch (_) {}
+        myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga; _gsWeatherData = sichern.wd;
+        window.Notification = sichern.no; window.gsHeuteTag = sichern.ht; window.callAI = sichern.ai; window.sbFetch = sichern.sf; window.gsPushSupportStatus = sichern.ps;
+        window.gsToast = sichern.toa; window.showProfileToast = sichern.pto; window._gsInitialSyncDone = sichern.isd;
+        window._gsRestoreStats = sichern.rs; window._gsRestoreOhne = sichern.ro;
         try { const mt = document.getElementById('push-master-toggle'); if (mt) mt.disabled = false; } catch (_) {}
         try { closeModal('modal-planner-pro'); } catch (_) {}
       }

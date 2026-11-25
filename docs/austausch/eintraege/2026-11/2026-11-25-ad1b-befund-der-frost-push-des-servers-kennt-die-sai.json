@@ -1,0 +1,31 @@
+{
+  "id": "2026-11-25-ad1b",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "09:55:31",
+  "von": "sitzung/lokal/ks",
+  "stand": "v33.86",
+  "titel": "Der Frost-Push des Servers kennt die Saison nicht — im November meldet er weiter, die App nicht",
+  "vorschlag": "Die Saison- und Pflanzenregel als _shared-Modul (Node und Deno, wie ingest_regeln) — dann rechnen App und Server dieselbe Frage; und je Gerät eine Quelle (Frage e9a4).",
+  "beleg": [
+    "weather-alert-checker sendet bei notify_frost, sobald minTempC <= 2 (ohne Pflanzen, Saison oder Pflanzjahr); daily-push-checker ebenso. gsFrostMelden rechnet seit #360 mit _gsFrostSaison (April–Oktober, gepflanzt, im Pflanzjahr). Beide lesen dieselbe Wahl (gs_push_settings.frost ↔ notify_frost) und wissen nicht voneinander (Frage 2026-11-25-e9a4). Prüfung des Koordinators zu #360, Punkt N11."
+  ],
+  "stichworte": [
+    "frost",
+    "push",
+    "server",
+    "saison"
+  ],
+  "anker": [
+    {
+      "datei": "supabase/functions/weather-alert-checker/index.ts",
+      "text": "if (sub.notify_frost && m.minTempC !== null && m.minTempC <= 2) {"
+    }
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-25-e9a4"
+    }
+  ]
+}

@@ -2473,7 +2473,7 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 >     Rezept-Namens ist (Linde → Winterlinde).
 >   - Gemessen über 135 Namen: kein neues Ja, 10 falsche Nein weniger; Lauch und Rettich bezahlen die Stamm-Regel mit „nicht geprüft“.
 > - **Eine Pflanzung hat ein Lebensende:** eine frostempfindliche Sommerkultur zählt nur in ihrer Saison (`_gsFrostSaison`: April
->   bis Oktober, gepflanzt, dieses Jahr, höchstens 200 Tage). Über 0 °C heisst es „Frost möglich“, nicht „Frost kommt“.
+>   bis Oktober, gepflanzt, im Pflanzjahr). Über 0 °C heisst es „Frost möglich“, nicht „Frost kommt“.
 > - **Gezählt wird, was erscheint:** `gsNotif.show` protokolliert erst nach `new Notification`. Der Konstruktor wirft auf
 >   Chrome/Android.
 > - **Ein Schalter, der in einem zugeklappten Panel liegt, gibt es für die Person nicht:** „🥶 Frostgefahr melden“ steht als eigene
@@ -2481,6 +2481,28 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > - **Der Zwilling gehört zu seiner Fläche:** Er geht nur in den Auftrag, wenn die geplante Fläche seine ist (`_gsPlanTwinPasst`).
 >   Sein Hinweis folgt derselben Bedingung (`_gsPPtwinHinweis`).
 > (`sensor_check` „Lina 17 · #360“, 26 Gegenproben: 24 rot, die Basis rot, 1 grün wie erwartet.)
+>
+> **Und ein Name ist mehr als sein ganzer Wortlaut** (#360, zweiter Folge-Commit). Die Namens-Sperre kannte nur den GANZEN Namen:
+> „Maiglöckchen (Topf)“, „Mein Maiglöckchen“ und ein Maiglöckchen in NFD bekamen mit dem Latein des Bärlauchs wieder 26 Rezepte,
+> {Bärlauch, „Convallaria“} auch (ein Latein mit nur einer Gattung galt gar nicht als Latein).
+> - **Ein Name trägt seinen giftigen Teil weiter.** NFC zuerst, dann jede Wortfolge (`_gsRezWoerter`) gegen die Namen giftiger
+>   Einträge und der Pilze. Ein Wort zählt ab 4 Zeichen (`GS_REZ_WORT_MIN`): die kürzesten giftigen Namen sind „Eibe“ und „Efeu“.
+> - **Eine Gattung ist keine Art:** sie wird gegen die Gattungen giftiger Arten und der Pilze gehalten und fällt sonst auf
+>   „unbekannt“, nie auf den Namen zurück.
+> - **Die Unterart gilt auch für ein eigenes Latein ohne Unterart** (Zucchini, Cucurbita pepo: nicht geprüft).
+> - **Ein Pilz-Rezept erkennt man auch am Titel:** zwei kamen ohne Pilz-Art unter den Zutaten über Edelkastanie und Mais in den
+>   Garten, eines mit Waldpilzen und ohne Warnung (`GS_REZ_PILZ_WORT`).
+> - **Eine Warnung heisst nur dann Verwechslungswarnung, wenn sie das sagt** (20 von 211; `GS_REZ_VERWECHSLUNG`).
+> - **Eine Grenze aus der Kulturdauer schliesst das Vorziehen aus:** die 200 Tage zählten ab dem Anlegen, und wer beim Säen anlegt,
+>   bekam im Oktober keine Frost-Meldung. Es bleiben Kalender, Pflanzdatum und Pflanzjahr.
+> - **Eine Lücke ist keine Entwarnung:** ohne einen Tiefstwert ab heute ist der Frost nicht prüfbar (`_gsWetterTage().mit`), und
+>   das Startseiten-Banner liest `null` nicht als 0 °C. Ausserhalb der Saison steht der Frost unter „nicht geprüft“.
+> - **Ein Schalter zeigt, was gespeichert ist:** EIN Spiegel (`_gsPushSettingsSpiegeln`) nach Abmelden, Abgleich und Backup; bei
+>   vollem Speicher springt er zurück, ein Satz, kein PATCH; jede Wahl merkt den state-Blob vor.
+> - **Ein Rückfallwert ist keine Eingabe:** leere Masse (Vorgabe 3 × 3 m) holten einen 3 × 3-m-Zwilling in den Planer-Auftrag.
+> - **Ein Fall, der zwei Stellen in EINEM Text sucht, sieht nicht, wenn eine zurückfällt:** die alte Release-Notiz blieb grün,
+>   weil die Zusammenfassung „beim Start“ noch trug. Er prüft jetzt beide einzeln.
+> (`sensor_check` „Lina 17 · #360 zwei“, `speicher_check` „Push-Schalter“; 28 Gegenproben rot, die Basis rot.)
 
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen

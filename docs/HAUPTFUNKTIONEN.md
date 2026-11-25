@@ -213,6 +213,14 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     nur zu seiner Fläche. Offen: nach Ab- und Anmelden am selben Tag eine zweite Frost-Meldung (brett:2026-11-25-618e);
     Gurke/Kürbis/Minze in Artenliste und Kulturdaten (brett:2026-11-25-4dad); Meldungen über den Service Worker
     (brett:2026-11-25-bd8a).
+    Zweiter Folge-Commit (`sensor_check` „Lina 17 · #360 zwei“): ein Name mit Zusatz („Maiglöckchen (Topf)“), in NFD oder mit nur
+    einer Gattung als Latein bekommt kein Rezept; die Unterart gilt auch bei Latein (Zucchini: nicht geprüft); kein Pilz-Rezept über
+    ein Kraut, auch nicht über den Titel; je Grund ein Satz; Linas Zeile nennt den Warnvermerk eines Rezepts; Frost ohne die
+    200 Tage, ausserhalb der Saison „nicht geprüft“, ohne Tiefstwert nicht prüfbar, Wort und Wert vom kältesten Tag; das
+    Startseiten-Banner liest keine Lücke als 0 °C; der Frost-Schalter zeigt, was gespeichert ist. Offen: brett:2026-11-25-4742
+    (der Schalter schaltet das Banner nicht ab), brett:2026-11-25-72ca (Android), brett:2026-11-25-ad1b (Server ohne Saison),
+    brett:2026-11-25-bd2d (Datumsformat), brett:2026-11-25-b950 (Planer-Ort), brett:2026-11-25-dedf (Latein klein),
+    brett:2026-11-25-12f1 (Frage an Fernando).
 
 ## Offen — Suche
 

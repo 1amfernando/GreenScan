@@ -1,0 +1,24 @@
+{
+  "id": "2026-11-25-dedf",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "09:55:01",
+  "von": "sitzung/lokal/ks",
+  "stand": "v33.86",
+  "titel": "Ein Latein in Kleinbuchstaben („cantharellus cibarius“) erkennt _gsIstPilz nicht als Pilz",
+  "vorschlag": "Die Gattung ohne Rücksicht auf Gross/klein vergleichen (die Gattungen der Pilze kommen aus der Liste; _gsBinomeDerListe().pilzGattung führt sie schon klein).",
+  "beleg": [
+    "Die Gattungsregel /^\\s*([A-Z][a-z]+)\\s+[a-z]/ verlangt einen Grossbuchstaben. In gsGartenRezepte wird ein solcher Fund ein geprüftes „kein Rezept“ statt „Pilze bestimmt man nicht an einem Namen — nicht geprüft“; Rezepte gibt es trotzdem keine (RZ-5 und die zweite Linie am Rezept-Eintrag). Prüfung des Koordinators zu #360, Punkt RZ-7."
+  ],
+  "stichworte": [
+    "pilz",
+    "latein",
+    "rezepte"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var gat = function (x) { var m = /^\\s*([A-Z][a-z]+)\\s+[a-z]/.exec(String((x && x.lat) || '')); return m ? m[1] : ''; };"
+    }
+  ]
+}
