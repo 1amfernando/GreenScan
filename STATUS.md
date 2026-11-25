@@ -134,12 +134,90 @@ risiko 4/0.
 - Neu auf dem Brett: brett:2026-11-25-55a6 (kommt eine lokale Meldung auf Android an? — nicht messbar), brett:2026-11-25-391d (der
   Planer belegt aus dem Menü still `gardens[0]` vor, und die Licht-Übernahme aus dem Garten-Scan trifft nur „Schatten").
 
-**Offen:** brett:2026-11-25-2bbd, brett:2026-11-25-5769, brett:2026-11-25-e9a4, brett:2026-11-16-c72c, brett:2026-11-25-55a6, brett:2026-11-25-391d
+**Folge-Commit zu #360 (Koordinator, 25.11.2026: „#360 NICHT mergen“, ein Commit auf 5a0cf24):** Die Prüfung des Koordinators
+fand zwei Sicherheitslücken bei den Rezepten, vier Schwächen bei Frost und Meldung und vier kleine Punkte. Alle sind behoben, jeder
+mit Fall und Gegenprobe.
+- **R1 Name UND Latein (Sicherheit).** Ein Scan legt {Bärlauch, Allium ursinum} an, es war ein Maiglöckchen, die Person benennt um,
+  das Latein bleibt: zur Pflanze „Maiglöckchen“ standen 26 Bärlauch-Rezepte. `_gsPflanzeArt` liest jetzt auch neben eigenem Latein
+  den NAMEN (`_gsNamensArten`: Artenliste und Kulturdaten). Ein giftiger Name sperrt (gift). Meinen Name und Latein verschiedene
+  Arten, ist die Art nicht geprüft (widerspruch).
+- **R2 Pilze nie (Sicherheit).** „Steinpilz“, „Pfifferling“, „Maronenröhrling“ ergaben 16/17/1 Rezepte, ein KI-Scan „Pfifferling 45 %“
+  genügte. `_gsPflanzeIstPilz`: Pilz laut Artenliste (Name oder Gattung des Lateins, `_gsIstPilz`) oder laut eigener Kategorie bzw.
+  Name → grund 'pilz', nie ein Rezept. Eine zweite Linie hinter den Rezepten (`_gsIstPilz` am Rezept-Eintrag). Banner, Linas Zeile
+  und ihr Satz sagen „Pilze bestimmt man nicht an einem Namen — nicht geprüft: …“.
+- **R5 „kein Rezept“ nur geprüft.** „Gurke“ fand Cucumis melo (die Melone) → „kein Rezept“, „Gurken“ (Kulturdaten Cucumis sativus) →
+  3 Rezepte; „Minze“ nahm die Kultur Mentha spicata (kein Rezept), „Linde“ Tilia ulmifolia (die Rezepte führen „Winterlinde“).
+  - Einzahl und Mehrzahl sind EIN Name (±n wie `_gsKulturZuPflanze`).
+  - Sagen Artenliste und Kulturdaten Verschiedenes, ist die Art mehrdeutig.
+  - Unter mehreren Arten des Namens darf die Kultur nur eine wählen, die der Name trägt (Salbei).
+  - „Kein Rezept“ zu einer Art aus dem NAMEN ist nicht geprüft, wenn ein Rezept dieselbe Art mit Unterart nennt (Karotten → Rüebli)
+    oder einen Namen trägt, dessen Stamm der Pflanzenname ist (Linde → Winterlinde).
+  - Eine Pflanze mit eigener Sorte bleibt ein geprüftes Nein (Broccoli var. italica).
+- **F1 Frost hat eine Saison.** Tomaten (gepflanzt im Mai) und Kartoffeln (Pflanzdatum 2027) meldeten im November täglich „Frost
+  kommt“. Eine frostempfindliche Sommerkultur (alle elf `frost:-1`-Kulturen sind einjährig) zählt jetzt nur in ihrer Saison
+  (`_gsFrostSaison`):
+  - heute April bis Oktober;
+  - gepflanzt, also kein Pflanzdatum in der Zukunft;
+  - in diesem Jahr gepflanzt und höchstens 200 Tage her (längste Kultur 120 Tage bis zur Ernte, dazu die Erntezeit).
+  Ohne Datum gilt nur der Kalender. Der Titel heisst „Frost möglich“ über 0 °C (wie der Kalender), „Frost kommt“ erst ab 0 °C, auch
+  in „Braucht Hilfe“. Der Schalter „🥶 Frostgefahr melden“ steht jetzt sichtbar als eigene Zeile unter Einstellungen ›
+  Benachrichtigungen; bis hier lag er im Push-Panel, das ohne Smart-Push zu bleibt. Er ist EINE Wahl für lokale Meldung und
+  Server-Push und wird auch ohne Web-Push gespiegelt.
+- **F2 gezählt wird, was erscheint.** `gsNotif.show` protokollierte VOR `new Notification`. Auf Chrome/Android wirft der Konstruktor,
+  und „Diese Woche: N lokale Meldungen“ zählte jeden Versuch. Jetzt wird erst danach protokolliert, und `letzterGrund` heisst 'fehler'.
+- **F4.** Ohne Vorhersage sagte „Braucht Hilfe“ „nach den Daten der App niemand“. Jetzt reist der Frost-Zustand mit
+  (`gsPflanzenHilfe().frost`): „nicht vollständig geprüft (…; nicht geprüft: Frost: nicht prüfbar (Grund))“, nie „niemand“. Mit
+  Vorhersage steht der Frost unter „geprüft“.
+- **F5.** `null` in der Vorhersage wurde 0 °C und damit Frost (Tagesminimum und Stunden). Eine Lücke ist kein Wert.
+- **F3.** Die Release-Notiz versprach „von selbst“. `gs_weather_cache` lädt nur, wer Garten oder Wetter öffnet; älter als 24 h
+  schweigt die Meldung. Jetzt steht dort: „aus der Vorhersage, die die App zuletzt geladen hat (beim Öffnen von Garten oder Wetter)“,
+  „wo dein Gerät lokale Meldungen erlaubt“, „nie zu Pilzen“.
+- **R3.** `gsPlanOhneGarten` nimmt den Gewächshaus-Haken und den Ort des vorigen Gartens weg. Der Ort ist danach dein eigener
+  (`gs_user_location`). Streng (Plan für DIESEN Garten ohne eigenen Ort) gilt dasselbe.
+- **R4.** Der Zwilling geht nur in den Auftrag, wenn die geplante Fläche seine ist: `_gsPlanTwinPasst`, 26 cm wie der Platzierer.
+  Genau dann steht sein Hinweis (`_gsPPtwinHinweis`, eine Stelle, gerufen aus `gsPPcalcArea`). Vorher war der Hinweis weg, im
+  Auftrag stand aber „GEMESSENER BESTAND“ des 6 × 3-m-Zwillings für einen 4 × 2-m-Garten.
+- **R6.** Ein Rezepttitel geht über `_gsLinaKurz(…, 40)` in Linas Zeile: gefaltet, gekürzt, nie eine neue Kontextzeile.
+- **Gemessen über 135 Namen** (41 Kulturen und die Namen aller Rezept-Arten), alt 5a0cf24 gegen neu:
+  - kein Name bekommt ein Rezept, das er vorher nicht hatte;
+  - 10 „kein Rezept“ heissen jetzt nicht geprüft: Unterart offen 7 (Brokkoli, Karotten, Kohl, Randen, Rüebli, Sellerie,
+    Stielmangold), Namen-Stamm 2 (Lauch, Rettich), mehrdeutig 1 (Minze);
+  - 4 Pilze verlieren ihre 35 Rezepte;
+  - Gurken (3) und Kürbis (5) verlieren ihre Rezepte, weil Artenliste und Kulturdaten sich widersprechen (brett:2026-11-25-4dad).
+  Lauch und Rettich sind die Kosten der Stamm-Regel (Bärlauch, Meerrettich), nie ein falsches Ja.
+- **Prüfstand:** `sensor_check` „Lina 17 · #360“ (neu, alle zehn Punkte mit Gegenrichtung); „Lina 17“ nachgezogen (Gurken ist
+  nicht geprüft; die Titel in der Zeile gekürzt) und „Lina · Einblick“ (1.4 °C heisst „Frost möglich am“; mit abgelaufener
+  Vorhersage sagt die Zeile „nicht vollständig geprüft … nicht geprüft: Frost“ statt „niemand“ — das „niemand“ mit geprüftem Frost
+  misst der neue Fall). **26 Gegenproben in Kopien, `index.html` danach md5-gleich:**
+  - 24 rot mit dem erwarteten Satz: Name sperrt nicht · Widerspruch Name/Latein · erste Pilz-Linie weg · Banner ohne Pilz-Satz ·
+    Zeile ohne Pilz-Satz · Einzahl/Mehrzahl getrennt · Liste und Kultur dürfen sich widersprechen · kein Namen-Stamm · Unterart
+    offen zählt als Nein · Titel roh · `null` im Tagesminimum · `null` in den Stunden · keine Saison je Pflanzung · keine Monate ·
+    keine 200 Tage · „kommt“ über 0 °C · Schalter wieder im Panel · gespiegelt erst nach der Push-Prüfung · protokolliert vor der
+    Meldung · nicht prüfbarer Frost still · ohne Garten bleibt Haken und Ort · streng bleibt der Ort · Zwilling immer im Auftrag ·
+    Hinweis zu jeder Fläche;
+  - die Basis 5a0cf24 ist rot;
+  - 1 grün wie erwartet: die zweite Pilz-Linie allein weg (doppelte Sicherung, gemessen).
+  Bei R1 hält auch der Widerspruch Name/Latein das Maiglöckchen auf: ohne die Namens-Sperre kein Rezept, aber Grund „widerspruch“
+  statt „gift“.
+- **Auf dem Folge-Commit, TZ=UTC, 19 berührte Prüfstände:** sensor 77/0 · kalender 58/0 · planer 25/0 · einstellungen 39/0 ·
+  nutzersicht 17/0 · robust 38/0 · statik 10/0 · datum 9/0 · austausch 17/0 · i18n grün · wiring 0 kaputt (52 Menü, 31 Ziele) ·
+  field 0 ohne Leser · render 0 JS-Fehler / 0 abgeschnitten · contrast 0 unter AA · a11y 0 Funde · touch 0 unter 24 px ·
+  scan 150/0 · sicherheit (person, schluss, senken) 104/0 · storage: jeder überlebende Schlüssel benannt. Nach der letzten
+  kleinen Änderung (der Hinweis-Aufruf im Planer steht ausserhalb des Zwilling-Zweigs) liefen sensor, planer, statik,
+  einstellungen und robust noch einmal, alle grün.
+- Neu auf dem Brett: brett:2026-11-25-618e (F6: nach Ab- und Anmelden am selben Tag eine zweite Frost-Meldung, notiert),
+  brett:2026-11-25-bd8a (Idee: Meldungen über `registration.showNotification`), brett:2026-11-25-4dad (Gurke/Kürbis/Minze: Artenliste
+  gegen Kulturdaten).
+
+**Offen:** brett:2026-11-25-2bbd, brett:2026-11-25-5769, brett:2026-11-25-e9a4, brett:2026-11-16-c72c, brett:2026-11-25-55a6, brett:2026-11-25-391d, brett:2026-11-25-618e, brett:2026-11-25-bd8a, brett:2026-11-25-4dad
 **Nicht geprüft:** echte KI-Antworten (gestellt — ob Lina die Werkzeuge nur auf Wunsch nutzt, sagt erst der Betrieb); eine echte
 Mitteilung auf einem Gerät (`Notification` gestellt) und der Draht beim START (gefahren ist der nach frisch geladenem Wetter); was
 der Planer danach rechnet (der Knopf öffnet nur); der Garten-Hinweis im Dunkelmodus und mit Screenreader (`contrast_check` und
 `a11y_check` öffnen ihn nicht); die Android-Hülle; „Frost kommt" aus den Stundenwerten auf einem Gerät ausserhalb der Zürcher
-Zeitzone (die Stundenwerte sind Zürcher Zeit, die Stunde „jetzt" ist die des Geräts — gemessen in UTC und Europe/Zurich).
+Zeitzone (die Stundenwerte sind Zürcher Zeit, die Stunde „jetzt" ist die des Geräts — gemessen in UTC und Europe/Zurich); ob eine lokale
+Meldung auf Chrome/Android erscheint (dort wirft der Konstruktor — seit #360 zählt sie dann nicht); die Saison-Regel an einem echten
+Garten in den Bergen (Frost im Mai bei 1000 m, gerechnet ist der Kalender April–Oktober); die Rezeptregeln an Namen ausserhalb der
+135 gemessenen.
 
 ### 2026-11-25 (kp) - v33.85: Lina 16 — Lina hakt ab, schreibt in den Pflegeverlauf, notiert Schädlinge und Krankheiten, entfernt und zieht Pflanzungen um, immer erst nach einem Tipp auf ihre Karte
 

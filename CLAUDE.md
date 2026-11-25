@@ -2460,6 +2460,27 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 >   **Wer prüfen will, dass A die Funktion B LIEST, setzt für B einen Stellwert und verlangt ihn in A** (W5 Lage 6).
 >
 > (`sensor_check` „Lina 17“, `kalender_check` W5, `datum_check` T8; 33 Gegenproben beim Bau und 20 aus der Prüfung.)
+>
+> **Und ein Name ist eine zweite Aussage über die Art — er wird geprüft, auch wenn ein Latein daneben steht** (#360, Folge-Commit;
+> Prüfung des Koordinators). Eine Pflanze „Maiglöckchen“ mit dem Latein des Bärlauchs (der Scan hatte sich geirrt, die Person
+> benannte um) bekam 26 Bärlauch-Rezepte: `_gsPflanzeArt` las neben eigenem Latein nur das Latein. Jetzt fragt es beide
+> (`_gsNamensArten`): Ein giftiger Name sperrt, ein Name, der eine andere Art meint, macht die Art „nicht geprüft“.
+> - **Pilze bestimmt man nicht an einem Namen:** `_gsPflanzeIstPilz` sperrt jedes Rezept (Steinpilz 16, Pfifferling 17).
+> - **„Kein Rezept“ ist ein geprüftes Nein — und ein Name kann mehr meinen als die Liste:**
+>   - Einzahl und Mehrzahl sind ein Name; Artenliste und Kulturdaten müssen dasselbe sagen. „Gurke“ war Cucumis melo, „Gurken“
+>     Cucumis sativus.
+>   - „Kein Rezept“ gilt nicht, wenn ein Rezept dieselbe Art mit Unterart nennt (Karotten → Rüebli) oder der Name der Stamm eines
+>     Rezept-Namens ist (Linde → Winterlinde).
+>   - Gemessen über 135 Namen: kein neues Ja, 10 falsche Nein weniger; Lauch und Rettich bezahlen die Stamm-Regel mit „nicht geprüft“.
+> - **Eine Pflanzung hat ein Lebensende:** eine frostempfindliche Sommerkultur zählt nur in ihrer Saison (`_gsFrostSaison`: April
+>   bis Oktober, gepflanzt, dieses Jahr, höchstens 200 Tage). Über 0 °C heisst es „Frost möglich“, nicht „Frost kommt“.
+> - **Gezählt wird, was erscheint:** `gsNotif.show` protokolliert erst nach `new Notification`. Der Konstruktor wirft auf
+>   Chrome/Android.
+> - **Ein Schalter, der in einem zugeklappten Panel liegt, gibt es für die Person nicht:** „🥶 Frostgefahr melden“ steht als eigene
+>   Zeile.
+> - **Der Zwilling gehört zu seiner Fläche:** Er geht nur in den Auftrag, wenn die geplante Fläche seine ist (`_gsPlanTwinPasst`).
+>   Sein Hinweis folgt derselben Bedingung (`_gsPPtwinHinweis`).
+> (`sensor_check` „Lina 17 · #360“, 26 Gegenproben: 24 rot, die Basis rot, 1 grün wie erwartet.)
 
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen

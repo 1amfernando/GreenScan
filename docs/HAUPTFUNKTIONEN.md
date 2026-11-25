@@ -206,6 +206,13 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     eine „Tomate" ohne Latein bekommt keine Tomatenrezepte (sie steht als „nicht geprüft" da), eine „Cherrytomate" mit Latein
     keinen Frost-Hinweis (brett:2026-11-25-2bbd, Daten-Entscheidung); 11 Rezept-Arten gelten als nicht essbar
     (brett:2026-11-25-5769); lokale Frost-Meldung und Server-Push wissen nichts voneinander (brett:2026-11-25-e9a4).
+    Folge zu #360 (Prüfung des Koordinators, `sensor_check` „Lina 17 · #360"): Name UND Latein werden geprüft (ein
+    „Maiglöckchen" mit Bärlauch-Latein bekommt kein Rezept), Pilze nie, „kein Rezept" nur bei eindeutiger Art (Gurke/Gurken,
+    Minze, Linde, Karotten: nicht geprüft); Frost nur in der Saison einer Sommerkultur und über 0 °C „möglich"; eine Meldung zählt
+    erst, wenn sie erscheint; der Frost-Schalter steht als eigene Zeile; der Planer nimmt nichts vom vorigen Garten und den Zwilling
+    nur zu seiner Fläche. Offen: nach Ab- und Anmelden am selben Tag eine zweite Frost-Meldung (brett:2026-11-25-618e);
+    Gurke/Kürbis/Minze in Artenliste und Kulturdaten (brett:2026-11-25-4dad); Meldungen über den Service Worker
+    (brett:2026-11-25-bd8a).
 
 ## Offen — Suche
 

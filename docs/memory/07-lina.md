@@ -47,7 +47,7 @@ Person angemeldet ist (`_gsPerson`). *(sensor_check L9, L10, L11)*
 | Kalender heute · Nächste 7 Tage · Hinweise | `gsKalenderEreignisse(heute, +6 Tage)` — drei Zeilen, v33.39 | je 3 + „+N weitere“; Hinweise nur `verletzt` |
 | Naechste Aussaat, Plan-Termine | `gsKalenderEreignisse(heute, +60 Tage)` | je 3 + „+N" |
 | ARTEN | `_gsArtenTreffer(frage)` → `_gsArtAnzeige` je Art | `GS_LINA_ARTEN_MAX` 260 Zeichen |
-| Rezepte aus deinem Garten (Lina 17) | `gsGartenRezepte()` — nur Essen, exakt dieselbe Art, nie giftig; in `GS_LINA_ZEILEN_RANG` ZULETZT (ein Vorschlag faellt vor den Messwerten der Person) | `GS_GARTEN_REZEPTE_NENNEN` (3) Titel + „+N weitere“; kein passendes Rezept → „keine“; ohne Pflanzen keine Zeile |
+| Rezepte aus deinem Garten (Lina 17) | `gsGartenRezepte()` — nur Essen, exakt dieselbe Art (Name UND Latein), nie giftig, nie Pilze; in `GS_LINA_ZEILEN_RANG` ZULETZT (ein Vorschlag faellt vor den Messwerten der Person) | `GS_GARTEN_REZEPTE_NENNEN` (3) Titel (je `_gsLinaKurz` 40) + „+N weitere“; kein passendes Rezept → „keine“; nicht geprueft und Pilze mit Namen; ohne Pflanzen keine Zeile |
 | Gesamt | | `GS_LINA_ZAHLEN_MAX` 1000 Zeichen — seit v33.39 faellt EINE GANZE ZEILE, nie ein halber Satz (`_gsLinaDeckeln`), Reihenfolge und Fallordnung aus `GS_LINA_ZEILEN_RANG`, und „(+N Zeilen ausgelassen)“ steht dabei |
 
 ### Der Einblick (`gsLinaEinblick(frage)`, zweiter Block, eigener Deckel)
@@ -183,6 +183,16 @@ die Karte. *(sensor_check „Lina 16", 13 Gegenproben; dazu 7 aus der Gegenpruef
    still vorbelegten Masse aus `gardens[0]`). Was der Knopf nicht sagen kann, steht als Satz in der Antwort
    (`_gsLinaAktionSatz`) — ohne Einblick nur auf dem Bildschirm (`zusatz`, `_gsLinaSatzAnhaengen`), nie im Verlauf an die KI;
    dasselbe fuer die Rueckfragen der Karten (Lina 16). *(sensor_check „Lina 17")*
+4. **Folge zu #360 (Pruefung des Koordinators):** `_gsPflanzeArt` prueft NAME UND Latein (`_gsNamensArten`: ein giftiger Name
+   sperrt auch neben eigenem Latein — „Maiglöckchen" mit Bärlauch-Latein; meinen beide verschiedene Arten, ist die Art nicht
+   geprueft). **Pilze nie** (`_gsPflanzeIstPilz`, grund 'pilz': „Pilze bestimmt man nicht an einem Namen"). Einzahl und Mehrzahl
+   sind EIN Name, Artenliste und Kulturdaten muessen dasselbe sagen (Gurke/Gurken, Minze: mehrdeutig), und „kein Rezept" zu einer
+   Art aus dem Namen gilt nicht, wenn ein Rezept dieselbe Art mit Unterart nennt (Karotten → Rüebli) oder den Namen als Stamm
+   traegt (Linde → Winterlinde). Frost zaehlt nur in der Saison einer Sommerkultur (`_gsFrostSaison`: April–Oktober, gepflanzt,
+   dieses Jahr, hoechstens `GS_FROST_SAISON_TAGE` 200 Tage); ueber 0 °C heisst es „Frost möglich". `gsNotif.show` protokolliert
+   erst NACH `new Notification` (wirft auf Chrome/Android). Der Schalter „🥶 Frostgefahr melden" steht als eigene Zeile, nicht im
+   Push-Panel. Ist der Frost nicht pruefbar, sagt „Braucht Hilfe" das (`gsPflanzenHilfe().frost`), nie „niemand". Der Zwilling
+   geht nur zu seiner Flaeche in den Planer-Auftrag (`_gsPlanTwinPasst`, Hinweis `_gsPPtwinHinweis`). *(sensor_check „Lina 17 · #360")*
 
 ## Die sechs Regeln, die fuer jeden Freitext-Weg gelten
 
