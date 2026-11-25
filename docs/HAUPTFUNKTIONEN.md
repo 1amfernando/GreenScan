@@ -181,7 +181,7 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     dasselbe mit Germer, Nieswurz, Akelei, Buchsbaum, Clivia und zwölf weiteren blieben ohne Warnung, im Scan-Chat ebenso, und die
     KI bekam keine ARTEN-Zeile. Jetzt gilt ein kurzes Wort wie ein langes, wenn die Liste es nur für Gift kennt — nicht als Zusatz
     („weiss"), nicht, wenn es auch etwas anderes meint („zeitlos", „Rosenbaum"), und nie innerhalb eines ganzen harmlosen Namens.
-16. ✅ v33.84 (`sensor_check` „Lina 16 · Abhaken, Tagebuch, Schädling, Beet", Paket 1 „Next Level Aktionen", (kp)) — **Lina
+16. ✅ v33.85 (`sensor_check` „Lina 16 · Abhaken, Tagebuch, Schädling, Beet", Paket 1 „Next Level Aktionen", (kp)) — **Lina
     konnte nichts eintragen, was die Person getan hat.** „Habe gegossen!" blieb ein Satz im Chat; ins Tagebuch einer Pflanze,
     einen Schädling notieren, eine Pflanzung entfernen oder umziehen ging nur von Hand. Jetzt schlägt Lina es als KARTE unter der
     Antwort vor, und erst der Tipp schreibt — abhaken über `gsQuickDone` (ohne Pflanze: die heute fälligen zur Auswahl), Notiz,

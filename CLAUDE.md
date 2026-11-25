@@ -2401,6 +2401,22 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > Gemessen: 16 Wörter 0 → 6 von 6 Zusage-Formen, beide Orakel und die 42 Vorlagen aus (ko) identisch mit der Basis
 > (`sensor_check` „Lina 15b“, neun Gegenproben).
 
+> **Eine schreibende KI-Aktion ist eine Karte, kein Befehl — und ein `false` heisst nur dann „nichts geschrieben“, wenn nur
+> EIN Schlüssel geschrieben wird** (v33.85, Lina 16 (kp); Paket 1 „Next Level Aktionen“). Lina hakt ab, schreibt in den
+> Pflegeverlauf, notiert Schädlinge und Krankheiten, entfernt und zieht Pflanzungen um. Jede dieser fünf Aktionen steht als
+> Karte unter ihrer Antwort und schreibt erst beim Tipp (`GS_LINA_KARTEN_TOOLS`, `gsLinaKarteTun`); die Karte trägt Person,
+> Gespräch und ihre Nummer, und zwischen Prüfung und Schreiben steht kein `await`. Drei Lehren aus der gegnerischen Prüfung:
+> - `saveGardenData` schreibt `gs_gardens` und `gs_plantings` unabhängig. Scheiterte nur der eine, hiess „nicht umgezogen“
+>   eine Pflanzung, die schon neu im Speicher stand. Was nur Pflanzungen ändert, schreibt `_gsPflanzungenSpeichern`.
+> - Eine Rücknahme, die kein Fall misst, gibt es nicht: Unter der gestellten Uhr stempelte ein gescheiterter Versuch „jetzt“
+>   auf „jetzt“, und die fehlende Stempel-Rücknahme in `gsQuickDone` fiel nicht auf. Der Fall legt den Stempel vorher zwei
+>   Tage zurück.
+> - Was die KI zurückgeben soll, muss sie so zurückgeben KÖNNEN, wie sie es sah: Der Kontext kürzt Namen auf 30 Zeichen,
+>   die Karte verlangte den vollen. Jetzt meint die gekürzte Form genau diesen Eintrag (`_gsLinaKontextFormen`), ein
+>   Teilname weiter nicht.
+>
+> (`sensor_check` „Lina 16“, 13 Gegenproben beim Bau und 7 aus der Prüfung.)
+
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
 > lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer

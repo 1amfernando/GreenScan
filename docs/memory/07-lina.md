@@ -104,7 +104,7 @@ keinen Weg. Loeschen nur EINES, als Karte: eine Pflanzung aus einem Garten (unte
 („Lina · handeln“), `add_calendar_note` (T1) und seit v33.39 auch die zwei
 alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
 
-### Seit Lina 16 (kp, v33.84): fuenf Werkzeuge mit KARTE
+### Seit Lina 16 (kp, v33.85): fuenf Werkzeuge mit KARTE
 
 `GS_LINA_KARTEN_TOOLS` — `propose_task_done {task, plantName?, gardenName?}` (abhaken, „Habe gegossen!"),
 `propose_diary_entry {plantName, gardenName?, text}`, `propose_pest_note {plantName, gardenName?, what, kind: pest|disease}`,

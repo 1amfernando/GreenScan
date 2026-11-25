@@ -30,6 +30,25 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.65', date: '19.11.2026',
+      headline: 'Abhaken auf der Pflanzenkarte, Notfall-Nummern in der Suche, „Tödlich giftig“ lesbar — und die Übersetzungsleiste des Browsers soll nicht mehr aufpoppen',
+      summary: 'Auftrag P-R: der Rest von PR #329 ohne den Zahlungsteil (der steht seit v33.63 auf main) auf den Stand von main gebracht; wo main dieselbe Stelle schon anders gelöst hatte (Scan-Auswahl, Art-Eingang, Rückkehr aus Stripe), gilt main. Abhaken: der Knopf auf der Pflanzenkarte schreibt einen Pflegeeintrag (gsQuickDone), „Alle erledigt“ zählt in Tagebuch, Kalender und Wochenrückblick als erledigt, und jeder Eintrag trägt seine eigene Zeit. Notfall: GS_NOTFALL_NUMMERN (Tox Info Suisse 145, Ausland, 144, 112) ist über die Menü-Suche in fünf Sprachen auffindbar. Artendetail: „Tödlich giftig“ und rund zwanzig weitere Stellen erreichen AA; die Verzehr-Zeile des Scanners wird aus der Gegenprobe gerechnet (_gsListeZumEssen, fünf Zustände). Foto-Ansicht (gsFotoAnsicht) mit escapter Adresse im Pflanzentagebuch; Saatgut-Leiste mit Aussaatfenster und Frost in drei Zuständen. Neu: translate="no" an <html> und <meta name="google" content="notranslate"> — Fernando meldete, die eingestellte Sprache poppe bei jedem Neuladen auf; im Code gibt es keinen Sprachdialog, vermutet wird die Übersetzungsleiste des Browsers. Gemessen ist das Dokument (i18n_check), nicht ein echtes Telefon. contrast_check und touch_check messen ganze Tabs und warten auf den Anmeldebildschirm (anmeldebildWeg); contrast_check, render_check und field_check sind ein Tor.',
+      user_summary: 'Du kannst Pflege direkt auf der Pflanzenkarte abhaken, die Notfall-Nummern findest du über die Suche, und „Tödlich giftig“ ist besser lesbar. Die Sprachleiste deines Browsers sollte beim Neuladen nicht mehr erscheinen.',
+      user_items: [
+        {emoji:'✅', bold:'Abhaken auf der Pflanzenkarte:', text:' ein Tipp trägt die Pflege ein; „Alle erledigt“ zählt im Tagebuch, im Kalender und im Wochenrückblick mit.'},
+        {emoji:'🚨', bold:'Notfall-Nummern über die Suche:', text:' „Notfall“ oder „Vergiftung“ zeigt Tox Info Suisse (145), die Nummer für das Ausland, 144 und 112.'},
+        {emoji:'☠️', bold:'„Tödlich giftig“ lesbar:', text:' im Artendetail stehen die Giftangaben jetzt mit genug Kontrast, hell und dunkel.'},
+        {emoji:'🖼️', bold:'Fotos grösser ansehen:', text:' im Pflanzentagebuch öffnet ein Tipp das Foto in einer eigenen Ansicht.'},
+        {emoji:'🌐', bold:'Keine Übersetzungsleiste mehr, so ist es gedacht:', text:' GreenScan sagt dem Browser, dass die Seite schon in deiner Sprache ist. Auf einem echten Gerät noch nicht geprüft.'}
+      ],
+      items: [
+        {emoji:'🧮', bold:'Eine Rechnung je Frage:', text:' _gsTbAbgehakt/_gsTbTitel (Pflegeverlauf), _gsListeZumEssen und _gsGegenprobeVerzehr (Verzehr-Zeile), _gsAussaatFenster und _gsSaeZuSaatgut (Saatgut-Leiste).'},
+        {emoji:'🌍', bold:'translate=\"no\":', text:' i18n_check misst am geladenen Dokument translate, meta notranslate und die gesetzte Sprache; ohne das Attribut ist der Fall rot.'},
+        {emoji:'🔀', bold:'Main gewinnt:', text:' gsPickAlternative/showScanResult (_gsScanNeueArt), _gsArtEingang, kein Lesen von gs_sb_url, popup=1 nur mit Bedingung, _gsPerson() nach jedem await.'},
+        {emoji:'🧪', bold:'Prüfstände:', text:' kalender_check, scan_check, nutzersicht_check, wiring_check, escape_check, a11y_check, apk_check und robust_check tragen die neuen Fälle; der Zahlungsteil (stripe_*, _shared/zahlung_regeln.mjs) blieb unberührt.'}
+      ],
+  },
+  {
     v: 'v33.64', date: '19.11.2026',
       headline: 'Pilz-Scanner: dieselbe Vorsicht wie der Server — und ein giftiger Kandidat trägt seine Warnung',
       summary: 'Scanner 11 (Hauptfunktionen, Brett 2026-11-11-2714). Gemessen am 19.11.2026, nur lesend: die ausgelieferte mushroom-identify lädt 200 von 276 Arten des Registers — 76 fehlen dem Modell, 19 davon giftig. Im Repo behoben (supabase/functions/_shared/pilz_wissen.mjs: alle Arten, gekürzt würde zuerst die harmloseste Gruppe); live wirkt das erst, wenn Fernando die Function ausliefert (FUER-FERNANDO §31). In der App, sofort: die Schwelle für eine Bestimmung ist 70 wie am Server (GS_PILZ_SICHER_AB, vorher 60), eine tödliche oder giftige Art trägt immer die rote Kopfzeile, Kandidaten stehen mit Namen und Warnung da, ein Fehler ist ein Satz, und die Antwort gehört der Person, die gefragt hat. Prüfstände: scan_check PZ1–PZ4, edge_check 80_pilz.',

@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.84.20261125">
+<meta name="app-version" content="33.85.20261125">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -80902,6 +80902,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.85', date: '25.11.2026',
+      headline: 'Lina trägt ein, was du im Garten getan hast — erst nach deinem Tipp',
+      summary: 'Lina 16. Schreibst du Lina „Habe die Tomaten gegossen!“, schlägt sie unter ihrer Antwort eine Karte vor: die Aufgabe abhaken, einen Eintrag in den Pflegeverlauf schreiben, einen Schädling oder eine Krankheit notieren, eine Pflanzung aus dem Beet nehmen oder in einen anderen Garten ziehen. Geschrieben wird erst, wenn du auf die Karte tippst. Ist unklar, welche Pflanze gemeint ist, fragt Lina nach, statt zu raten. Notierte Krankheiten erscheinen jetzt auch bei „Braucht Hilfe“.',
+      user_summary: 'Lina kann abhaken, notieren und Pflanzungen umziehen — immer erst nach deinem Tipp auf ihre Karte.',
+      user_items: [
+        {emoji:'✅', bold:'„Habe gegossen!“:', text:' Lina schlägt vor, die Aufgabe abzuhaken. Nennst du keine Pflanze, zeigt sie dir die heute fälligen zur Auswahl.'},
+        {emoji:'📝', bold:'Notizen, Schädlinge, Krankheiten:', text:' sie landen im Pflegeverlauf der Pflanze, genau dort, wo du sie auch von Hand einträgst.'},
+        {emoji:'🪴', bold:'Beet aufräumen:', text:' Lina kann eine Pflanzung entfernen oder in einen anderen Garten ziehen. Beim nächsten Abgleich mit der Cloud kommt die entfernte nicht zurück.'},
+        {emoji:'👆', bold:'Erst dein Tipp:', text:' nichts wird geschrieben, bevor du auf die Karte tippst — und bei zwei gleichnamigen Pflanzen fragt Lina nach.'},
+      ]
+  },
+  {
     v: 'v33.84', date: '25.11.2026',
       headline: 'Lina erkennt auch kurze Namen giftiger Pflanzen — Goldregen, Germer, Nieswurz, Akelei',
       summary: 'Sicherheitspaket für Lina. Kurze Namen giftiger Pflanzen und Pilze wie Goldregen, Germer, Nieswurz, Akelei, Buchsbaum oder Clivia kannte die Prüfung nach Linas Antwort nicht: „Ja, Goldregen ist essbar.“ oder „Ja, die kannst du essen.“ auf „Kann ich Goldregen-Samen essen?“ blieben ohne Warnung — auch im Chat zum Scan-Ergebnis. Jetzt warnt Lina dort, und sie weiss schon beim Antworten, dass die Pflanze giftig ist. Ein Wort, das auch harmlose Pflanzen tragen (Täubling), und harmlose Namen wie die Nieswurz-Schafgarbe lösen keine Warnung aus.',
@@ -81184,25 +81196,6 @@ window.GS_RELEASES = [
         {emoji:'🌳', bold:'Garten ohne Garten:', text:' wählst du „Garten“, ohne einen angelegt zu haben, legt die App nicht still eine Wohnungs-Pflanze an.'}
       ],
   },
-  {
-    v: 'v33.65', date: '19.11.2026',
-      headline: 'Abhaken auf der Pflanzenkarte, Notfall-Nummern in der Suche, „Tödlich giftig“ lesbar — und die Übersetzungsleiste des Browsers soll nicht mehr aufpoppen',
-      summary: 'Auftrag P-R: der Rest von PR #329 ohne den Zahlungsteil (der steht seit v33.63 auf main) auf den Stand von main gebracht; wo main dieselbe Stelle schon anders gelöst hatte (Scan-Auswahl, Art-Eingang, Rückkehr aus Stripe), gilt main. Abhaken: der Knopf auf der Pflanzenkarte schreibt einen Pflegeeintrag (gsQuickDone), „Alle erledigt“ zählt in Tagebuch, Kalender und Wochenrückblick als erledigt, und jeder Eintrag trägt seine eigene Zeit. Notfall: GS_NOTFALL_NUMMERN (Tox Info Suisse 145, Ausland, 144, 112) ist über die Menü-Suche in fünf Sprachen auffindbar. Artendetail: „Tödlich giftig“ und rund zwanzig weitere Stellen erreichen AA; die Verzehr-Zeile des Scanners wird aus der Gegenprobe gerechnet (_gsListeZumEssen, fünf Zustände). Foto-Ansicht (gsFotoAnsicht) mit escapter Adresse im Pflanzentagebuch; Saatgut-Leiste mit Aussaatfenster und Frost in drei Zuständen. Neu: translate="no" an <html> und <meta name="google" content="notranslate"> — Fernando meldete, die eingestellte Sprache poppe bei jedem Neuladen auf; im Code gibt es keinen Sprachdialog, vermutet wird die Übersetzungsleiste des Browsers. Gemessen ist das Dokument (i18n_check), nicht ein echtes Telefon. contrast_check und touch_check messen ganze Tabs und warten auf den Anmeldebildschirm (anmeldebildWeg); contrast_check, render_check und field_check sind ein Tor.',
-      user_summary: 'Du kannst Pflege direkt auf der Pflanzenkarte abhaken, die Notfall-Nummern findest du über die Suche, und „Tödlich giftig“ ist besser lesbar. Die Sprachleiste deines Browsers sollte beim Neuladen nicht mehr erscheinen.',
-      user_items: [
-        {emoji:'✅', bold:'Abhaken auf der Pflanzenkarte:', text:' ein Tipp trägt die Pflege ein; „Alle erledigt“ zählt im Tagebuch, im Kalender und im Wochenrückblick mit.'},
-        {emoji:'🚨', bold:'Notfall-Nummern über die Suche:', text:' „Notfall“ oder „Vergiftung“ zeigt Tox Info Suisse (145), die Nummer für das Ausland, 144 und 112.'},
-        {emoji:'☠️', bold:'„Tödlich giftig“ lesbar:', text:' im Artendetail stehen die Giftangaben jetzt mit genug Kontrast, hell und dunkel.'},
-        {emoji:'🖼️', bold:'Fotos grösser ansehen:', text:' im Pflanzentagebuch öffnet ein Tipp das Foto in einer eigenen Ansicht.'},
-        {emoji:'🌐', bold:'Keine Übersetzungsleiste mehr, so ist es gedacht:', text:' GreenScan sagt dem Browser, dass die Seite schon in deiner Sprache ist. Auf einem echten Gerät noch nicht geprüft.'}
-      ],
-      items: [
-        {emoji:'🧮', bold:'Eine Rechnung je Frage:', text:' _gsTbAbgehakt/_gsTbTitel (Pflegeverlauf), _gsListeZumEssen und _gsGegenprobeVerzehr (Verzehr-Zeile), _gsAussaatFenster und _gsSaeZuSaatgut (Saatgut-Leiste).'},
-        {emoji:'🌍', bold:'translate=\"no\":', text:' i18n_check misst am geladenen Dokument translate, meta notranslate und die gesetzte Sprache; ohne das Attribut ist der Fall rot.'},
-        {emoji:'🔀', bold:'Main gewinnt:', text:' gsPickAlternative/showScanResult (_gsScanNeueArt), _gsArtEingang, kein Lesen von gs_sb_url, popup=1 nur mit Bedingung, _gsPerson() nach jedem await.'},
-        {emoji:'🧪', bold:'Prüfstände:', text:' kalender_check, scan_check, nutzersicht_check, wiring_check, escape_check, a11y_check, apk_check und robust_check tragen die neuen Fälle; der Zahlungsteil (stripe_*, _shared/zahlung_regeln.mjs) blieb unberührt.'}
-      ],
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81413,7 +81406,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.84';
+var GS_VERSION = 'v33.85';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
