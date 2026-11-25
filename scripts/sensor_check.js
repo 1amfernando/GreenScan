@@ -2703,9 +2703,9 @@ const FAELLE = [
       const klagen = [];
       try {
         localStorage.removeItem('gs_lina_einblick');
-        // Der Schädling an der Pflanze (`p.diary`, action 'pest') schreibt heute KEIN Weg der App — gsPestAddToDiary
-        // und das Tagebuch-Formular legen ihn ohne Pflanze in der Cloud an (Fall „Lina · Einblick ehrlich" (e)).
-        // Hier misst er nur die Darstellung, falls ein Eintrag eine Pflanze trägt.
+        // Der Schädling an der Pflanze (`p.diary`, action 'pest') schrieb bis v33.82 KEIN Weg der App — gsPestAddToDiary
+        // und das Tagebuch-Formular legen ihn ohne Pflanze in der Cloud an (Fall „Lina · Einblick ehrlich" (e)). Seit Lina 16
+        // (kp) schreibt ihn Lina nach einem Tipp (propose_pest_note, Fall „Lina 16" (f)). Hier misst er nur die Darstellung.
         myPlants = [
           { id: 'e1', name: 'Monstera', nick: 'Wohnzimmer', added: new Date(jetzt - 200 * T).toISOString(), notes: 'vom Wochenmarkt', photo: 'data:image/jpeg;base64,GEHEIMEINS',
             tasks: { water: { active: true, intervalDays: 4, lastDone: new Date(jetzt - 9 * T).toISOString() }, repot: { active: false, intervalDays: 365, lastDone: new Date(jetzt).toISOString() } },
@@ -3847,6 +3847,348 @@ const FAELLE = [
       } finally {
         window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt;
         try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // Lina 16 (kp, 25.11.2026) — Fernandos „Next Level Aktionen": Lina hakt ab („Habe gegossen!"), schreibt in den
+    // Pflegeverlauf einer Pflanze, notiert Schädlinge und Krankheiten, entfernt Pflanzungen aus einem Garten und zieht
+    // sie um. Jede Aktion ist ein Schreibvorgang. Gemessen über den ECHTEN Weg: gestellte KI-Antwort mit Aktionszeile →
+    // gsLinaSend → Karte im DOM → Klick → Speicher UND Variable zurückgelesen. Dazu, was NICHT geschehen darf: vor dem
+    // Tipp, nach Abbrechen, bei mehrdeutiger oder unbekannter Pflanze (auch ein Teilname), bei vollem Speicher (alles und
+    // nur die Löschmarke), nach Abmelden oder Personenwechsel, nach einem Gesprächswechsel — Fremdtext bleibt Text, und
+    // der Abgleich mit einem älteren Cloud-Stand bringt die entfernte Pflanzung nicht zurück und zieht die umgezogene
+    // nicht zurück (Löschmarke und Stempel). Dieser Fall steht zuletzt: (n) meldet wirklich ab (gsOnLogout).
+    name: 'Lina 16 · Abhaken, Tagebuch, Schädling, Beet: jede Schreib-Aktion steht als Karte da und schreibt erst beim Tipp — exakt aufgelöst (mehrdeutig, unbekannt, Teilname: Rückfrage statt Karte), bei vollem Speicher nichts und ein Satz, nach Abmelden, Personen- oder Gesprächswechsel nichts, Fremdtext bleibt Text, Entfernen setzt die Löschmarke, und der Abgleich bringt nichts zurück',
+    lauf: async () => {
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const T = 864e5, jetzt = Date.now(), iso = (ms) => new Date(ms).toISOString();
+      const speicherAlt = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); speicherAlt[k] = localStorage.getItem(k); }
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine, gt: window.gsToast, si: localStorage.setItem,
+        raw: window.fetch, tun: window.gsLinaKarteTun, init: window._gsInitialSyncDone, mp: myPlants, pl: plantings, ga: gardens };
+      const klagen = [];
+      let angemeldet = true, tunRufe = 0;
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => angemeldet;
+        const UID = gsStore.get('gs_sb_uid', null) || 'uid-L16';
+        gsStore.set('gs_sb_uid', UID);
+        window.gsToast = () => {};
+        window.__pwned = 0;
+        window.sbFetch = async (pfad, o) => {
+          const get = !o || !o.method || o.method === 'GET';
+          if (/coach_conversations/.test(pfad)) return get ? { data: [], error: null } : { data: [{ id: 'conv-L16' }], error: null };
+          if (/coach_messages/.test(pfad)) return { data: [{}], error: null };
+          return { data: [], error: null };
+        };
+        window.gsLinaKarteTun = function () { tunRufe++; return sichern.tun.apply(this, arguments); };
+        // Der Zustand wird HERGESTELLT (05-fallen: jeder Fall stellt ihn selbst her). Fällig beim Giessen: Efeu (seit 3 Tagen),
+        // Basilikum und Zucchini (seit 1 Tag), Tomate in „Meine Pflanzen" (heute); Monstera (in 6 Tagen), Kürbis und die Tomate im
+        // Hochbeet (eben gegossen) nicht. „Tomate" steht ZWEIMAL da — einmal in „Meine Pflanzen", einmal im Hochbeet.
+        myPlants = [
+          { id: 'mp_l16_bas', name: 'Basilikum', nick: 'Küchenfenster', diary: [],
+            tasks: { water: { active: true, intervalDays: 3, lastDone: iso(jetzt - 4 * T) }, fertilize: { active: true, intervalDays: 30, lastDone: iso(jetzt - 2 * T) } } },
+          { id: 'mp_l16_tom', name: 'Tomate', nick: 'Balkon', diary: [], tasks: { water: { active: true, intervalDays: 2, lastDone: iso(jetzt - 2 * T) } } },
+          { id: 'mp_l16_mon', name: 'Monstera', diary: [], tasks: { water: { active: true, intervalDays: 7, lastDone: iso(jetzt - 1 * T) } } },
+          { id: 'mp_l16_xss', name: '<img src=x onerror="window.__pwned=1">Efeu', diary: [], tasks: { water: { active: true, intervalDays: 2, lastDone: iso(jetzt - 5 * T) } } },
+        ];
+        gardens = [{ id: 'g_l16_a', name: 'Balkon Süd', kind: 'balkon' }, { id: 'g_l16_b', name: 'Hochbeet', kind: 'hochbeet' }];
+        plantings = [
+          { id: 'pl_l16_z', gardenId: 'g_l16_a', name: 'Zucchini', date: '2025-08-01', count: 1, tasks: { water: { active: true, intervalDays: 2, lastDone: iso(jetzt - 3 * T) } } },
+          { id: 'pl_l16_k', gardenId: 'g_l16_a', name: 'Kürbis', date: '2025-08-01', count: 1, tasks: { water: { active: true, intervalDays: 2, lastDone: iso(jetzt) } } },
+          { id: 'pl_l16_t', gardenId: 'g_l16_b', name: 'Tomate', date: '2025-08-01', count: 2, tasks: { water: { active: true, intervalDays: 2, lastDone: iso(jetzt) } } },
+        ];
+        if (savePlantsToStorage() === false || saveGardenData() === false) return { ok: false, warum: 'die Beispieldaten liessen sich nicht speichern — der Fall misst nichts' };
+        // Die Stempel der Beispieldaten liegen zwei Tage zurück (roh geschrieben, an _gsStempeln vorbei). Unter der gestellten
+        // Uhr trügen sonst alle Stempel dieselbe Zeit — und in (l) könnte nur der Stempel des UMZUGS den älteren Cloud-Stand
+        // (jetzt − 1 Tag) schlagen, wenn er wirklich gesetzt wird.
+        [myPlants, gardens, plantings].forEach(l => l.forEach(x => { x.geaendert = jetzt - 2 * T; }));
+        localStorage.setItem('ps_myplants', JSON.stringify(myPlants)); localStorage.setItem('gs_gardens', JSON.stringify(gardens)); localStorage.setItem('gs_plantings', JSON.stringify(plantings));
+        localStorage.setItem('gs_geloescht', '{}');   // die Marken der Seed-Pflanzen (eben ersetzt) gehören nicht zu diesem Fall
+        localStorage.removeItem('gs_lina_einblick');
+        const scroll = () => document.getElementById('gs-lina-scroll');
+        const text = () => ((scroll() || {}).textContent || '');
+        const karten = () => Array.from(document.querySelectorAll('#gs-lina-scroll [data-lina-karte]'));
+        const letzteKarte = () => karten().slice(-1)[0] || null;
+        const knopf = (wahl) => { const k = letzteKarte(); return k ? k.querySelector('[data-lina-karte-wahl="' + wahl + '"]') : null; };
+        const tippe = async (wahl) => { const b = knopf(wahl); if (!b) return false; b.click(); await warte(80); return true; };
+        const letzteAntwort = () => String(((window._gsLinaMsgs || []).filter(m => m.role === 'assistant').slice(-1)[0] || {}).content || '');
+        const lies = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+        const mpS = (id) => lies('ps_myplants').find(p => p && p.id === id) || null;
+        const mpV = (id) => (myPlants || []).find(p => p && p.id === id) || null;
+        const plS = (id) => lies('gs_plantings').find(p => p && p.id === id) || null;
+        const plV = (id) => (plantings || []).find(p => p && p.id === id) || null;
+        const notizen = (p) => ((p && p.diary) || []).map(e => e && e.note).filter(Boolean);
+        const aktion = (tool, args) => '\n[[GS_ACTION]]' + JSON.stringify({ tool: tool, args: args });
+        const senden = async (frage, antwort) => {
+          const f = document.getElementById('gs-lina-input');
+          if (!f) throw new Error('kein Eingabefeld');
+          window._gsLinaSending = false; window.callAI = async () => antwort; f.value = frage;
+          await gsLinaSend(); await warte(120);
+        };
+        const voll = (nur) => { localStorage.setItem = function (k, v) { if (!nur || String(k) === nur) return false; return sichern.si.apply(this, arguments); }; };
+        const leer = () => { localStorage.setItem = sichern.si; };
+        window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaSending = false;
+        await gsOpenLina(); await warte(150);
+        if (!document.getElementById('gs-lina-input')) return { ok: false, warum: 'Lina hat kein Eingabefeld — der Fall misst nichts' };
+
+        // (a) Abhaken MIT Pflanze: Karte, vor dem Tipp unverändert, Abbrechen ändert nichts, „Eintragen" schreibt
+        const basVor = JSON.stringify(mpS('mp_l16_bas'));
+        await senden('Habe das Basilikum gegossen!', 'Super, danke dir!' + aktion('propose_task_done', { task: 'water', plantName: 'Basilikum' }));
+        if (/GS_ACTION/.test(text())) klagen.push('(a) die Aktionszeile steht sichtbar da');
+        if (!letzteKarte() || !knopf(0)) return { ok: false, warum: '(a) keine Karte unter der Antwort — der Fall misst nichts · ' + text().slice(-200) };
+        if (JSON.stringify(mpS('mp_l16_bas')) !== basVor) klagen.push('(a) VOR dem Tipp wurde geschrieben');
+        await tippe(-1);
+        if (JSON.stringify(mpS('mp_l16_bas')) !== basVor || mpV('mp_l16_bas').tasks.water.lastDone !== iso(jetzt - 4 * T)) klagen.push('(a) Abbrechen hat geschrieben');
+        if (!/Abgebrochen — nichts geändert/.test(text())) klagen.push('(a) Abbrechen sagt nichts');
+        await senden('Habe das Basilikum gegossen!', 'Super!' + aktion('propose_task_done', { task: 'water', plantName: 'Basilikum' }));
+        await tippe(0);
+        const bas = mpS('mp_l16_bas');
+        if (!bas || bas.tasks.water.lastDone !== iso(jetzt)) klagen.push('(a) Giessen steht nicht im Speicher: ' + (bas && bas.tasks.water.lastDone));
+        if (!bas || !(bas.diary || []).some(e => e.source === 'quick_done' && e.action === 'water')) klagen.push('(a) kein Eintrag im Pflegeverlauf (Speicher)');
+        if (mpV('mp_l16_bas').tasks.water.lastDone !== iso(jetzt)) klagen.push('(a) die Variable myPlants trägt es nicht');
+        if (!/✓ Basilikum: Giessen eingetragen/.test(text())) klagen.push('(a) kein Satz nach dem Eintragen: ' + text().slice(-160));
+        if (knopf(0)) klagen.push('(a) nach dem Eintragen steht der Knopf noch da');
+        if (tunRufe < 2) klagen.push('(a) die Knöpfe riefen gsLinaKarteTun nicht — der Fall misst nicht den Draht');
+
+        // (b) „Habe gegossen!" OHNE Pflanze: die fälligen zur Auswahl — nicht Basilikum (eben erledigt), nicht Monstera,
+        // Kürbis, Tomate im Hochbeet. Ein Name mit <img …> steht als Text da. Eine Wahl schreibt genau diese eine.
+        await senden('Habe gegossen!', 'Toll!' + aktion('propose_task_done', { task: 'water' }));
+        await warte(300);
+        const kb = letzteKarte();
+        const wahl = kb ? Array.from(kb.querySelectorAll('[data-lina-karte-wahl]')).filter(b => b.getAttribute('data-lina-karte-wahl') !== '-1') : [];
+        const wt = wahl.map(b => b.textContent);
+        if (wt.length !== 3) klagen.push('(b) ' + wt.length + ' Pflanzen zur Auswahl statt 3: ' + JSON.stringify(wt));
+        if (!wt.includes('Tomate · Meine Pflanzen · Balkon · heute fällig')) klagen.push('(b) die Tomate (heute fällig) fehlt oder heisst anders: ' + JSON.stringify(wt));
+        if (!wt.includes('Zucchini · Garten „Balkon Süd" · seit 1 Tag fällig')) klagen.push('(b) die Zucchini (Garten-Pflanzung) fehlt oder heisst anders: ' + JSON.stringify(wt));
+        if (wt.some(t => /Basilikum|Monstera|Kürbis|Hochbeet/.test(t))) klagen.push('(b) eine nicht fällige Pflanze steht zur Wahl: ' + JSON.stringify(wt));
+        if (!wt.some(t => t.indexOf('<img src=x') === 0)) klagen.push('(b) der Name mit <img …> steht nicht als Text da');
+        if (kb && kb.querySelector('img')) klagen.push('(b) ein Pflanzenname wurde als HTML gesetzt');
+        const zKnopf = wahl.find(b => /^Zucchini/.test(b.textContent));
+        if (zKnopf) { zKnopf.click(); await warte(80); }
+        const z = plS('pl_l16_z');
+        if (!z || z.tasks.water.lastDone !== iso(jetzt) || !(z.diary || []).some(e => e.source === 'quick_done')) klagen.push('(b) Zucchini: im Speicher nicht abgehakt');
+        if (!plV('pl_l16_z') || plV('pl_l16_z').tasks.water.lastDone !== iso(jetzt)) klagen.push('(b) Zucchini: die Variable plantings trägt es nicht');
+        if (mpS('mp_l16_tom').tasks.water.lastDone !== iso(jetzt - 2 * T)) klagen.push('(b) die Tomate wurde mit abgehakt, ohne gewählt zu sein');
+        const rest = letzteKarte() ? Array.from(letzteKarte().querySelectorAll('[data-lina-karte-wahl]')).map(b => b.textContent) : [];
+        if (rest.some(t => /^Zucchini/.test(t)) || !rest.some(t => /^Tomate/.test(t)) || rest.indexOf('Fertig') < 0) klagen.push('(b) nach einer Wahl stehen da: ' + JSON.stringify(rest));
+        await tippe(-1);
+        if (knopf(0) || /Abgebrochen/.test((letzteKarte() || {}).textContent || '')) klagen.push('(b) „Fertig" schliesst die Karte nicht oder nennt die Wahl einen Abbruch');
+
+        // (c) nichts fällig, Aufgabe fehlt: keine Karte, ein Satz
+        let n0 = karten().length;
+        await senden('Habe gedüngt!', 'Prima.' + aktion('propose_task_done', { task: 'fertilize' }));
+        if (karten().length !== n0 || !/Heute ist bei keiner Pflanze „Düngen" fällig/.test(letzteAntwort())) klagen.push('(c) nichts fällig: eine Karte oder kein Satz — ' + letzteAntwort().slice(-120));
+        await senden('Habe die Monstera gedüngt', 'Prima.' + aktion('propose_task_done', { task: 'fertilize', plantName: 'Monstera' }));
+        if (karten().length !== n0 || !/gibt es die Aufgabe „Düngen" nicht/.test(letzteAntwort())) klagen.push('(c) Aufgabe fehlt: eine Karte oder kein Satz — ' + letzteAntwort().slice(-120));
+        await senden('Habe gezaubert', 'Ok.' + aktion('propose_task_done', { task: 'zaubern', plantName: 'Monstera' }));
+        if (karten().length !== n0 || !/nicht angekommen/.test(letzteAntwort())) klagen.push('(c) eine erfundene Aufgabe: eine Karte oder kein Satz');
+
+        // (d) Tagebuch: eine Notiz mit Fremd-HTML kommt als TEXT auf die Karte und in den Pflegeverlauf — mit Quelle „lina"
+        const notiz = 'Neues Blatt <img src=x onerror="window.__pwned=1"> entdeckt';
+        await senden('Schreib ins Tagebuch der Monstera: neues Blatt', 'Gern!' + aktion('propose_diary_entry', { plantName: 'Monstera', text: notiz }));
+        await warte(350);   // onerror feuert erst, wenn das Bild wirklich fehlschlägt
+        const kd = letzteKarte();
+        if (!kd || kd.querySelector('img') || window.__pwned) klagen.push('(d) die Notiz wurde als HTML gesetzt');
+        if (!kd || ((kd.querySelector('[data-lina-karte-zitat]') || {}).textContent || '') !== notiz) klagen.push('(d) die Notiz steht nicht wörtlich als Text auf der Karte');
+        if (notizen(mpS('mp_l16_mon')).length) klagen.push('(d) vor dem Tipp steht schon eine Notiz');
+        await tippe(0);
+        const ne = ((mpS('mp_l16_mon') || {}).diary || []).find(e => e && e.action === 'note');
+        if (!ne || ne.note !== notiz || ne.quelle !== 'lina' || !ne.bestaetigt_am) klagen.push('(d) die Notiz steht nicht (oder anders) im Speicher: ' + JSON.stringify(ne));
+        if (notizen(mpV('mp_l16_mon')).indexOf(notiz) < 0) klagen.push('(d) die Variable trägt die Notiz nicht');
+        const ev = gsKalenderEreignisse(gsHeuteTag(), gsHeuteTag()).find(e => e.art === 'tagebuch' && e.pflanze && e.pflanze.id === 'mp_l16_mon');
+        if (!ev || !/von Lina vorgeschlagen, von dir bestätigt/.test(ev.grund || '')) klagen.push('(d) der Kalender sagt nicht, woher der Eintrag kommt: ' + (ev && ev.grund));
+        if (window.__pwned) klagen.push('(d) __pwned wurde gesetzt');
+
+        // (e) mehrdeutig: „Tomate" steht in „Meine Pflanzen" UND im Hochbeet — keine Karte, eine Rückfrage mit beiden;
+        // mit gardenName ist sie eindeutig. Unbekannt und Teilname („Mon"): keine Karte. Fremdtext im Namen bleibt Text.
+        n0 = karten().length;
+        await senden('Notiere bei der Tomate: erste Blüte', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Tomate', text: 'Erste Blüte' }));
+        if (karten().length !== n0) klagen.push('(e) mehrdeutig: es kam eine Karte');
+        if (!/„Tomate" gibt es bei dir mehrmals: Meine Pflanzen · Balkon; Garten „Hochbeet"\. Welche meinst du\?/.test(letzteAntwort())) klagen.push('(e) die Rückfrage nennt die Möglichkeiten nicht: ' + letzteAntwort().slice(-160));
+        await senden('die im Hochbeet', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Tomate', gardenName: 'Hochbeet', text: 'Erste Blüte' }));
+        if (karten().length !== n0 + 1) klagen.push('(e) mit gardenName keine Karte');
+        else await tippe(0);
+        if (notizen(plS('pl_l16_t')).indexOf('Erste Blüte') < 0) klagen.push('(e) die Notiz ist nicht bei der Tomate im Hochbeet (Speicher)');
+        if (notizen(mpS('mp_l16_tom')).indexOf('Erste Blüte') >= 0) klagen.push('(e) die Notiz ist bei der Tomate in „Meine Pflanzen"');
+        n0 = karten().length;
+        await senden('Notiz bei Mon', 'Ok.' + aktion('propose_diary_entry', { plantName: 'Mon', text: 'x' }));
+        if (karten().length !== n0 || !/Eine Pflanze „Mon" finde ich bei dir nicht/.test(letzteAntwort())) klagen.push('(e) „Mon" (Teilname von Monstera): eine Karte oder kein Satz — ' + letzteAntwort().slice(-120));
+        await senden('Notiz', 'Ok.' + aktion('propose_diary_entry', { plantName: '<img src=x onerror="window.__pwned=1">', text: 'x' }));
+        await warte(350);
+        if (karten().length !== n0 || (scroll() && scroll().querySelector('img')) || window.__pwned) klagen.push('(e) ein Fremdname in der Rückfrage wurde als HTML gesetzt');
+        if (!/finde ich bei dir nicht/.test(letzteAntwort()) || text().indexOf('„<img src=x') < 0) klagen.push('(e) der Fremdname steht nicht als Text in der Rückfrage');
+
+        // (f) Schädling und Krankheit: im Pflegeverlauf, in gsSchaedlingeNotiert (mit Art), in gsPflanzenHilfe und in Linas Kontext
+        await senden('Am Basilikum sind Blattläuse', 'Oh je.' + aktion('propose_pest_note', { plantName: 'Basilikum', what: 'Blattläuse', kind: 'pest' }));
+        if (!letzteKarte() || !/Schädling notieren/.test(letzteKarte().textContent)) klagen.push('(f) keine Schädlings-Karte');
+        await tippe(0);
+        await senden('Die Monstera hat Mehltau', 'Schade.' + aktion('propose_pest_note', { plantName: 'Monstera', what: 'Echter Mehltau', kind: 'disease' }));
+        if (!letzteKarte() || !/Krankheit notieren/.test(letzteKarte().textContent)) klagen.push('(f) keine Krankheits-Karte');
+        await tippe(0);
+        if (!((mpS('mp_l16_bas') || {}).diary || []).some(e => e && e.action === 'pest' && e.title === '🐛 Blattläuse' && e.quelle === 'lina')) klagen.push('(f) der Schädling steht nicht im Pflegeverlauf (Speicher)');
+        if (!((mpS('mp_l16_mon') || {}).diary || []).some(e => e && e.action === 'disease' && e.title === '🦠 Echter Mehltau')) klagen.push('(f) die Krankheit steht nicht im Pflegeverlauf (Speicher)');
+        const sn = gsSchaedlingeNotiert().liste;
+        if (!sn.some(x => x.pflanze_id === 'mp_l16_bas' && x.art === 'schaedling' && /Blattläuse/.test(x.was))) klagen.push('(f) gsSchaedlingeNotiert kennt den Schädling nicht: ' + JSON.stringify(sn));
+        if (!sn.some(x => x.pflanze_id === 'mp_l16_mon' && x.art === 'krankheit' && /Mehltau/.test(x.was))) klagen.push('(f) gsSchaedlingeNotiert kennt die Krankheit nicht: ' + JSON.stringify(sn));
+        const hf = gsPflanzenHilfe();
+        const hB = hf.find(h => h.id === 'mp_l16_bas'), hM = hf.find(h => h.id === 'mp_l16_mon');
+        if (!hB || !hB.gruende.some(g => /^Schädling notiert am /.test(g))) klagen.push('(f) „Braucht Hilfe" nennt den Schädling am Basilikum nicht: ' + JSON.stringify(hB));
+        if (!hM || !hM.gruende.some(g => /^Krankheit notiert am /.test(g))) klagen.push('(f) „Braucht Hilfe" nennt die Krankheit der Monstera nicht: ' + JSON.stringify(hM));
+        const zH = (gsLinaContext('Wie geht es meinen Pflanzen?').match(/^Braucht Hilfe:[^\n]*/m) || [''])[0];
+        if (!/Monstera \(Krankheit notiert am /.test(zH) || !/Basilikum \(Schädling notiert am /.test(zH)) klagen.push('(f) Linas Kontext: ' + zH);
+
+        // (g) Entfernen: deutliche Karte, vorher nichts, danach weg (Speicher UND Variable) — mit Löschmarke. Eine Pflanze aus
+        // „Meine Pflanzen" bekommt keine Entfernen-Karte, und der Dispatcher allein schreibt nichts.
+        n0 = karten().length;
+        await senden('Die Zucchini ist hinüber, nimm sie raus', 'Schade.' + aktion('propose_remove_planting', { plantName: 'Zucchini', gardenName: 'Balkon Süd' }));
+        const kw = letzteKarte();
+        if (!kw || karten().length !== n0 + 1 || !kw.querySelector('[data-lina-karte-gefahr]') || !/nicht rückgängig/.test(kw.textContent)) klagen.push('(g) keine deutliche Karte zum Entfernen');
+        if (!plS('pl_l16_z')) klagen.push('(g) VOR dem Tipp entfernt');
+        await tippe(0);
+        if (plS('pl_l16_z') || plV('pl_l16_z')) klagen.push('(g) die Zucchini steht noch da (Speicher ' + !!plS('pl_l16_z') + ' · Variable ' + !!plV('pl_l16_z') + ')');
+        if (!Object.prototype.hasOwnProperty.call(_gsGeloeschtLesen()['gs_plantings'] || {}, 'pl_l16_z')) klagen.push('(g) keine Löschmarke für die Zucchini');
+        if (!/✓ „Zucchini" ist aus dem Garten „Balkon Süd" entfernt/.test(text())) klagen.push('(g) kein Satz nach dem Entfernen');
+        n0 = karten().length;
+        await senden('Nimm die Monstera raus', 'Hm.' + aktion('propose_remove_planting', { plantName: 'Monstera' }));
+        if (karten().length !== n0 || !/nicht in einem Garten/.test(letzteAntwort())) klagen.push('(g) eine Pflanze aus „Meine Pflanzen" bekam eine Entfernen-Karte');
+        await gsLinaDispatch({ tool: 'propose_remove_planting', args: { plantName: 'Tomate', gardenName: 'Hochbeet' } });
+        if (!plS('pl_l16_t')) klagen.push('(g) der Dispatcher allein hat entfernt — ohne Karte, ohne Tipp');
+
+        // (h) Umziehen: ein Teilname als Ziel gilt nicht; „Hochbeet" geht — Speicher UND Variable
+        n0 = karten().length;
+        await senden('Der Kürbis kommt ins Hoch', 'Ok.' + aktion('propose_move_planting', { plantName: 'Kürbis', toGarden: 'Hoch' }));
+        if (karten().length !== n0 || !/Einen Garten „Hoch" finde ich nicht/.test(letzteAntwort())) klagen.push('(h) „Hoch" (Teilname) als Ziel: eine Karte oder kein Satz');
+        await senden('Der Kürbis kommt ins Hochbeet', 'Ok.' + aktion('propose_move_planting', { plantName: 'Kürbis', toGarden: 'Hochbeet' }));
+        await tippe(0);
+        if ((plS('pl_l16_k') || {}).gardenId !== 'g_l16_b' || (plV('pl_l16_k') || {}).gardenId !== 'g_l16_b') klagen.push('(h) der Kürbis steht nicht im Hochbeet (Speicher ' + (plS('pl_l16_k') || {}).gardenId + ' · Variable ' + (plV('pl_l16_k') || {}).gardenId + ')');
+
+        // (i) voller Speicher: nichts geändert (Speicher UND Variable), ein Satz auf der Karte, die Wahl bleibt offen
+        const tomVor = mpS('mp_l16_tom').tasks.water.lastDone;
+        await senden('Habe die Tomate auf dem Balkon gegossen', 'Gut.' + aktion('propose_task_done', { task: 'water', plantName: 'Tomate', gardenName: 'Meine Pflanzen' }));
+        voll(); await tippe(0); leer();
+        if (mpS('mp_l16_tom').tasks.water.lastDone !== tomVor || mpV('mp_l16_tom').tasks.water.lastDone !== tomVor) klagen.push('(i) Abhaken bei vollem Speicher: Zustand geändert');
+        if (!/Die Aufgabe bleibt offen/.test((letzteKarte() || {}).textContent || '') || !knopf(0)) klagen.push('(i) Abhaken bei vollem Speicher: kein Satz oder keine zweite Chance');
+        await senden('Notiz bei Basilikum', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Basilikum', text: 'VOLL-NOTIZ' }));
+        voll(); await tippe(0); leer();
+        if (notizen(mpS('mp_l16_bas')).indexOf('VOLL-NOTIZ') >= 0 || notizen(mpV('mp_l16_bas')).indexOf('VOLL-NOTIZ') >= 0) klagen.push('(i) Notiz bei vollem Speicher: sie steht da');
+        if (!/Es wurde nichts eingetragen/.test((letzteKarte() || {}).textContent || '')) klagen.push('(i) Notiz bei vollem Speicher: kein Satz');
+        const markenVor = localStorage.getItem('gs_geloescht');
+        await senden('Nimm die Tomate aus dem Hochbeet', 'Ok.' + aktion('propose_remove_planting', { plantName: 'Tomate', gardenName: 'Hochbeet' }));
+        voll(); await tippe(0); leer();
+        if (!plS('pl_l16_t') || !plV('pl_l16_t') || localStorage.getItem('gs_geloescht') !== markenVor) klagen.push('(i) Entfernen bei vollem Speicher: Pflanzung oder Marke geändert');
+        if (!/Die Pflanzung bleibt/.test((letzteKarte() || {}).textContent || '')) klagen.push('(i) Entfernen bei vollem Speicher: kein Satz');
+        // nur die Löschmarke lässt sich nicht schreiben: dann wird NICHT entfernt (sonst brächte der Abgleich sie zurück)
+        voll('gs_geloescht'); await tippe(0); leer();
+        if (!plS('pl_l16_t') || !plV('pl_l16_t')) klagen.push('(i) ohne Löschmarke wurde trotzdem entfernt — der nächste Abgleich brächte die Tomate zurück');
+        await senden('Kürbis zurück auf den Balkon', 'Ok.' + aktion('propose_move_planting', { plantName: 'Kürbis', toGarden: 'Balkon Süd' }));
+        voll(); await tippe(0); leer();
+        if ((plS('pl_l16_k') || {}).gardenId !== 'g_l16_b' || (plV('pl_l16_k') || {}).gardenId !== 'g_l16_b') klagen.push('(i) Umziehen bei vollem Speicher: der Garten wurde geändert (Variable ' + (plV('pl_l16_k') || {}).gardenId + ')');
+        if (!/bleibt im Garten „Hochbeet"/.test((letzteKarte() || {}).textContent || '')) klagen.push('(i) Umziehen bei vollem Speicher: kein Satz');
+
+        // (j) Gesprächswechsel: der Knopf einer Karte aus dem vorigen Gespräch löst NICHTS aus — auch nicht die neue Karte, die
+        // dort an derselben Stelle steht; und ein Wechsel der Gesprächsnummer allein sperrt die Karte ebenfalls
+        gsLinaNew(); await warte(40);
+        await senden('Notiz bei Basilikum', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Basilikum', text: 'ALT-NOTIZ' }));
+        const altKnopf = knopf(0);
+        gsLinaNew(); await warte(40);
+        await senden('Notiz bei Monstera', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Monstera', text: 'NEU-NOTIZ' }));
+        const rufeVor = tunRufe;
+        if (altKnopf) { altKnopf.click(); await warte(80); }
+        if (tunRufe === rufeVor) klagen.push('(j) der alte Knopf wurde gar nicht ausgelöst — der Fall misst nichts');
+        if (notizen(mpS('mp_l16_bas')).indexOf('ALT-NOTIZ') >= 0) klagen.push('(j) die Karte aus dem vorigen Gespräch hat geschrieben');
+        if (notizen(mpS('mp_l16_mon')).indexOf('NEU-NOTIZ') >= 0) klagen.push('(j) der alte Knopf hat die NEUE Karte ausgelöst');
+        await tippe(0);
+        if (notizen(mpS('mp_l16_mon')).indexOf('NEU-NOTIZ') < 0) klagen.push('(j) die neue Karte schreibt nicht');
+        await senden('Notiz bei Basilikum', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Basilikum', text: 'NR-NOTIZ' }));
+        _gsLinaGespraechWechsel();
+        await tippe(0);
+        if (notizen(mpS('mp_l16_bas')).indexOf('NR-NOTIZ') >= 0) klagen.push('(j) nach einem Wechsel der Gesprächsnummer wurde geschrieben');
+        if (!/Diese Karte gehört zu einem anderen Gespräch/.test(text())) klagen.push('(j) kein Satz, dass die Karte zu einem anderen Gespräch gehört');
+
+        // (k) Abgemeldet bzw. eine andere Person angemeldet (zweiter Tab, derselbe Speicher) zwischen Karte und Tipp: nichts
+        // geschrieben, Lina geht zu und vergisst das Gespräch
+        const schreib = [];
+        const spion = () => { localStorage.setItem = function (k) { schreib.push(String(k)); return sichern.si.apply(this, arguments); }; };
+        for (const lage of ['abgemeldet', 'andere Person']) {
+          window._gsLinaMsgs = []; window._gsLinaConvId = null;
+          try { closeModal('gs-nl-modal'); } catch (_) {}
+          await gsOpenLina(); await warte(120);
+          await senden('Notiz bei Basilikum', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Basilikum', text: 'PERSON-NOTIZ' }));
+          const kp = knopf(0);
+          if (!kp) { klagen.push('(k) ' + lage + ': keine Karte — der Fall misst nichts'); continue; }
+          if (lage === 'abgemeldet') angemeldet = false; else gsStore.set('gs_sb_uid', 'uid-L16-B');
+          schreib.length = 0; spion();
+          kp.click(); await warte(80);
+          leer();
+          angemeldet = true; gsStore.set('gs_sb_uid', UID);
+          if (schreib.some(k => /^(ps_myplants|gs_plantings|gs_gardens|gs_geloescht)$/.test(k)) || notizen(mpV('mp_l16_bas')).indexOf('PERSON-NOTIZ') >= 0) klagen.push('(k) ' + lage + ': geschrieben (' + schreib.join(',') + ')');
+          if ((window._gsLinaMsgs || []).length) klagen.push('(k) ' + lage + ': Lina hält das Gespräch noch im Arbeitsspeicher');
+        }
+
+        // (l) Abgleich: ein ÄLTERER Cloud-Stand (ein anderes Gerät hat ihn nach unserem Hochladen geschrieben, hier ist nichts
+        // ungesendet) hat die Zucchini noch und den Kürbis auf dem Balkon. Danach: die Zucchini bleibt weg (Löschmarke), der Kürbis
+        // bleibt im Hochbeet (Stempel) — im Speicher UND in der Variable.
+        const alt = (o) => Object.assign({}, o, { geaendert: jetzt - T });
+        const cloud = { user_gardens: { data: { gardens: gardens.map(alt), plantings: [
+          alt({ id: 'pl_l16_z', gardenId: 'g_l16_a', name: 'Zucchini', date: '2025-08-01', count: 1, tasks: { water: { active: true, intervalDays: 2, lastDone: iso(jetzt - 3 * T) } } }),
+          alt({ id: 'pl_l16_k', gardenId: 'g_l16_a', name: 'Kürbis', date: '2025-08-01', count: 1, tasks: { water: { active: true, intervalDays: 2, lastDone: iso(jetzt) } } }),
+          alt({ id: 'pl_l16_t', gardenId: 'g_l16_b', name: 'Tomate', date: '2025-08-01', count: 2, tasks: { water: { active: true, intervalDays: 2, lastDone: iso(jetzt) } } }) ] },
+          updated_at: iso(jetzt - 60e3) } };
+        const TAB = /\/rest\/v1\/(user_plants|user_gardens|user_app_state)/;
+        window.sbFetch = async (pfad, o) => {
+          o = o || {}; const m = (o.method || 'GET').toUpperCase(); const tab = (String(pfad).match(TAB) || [])[1];
+          if (tab && (m === 'POST' || m === 'PATCH')) { try { cloud[tab] = { data: JSON.parse(o.body).data, updated_at: iso(jetzt) }; } catch (_) {} return { data: [{}], error: null, status: 200 }; }
+          if (tab) return cloud[tab] ? { data: [cloud[tab]], error: null, status: 200 } : { data: [], error: null, status: 200 };
+          return { data: [], error: null, status: 200 };
+        };
+        window.fetch = async function (url, o) {
+          const tab = (String(url).match(TAB) || [])[1];
+          if (tab && o && o.body) { try { cloud[tab] = { data: JSON.parse(o.body).data, updated_at: iso(jetzt) }; } catch (_) {} return new Response('[{}]', { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+          return sichern.raw.apply(this, arguments);
+        };
+        ['gs_sync_dirty', 'gs_sync_dirty_at_garden', 'gs_sync_dirty_at_plants', 'gs_sync_dirty_at_state'].forEach(k => localStorage.removeItem(k));
+        localStorage.setItem('gs_last_active_uid', UID);
+        window._gsInitialSyncDone = false;
+        await gsSyncUserDataOnLogin(); await warte(250);
+        if (plS('pl_l16_z') || plV('pl_l16_z')) klagen.push('(l) der Abgleich brachte die entfernte Zucchini zurück (Speicher ' + !!plS('pl_l16_z') + ' · Variable ' + !!plV('pl_l16_z') + ')');
+        if ((plS('pl_l16_k') || {}).gardenId !== 'g_l16_b' || (plV('pl_l16_k') || {}).gardenId !== 'g_l16_b') klagen.push('(l) der Abgleich zog den Kürbis zurück auf den Balkon (Speicher ' + (plS('pl_l16_k') || {}).gardenId + ' · Variable ' + (plV('pl_l16_k') || {}).gardenId + ')');
+        if (!plS('pl_l16_t')) klagen.push('(l) die Tomate im Hochbeet fehlt nach dem Abgleich — der Fall misst nichts');
+
+        // (m) wirklich abmelden (gsOnLogout) zwischen Karte und Tipp: der gehaltene Knopf schreibt nichts
+        window.sbFetch = async () => ({ data: [], error: null });
+        window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { closeModal('gs-nl-modal'); } catch (_) {}
+        await gsOpenLina(); await warte(120);
+        await senden('Notiz bei Basilikum', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Basilikum', text: 'LOGOUT-NOTIZ' }));
+        const kl = knopf(0);
+        if (!kl) klagen.push('(m) keine Karte — der Fall misst nichts');
+        else {
+          angemeldet = false; try { gsOnLogout(); } catch (_) {}
+          schreib.length = 0; spion();
+          kl.click(); await warte(80);
+          leer();
+          if (schreib.some(k => /^(ps_myplants|gs_plantings|gs_gardens|gs_geloescht)$/.test(k)) || JSON.stringify(myPlants || []).indexOf('LOGOUT-NOTIZ') >= 0) klagen.push('(m) nach dem Abmelden wurde geschrieben (' + schreib.join(',') + ')');
+        }
+        if (window.__pwned) klagen.push('__pwned wurde gesetzt');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Abhaken (Karte, Abbrechen, Eintragen) · „Habe gegossen!" bietet 3 fällige an, eine Wahl schreibt genau eine · nichts fällig/Aufgabe fehlt: Satz · Notiz mit <img> als Text, Quelle lina, im Kalender · „Tomate" mehrdeutig → Rückfrage, mit Garten eindeutig · „Mon", Fremdname: keine Karte · Schädling und Krankheit in Hilfe und Kontext · Entfernen mit Löschmarke · Umziehen · voller Speicher (auch nur die Marke): nichts + Satz · alter Knopf nach Gesprächswechsel: nichts · abgemeldet/andere Person/gsOnLogout: nichts · Abgleich mit altem Cloud-Stand: Zucchini bleibt weg, Kürbis bleibt im Hochbeet' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + (e && e.message) + (klagen.length ? ' · ' + klagen.join(' · ') : '') };
+      } finally {
+        localStorage.setItem = sichern.si;
+        window.gsLinaKarteTun = sichern.tun;
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt; window.fetch = sichern.raw;
+        try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        window._gsInitialSyncDone = sichern.init;
+        try {
+          const jetztKeys = []; for (let i = 0; i < localStorage.length; i++) jetztKeys.push(localStorage.key(i));
+          jetztKeys.forEach(k => { if (!Object.prototype.hasOwnProperty.call(speicherAlt, k)) localStorage.removeItem(k); });
+          Object.keys(speicherAlt).forEach(k => { if (localStorage.getItem(k) !== speicherAlt[k]) localStorage.setItem(k, speicherAlt[k]); });
+        } catch (_) {}
+        myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
         window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
         try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
         try { closeModal('gs-nl-modal'); } catch (_) {}

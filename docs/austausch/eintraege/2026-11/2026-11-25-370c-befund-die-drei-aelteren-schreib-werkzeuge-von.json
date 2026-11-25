@@ -1,0 +1,25 @@
+{
+  "id": "2026-11-25-370c",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "00:16:41",
+  "von": "sitzung/lokal/fable-lina",
+  "stand": "v33.82",
+  "titel": "Die drei älteren Schreib-Werkzeuge von Lina fragen nach der Rückfrage nicht nach der Person, und propose_reminder nimmt bei zwei gleichnamigen Pflanzen still die erste",
+  "vorschlag": "Die drei auf die Karte von Lina 16 umstellen (gsLinaKarteTun, _gsLinaPflanzenWahl) oder mindestens _gsPerson vor und nach gsConfirmModal vergleichen und mehrdeutige Namen zurückfragen.",
+  "beleg": [
+    "Gemessen 25.11.2026 auf lokal/fable-lina (Playwright, gestellte Rückfrage): zwei Pflanzen „Tomate“ (Meine Pflanzen + Hochbeet), propose_reminder task mist → die Erinnerung landet ohne Rückfrage an der Tomate in Meine Pflanzen (gsLinaResolvePlant nimmt den ersten Treffer). Personenwechsel WÄHREND gsConfirmModal (gs_sb_uid geändert) → propose_add_plant legt danach trotzdem an, auch im Speicher (1 Pflanze). propose_reminder und add_calendar_note haben nach dem await ebenfalls keinen _gsPerson-Vergleich. Die fünf Karten-Werkzeuge aus Lina 16 (kp) prüfen beides."
+  ],
+  "stichworte": [
+    "lina",
+    "schreib-werkzeuge",
+    "person-nach-await",
+    "mehrdeutig"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "var ok2 = await gsConfirmModal({ title:'⏰ ' + _gsSatz('Erinnerung einrichten?')"
+    }
+  ]
+}

@@ -16856,6 +16856,31 @@ window.GS_I18N_JS_STRINGS = {
   'lina_antwort_dort':         'Lina hat im vorigen Gespräch geantwortet — du findest es unter 🕘 Verlauf.',
   'lina_antwort_weg':          'Lina hat auf deine vorige Frage geantwortet — dieses Gespräch ist nicht mehr offen.',
   'lina_vorige_fehler':        'Lina konnte deine vorige Frage gerade nicht beantworten.',
+  // ── Lina 16 (kp): Karten der schreibenden Aktionen (_gsLinaKarteBauen, gsLinaKarteTun) ──
+  'lina_k_meine':              'Meine Pflanzen',
+  'lina_k_welche':             'Bei welcher Pflanze? Sag mir ihren Namen, dann zeige ich dir den Eintrag zum Bestätigen.',
+  'lina_k_welche_faellig':     'Heute fällig — tippe an, wo du es gemacht hast:',
+  'lina_k_eintragen':          'Eintragen',
+  'lina_k_notieren':           'Notieren',
+  'lina_k_entfernen':          'Entfernen',
+  'lina_k_umziehen':           'Umziehen',
+  'lina_k_fertig':             'Fertig',
+  'lina_k_tb_titel':           'In den Pflegeverlauf schreiben?',
+  'lina_k_pest_titel':         'Schädling notieren?',
+  'lina_k_krank_titel':        'Krankheit notieren?',
+  'lina_k_weg_titel':          'Pflanzung entfernen?',
+  'lina_k_zug_titel':          'Pflanzung umziehen?',
+  'lina_k_wohin':              'In welchen Garten soll die Pflanzung? Sag mir seinen Namen.',
+  'lina_k_ab':                 'Abgebrochen — nichts geändert.',
+  'lina_k_gespraech':          'Diese Karte gehört zu einem anderen Gespräch — nichts geändert.',
+  'lina_k_person':             'Nichts geändert — inzwischen ist ein anderes Konto angemeldet.',
+  'lina_k_abgemeldet':         'Nichts geändert — du bist nicht mehr angemeldet.',
+  'lina_k_voll':               'Nicht gespeichert — der Speicher ist voll. Es wurde nichts eingetragen; bitte alte Fotos oder Scans löschen.',
+  'lina_k_voll_aufgabe':       'Nicht gespeichert — der Speicher ist voll. Die Aufgabe bleibt offen; bitte alte Fotos oder Scans löschen.',
+  'lina_k_voll_weg':           'Nicht entfernt — der Speicher ist voll. Die Pflanzung bleibt; bitte alte Fotos oder Scans löschen.',
+  'lina_k_zug_weg':            'Die Pflanzung oder der Garten ist nicht mehr da — nichts geändert.',
+  'lina_k_heute':              'heute fällig',
+  'lina_k_seit1':              'seit 1 Tag fällig',
   // v33.61 (Lina 7): Linas feste Vorschlaege (GS_LINA_VORSCHLAEGE) — bis hier ohne Eintrag
   'ai_sug_1':                  'Was ist der giftigste Pilz der Schweiz?',
   'ai_sug_3':                  'Bärlauch richtig bestimmen',
@@ -30081,7 +30106,7 @@ var _GS_KAL_MON = gsMonate();
 var _GS_KAL_WT  = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
 function _gsKalDatumLang(tag) { try { var p = tag.split('-'); var x = new Date(+p[0], +p[1] - 1, +p[2]); return _GS_KAL_WT[(x.getDay() + 6) % 7] + ', ' + x.getDate() + '. ' + _GS_KAL_MON[x.getMonth()]; } catch (_) { return tag; } }
 var _GS_KAL_ART = { aufgabe: 'Aufgabe', tagebuch: 'Tagebuch', gepflanzt: 'Gepflanzt', aussaat: 'Aussaatfenster', ernte: 'Ernte', erinnerung: 'Erinnerung', messung: 'Messwert', alarm: 'Alarm', wetter: 'Wetter', scan: 'Scan', fund: 'Fundort' };
-var _GS_TB_EMOJI = { note: '📝', water: '💧', fertilize: '🌱', harvest: '🌾', plant: '🌱', pest: '🐛', weather: '🌦️', photo: '📸', repot: '🪴', prune: '✂️', check: '👀', mist: '💨', dust: '🧹', rotate: '🔄', observation: '👀' };
+var _GS_TB_EMOJI = { note: '📝', water: '💧', fertilize: '🌱', harvest: '🌾', plant: '🌱', pest: '🐛', disease: '🦠', weather: '🌦️', photo: '📸', repot: '🪴', prune: '✂️', check: '👀', mist: '💨', dust: '🧹', rotate: '🔄', observation: '👀' };   // Lina 16: `disease` — Lina notiert Krankheiten im Pflegeverlauf (propose_pest_note)
 
 // Tage bis faellig — mit Verschiebung. Wer eine Faelligkeit braucht, ruft das.
 function _gsTaskDays(t) { return getDaysUntilDue(t && t.lastDone, t && t.intervalDays, t && t.snoozedUntil, t && t.vorgezogenAuf); }
@@ -30244,9 +30269,12 @@ function gsTagebuchAlle() {
       p.diary.forEach(function (e) {
         if (!e || !e.ts) return;
         var em = _gsNachschlag(_GS_TB_EMOJI, e.action, null) || '📝';
+        // Lina 16: ein Eintrag, den Lina vorgeschlagen und die Person bestätigt hat, sagt das im Kalender
+        // („von Lina vorgeschlagen, von dir bestätigt am …“) — wie add_calendar_note im Gartentagebuch.
         out.push({ id: 'pd:' + p.id + ':' + e.ts, ts: e.ts, datum: _gsKalTag(e.ts), text: _gsTbTitel(e) || (em + ' Eintrag'), note: e.note || '', emoji: em,
           cat: e.action || 'note', plant: p.name || '', pflanze_id: p.id, photo: e.photo || null, weather: '',
-          date: new Date(e.ts).toLocaleDateString(gsLocale()), herkunft: 'pflanze', quelle: _gsTbAbgehakt(e) ? 'regel' : 'hand' });
+          date: new Date(e.ts).toLocaleDateString(gsLocale()), herkunft: 'pflanze', quelle: _gsTbAbgehakt(e) ? 'regel' : (e.quelle === 'lina' ? 'lina' : 'hand'),
+          bestaetigt_am: e.quelle === 'lina' ? (e.bestaetigt_am || null) : null });
       });
     });
   } catch (_) {}
@@ -41974,7 +42002,7 @@ function openPlantDiary(plantId) {
   var entriesHtml = entries.length ? entries.map(function(e){
     var dt = new Date(e.ts || Date.now());
     var dateStr = dt.toLocaleDateString(gsLocale(), {day:'2-digit', month:'short', year:'numeric'}) + ' · ' + dt.toLocaleTimeString(gsLocale(),{hour:'2-digit',minute:'2-digit'});
-    var actionEmoji = _gsNachschlag({water:'💧', fertilize:'🌱', repot:'🪴', prune:'✂️', check:'👀', mist:'💨', dust:'🧹', rotate:'🔄', note:'📝', photo:'📸'}, e.action, null) || '📝';
+    var actionEmoji = _gsNachschlag({water:'💧', fertilize:'🌱', repot:'🪴', prune:'✂️', check:'👀', mist:'💨', dust:'🧹', rotate:'🔄', note:'📝', photo:'📸', pest:'🐛', disease:'🦠'}, e.action, null) || '📝';   // Lina 16: pest/disease
     return '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:12px;margin-bottom:8px;">'+
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'+
         '<span style="font-size:var(--fs-xl);">'+actionEmoji+'</span>'+
@@ -42070,6 +42098,36 @@ function gsDiaryClearPhoto() {
   var f = document.getElementById('diary-photo-file'); if (f) f.value = '';
 }
 
+// Lina 16 (kp, 25.11.2026): EIN Schreiber fuer einen Eintrag im Pflegeverlauf EINER Pflanze. Das Formular
+// (gsAddDiaryEntry) und Lina (Notiz, Schaedling, Krankheit) nehmen ihn — vorher stand der Kern nur im Formular,
+// und Lina haette einen zweiten gebaut. Er sucht die Pflanze in BEIDEN Listen (_gsPflanzeFinden; das Formular
+// kennt nur „Meine Pflanzen", Lina auch Garten-Pflanzungen), deckelt nach Zeit (EIN Deckel fuer alle Schreiber,
+// GS_PFLEGEVERLAUF_MAX), haelt `lastDone` einer Pflege-Aufgabe nach (wie das Formular seit jeher), speichert ueber
+// die Liste, in der die Pflanze steht — und gibt bei `false` ALLES zurueck, auch den Aenderungsstempel, den
+// _gsStempeln vor dem Schreibversuch gesetzt hat (sonst gewaenne ein nie gespeicherter Stand den naechsten Abgleich).
+// Rueckgabe: true · false (nicht gespeichert, nichts geaendert) · null (die Pflanze gibt es nicht).
+function _gsPflegeEintragSchreiben(plantId, eintrag) {
+  var f = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(plantId) : null;
+  if (!f || !f.p || !eintrag || typeof eintrag !== 'object') return null;
+  var p = f.p, action = eintrag.action;
+  var task = (p.tasks && typeof p.tasks === 'object' && Object.prototype.hasOwnProperty.call(p.tasks, action)) ? p.tasks[action] : null;
+  var vor = { diary: Array.isArray(p.diary) ? p.diary.slice() : null, last: task ? task.lastDone : undefined,
+              hatStempel: Object.prototype.hasOwnProperty.call(p, 'geaendert'), stempel: p.geaendert };
+  if (!Array.isArray(p.diary)) p.diary = [];
+  p.diary.push(eintrag);
+  p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit'); // v30.35 Cap, v31.08 mit Archiv, Scheibe 2: nach Zeit
+  // Auch lastDone der entsprechenden Aufgabe updaten falls action eine Pflege-Aktion ist
+  if (task) task.lastDone = new Date().toISOString();
+  if (f.speichern() === false) {
+    if (vor.diary) p.diary = vor.diary; else delete p.diary;
+    if (task) { if (vor.last === undefined) delete task.lastDone; else task.lastDone = vor.last; }
+    if (vor.hatStempel) p.geaendert = vor.stempel; else delete p.geaendert;
+    return false;
+  }
+  return true;
+}
+window._gsPflegeEintragSchreiben = _gsPflegeEintragSchreiben;
+
 async function gsAddDiaryEntry(plantId) {
   if (gsAsyncLock('diaryAdd_' + plantId, 600)) return; // v26.57: Double-Submit-Schutz
   // v24.35: Engagement-Tracking — Garten-Action zählt 10 Punkte
@@ -42114,23 +42172,17 @@ async function gsAddDiaryEntry(plantId) {
     return;
   }
   var titles = {water:'Gegossen', fertilize:'Gedüngt', repot:'Umgetopft', prune:'Geschnitten', check:'Kontrolle', mist:'Besprüht', dust:'Abgestaubt', rotate:'Gedreht', note:'Notiz', photo:'Foto'};
-  // Den Stand VOR dem Eintrag merken — sagt der Speicher Nein, wird er zurueckgegeben (v33.66: erst schreiben, dann melden).
-  var _tbVor = { diary: p.diary.slice(), last: (p.tasks && p.tasks[action]) ? p.tasks[action].lastDone : undefined };
-  p.diary.push({
+  // Lina 16: der Schreib-Kern steht in _gsPflegeEintragSchreiben (Deckel, lastDone, Speichern, Ruecknahme bei
+  // `false` — v33.66: erst schreiben, dann melden). Lina schreibt ueber denselben.
+  var _tbErg = _gsPflegeEintragSchreiben(plantId, {
     ts: _tbTs,
     action: action,
     title: titles[action] || 'Eintrag',
     note: note || null,
     photo: photo
   });
-  p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit'); // v30.35 Cap, v31.08 mit Archiv, Scheibe 2: nach Zeit
-  // Auch lastDone der entsprechenden Aufgabe updaten falls action eine Pflege-Aktion ist
-  if (p.tasks && p.tasks[action]) {
-    p.tasks[action].lastDone = new Date().toISOString();
-  }
-  if (savePlantsToStorage() === false) {
-    p.diary = _tbVor.diary;
-    if (p.tasks && p.tasks[action]) { if (_tbVor.last === undefined) delete p.tasks[action].lastDone; else p.tasks[action].lastDone = _tbVor.last; }
+  if (_tbErg === null) return;
+  if (_tbErg === false) {
     // Fenster und Eingabe bleiben stehen: die Person kann Platz schaffen und es noch einmal versuchen.
     if (typeof showProfileToast==='function') showProfileToast(_gsSatz('Nicht gespeichert — der Speicher ist voll. Der Eintrag steht noch im Formular; bitte alte Fotos oder Scans löschen.'), 'error');
     return false;
@@ -79138,6 +79190,29 @@ function openAddPlanting(preGardenId) {
   openModal('modal-add-planting');
 }
 
+// v33.65 (H3): ALLES, was von der Pflanzungs-Liste lebt, mitziehen — vorher nur der Gartenbildschirm; die
+// Pflanzen-Kopfzahlen, der Tagesplan der Startseite und die Zaehler zeigten eine neue Pflanze erst nach dem
+// naechsten Oeffnen („eingetragen, aber nicht sichtbar"). Zuerst die Aufgaben nachruesten: ohne sie hat eine
+// neue Pflanzung keine, und die Zaehler stuenden zwar richtig bei den Pflanzen, aber falsch bei den Aufgaben.
+// Lina 16 (kp): als EINE Funktion — Anlegen (savePlanting), Entfernen und Umziehen (_gsPflanzungEntfernen,
+// _gsPflanzungUmziehen) ziehen dieselben Anzeigen nach; bis hier stand die Liste nur in savePlanting, und
+// deletePlanting zog allein den Gartenbildschirm nach.
+function _gsPflanzungenAnzeigen() {
+  try { if (typeof _gsPflanzungenNachruesten === 'function') _gsPflanzungenNachruesten(); } catch(_){}
+  try { if (typeof renderGarden === 'function') renderGarden(); } catch(_){}
+  try { if (typeof renderMyPlants === 'function') renderMyPlants(); } catch(_){}
+  try { if (typeof updatePlantStat === 'function') updatePlantStat(); } catch(_){}
+  try { if (typeof gsRenderDayPlan === 'function') gsRenderDayPlan(); } catch(_){}
+  try { if (typeof gsRenderNotifBadge === 'function') gsRenderNotifBadge(); } catch(_){}
+  try { if (typeof gsRenderTaskNote === 'function') gsRenderTaskNote(); } catch(_){}
+  // v26.90: Sub-Tab-Counts + Inline-Garten-Liste (falls sichtbar) aktualisieren
+  try { if (typeof gsFavsUpdateSubCounts === 'function') gsFavsUpdateSubCounts(); } catch(_){}
+  try {
+    var _oc = document.getElementById('favs-content-outdoor');
+    if (_oc && _oc.style.display !== 'none' && typeof gsFavsRenderOutdoor === 'function') gsFavsRenderOutdoor();
+  } catch(_){}
+}
+
 function savePlanting() {
   if (!gsRequire('save_garden', 'Bitte anmelden um Pflanzungen zu speichern.')) return;
   const name = document.getElementById('plant-name').value.trim();
@@ -79167,23 +79242,7 @@ function savePlanting() {
     return;
   }
   closeModal('modal-add-planting');
-  // v33.65 (H3): ALLES, was von dieser Liste lebt, jetzt mitziehen — vorher nur der Gartenbildschirm; die
-  // Pflanzen-Kopfzahlen, der Tagesplan der Startseite und die Zaehler zeigten die neue Pflanze erst nach dem
-  // naechsten Oeffnen („eingetragen, aber nicht sichtbar"). Zuerst die Aufgaben nachruesten: ohne sie hat die
-  // neue Pflanzung keine, und die Zaehler stuenden zwar richtig bei den Pflanzen, aber falsch bei den Aufgaben.
-  try { if (typeof _gsPflanzungenNachruesten === 'function') _gsPflanzungenNachruesten(); } catch(_){}
-  renderGarden();
-  try { if (typeof renderMyPlants === 'function') renderMyPlants(); } catch(_){}
-  try { if (typeof updatePlantStat === 'function') updatePlantStat(); } catch(_){}
-  try { if (typeof gsRenderDayPlan === 'function') gsRenderDayPlan(); } catch(_){}
-  try { if (typeof gsRenderNotifBadge === 'function') gsRenderNotifBadge(); } catch(_){}
-  try { if (typeof gsRenderTaskNote === 'function') gsRenderTaskNote(); } catch(_){}
-  // v26.90: Sub-Tab-Counts + Inline-Garten-Liste (falls sichtbar) aktualisieren
-  try { if (typeof gsFavsUpdateSubCounts === 'function') gsFavsUpdateSubCounts(); } catch(_){}
-  try {
-    var _oc = document.getElementById('favs-content-outdoor');
-    if (_oc && _oc.style.display !== 'none' && typeof gsFavsRenderOutdoor === 'function') gsFavsRenderOutdoor();
-  } catch(_){}
+  _gsPflanzungenAnzeigen();
   // v29.24 Bug-3: explizites Erfolgs-/Fehler-Feedback (vorher KEIN Toast → Nutzer
   // wusste nicht, ob gespeichert wurde → "wird nicht im Garten gespeichert").
   try {
@@ -79477,12 +79536,74 @@ function deletePlantingById(btn) {
 }
 
 async function deletePlanting(id) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  var wer = (typeof _gsPerson === 'function') ? _gsPerson() : null;   // vor dem await (CLAUDE.md §3.6)
   if (!(await gsConfirmModal('Pflanzung entfernen?'))) return;
-  plantings = plantings.filter(p => p.id !== id);
-  saveGardenData();
+  if (typeof _gsPerson === 'function' && _gsPerson() !== wer) return;
+  // Lina 16: derselbe Weg wie Linas Karte — Loeschmarke zuerst, und der Rueckgabewert wird gelesen. Bis hier
+  // stand `saveGardenData();` ohne Blick: bei vollem Speicher schloss das Fenster, als waere die Pflanzung weg,
+  // und nach dem Neuladen stand sie wieder da.
+  var r = _gsPflanzungEntfernen(id);
+  if (r === false) {
+    try { gsToast(_t('lina_k_voll_weg', 'Nicht entfernt — der Speicher ist voll. Die Pflanzung bleibt; bitte alte Fotos oder Scans löschen.'), 'error', 7000); } catch(_){}
+    return;
+  }
   closeModal('modal-planting-detail');
-  renderGarden();
+  if (r === null) renderGarden();
 }
+
+// Lina 16 (kp, 25.11.2026): EIN Weg, eine Pflanzung zu entfernen — der Knopf in der Pflanzungs-Ansicht
+// (deletePlanting, mit seiner Rueckfrage) und Linas Karte (die Karte IST die Rueckfrage) nehmen ihn.
+// Die Loeschmarke steht ZUERST (_gsLoeschmarke, GS_GELOESCHT_LISTEN): ohne sie braechte der Abgleich mit einem
+// Cloud-Stand, der die Pflanzung noch hat, sie zurueck (_gsMergeEintraege; sync_check H10). _gsStempeln setzt
+// sie beim Speichern zwar auch — aber ohne den Schreibversuch anzusehen: scheitert nur die Marke, waere die
+// Pflanzung lokal weg und mit dem naechsten Abgleich wieder da. Laesst sich die Marke nicht schreiben, wird nicht
+// entfernt.
+// Rueckgabe: true · false (nicht gespeichert, nichts geaendert) · null (die Pflanzung gibt es nicht).
+function _gsPflanzungEntfernen(id) {
+  if (typeof plantings === 'undefined' || !Array.isArray(plantings)) return null;
+  var p = plantings.find(function (x) { return x && x.id === id; });
+  if (!p) return null;
+  var k = String(p.id);
+  // Eine Id ausserhalb des Id-Alphabets traegt keine Marke (das Sieb laesst sie nicht durch, _gsGeloeschtBereinigen
+  // verwirft sie) — dort bleibt es beim Entfernen wie vor Lina 16.
+  var mitMarke = (_gsIdSicher(k) === k);
+  if (mitMarke && !_gsLoeschmarke('gs_plantings', k)) return false;
+  var vorher = plantings;
+  plantings = plantings.filter(function (x) { return !x || x.id !== id; });
+  if (saveGardenData() === false) {
+    plantings = vorher;
+    if (mitMarke) { try { _gsLoeschmarkenZurueck('gs_plantings', [k]); } catch (_) {} }
+    return false;
+  }
+  try { if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications(); } catch (_) {}
+  _gsPflanzungenAnzeigen();
+  return true;
+}
+window._gsPflanzungEntfernen = _gsPflanzungEntfernen;
+
+// Lina 16: eine Pflanzung in einen anderen, VORHANDENEN Garten umziehen. Geschrieben wird ueber saveGardenData —
+// dort stempelt _gsStempeln die geaenderte Pflanzung (`geaendert`), und mit dem Stempel gewinnt der neue Garten im
+// Abgleich gegen einen aelteren Cloud-Stand (_gsMergeEintraege), auch wenn dieses Geraet nichts mehr ungesendet hat.
+// Sagt der Speicher `false`, steht alles wie vorher, auch der Stempel. Rueckgabe: true · false · null (Pflanzung
+// oder Garten fehlt).
+function _gsPflanzungUmziehen(id, zielId) {
+  if (typeof plantings === 'undefined' || !Array.isArray(plantings) || typeof gardens === 'undefined' || !Array.isArray(gardens)) return null;
+  var p = plantings.find(function (x) { return x && x.id === id; });
+  var g = gardens.find(function (x) { return x && x.id === zielId; });
+  if (!p || !g) return null;
+  if (p.gardenId === g.id) return true;
+  var alt = { garten: p.gardenId, hatStempel: Object.prototype.hasOwnProperty.call(p, 'geaendert'), stempel: p.geaendert };
+  p.gardenId = g.id;
+  if (saveGardenData() === false) {
+    p.gardenId = alt.garten;
+    if (alt.hatStempel) p.geaendert = alt.stempel; else delete p.geaendert;
+    return false;
+  }
+  _gsPflanzungenAnzeigen();
+  return true;
+}
+window._gsPflanzungUmziehen = _gsPflanzungUmziehen;
 
 // VIRTUELLER GARTEN / FARM (Hay Day Style)
 
@@ -91827,11 +91948,11 @@ var LINA_SYSTEM =
   '• Lichtmessung für Standorte: Menü (⋯) → „Licht".\n\n' +
   'Pro & Lifetime existieren, aber du bewirbst sie NIE und bringst sie nur zur Sprache, wenn jemand ausdrücklich danach fragt — dann nennst du nüchtern die Fakten und kommst freundlich zur Natur zurück.\n\n' +
   // Der Einblick (gsLinaEinblick): was die Zeilen bedeuten und was Lina daraus NICHT machen darf.
-  'DEIN EINBLICK IN DEN GARTEN: Im KONTEXT können diese Zeilen stehen — „Braucht Hilfe" (von der App gerechnet: überfällige Aufgaben und notierte Schädlinge), „Im Detail" (eine Pflanze der Person, nach der sie gerade fragt: Ort, Aufgaben, Tagebuch, Fotos), „Wetter" (Vorhersage für ihren Ort), „Pflanzen" (ihre Pflanzen beim Namen), „Gärten" (Beete mit Pflanzungen), „Frühere Scans" und „Funde auf deiner Karte". Nutze sie wie eine Freundin, die den Garten kennt: sprich die Pflanzen beim Namen an und verbinde Wetter, Beet und Pflanze zu EINEM konkreten Rat. Fragt die Person allgemein, wie es ihren Pflanzen geht oder was zu tun ist, nenne zuerst, was unter „Braucht Hilfe" steht. Steht eine Zeile nicht da, liegt dazu nichts vor — sag das und frag nach, statt zu raten.\n' +
+  'DEIN EINBLICK IN DEN GARTEN: Im KONTEXT können diese Zeilen stehen — „Braucht Hilfe" (von der App gerechnet: überfällige Aufgaben und notierte Schädlinge oder Krankheiten), „Im Detail" (eine Pflanze der Person, nach der sie gerade fragt: Ort, Aufgaben, Tagebuch, Fotos), „Wetter" (Vorhersage für ihren Ort), „Pflanzen" (ihre Pflanzen beim Namen), „Gärten" (Beete mit Pflanzungen), „Frühere Scans" und „Funde auf deiner Karte". Nutze sie wie eine Freundin, die den Garten kennt: sprich die Pflanzen beim Namen an und verbinde Wetter, Beet und Pflanze zu EINEM konkreten Rat. Fragt die Person allgemein, wie es ihren Pflanzen geht oder was zu tun ist, nenne zuerst, was unter „Braucht Hilfe" steht. Steht eine Zeile nicht da, liegt dazu nichts vor — sag das und frag nach, statt zu raten.\n' +
   'GRENZEN DES EINBLICKS: Du siehst KEINE Fotos — nur, dass und von wann es welche gibt. Wie eine Pflanze aussieht oder ob sie krank ist, beurteilst du nie aus dem Kontext; bitte um eine Beschreibung oder schlage einen Scan vor. Die App misst kein Wachstum und keinen Gesundheitswert — nenne keinen. Wetterangaben nur aus der Zeile „Wetter".\n' +
   'WANDERN UND SAMMELN: Bei Ausflügen hilfst du mit Region, Jahreszeit, Wetter und den eigenen Funden der Person: was um diese Zeit zu finden ist, worauf sie achten soll, welche Verwechslungen gefährlich sind. Erfinde NIE einen genauen Fundplatz, Weg oder eine Entfernung — eigene Fundorte zeigt die Karte. Für Arten kannst du search_species anbieten.\n\n' +
   // v30.69: Lina kann handeln (sicher per Whitelist + Nutzer-Bestätigung). Sie schlägt vor — der Nutzer bestätigt.
-  'DU KANNST HANDELN: Wenn die Person dich bittet, etwas IN der App zu tun (irgendwohin navigieren, eine Pflanze hinzufügen, eine Pflege-Erinnerung einrichten, eine Art suchen, ein Formular vorbereiten), dann hänge ANS ENDE deiner Antwort GENAU EINE Zeile an, exakt in diesem Format:\n' +
+  'DU KANNST HANDELN: Wenn die Person dich bittet, etwas IN der App zu tun (irgendwohin navigieren, eine Pflanze hinzufügen, eine Pflege-Erinnerung einrichten, eine erledigte Aufgabe eintragen, etwas in den Pflegeverlauf einer Pflanze schreiben, einen Schädling oder eine Krankheit notieren, eine Pflanzung aus einem Garten entfernen oder umziehen, eine Art suchen, ein Formular vorbereiten), dann hänge ANS ENDE deiner Antwort GENAU EINE Zeile an, exakt in diesem Format:\n' +
   '[[GS_ACTION]]{"tool":"<tool>","args":{...}}\n' +
   'Schreib davor immer eine kurze, natürliche Antwort. Nutze NUR diese Tools:\n' +
   '• navigate {"screen":"..."} — wechselt den Bereich. Erlaubte screens: home, scanner, search, favs (Meine Pflanzen), garden, season, social (Community), market (Marktplatz), wissen, settings, map, recipes, remedies.\n' +
@@ -91843,7 +91964,15 @@ var LINA_SYSTEM =
   '• prefill_form {"name":"...","emoji":"...","notes":"..."} — öffnet das Pflanze-Hinzufügen-Formular vorausgefüllt (der Nutzer tippt selbst auf Speichern).\n' +
   '• propose_add_plant {"name":"...","emoji":"...","notes":"..."} — schlägt vor, eine Pflanze zu Meine Pflanzen hinzuzufügen (Nutzer bestätigt mit einem Tipp).\n' +
   '• propose_reminder {"task":"...","plantName":"...","intervalDays":N} — richtet eine Pflege-Erinnerung für eine VORHANDENE Pflanze ein. Erlaubte task: water, fertilize, repot, rotate, mist, dust, prune, check.\n' +
-  'REGELN: Erfinde keine anderen Tools, keine anderen screens/tasks. Schreib-Aktionen (Pflanze/Erinnerung) zeigt die App dem Nutzer zur Bestätigung — du fügst nie heimlich etwas hinzu. Erinnerungen gehen nur auf Pflanzen, die der Nutzer schon in „Meine Pflanzen" hat (sonst schlage zuerst propose_add_plant vor). Wenn keine Aktion nötig ist, hänge KEINE Zeile an. Du kannst niemals Daten löschen, Einstellungen/Rollen/Zahlungen ändern oder Admin-Dinge tun.';
+  // Lina 16 (kp): fuenf schreibende Werkzeuge mit Karte — die App baut die Karte (_gsLinaKarteBauen), erst der Tipp schreibt.
+  '• propose_task_done {"task":"...","plantName":"...","gardenName":"..."} — trägt eine ERLEDIGTE Pflege-Aufgabe ein („Habe gegossen!"). task wie bei propose_reminder. Ohne plantName bietet die App die Pflanzen zur Auswahl an, bei denen genau diese Aufgabe heute fällig ist.\n' +
+  '• propose_diary_entry {"plantName":"...","gardenName":"...","text":"..."} — schreibt eine kurze Notiz (nur Text) in den Pflegeverlauf EINER Pflanze.\n' +
+  '• propose_pest_note {"plantName":"...","gardenName":"...","what":"...","kind":"pest"} — notiert im Pflegeverlauf einer Pflanze einen Schädling (kind "pest") oder eine Krankheit (kind "disease"); what ist der Name, z. B. "Blattläuse" oder "Echter Mehltau".\n' +
+  '• propose_remove_planting {"plantName":"...","gardenName":"..."} — entfernt eine Pflanzung aus einem Garten (lässt sich nicht rückgängig machen).\n' +
+  '• propose_move_planting {"plantName":"...","gardenName":"...","toGarden":"..."} — zieht eine Pflanzung in einen anderen, schon vorhandenen Garten um.\n' +
+  'REGELN: Erfinde keine anderen Tools, keine anderen screens/tasks. Schreib-Aktionen zeigt die App der Person zur Bestätigung — du fügst nie heimlich etwas hinzu. Erinnerungen gehen nur auf Pflanzen, die die Person schon hat (in „Meine Pflanzen" oder als Pflanzung in einem Garten; sonst schlage zuerst propose_add_plant vor). Wenn keine Aktion nötig ist, hänge KEINE Zeile an.\n' +
+  'ABHAKEN, TAGEBUCH, BEET: propose_task_done, propose_diary_entry, propose_pest_note, propose_remove_planting und propose_move_planting zeigt die App als Karte unter deiner Antwort; erst der Tipp der Person schreibt. Nutze sie nur, wenn die Person es ausdrücklich will oder erzählt, dass sie es getan hat. plantName ist der Name oder Spitzname der Pflanze, wie die Person sie nennt oder wie sie unter „Pflanzen" im KONTEXT steht; gardenName ist der Garten, in dem die Pflanzung steht — oder "Meine Pflanzen" — und nur nötig, wenn derselbe Name mehrmals vorkommt. Bist du unsicher, welche Pflanze gemeint ist, frag nach — rate nie. Schreib nie, etwas SEI eingetragen, entfernt oder umgezogen: das sagt die App, nachdem die Person getippt hat.\n' +
+  'Löschen kannst du nur eines vorschlagen: eine Pflanzung aus einem Garten entfernen (mit Bestätigung). Sonst löschst du nichts, und du änderst nie Einstellungen, Rollen oder Zahlungen und tust keine Admin-Dinge.';
 
 // v32.56: Lina kennt die Zahlen (OEKOSYSTEM-V1.md §11 Idee 6). Bis v32.55 wusste
 // sie Pflanzenzahl, Region und Jahreszeit — und `opts.brain` injizierte
@@ -92827,7 +92956,8 @@ function gsPflanzenHilfe() {
     gsSchaedlingeNotiert().liste.forEach(function (sch) {
       if (!sch.pflanze_id) return;   // ohne Pflanze: eine eigene Zeile im Einblick
       var f = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(sch.pflanze_id) : null;
-      if (f && f.p) merk(f.p, 'Schädling notiert am ' + _gsLinaTag(sch.ts), 50);
+      // Lina 16: eine notierte KRANKHEIT ist genauso ein Signal — und heisst so
+      if (f && f.p) merk(f.p, (sch.art === 'krankheit' ? 'Krankheit' : 'Schädling') + ' notiert am ' + _gsLinaTag(sch.ts), 50);
     });
   } catch (_) {}
   return reihe.sort(function (a, b) { return b.gewicht - a.gewicht; });
@@ -92839,18 +92969,22 @@ window.gsPflanzenHilfe = gsPflanzenHilfe;
 // Pflanze; der Filter verlangte `pest` UND eine Pflanze und schlug nie an — die Entwarnung nannte
 // trotzdem „kein Schädling" als geprüft. Rückgabe {bekannt, liste:[{was, ts, pflanze_id}]}; `bekannt` ist
 // false, solange das Cloud-Tagebuch auf diesem Gerät nie geladen wurde — dann ist „keiner" keine Aussage.
+// Lina 16 (kp): dazu die KRANKHEITEN — `disease` im Pflegeverlauf (Lina notiert sie mit propose_pest_note) und im
+// Cloud-Tagebuch (entry_type `disease`, GS_DIARY_TYPES). Jeder Eintrag sagt, was er ist: `art` 'schaedling' oder
+// 'krankheit'. Bis hier kannte der Filter nur Schaedlinge; eine notierte Krankheit kam bei Lina nie an.
 function gsSchaedlingeNotiert(tage) {
   var grenze = Date.now() - (tage || GS_HILFE_SCHAEDLING_TAGE) * 864e5, liste = [], bekannt = false;
   try { bekannt = localStorage.getItem('gs_garden_diary_cache') !== null; } catch (_) {}
   try {
     var tb = (typeof gsTagebuchAlle === 'function') ? (gsTagebuchAlle() || []) : [];
     tb.forEach(function (e) {
-      if (!e || (e.cat !== 'pest' && e.cat !== 'pest_observation') || !e.ts) return;
+      if (!e || (e.cat !== 'pest' && e.cat !== 'pest_observation' && e.cat !== 'disease') || !e.ts) return;
       var z = new Date(e.ts).getTime();
       if (!isFinite(z) || z < grenze) return;
+      var krank = (e.cat === 'disease');
       var m = /Pest identified:\s*([^\n]+)/i.exec(String(e.note || '') + '\n' + String(e.text || ''));
       var was = (m ? m[1] : String(e.text || '')).trim();
-      liste.push({ was: was || 'Schädling', ts: e.ts, pflanze_id: e.pflanze_id || null });
+      liste.push({ was: was || (krank ? 'Krankheit' : 'Schädling'), ts: e.ts, pflanze_id: e.pflanze_id || null, art: krank ? 'krankheit' : 'schaedling' });
     });
   } catch (_) {}
   return { bekannt: bekannt, liste: liste };
@@ -93102,7 +93236,10 @@ function gsLinaEinblick(frageText) {
     // 1 · Wer braucht Hilfe?
     if (alle.length) {
       var hilfe = gsPflanzenHilfe();
-      var _sch = gsSchaedlingeNotiert(), _schOhne = _sch.liste.filter(function (x) { return !x.pflanze_id; });
+      // Lina 16: Schaedlinge und Krankheiten OHNE Pflanze je in ihrer eigenen Zeile — „kein Schädling" sagt weiter nur
+      // etwas ueber Schaedlinge (eine Krankheit ohne Pflanze nimmt diesen Befund nicht weg und wird nicht als Schaedling gezaehlt).
+      var _sch = gsSchaedlingeNotiert(), _schOhne = _sch.liste.filter(function (x) { return !x.pflanze_id && x.art !== 'krankheit'; });
+      var _krOhne = _sch.liste.filter(function (x) { return !x.pflanze_id && x.art === 'krankheit'; });
       if (hilfe.length) teile.push('Braucht Hilfe: ' + hilfe.slice(0, GS_LINA_HILFE_NENNEN).map(function (h) {
         return _gsLinaKurz(h.name, 30) + ' (' + h.gruende.slice(0, 2).join(', ') + ')';
       }).join('; ') + (hilfe.length > GS_LINA_HILFE_NENNEN ? '; +' + (hilfe.length - GS_LINA_HILFE_NENNEN) + ' weitere' : '') + '.');
@@ -93111,6 +93248,9 @@ function gsLinaEinblick(frageText) {
       if (_schOhne.length) teile.push('Schädlinge im Tagebuch (' + GS_HILFE_SCHAEDLING_TAGE + ' Tage, keiner Pflanze zugeordnet): ' + _schOhne.slice(0, 3).map(function (x) {
         return _gsLinaKurz(x.was, 30) + ' (' + _gsLinaTag(x.ts) + ')';
       }).join('; ') + (_schOhne.length > 3 ? '; +' + (_schOhne.length - 3) + ' weitere' : '') + '.');
+      if (_krOhne.length) teile.push('Krankheiten im Tagebuch (' + GS_HILFE_SCHAEDLING_TAGE + ' Tage, keiner Pflanze zugeordnet): ' + _krOhne.slice(0, 3).map(function (x) {
+        return _gsLinaKurz(x.was, 30) + ' (' + _gsLinaTag(x.ts) + ')';
+      }).join('; ') + (_krOhne.length > 3 ? '; +' + (_krOhne.length - 3) + ' weitere' : '') + '.');
     }
     // 2 · die Pflanzen aus der FRAGE, je eine Detailzeile
     _gsLinaPflanzenInFrage(frageText).forEach(function (x) { var z = _gsLinaPflanzeDetail(x); if (z) teile.push(z); });
@@ -93460,6 +93600,7 @@ function gsLinaRender(typing){
         + (isU ? 'background:var(--fill-brand);color:#fff;border-bottom-right-radius:4px;' : 'background:var(--surface2);color:var(--text);border-bottom-left-radius:4px;')
         + '">' + (isU ? escHtml(m.content) : '🌿 ' + _gsLinaAuszeichnung(m.content)) + '</div></div>';
       if (!isU) {
+        if (m.karte) body += _gsLinaKarteHtml(m.karte, mi);   // Lina 16: die Karte einer schreibenden Aktion
         var _kn = '', _ks = 'padding:8px 12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--r-xl);font-size:var(--fs-sm);font-weight:700;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;';
         // „Erneut senden" nur an der LETZTEN Zeile und nicht, waehrend schon eine Anfrage laeuft.
         if (m.nochmal && m.frage && mi === msgs.length - 1 && !typing) _kn += '<button data-lina-nochmal="1" onclick="gsLinaNochmal()" style="' + _ks + '">' + escHtml(_t('lina_nochmal','↻ Erneut senden')) + '</button>';
@@ -93844,6 +93985,18 @@ async function gsLinaSend(){
       if (_gsLinaAktionLabel(_linaAct)) _msgA.aktion = _linaAct;
       _linaAct = null;
     }
+    // Lina 16 (kp): die schreibenden Karten-Werkzeuge — eine Karte unter der Antwort, die erst der Tipp der Person
+    // ausfuehrt. Ist die Pflanze unbekannt oder mehrdeutig, gibt es keine Karte, sondern EINEN Satz in der Antwort
+    // (er geht mit in den Verlauf). Nur im Gespraech, in dem gefragt wurde und das noch gezeigt wird (LINA-9) — die
+    // Person hat sich nach `callAI` nicht gewechselt (oben geprueft), und bis zum Zeichnen steht kein `await`.
+    if (_linaAct && GS_LINA_KARTEN_TOOLS.indexOf(_linaAct.tool) >= 0) {
+      if (_hier()) {
+        var _kb = _gsLinaKarteBauen(_linaAct);
+        if (_kb && _kb.karte) _msgA.karte = _kb.karte;
+        else if (_kb && _kb.satz) { reply = String(reply || '') + '\n\n' + _kb.satz; _msgA.content = reply; }
+      }
+      _linaAct = null;
+    }
     // LINA-9: die Antwort geht in das Gespräch, in dem gefragt wurde. Wird es noch gezeigt, steht sie da;
     // sonst liegt sie in der Cloud bei ihm (zu finden unter „🕘 Verlauf"), und EIN Satz sagt, wo sie ist.
     if (_hier()) {
@@ -93914,15 +94067,30 @@ function gsLinaResolvePlant(id, name){
   try {
     if (id && typeof _gsPflanzeFinden === 'function') { var f = _gsPflanzeFinden(id); if (f && f.p) return f.p; }
     if (name){
-      var n = String(name).toLowerCase().trim(); if (!n) return null;
-      var alle = [];
-      if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) alle = alle.concat(myPlants);
-      if (typeof plantings !== 'undefined' && Array.isArray(plantings)) alle = alle.concat(plantings);
-      return alle.find(function(x){ return x && String(x.name||'').toLowerCase().trim()===n; })
-          || alle.find(function(x){ return x && String(x.nick||'').toLowerCase().trim()===n; }) || null;
+      // Lina 16: dieselbe Vergleichsregel wie die Karten (_gsLinaPflanzenTreffer) — der erste Name, sonst der erste Spitzname
+      var tr = _gsLinaPflanzenTreffer(name);
+      return (tr.name[0] || tr.nick[0] || {}).p || null;
     }
   } catch(_){}
   return null;
+}
+// Lina 16 (kp): ALLE eigenen Pflanzen mit genau diesem Namen oder Spitznamen (ohne Gross/klein, ohne Rand), in beiden
+// Listen — je Treffer mit seiner Liste und, bei einer Pflanzung, ihrem Garten. gsLinaResolvePlant nimmt davon den
+// ersten (so seit v33.33); ein Schreibvorgang mit Karte fragt bei mehr als einem nach (_gsLinaPflanzenWahl).
+function _gsLinaPflanzenTreffer(name) {
+  var norm = function (s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').toLowerCase().trim(); };   // Leerraum gefaltet wie in _gsLinaKartenText
+  var n = norm(name), aus = { name: [], nick: [] };
+  if (!n) return aus;
+  var gaerten = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : [];
+  var nimm = function (p, liste) {
+    if (!p || typeof p !== 'object') return;
+    var t = { p: p, liste: liste, garten: liste === 'plantings' ? (gaerten.find(function (g) { return g && g.id === p.gardenId; }) || null) : null };
+    if (norm(p.name) === n) aus.name.push(t);
+    else if (norm(p.nick) === n) aus.nick.push(t);
+  };
+  try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) myPlants.forEach(function (p) { nimm(p, 'myPlants'); }); } catch (_) {}
+  try { if (typeof plantings !== 'undefined' && Array.isArray(plantings)) plantings.forEach(function (p) { nimm(p, 'plantings'); }); } catch (_) {}
+  return aus;
 }
 function gsLinaAddPlant(nm, a){
   try {
@@ -93958,6 +94126,324 @@ function gsLinaAddPlant(nm, a){
     return true;
   } catch(_){ if (typeof gsToast==='function') gsToast('Konnte die Pflanze nicht hinzufügen.', 'error'); return false; }
 }
+// ══ Lina 16 (kp, 25.11.2026): SCHREIBEN MIT EINER KARTE ══════════════════════════════════════════════════════
+// Fernando: „Next Level Aktionen" — „Habe gegossen!" und Lina hakt ab, ein Eintrag im Pflegeverlauf einer Pflanze,
+// ein Schaedling oder eine Krankheit im Tagebuch, eine Pflanzung aus einem Garten entfernen oder umziehen. Jede
+// dieser Aktionen schreibt in die Daten der Person, also gilt, was fuer propose_reminder gilt — und mehr:
+//  · Erst der TIPP schreibt. Die Karte steht unter Linas Antwort (wie die lesenden Knoepfe seit Lina 5), nicht in
+//    gsConfirmModal: „Habe gegossen!" braucht eine AUSWAHL der faelligen Pflanzen, und was danach geschah, bleibt
+//    auf der Karte stehen, statt als Toast vorbeizuziehen.
+//  · Welche Pflanze gemeint ist, wird nie geraten: Name oder Spitzname exakt, beide Listen, ALLE Treffer
+//    (_gsLinaPflanzenWahl). Mehrdeutig oder unbekannt → keine Karte, sondern eine Rueckfrage in der Antwort; sie geht
+//    mit in den Verlauf, und die KI sieht sie bei der naechsten Frage.
+//  · Die Karte gehoert der Person und dem Gespraech: sie merkt sich `_gsPerson()`, die Gespraechsnummer
+//    (_gsLinaGespraechNr) und ihre eigene Nummer. Beim Tippen wird nichts geschrieben, wenn eines davon nicht mehr
+//    stimmt (gsLinaKarteTun) — und zwischen dieser Pruefung und dem Schreiben steht kein `await`.
+//  · Erst schreiben, dann melden: jeder Schreiber antwortet true · false (nicht gespeichert, nichts geaendert) · null
+//    (das Ziel gibt es nicht mehr), und jeder Wert bekommt EINEN Satz auf der Karte. Bei `false` bleibt die Wahl
+//    offen — wer Platz schafft, kann es noch einmal versuchen.
+//  · Fremdtext (Namen, Notiz, Schaedling) geht nur durch escHtml; in einem onclick stehen nur Zahlen.
+// Die Karte lebt nur im Arbeitsspeicher (der Spiegel und die Cloud tragen Rolle und Text) — wer Lina schliesst und
+// wieder oeffnet, sieht die Antwort ohne Karte. Knoepfe gehoeren zu dem Moment (wie „Erneut senden").
+var GS_LINA_KARTEN_TOOLS = ['propose_task_done', 'propose_diary_entry', 'propose_pest_note', 'propose_remove_planting', 'propose_move_planting'];
+var GS_LINA_NOTIZ_MAX = 300;      // Zeichen einer Notiz fuer den Pflegeverlauf
+var GS_LINA_WAS_MAX = 80;         // Zeichen fuer den Namen eines Schaedlings oder einer Krankheit
+var GS_LINA_KARTE_WAHL_MAX = 8;   // Pflanzen zur Auswahl bei „Habe gegossen!" — der Rest steht als „+N weitere" da
+var _gsLinaKarteZaehler = 0;
+
+// Ein Argument der Aktion als Text — ein Objekt oder eine Liste ist kein Name.
+function _gsLinaArg(v) { return (typeof v === 'string' || typeof v === 'number') ? String(v) : ''; }
+// Text aus einer Lina-Aktion: nur Text, eine Zeile, ohne Steuer-, Richtungs- und Nullbreitenzeichen, gedeckelt an einer
+// Wortgrenze — mit „…", denn ein abgeschnittener Wert sagt, dass er abgeschnitten ist.
+function _gsLinaKartenText(s, max) {
+  var t = _gsLinaArg(s).replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (max > 0 && t.length > max) {
+    var stueck = t.slice(0, max - 1), sp = stueck.lastIndexOf(' ');
+    t = (sp > max * 0.6 ? stueck.slice(0, sp) : stueck).replace(/[\s,;:.\-–—]+$/, '') + '…';
+  }
+  return t;
+}
+// Wo eine Pflanze steht — fuer Karte und Rueckfrage, in der Sprache der App (der Kontext der KI hat seine eigene Fassung).
+function _gsLinaPflanzeOrt(t) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  try {
+    if (t && t.liste === 'plantings') return _gsSatz('Garten „{1}"', (t.garten && t.garten.name) ? _gsLinaKartenText(t.garten.name, 40) : '?');
+    var zusatz = _gsLinaKartenText((t && t.p && (t.p.nick || t.p.location)) || '', 40);
+    return _t('lina_k_meine', 'Meine Pflanzen') + (zusatz ? ' · ' + zusatz : '');
+  } catch (_) { return ''; }
+}
+// Gaerten mit genau diesem Namen; `meine` heisst: der Name meint die Liste „Meine Pflanzen" (kein Garten heisst so).
+function _gsLinaGartenWahl(gn) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  var norm = function (s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').toLowerCase().trim(); };
+  var gl = norm(gn);
+  var gs = ((typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : []).filter(function (g) { return g && norm(g.name) === gl; });
+  var meine = !gs.length && (gl === 'meine pflanzen' || gl === String(_t('lina_k_meine', 'Meine Pflanzen')).toLowerCase());
+  return { gaerten: gs, ids: gs.map(function (g) { return g.id; }), meine: meine };
+}
+// Welche Pflanze meint eine Lina-Aktion? Genau ein Treffer → { t: {p, liste, garten} }; sonst → { satz } (eine Rueckfrage
+// oder ein Satz) — NIE ein Griff in die Liste. `gartenName` grenzt ein (exakter Gartenname; „Meine Pflanzen" meint die
+// Liste). `nurPflanzungen`: Entfernen und Umziehen gehen nur fuer Pflanzungen in einem Garten.
+function _gsLinaPflanzenWahl(name, gartenName, nurPflanzungen) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  var nm = _gsLinaKartenText(name, 60);   // fuer den Satz gekuerzt — verglichen wird der ganze Name
+  if (!nm) return { satz: _t('lina_k_welche', 'Bei welcher Pflanze? Sag mir ihren Namen, dann zeige ich dir den Eintrag zum Bestätigen.') };
+  var tr = _gsLinaPflanzenTreffer(_gsLinaKartenText(name, 0)), alle = tr.name.concat(tr.nick);
+  var gn = _gsLinaKartenText(gartenName, 60);
+  if (gn) {
+    var gw = _gsLinaGartenWahl(_gsLinaKartenText(gartenName, 0));
+    if (gw.gaerten.length) alle = alle.filter(function (x) { return x.liste === 'plantings' && gw.ids.indexOf(x.p.gardenId) >= 0; });
+    else if (gw.meine) alle = alle.filter(function (x) { return x.liste === 'myPlants'; });
+    else return { satz: _gsSatz('Einen Garten „{1}" finde ich nicht.', gn) };
+    if (!alle.length) return { satz: _gsSatz('In „{1}" finde ich keine Pflanze „{2}".', gn, nm) };
+  }
+  if (!alle.length) return { satz: _gsSatz('Eine Pflanze „{1}" finde ich bei dir nicht — wie heisst sie in deinen Pflanzen?', nm) };
+  if (nurPflanzungen) {
+    var pfl = alle.filter(function (x) { return x.liste === 'plantings'; });
+    if (!pfl.length) return { satz: _gsSatz('„{1}" steht in „Meine Pflanzen", nicht in einem Garten — entfernen oder umziehen kann ich nur Pflanzungen in einem Garten.', nm) };
+    alle = pfl;
+  }
+  if (alle.length > 1) {
+    var orte = alle.slice(0, 4).map(_gsLinaPflanzeOrt), mehr = alle.length - orte.length;
+    return { satz: _gsSatz('„{1}" gibt es bei dir mehrmals: {2}. Welche meinst du?', nm, orte.join('; ') + (mehr > 0 ? '; ' + _gsSatz('+{1} weitere', mehr) : '')) };
+  }
+  return { t: alle[0] };
+}
+// „Habe gegossen!" ohne Pflanze: die Pflanzen, bei denen GENAU diese Aufgabe heute faellig oder ueberfaellig ist — aus
+// gsGetDueTasks (beide Listen, die eine Faelligkeitsrechnung), hoechstens GS_LINA_KARTE_WAHL_MAX, der Rest gezaehlt.
+function _gsLinaFaelligWahl(key, def, gartenName) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  var due = ((typeof gsGetDueTasks === 'function') ? gsGetDueTasks() : []).filter(function (x) { return x && x.plant && x.key === key && x.days <= 0; });
+  var liste = function (x) { var f = _gsPflanzeFinden(x.plant.id); return f ? f.liste : null; };
+  var gn = _gsLinaKartenText(gartenName, 60);
+  if (gn) {
+    var gw = _gsLinaGartenWahl(_gsLinaKartenText(gartenName, 0));
+    if (gw.gaerten.length) due = due.filter(function (x) { return liste(x) === 'plantings' && gw.ids.indexOf(x.plant.gardenId) >= 0; });
+    else if (gw.meine) due = due.filter(function (x) { return liste(x) === 'myPlants'; });
+    else return { satz: _gsSatz('Einen Garten „{1}" finde ich nicht.', gn) };
+    if (!due.length) return { satz: _gsSatz('In „{1}" ist heute bei keiner Pflanze „{2}" fällig. Sag mir, bei welcher Pflanze — dann trage ich es ein.', gn, def.name) };
+  }
+  if (!due.length) return { satz: _gsSatz('Heute ist bei keiner Pflanze „{1}" fällig. Sag mir, bei welcher Pflanze — dann trage ich es ein.', def.name) };
+  var gaerten = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : [];
+  var optionen = due.slice(0, GS_LINA_KARTE_WAHL_MAX).map(function (x) {
+    var li = liste(x) || 'myPlants';
+    var t = { p: x.plant, liste: li, garten: li === 'plantings' ? (gaerten.find(function (g) { return g && g.id === x.plant.gardenId; }) || null) : null };
+    var wann = x.days === 0 ? _t('lina_k_heute', 'heute fällig') : (x.days === -1 ? _t('lina_k_seit1', 'seit 1 Tag fällig') : _gsSatz('seit {1} Tagen fällig', -x.days));
+    var nm = _gsLinaKartenText(x.plant.name, 60) || '?';
+    return { id: x.plant.id, name: nm, knopf: nm + ' · ' + _gsLinaPflanzeOrt(t) + ' · ' + wann, zustand: 'offen' };
+  });
+  return { optionen: optionen, mehr: due.length - optionen.length };
+}
+// Die Karte zu einer Aktion — oder, wenn keine Karte entstehen darf, EIN Satz fuer die Antwort ({ satz }). Liest nur.
+function _gsLinaKarteBauen(act) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
+  try {
+    if (!act || GS_LINA_KARTEN_TOOLS.indexOf(act.tool) < 0) return null;
+    var a = (act.args && typeof act.args === 'object' && !Array.isArray(act.args)) ? act.args : {};
+    var kaputt = { satz: _t('lina_aktion_kaputt', '(Die Aktion zu dieser Antwort ist nicht angekommen.)') };
+    var wer = _gsPerson();
+    if (!wer) return null;                                    // ohne Anmeldung gibt es nichts zu schreiben
+    var k = { nr: ++_gsLinaKarteZaehler, tool: act.tool, wer: wer, gnr: _gsLinaGespraechNr, zustand: 'offen',
+              titel: '', text: '', zitat: '', gefahr: false, mehr: 0, optionen: [], meldungen: [] };
+    var w;
+    switch (act.tool) {
+      case 'propose_task_done': {
+        var key = _gsLinaArg(a.task).toLowerCase().trim();
+        var def = (typeof TASK_DEFS !== 'undefined' && key) ? TASK_DEFS[key] : null;   // TASK_DEFS ohne Prototyp (v33.59)
+        if (!def) return kaputt;
+        k.key = key; k.aufgabe = def.name;
+        k.titel = _gsSatz('{1} {2} als erledigt eintragen?', def.icon, def.name);
+        if (_gsLinaKartenText(a.plantName, 60)) {
+          w = _gsLinaPflanzenWahl(a.plantName, a.gardenName, false);
+          if (!w.t) return { satz: w.satz };
+          var tasks = w.t.p.tasks;
+          if (!tasks || typeof tasks !== 'object' || !Object.prototype.hasOwnProperty.call(tasks, key) || !tasks[key]) {
+            return { satz: _gsSatz('Bei „{1}" gibt es die Aufgabe „{2}" nicht — eine Erinnerung dafür kann ich einrichten, wenn du willst.', _gsLinaKartenText(w.t.p.name, 60), def.name) };
+          }
+          k.text = _gsSatz('Bei „{1}" ({2}) — danach steht es im Pflegeverlauf.', _gsLinaKartenText(w.t.p.name, 60), _gsLinaPflanzeOrt(w.t));
+          k.optionen = [{ id: w.t.p.id, name: _gsLinaKartenText(w.t.p.name, 60), knopf: _t('lina_k_eintragen', 'Eintragen'), zustand: 'offen' }];
+        } else {
+          var fw = _gsLinaFaelligWahl(key, def, a.gardenName);
+          if (!fw.optionen) return { satz: fw.satz };
+          k.text = _t('lina_k_welche_faellig', 'Heute fällig — tippe an, wo du es gemacht hast:');
+          k.optionen = fw.optionen; k.mehr = fw.mehr;
+        }
+        return { karte: k };
+      }
+      case 'propose_diary_entry': {
+        var txt = _gsLinaKartenText(a.text, GS_LINA_NOTIZ_MAX);
+        if (!txt) return kaputt;
+        w = _gsLinaPflanzenWahl(a.plantName, a.gardenName, false);
+        if (!w.t) return { satz: w.satz };
+        k.titel = '📓 ' + _t('lina_k_tb_titel', 'In den Pflegeverlauf schreiben?');
+        k.text = _gsSatz('Bei „{1}" ({2}):', _gsLinaKartenText(w.t.p.name, 60), _gsLinaPflanzeOrt(w.t));
+        k.zitat = txt;
+        k.eintrag = { action: 'note', title: 'Notiz', note: txt };
+        k.optionen = [{ id: w.t.p.id, name: _gsLinaKartenText(w.t.p.name, 60), knopf: _t('lina_k_eintragen', 'Eintragen'), zustand: 'offen' }];
+        return { karte: k };
+      }
+      case 'propose_pest_note': {
+        var was = _gsLinaKartenText(a.what, GS_LINA_WAS_MAX);
+        var art = _gsLinaArg(a.kind == null ? 'pest' : a.kind).toLowerCase().trim();
+        art = /^(disease|krankheit)$/.test(art) ? 'disease' : (/^(pest|schädling|schaedling)$/.test(art) ? 'pest' : '');
+        if (!was || !art) return kaputt;
+        w = _gsLinaPflanzenWahl(a.plantName, a.gardenName, false);
+        if (!w.t) return { satz: w.satz };
+        var em = (art === 'disease') ? '🦠' : '🐛';
+        k.titel = em + ' ' + (art === 'disease' ? _t('lina_k_krank_titel', 'Krankheit notieren?') : _t('lina_k_pest_titel', 'Schädling notieren?'));
+        k.text = _gsSatz('Bei „{1}" ({2}):', _gsLinaKartenText(w.t.p.name, 60), _gsLinaPflanzeOrt(w.t));
+        k.zitat = was;
+        k.eintrag = { action: art, title: em + ' ' + was, note: null };
+        k.optionen = [{ id: w.t.p.id, name: _gsLinaKartenText(w.t.p.name, 60), knopf: _t('lina_k_notieren', 'Notieren'), zustand: 'offen' }];
+        return { karte: k };
+      }
+      case 'propose_remove_planting': {
+        w = _gsLinaPflanzenWahl(a.plantName, a.gardenName, true);
+        if (!w.t) return { satz: w.satz };
+        var gname = (w.t.garten && w.t.garten.name) ? _gsLinaKartenText(w.t.garten.name, 40) : '?';
+        k.gefahr = true;
+        k.titel = '🗑️ ' + _t('lina_k_weg_titel', 'Pflanzung entfernen?');
+        k.text = _gsSatz('„{1}" aus dem Garten „{2}" — mit ihren Aufgaben und ihrem Pflegeverlauf. Das lässt sich nicht rückgängig machen.', _gsLinaKartenText(w.t.p.name, 60), gname);
+        k.optionen = [{ id: w.t.p.id, name: _gsLinaKartenText(w.t.p.name, 60), garten: gname, knopf: _t('lina_k_entfernen', 'Entfernen'), zustand: 'offen' }];
+        return { karte: k };
+      }
+      case 'propose_move_planting': {
+        var zn = _gsLinaKartenText(a.toGarden, 60);
+        if (!zn) return { satz: _t('lina_k_wohin', 'In welchen Garten soll die Pflanzung? Sag mir seinen Namen.') };
+        var zw = _gsLinaGartenWahl(_gsLinaKartenText(a.toGarden, 0));
+        if (!zw.gaerten.length) return { satz: _gsSatz('Einen Garten „{1}" finde ich nicht — umziehen geht nur in einen Garten, den es schon gibt.', zn) };
+        if (zw.gaerten.length > 1) return { satz: _gsSatz('Den Garten „{1}" gibt es zweimal — welchen meinst du? Benenne ihn im Garten um, dann geht es.', zn) };
+        w = _gsLinaPflanzenWahl(a.plantName, a.gardenName, true);
+        if (!w.t) return { satz: w.satz };
+        var ziel = zw.gaerten[0], zname = _gsLinaKartenText(ziel.name, 40);
+        if (w.t.p.gardenId === ziel.id) return { satz: _gsSatz('„{1}" steht schon im Garten „{2}".', _gsLinaKartenText(w.t.p.name, 60), zname) };
+        var von = (w.t.garten && w.t.garten.name) ? _gsLinaKartenText(w.t.garten.name, 40) : '?';
+        k.titel = '↪️ ' + _t('lina_k_zug_titel', 'Pflanzung umziehen?');
+        k.text = _gsSatz('„{1}" von „{2}" nach „{3}".', _gsLinaKartenText(w.t.p.name, 60), von, zname);
+        k.optionen = [{ id: w.t.p.id, name: _gsLinaKartenText(w.t.p.name, 60), garten: von, ziel: { id: ziel.id, name: zname }, knopf: _t('lina_k_umziehen', 'Umziehen'), zustand: 'offen' }];
+        return { karte: k };
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+// Die Karte als HTML — Texte nur durch escHtml, im onclick nur Zahlen (Index der Nachricht, Wahl, Nummer der Karte).
+function _gsLinaKarteHtml(k, mi) {
+  try {
+    if (!k || !Array.isArray(k.optionen)) return '';
+    var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (kk, f) { return f; };
+    var i = Math.floor(Number(mi)) || 0, nr = Math.floor(Number(k.nr)) || 0, gefahr = (k.gefahr === true);
+    var h = '<div style="display:flex;justify-content:flex-start;margin:-2px 0 10px;">'
+      + '<div data-lina-karte="' + i + '" data-lina-karte-zustand="' + escHtml(String(k.zustand)) + '" role="group" aria-label="' + escHtml(k.titel) + '"'
+      + ' style="max-width:82%;padding:10px 12px;background:var(--card);color:var(--text);border:' + (gefahr ? '1.5px solid var(--c-danger)' : '1px solid var(--border)') + ';border-radius:var(--r-md);font-size:var(--fs-sm);line-height:1.5;">'
+      + '<div style="font-weight:800;font-size:var(--fs-md);' + (gefahr ? 'color:var(--c-danger-d);' : '') + '">' + escHtml(k.titel) + '</div>';
+    if (k.text) h += '<div style="margin-top:4px;">' + escHtml(k.text) + '</div>';
+    if (k.zitat) h += '<div data-lina-karte-zitat="1" style="margin-top:6px;padding:6px 9px;border-left:3px solid var(--border);background:var(--surface2);white-space:pre-wrap;word-break:break-word;">' + escHtml(k.zitat) + '</div>';
+    if (k.mehr > 0 && k.zustand === 'offen') h += '<div style="margin-top:4px;color:var(--muted);">' + escHtml(_gsSatz('+{1} weitere — nenne die Pflanze beim Namen.', k.mehr)) + '</div>';
+    (k.meldungen || []).forEach(function (z) { if (z) h += '<div data-lina-karte-meldung="1" style="margin-top:6px;font-weight:700;">' + escHtml(z) + '</div>'; });
+    if (k.zustand === 'offen') {
+      var basis = 'padding:8px 12px;border-radius:var(--r-xl);font-size:var(--fs-sm);font-weight:700;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;';
+      var einzeln = (k.optionen.length === 1);
+      // Gefahr: dieselbe feste Flaeche wie der Zerstoer-Dialog (gsConfirmModal, #c62828 mit weisser Schrift 5,6:1 in beiden Modi)
+      var haupt = gefahr ? 'background:#c62828;color:#fff;border:none;' : 'background:var(--fill-brand);color:#fff;border:none;';
+      var wahl = 'background:var(--surface2);color:var(--text);border:1px solid var(--border);text-align:left;';
+      h += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">';
+      k.optionen.forEach(function (o, oi) {
+        if (!o || o.zustand !== 'offen') return;
+        h += '<button type="button" data-lina-karte-wahl="' + oi + '"' + (gefahr ? ' data-lina-karte-gefahr="1"' : '') + ' onclick="gsLinaKarteTun(' + i + ',' + oi + ',' + nr + ')" style="' + basis + (einzeln ? haupt : wahl) + '">' + escHtml(o.knopf) + '</button>';
+      });
+      var schon = k.optionen.some(function (o) { return o && o.zustand === 'ok'; });
+      h += '<button type="button" data-lina-karte-wahl="-1" onclick="gsLinaKarteTun(' + i + ',-1,' + nr + ')" style="' + basis + 'background:var(--surface2);color:var(--text);border:1px solid var(--border);">'
+        + escHtml(schon ? _t('lina_k_fertig', 'Fertig') : _t('btn_cancel_generic', 'Abbrechen')) + '</button>';
+      h += '</div>';
+    }
+    return h + '</div></div>';
+  } catch (_) { return ''; }
+}
+// Was ein Tipp auf eine Wahl ausfuehrt: genau EIN Schreiber je Werkzeug, und je Rueckgabe EIN Satz.
+function _gsLinaKarteAusfuehren(k, o) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (kk, f) { return f; };
+  switch (k.tool) {
+    case 'propose_task_done': {
+      var r = (typeof gsQuickDone === 'function') ? gsQuickDone(o.id, k.key) : null;   // die eine Erledigt-Logik (CLAUDE.md §3.3)
+      if (r === true) return { ok: true, satz: _gsSatz('✓ {1}: {2} eingetragen — steht im Pflegeverlauf.', o.name, k.aufgabe) };
+      if (r === false) return { ok: false, satz: _t('lina_k_voll_aufgabe', 'Nicht gespeichert — der Speicher ist voll. Die Aufgabe bleibt offen; bitte alte Fotos oder Scans löschen.') };
+      return { ok: null, satz: _gsSatz('Bei „{1}" gibt es diese Aufgabe nicht mehr — nichts eingetragen.', o.name) };
+    }
+    case 'propose_diary_entry':
+    case 'propose_pest_note': {
+      var f = _gsPflanzeFinden(o.id);
+      if (!f || !f.p) return { ok: null, satz: _gsSatz('„{1}" gibt es nicht mehr — nichts eingetragen.', o.name) };
+      // Eine eigene Zeit je Eintrag — eine Millisekunde FRUEHER, wenn genau dann schon einer steht (v33.60: der Kalender
+      // liest alles nach jetzt als Erinnerung, und zwei gleiche Zeiten ergaeben dieselbe Id `pd:<pflanze>:<ts>`).
+      var ts = Date.now(), vorh = Array.isArray(f.p.diary) ? f.p.diary : [];
+      while (vorh.some(function (e) { return window._gsEintragZeit(e) === ts; })) ts--;
+      var r2 = _gsPflegeEintragSchreiben(o.id, Object.assign({ ts: ts }, k.eintrag, { quelle: 'lina', bestaetigt_am: new Date().toISOString() }));
+      if (r2 === true) {
+        try { if (typeof renderMyPlants === 'function') renderMyPlants(); } catch (_) {}
+        return { ok: true, satz: (k.tool === 'propose_pest_note') ? _gsSatz('✓ Bei „{1}" im Pflegeverlauf notiert.', o.name) : _gsSatz('✓ Im Pflegeverlauf von „{1}" eingetragen.', o.name) };
+      }
+      if (r2 === false) return { ok: false, satz: _t('lina_k_voll', 'Nicht gespeichert — der Speicher ist voll. Es wurde nichts eingetragen; bitte alte Fotos oder Scans löschen.') };
+      return { ok: null, satz: _gsSatz('„{1}" gibt es nicht mehr — nichts eingetragen.', o.name) };
+    }
+    case 'propose_remove_planting': {
+      var r3 = _gsPflanzungEntfernen(o.id);
+      if (r3 === true) return { ok: true, satz: _gsSatz('✓ „{1}" ist aus dem Garten „{2}" entfernt.', o.name, o.garten) };
+      if (r3 === false) return { ok: false, satz: _t('lina_k_voll_weg', 'Nicht entfernt — der Speicher ist voll. Die Pflanzung bleibt; bitte alte Fotos oder Scans löschen.') };
+      return { ok: null, satz: _gsSatz('„{1}" steht nicht mehr im Garten — nichts entfernt.', o.name) };
+    }
+    case 'propose_move_planting': {
+      var r4 = _gsPflanzungUmziehen(o.id, o.ziel && o.ziel.id);
+      if (r4 === true) return { ok: true, satz: _gsSatz('✓ „{1}" steht jetzt im Garten „{2}".', o.name, o.ziel.name) };
+      if (r4 === false) return { ok: false, satz: _gsSatz('Nicht umgezogen — der Speicher ist voll. „{1}" bleibt im Garten „{2}".', o.name, o.garten) };
+      return { ok: null, satz: _t('lina_k_zug_weg', 'Die Pflanzung oder der Garten ist nicht mehr da — nichts geändert.') };
+    }
+  }
+  return { ok: null, satz: '' };
+}
+// Der Tipp auf eine Karte. Herein kommen nur Zahlen (Index der Nachricht, Wahl — −1 heisst Abbrechen/Fertig —, Nummer
+// der Karte); alles andere liest die Funktion selbst und prueft zuerst, wem die Karte gehoert.
+function gsLinaKarteTun(mi, oi, nr) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (kk, f) { return f; };
+  try {
+    var m = (window._gsLinaMsgs || [])[mi], k = m && m.karte;
+    if (!k || k.nr !== nr || k.zustand !== 'offen') return;   // eine andere Karte an derselben Stelle ist nicht diese
+    // 1 · die Person — wer jetzt angemeldet ist, muss die sein, der die Karte gezeigt wurde. Sonst gehoert das ganze
+    // Gespraech einer anderen Person: raeumen und schliessen wie gsOpenLina bei einem Wechsel, nichts schreiben, nichts spiegeln.
+    var jetzt = _gsPerson();
+    if (!jetzt || jetzt !== k.wer) {
+      k.zustand = 'ungueltig';
+      try { _gsLinaGespraechWechsel(); } catch (_) {}
+      window._gsLinaMsgs = []; window._gsLinaConvId = null; window._gsLinaInhaltZeit = null;
+      try { if (typeof closeModal === 'function') closeModal('gs-nl-modal'); } catch (_) {}
+      try { if (typeof gsToast === 'function') gsToast(jetzt ? _t('lina_k_person', 'Nichts geändert — inzwischen ist ein anderes Konto angemeldet.') : _t('lina_k_abgemeldet', 'Nichts geändert — du bist nicht mehr angemeldet.'), 'warning', 4500); } catch (_) {}
+      return;
+    }
+    // 2 · das Gespraech, in dem die Karte gezeigt wurde
+    if (k.gnr !== _gsLinaGespraechNr) {
+      k.zustand = 'ungueltig';
+      k.meldungen.push(_t('lina_k_gespraech', 'Diese Karte gehört zu einem anderen Gespräch — nichts geändert.'));
+      gsLinaRender(!!window._gsLinaSending);
+      return;
+    }
+    if (oi === -1) {
+      k.zustand = 'fertig';
+      if (!k.optionen.some(function (x) { return x && x.zustand === 'ok'; })) k.meldungen.push(_t('lina_k_ab', 'Abgebrochen — nichts geändert.'));
+      gsLinaRender(!!window._gsLinaSending);
+      return;
+    }
+    var o = k.optionen[oi];
+    if (!o || o.zustand !== 'offen') return;
+    var erg = _gsLinaKarteAusfuehren(k, o) || { ok: null, satz: '' };
+    if (erg.ok === true) o.zustand = 'ok';
+    else if (erg.ok === null) o.zustand = 'weg';               // false: die Wahl bleibt offen (ein zweiter Versuch mit Platz)
+    if (erg.satz && k.meldungen[k.meldungen.length - 1] !== erg.satz) k.meldungen.push(erg.satz);
+    if (!k.optionen.some(function (x) { return x && x.zustand === 'offen'; })) k.zustand = 'fertig';
+    gsLinaRender(!!window._gsLinaSending);
+  } catch (_) {}
+}
+window.gsLinaKarteTun = gsLinaKarteTun;
+
 async function gsLinaDispatch(act){
   if (!act || typeof act.tool !== 'string') return;          // malformed → ignorieren
   var a = (act && act.args) || {};
@@ -94074,7 +94560,11 @@ async function gsLinaDispatch(act){
       } catch (_) { if (typeof gsToast === 'function') gsToast(_gsSatz('Nicht eingetragen.'), 'error'); }
       return;
     }
-    default: return;  // unbekanntes Tool → ignorieren (kein Admin/Destruktiv-Pfad existiert)
+    // Lina 16: die Karten-Werkzeuge laufen NIE ueber den Dispatcher — ihre Karte baut gsLinaSend
+    // (_gsLinaKarteBauen), geschrieben wird erst beim Tipp der Person (gsLinaKarteTun). Ein direkter Aufruf schreibt nichts.
+    case 'propose_task_done': case 'propose_diary_entry': case 'propose_pest_note':
+    case 'propose_remove_planting': case 'propose_move_planting': return;
+    default: return;  // unbekanntes Tool → ignorieren (Loeschen nur als Karte: propose_remove_planting)
   }
 }
 window.gsLinaDispatch = gsLinaDispatch;

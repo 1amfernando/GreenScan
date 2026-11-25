@@ -32,6 +32,7 @@ const LOKALE_SCHREIBER = {
   'saveGardenData|gs_gardens': 'schreibt die Variable gardens — jeder fremde Eingang setzt sie gesiebt',
   'saveGardenData|gs_plantings': 'schreibt die Variable plantings — jeder fremde Eingang setzt sie gesiebt',
   'gsMigrateLegacyHarvestLog|gs_ernte_log': 'Umzug aus dem alten lokalen Schluessel desselben Geraets',
+  'var:plantings@_gsPflanzungEntfernen': 'Ruecknahme (Lina 16): sagt saveGardenData Nein, steht wieder die eigene Liste von eben da — `vorher` ist dieselbe Liste vor dem filter, nichts aus fremder Hand',
 };
 
 function umschliessend(t, i) {

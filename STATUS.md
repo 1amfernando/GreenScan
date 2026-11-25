@@ -12,6 +12,78 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-25 (kp) - v33.84: Lina 16 — Lina hakt ab, schreibt in den Pflegeverlauf, notiert Schädlinge und Krankheiten, entfernt und zieht Pflanzungen um, immer erst nach einem Tipp auf ihre Karte
+
+**Auftrag:** Paket 1 von Fernandos „Lina viel viel besser" („Next Level Aktionen"): Aufgaben direkt abhaken („Habe gegossen!"),
+Tagebuch-Einträge für eine Pflanze, Schädlinge oder Krankheiten notieren, Pflanzen aus Beeten entfernen oder umziehen. Gebaut auf
+v33.82 (a30c580); gestapelt wird auf das Sicherheitspaket (ko, v33.83). `_gsLinaSicherheit`, `_gsLinaGiftGenannt`,
+`_gsLinaTrefferMitPflanzen` und die Fälle „Lina 11" bis „Lina 15" sind unberührt; kein neuer KI-Weg, keine Migration. Der Bump
+auf v33.84 steht im eigenen Commit.
+
+**Gebaut:**
+- **Fünf schreibende Werkzeuge mit Karte** (`GS_LINA_KARTEN_TOOLS`): `propose_task_done`, `propose_diary_entry`,
+  `propose_pest_note`, `propose_remove_planting`, `propose_move_planting`. `gsLinaSend` baut beim Eintreffen der Antwort die
+  Karte (`_gsLinaKarteBauen`, `_gsLinaKarteHtml`) unter der Antwort; erst der Tipp (`gsLinaKarteTun`) schreibt. Kein
+  `gsConfirmModal`: „Habe gegossen!" ohne Pflanze braucht eine AUSWAHL (die heute fälligen aus `gsGetDueTasks`, beide Listen,
+  höchstens 8), und der Satz danach bleibt auf der Karte stehen. Der Dispatcher hat für die fünf einen leeren `case`.
+- **Nie raten:** `_gsLinaPflanzenWahl` nimmt ALLE Treffer von `_gsLinaPflanzenTreffer` (Name oder Spitzname exakt, beide
+  Listen; `gsLinaResolvePlant` nimmt dieselbe Vergleichsregel). Mehrdeutig, unbekannt oder ein Teilname geben keine Karte,
+  sondern eine Rückfrage in der Antwort (sie geht mit in den Verlauf). `gardenName` grenzt ein, „Meine Pflanzen" meint die Liste.
+- **Die Karte gehört der Person und dem Gespräch:** sie trägt `_gsPerson()`, `_gsLinaGespraechNr` und ihre Nummer; stimmt beim
+  Tipp eines nicht, wird nichts geschrieben (abgemeldet oder andere Person: Lina schliesst und vergisst das Gespräch). Zwischen
+  Prüfung und Schreiben steht kein `await`.
+- **Ein Schreiber je Werkzeug, erst schreiben, dann melden** (`true` · `false` · `null`, je EIN Satz; bei `false` bleibt die
+  Wahl offen): abhaken = `gsQuickDone`. Notiz, Schädling, Krankheit = `_gsPflegeEintragSchreiben` — der Kern aus
+  `gsAddDiaryEntry`, das Formular nimmt ihn auch; sucht in beiden Listen, gibt bei `false` auch den Änderungsstempel zurück,
+  Einträge tragen `quelle: 'lina'` und `bestaetigt_am`. Entfernen = `_gsPflanzungEntfernen`: die Löschmarke ZUERST; lässt sie
+  sich nicht schreiben, wird nicht entfernt. `deletePlanting` nimmt denselben Weg und liest jetzt den Rückgabewert (vorher
+  `saveGardenData();` ohne Blick). Umziehen = `_gsPflanzungUmziehen` über `saveGardenData` (gestempelt). Anlegen, Entfernen und
+  Umziehen ziehen dieselben Anzeigen nach (`_gsPflanzungenAnzeigen`, aus `savePlanting` herausgelöst).
+- **Leser:** `gsSchaedlingeNotiert` kennt `disease` (Pflegeverlauf und Cloud-Tagebuch) und sagt in `art`, was ein Eintrag ist;
+  `gsPflanzenHilfe` schreibt „Krankheit notiert am …"; Krankheiten ohne Pflanze stehen im Einblick in einer eigenen Zeile, die
+  Schädlings-Zeile und die Entwarnung bleiben im Wortlaut. `gsTagebuchAlle` gibt `quelle: 'lina'` weiter — der Kalender sagt
+  „von Lina vorgeschlagen, von dir bestätigt am …". Emoji für `pest`/`disease` im Pflegeverlauf.
+- **Prompt:** die fünf Werkzeuge mit Schema; nur auf ausdrücklichen Wunsch, nie raten, nie „ist eingetragen" schreiben. Was
+  Lina über sich sagt, stimmt jetzt: „Löschen kannst du nur eines vorschlagen: eine Pflanzung aus einem Garten entfernen";
+  Erinnerungen gehen auch an Pflanzungen (vorher stand „nur Meine Pflanzen").
+- 24 neue Schlüssel in `GS_I18N_JS_STRINGS` (`lina_k_*`), zusammengesetzte Sätze über `_gsSatz`.
+
+**Gemessen:**
+- Gegen a30c580 ist der neue Fall rot („(a) keine Karte unter der Antwort").
+- Der erste volle Lauf von `sicherheit_check` war rot (98_schluss_e, Klassenwächter): die Rücknahme `plantings = vorher` in
+  `_gsPflanzungEntfernen` ist eine Zuweisung an eine Listen-Variable, die nicht durch das Sieb geht. `vorher` ist die eigene
+  Liste von eben (vor dem `filter`), nichts aus fremder Hand — sie steht jetzt mit diesem Grund in `LOKALE_SCHREIBER`
+  (`scripts/sicherheit/_listen_schreiber.js`).
+- Befund ausserhalb dieses Pakets (gemessen, nicht behoben): die drei älteren Schreib-Werkzeuge (`propose_add_plant`,
+  `propose_reminder`, `add_calendar_note`) vergleichen nach `gsConfirmModal` die Person nicht (ein Wechsel während der
+  Rückfrage legt trotzdem an), und `propose_reminder` nimmt bei zwei „Tomate" still die erste → brett:2026-11-25-370c.
+
+**Prüfstand:** `sensor_check` „Lina 16 · Abhaken, Tagebuch, Schädling, Beet" (a)–(m): über den echten Weg (`gsLinaSend` mit
+gestellter KI → Karte im DOM → Klick → Speicher UND Variable). Abbrechen, „Habe gegossen!" mit drei fälligen (eine Wahl schreibt
+genau eine), nichts fällig, Aufgabe fehlt, erfundene Aufgabe, Notiz mit `<img … onerror>` als Text (Karte, Speicher, Kalender),
+mehrdeutig („Tomate" zweimal) → Rückfrage, mit Garten eindeutig, Teilname „Mon" und Fremdname → keine Karte, Schädling und
+Krankheit in `gsSchaedlingeNotiert`, `gsPflanzenHilfe` und Linas Kontext, Entfernen mit Löschmarke, nur Pflanzungen, der
+Dispatcher allein schreibt nichts, Umziehen (Teilname als Ziel gilt nicht), voller Speicher für alle vier Schreiber und nur für
+die Löschmarke, Gesprächswechsel (ein alter Knopf löst auch die NEUE Karte an derselben Stelle nicht aus) und Wechsel der
+Gesprächsnummer, abgemeldet, andere Person, `gsOnLogout`, und der Abgleich (`gsSyncUserDataOnLogin`) mit einem älteren
+Cloud-Stand: die Zucchini bleibt weg, der Kürbis bleibt im Hochbeet. **13 Gegenproben, jede einzeln rot mit dem erwarteten
+Satz** (Datei danach md5-gleich): Karte führt sofort aus · Teilstring · mehrdeutig nimmt den ersten · Umzug ohne Rücknahme ·
+Notiz ohne Rücknahme · ohne Personen-Prüfung · ohne Kartennummer · ohne Gesprächsnummer · Notiz ohne `escHtml` · Knopf ohne
+`escHtml` · ohne Löschmarke zuerst · Umzug am Stempel vorbei · `disease` nicht gelesen. Dazu `i18n_check`: einen der neuen
+Schlüssel aus `GS_I18N_JS_STRINGS` genommen → rot („lina_k_tb_titel … in allen vier Sprachen dauerhaft deutsch").
+
+**Lokal (TZ=UTC) auf a30c580 mit diesem Paket:** sensor 73/0 (vorher 72/0) · sicherheit (person, schluss, senken) 104/0 (der
+erste Lauf 103/1, oben) · robust 38/0 · sync 26/0 · kalender 57/0 · speicher 29/0 · save 29/0 · escape 18/0 · nutzersicht 17/0 ·
+i18n 23/0 · wiring grün (0 kaputt) · statik 10/0 · austausch 17/0 · dazu versprechen 0 rot (105 Schreibvorgänge) und offline
+49/0 (a30c580 ebenso 49/0; ein erster Lauf blieb neben zwei anderen Prüfständen nach Fall 34 stehen und wurde abgebrochen).
+
+**Offen:** brett:2026-11-25-370c (die drei älteren Schreib-Werkzeuge).
+**Nicht geprüft:** echte KI-Antworten (gestellt — ob die KI die Werkzeuge nur auf Wunsch nutzt, sagt erst der Betrieb); ein
+echtes zweites Gerät und ein echter Server (der Abgleich ist gestellt); die Karte mit Screenreader und als Antippfläche
+(`a11y_check` und `touch_check` öffnen kein Gespräch mit Karte); die Android-Hülle. Den Kontrast hat ein eigenes Skript
+nachgerechnet, weil auch `contrast_check` kein Gespräch mit Karte öffnet: vier Karten (Auswahl, Zitat, Entfernen mit
+Gefahr-Knopf, bestätigt mit Meldung), 19 Textstellen, kleinster Kontrast 5,62:1 hell und dunkel, keine unter AA.
+
 ### 2026-11-25 (ku) - v33.84: Lina 15b — kurze Namen giftiger Arten warnen („Goldregen“, „Germer“, „Nieswurz“, „Akelei“ …)
 
 **Auftrag:** Befund 9c9c, vom Koordinator als (ku) VOR die neuen Lina-Fähigkeiten gestellt („eine falsche Entwarnung über eine
