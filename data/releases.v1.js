@@ -30,6 +30,18 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v33.64', date: '19.11.2026',
+      headline: 'Pilz-Scanner: dieselbe Vorsicht wie der Server — und ein giftiger Kandidat trägt seine Warnung',
+      summary: 'Scanner 11 (Hauptfunktionen, Brett 2026-11-11-2714). Gemessen am 19.11.2026, nur lesend: die ausgelieferte mushroom-identify lädt 200 von 276 Arten des Registers — 76 fehlen dem Modell, 19 davon giftig. Im Repo behoben (supabase/functions/_shared/pilz_wissen.mjs: alle Arten, gekürzt würde zuerst die harmloseste Gruppe); live wirkt das erst, wenn Fernando die Function ausliefert (FUER-FERNANDO §31). In der App, sofort: die Schwelle für eine Bestimmung ist 70 wie am Server (GS_PILZ_SICHER_AB, vorher 60), eine tödliche oder giftige Art trägt immer die rote Kopfzeile, Kandidaten stehen mit Namen und Warnung da, ein Fehler ist ein Satz, und die Antwort gehört der Person, die gefragt hat. Prüfstände: scan_check PZ1–PZ4, edge_check 80_pilz.',
+      user_summary: 'Der Pilz-Scanner ist vorsichtiger: erst ab 70 % Sicherheit nennt er eine Art, und giftige Kandidaten sind klar markiert. Ein Pilz gehört vor dem Essen immer zur Pilzkontrolle (VAPKO).',
+      user_items: [
+        {emoji:'🍄', bold:'Vorsichtiger:', text:' unter 70 % Sicherheit steht „unsichere Identifikation“ statt einer Essbarkeit.'},
+        {emoji:'☠️', bold:'Giftige Kandidaten markiert:', text:' mögliche Arten stehen mit ihrem Namen da, und ein giftiger oder tödlicher trägt seine Warnung.'},
+        {emoji:'🚫', bold:'Rot bleibt rot:', text:' eine giftige oder tödliche Art zeigt immer die rote Kopfzeile.'},
+        {emoji:'💬', bold:'Verständliche Meldung:', text:' klappt die Bestimmung nicht, steht ein ganzer Satz da statt eines technischen Kürzels.'}
+      ],
+  },
+  {
     v: 'v33.63', date: '19.11.2026',
       headline: 'Der Zahlungsweg in EINER Fassung — und ein Kauf, der nicht mehr an einem falschen Parameter scheitern kann',
       summary: 'Auftrag P-C2: der Zahlungsweg aus PR #329 und der aus v33.59 zu EINER Fassung vereint. Das eine Modul ist supabase/functions/_shared/zahlung_regeln.mjs (ein zweites, stripe_regeln.mjs, gibt es nicht). Aus #329: stripe-checkout schickt kein automatic_payment_methods mehr an Checkout (den Parameter gibt es dort nicht — Stripe lehnt ihn mit 400 ab, gefolgert aus der API-Referenz, nicht gegen Stripe gemessen) und nur noch Namen aus CHECKOUT_PARAMETER; kein zweites Abo neben einem laufenden und nichts neben Lifetime (Stripe wird gefragt, ob das Abo läuft); ein unbekannter gemerkter Kunde wird gesucht statt mit 500 abzubrechen; checkout.session.async_payment_succeeded; Abo-Zeitraum und Rechnung in beiden API-Formen; ein Lifetime-Kauf beendet ein laufendes Abo zum Periodenende; die volle Erstattung gibt den Launch-Platz frei; processed=true; ein Live-Ereignis an einem Test-Schlüssel wird als Satz gemeldet; Portal: Kündigen nur auf ein echtes laufendes Abo, Fortsetzen ohne Plan-Wechsel-Seite. Von main bleiben: eine Zahlung setzt nie verified (W1), eine Rückbuchung entzieht Lifetime (W2), nach aussen nur Kennungen (W3), Rückkehr nur auf die eigenen Ursprünge (W4), exakte Versionen (W5), ein unbekannter Preis ist 500 (W6), Launch am Preis (W7), Entzug über den PaymentIntent (W8), constructEventAsync (W9). stripe-admin-extend-webhook abonniert aus STRIPE_EREIGNISSE. Neu in der Suite: stripe_check (51 Fälle); die Stripe-Attrappe von edge_check lehnt einen unbekannten Checkout-Parameter ab und ist am alten stripe-checkout rot. Nichts davon ist ausgeliefert: die Stripe-Functions warten auf Fernandos Modus-Prüfung (FUER-FERNANDO §30i).',
