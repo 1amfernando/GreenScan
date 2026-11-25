@@ -130,6 +130,10 @@ alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
    („… und kann bedenkenlos im Garten bleiben.", `nurPflegeGeerbt`); was die Basis warnt, bleibt.
    Und ein ORT in der Frage ist der letzte Rueckfall („Kann ich die Beeren auf dem Balkon essen?",
    `_gsLinaOrtFrageFrei`, `_gsLinaOrtOhneNamen`): nur wenn Frage und Antwort nichts Bestimmtes nennen.
+   Seit v33.83 (Lina 15) ist eine ENTWARNUNG keine Verneinung: „Keine Sorge, …", „… kein Problem",
+   „nicht giftig, du kannst sie essen" (`GS_LINA_NEIN_ROLLE`, `_gsLinaOhneNeinRolle`). Findet der erste
+   Durchgang nichts, liest die Gegenprobe die Antwort ein zweites Mal mit diesen Wendungen als „ja" —
+   nur Saetze ohne echte Verneinung. Der erste Durchgang bleibt der der Basis.
 3. **Der Notfall kommt VOR dem Sende-Riegel** und nimmt die Antwort nicht weg.
 4. **Zahlen im Kontext sind Rohwerte aus einem Datensatz** — `sensor_check`
    „Lina" haelt jede Prozent-/Gradzahl gegen den Speicher. Eine Zahl, die in

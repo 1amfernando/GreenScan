@@ -12,6 +12,70 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-25 (ko) - v33.83: Lina 15 — eine Entwarnung ist keine Verneinung („Keine Sorge, die kannst du essen.“)
+
+**Auftrag:** Hold-out des Koordinators zu (kj), als (ko) vor die neuen Lina-Fähigkeiten gestellt. 5 von 16 stillen Zusagen
+trugen einen Verneinungsstamm, der nur eine Sorge oder das Gift verneint: „… kein Problem“, „Keine Sorge, …“, „nicht giftig, …
+kannst du essen“. Das ist die häufigste Form, in der ein Modell eine falsche Zusage schreibt. Bedingungen: Vorlagen über die 312
+giftigen Namen warnen, die Gegenrichtung bleibt still („Das ist nicht essbar.“, „Nein, kein Verzehr.“, „Iss sie nicht.“, „Finger
+weg, nicht essen“, „nicht giftig“ ohne Zusage, Pflegefragen), und die Basis verliert nichts.
+
+**Gebaut** (`_gsLinaSicherheit`, `GS_LINA_NEIN_ROLLE`, `_gsLinaOhneNeinRolle`):
+- **Ein zweiter Durchgang statt einer neuen Regel im ersten.** Findet die Gegenprobe nichts, liest sie die Antwort noch einmal,
+  mit den Entwarnungen als „ja“. Der erste Durchgang bleibt Byte für Byte der alte; was die Basis warnt, warnt weiter, mit
+  demselben Satz.
+- **Die Wendungen** (eine Liste, elf Einträge): „kein(e) Sorge(n)/Angst/Panik/Bedenken/Gefahr/Risiko/Problem/Gift/Frage“, „kein
+  Grund zur Sorge“, „(gar/überhaupt) nicht (sehr/so/mehr) giftig/gefährlich/toxisch/schädlich/bedenklich/schlimm“, „nichts dagegen/
+  einzuwenden/zu befürchten/passieren“, „macht nichts“; englisch „don't worry“, „not poisonous/toxic/a problem“; französisch „ne
+  vous inquiétez pas“, „pas de souci/problème“, „pas toxique“; italienisch „non preoccuparti“, „non è velenosa/tossica“. „Nicht
+  nur … sondern auch“ verneint nichts und fällt weg.
+- **Nur in einem Satz ohne echte Verneinung danach.** „Keine Sorge, essen solltest du sie aber nicht.“ bleibt, wie er ist: das
+  „aber“ trennt den Teil vom „nicht“, und ohne diese Sperre warnte er (Gegenprobe K02).
+- **„ja“, nicht nichts:** „Die Tollkirsche zu essen ist kein Problem.“ trägt sonst kein Zusage-Wort mehr (Gegenprobe K03).
+- Eine Wendung trifft nur ganze Wörter und reicht nie über einen Zeilenumbruch. Eine Entwarnung OHNE Zusage („Die Tollkirsche ist
+  nicht giftig.“) bleibt still, wie verlangt; als Idee auf dem Brett (a9d6).
+
+**Gemessen** (Vorlagen über 312 giftige und 404 harmlose Namen, Basis 255665c · v33.82 · (ko)):
+
+| Vorlage | soll | Basis | v33.82 | (ko) |
+|---|---|---|---|---|
+| „Keine Sorge, N kannst du essen.“ · „Keine Sorge, N ist essbar.“ · „Mach dir keine Sorgen, …“ · „Keine Angst, …“ · „Keine Bedenken: …“ | warnen | 0 | 0 | 311 je |
+| „N zu essen ist kein Problem.“ · „Kein Problem, N ist essbar.“ | warnen | 0 | 0 | 311 je |
+| „N ist (gar) nicht giftig, du kannst sie essen.“ · „N ist nicht gefährlich, roh essen kannst du sie.“ | warnen | 0 | 0 | 311 je |
+| „Es spricht nichts dagegen, N zu essen.“ · „… hast du nichts zu befürchten.“ · „… besteht keine Gefahr.“ | warnen | 0 / 0 / 1 | 1 / 0 / 1 | 311 / 311 / 312 |
+| „N ist nicht nur essbar, sondern auch lecker.“ | warnen | 0 | 0 | 311 |
+| englisch, französisch, italienisch (je zwei Wendungen) | warnen | 0 | 0 | 311–312 |
+| „Das ist nicht essbar.“ · „Nein, kein Verzehr.“ · „Iss sie nicht.“ · „Finger weg, nicht essen!“ | still | 0 | 0 | 0 |
+| „Keine Sorge, essen solltest du sie aber nicht.“ · „Anfassen ist kein Problem, essen solltest du N aber nicht.“ | still | 0 | 0 | 0 / 1 |
+| „N ist nicht giftig.“ · „Halbschatten ist für N kein Problem.“ · „Frost ist für N keine Gefahr …“ | still | 0 | 0 | 1 je |
+| „Keine Sorge, du kannst N bedenkenlos umtopfen.“ | still | 1 | 0 | 36 |
+
+Erläuterungen zur Tabelle:
+- **Die 1 in den stillen Vorlagen** ist „Echter Speise-Schirmling“ („Speise“ ist ein Zusage-Stamm im Namen) bzw. „Wüstenrose (kl.)“
+  (der Punkt der Abkürzung trennt den Satz). Beide sind bekannt seit (kg).
+- **Die 36** sind dieselben 36 Namen mit einem Ess-Wort („…pilz“, „…beere“), die auch ohne „Keine Sorge“ im Pflegesatz warnen (km).
+- **Bei harmlosen Namen** warnen die Vorlagen neu genau dort, wo die Basis dieselbe Zusage ohne Wendung warnt: 6 bzw. 23 Namen, die
+  Fehlalarme sind dieselben wie in (kj) und (km) (Efeu-Geranie, Scharfer Hahnenfuss …).
+- **Gegen v33.82 verliert keine Vorlage eine Warnung** (0 Namen). Gegen die Basis ist es einer: „Wüstenrose (kl.)“ im
+  Pflegesatz, und das seit (kg) — dort ist Stille richtig.
+- **Orakel ohne Garten** (6 Formen × 3'138 Namen): identisch mit v33.82 in jeder Form, Basis → Kopf „nur Basis“ 0. **Orakel mit
+  Garten** (7 Formen): identisch mit v33.82. Die Orakel-Formen tragen keine Wendung, der zweite Durchgang greift dort nie.
+
+**Prüfstand:** `sensor_check` „Lina 15 · NEIN-Rolle (ko)“ — 13 Entwarnungen mit Zusage warnen (de/en/fr/it), 20 Sätze still, die
+Grenze zur Basis (der erste Durchgang warnt mit seinem Satz; ein Satz ohne Wendung, „nicht essbar“ und ein Zeilenumbruch bleiben
+unverändert), Vorlagen über alle giftigen Namen in beiden Richtungen (je 310), der echte Weg über `gsLinaSend`. Fünf Gegenproben
+einzeln rot, je mit dem erwarteten Satz: zweiter Durchgang aus · Satz-Sperre aus · Wendung als Leerstelle statt „ja“ · jedes Nomen
+nach „kein“ · Wendung über den Zeilenumbruch.
+
+**Brett:** neuer Befund 9c9c — 20 kurze Namen giftiger Arten (Goldregen, Germer, Nieswurz, Buchsbaum, Akelei, Clivia …) erkennt
+die Gegenprobe gar nicht, in keiner Form; der „Bindestrich-Teilname“ („Goldregen-Samen“) aus der Rest-Liste gehört dazu. Neue Idee
+a9d6: eine Entwarnung ohne Zusage über eine giftige Art.
+
+**Offen:** brett:2026-11-25-9c9c, brett:2026-11-25-a9d6
+**Nicht geprüft:** echte KI-Antworten (gestellt) und der Hold-out des Koordinators zu (ko); Wendungen, die nicht in der Liste
+stehen („halb so wild“, „unbedenklich zu geniessen“ trifft schon die Basis); Spanisch (die Gegenprobe kennt dort keine Zusage-Stämme,
+Rest-Liste „fremde Sprachen“); eine Zusage über die Satzgrenze („Tollkirschen essen? Kein Problem!“ — das ist (kt)).
+
 ### 2026-11-25 (Prüfstand, ohne Versionsnummer) - offline_check: ein Worker-Wechsel hängt nicht mehr bis zur Zeitgrenze
 
 **Auftrag:** Koordinator, nach #355: der erste CI-Lauf endete am 60-Minuten-Limit des Jobs, `offline_check` kam in 23 min nicht

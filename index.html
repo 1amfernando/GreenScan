@@ -92184,13 +92184,46 @@ function _gsLinaArtenZeile(text) {
 }
 window._gsLinaArtenZeile = _gsLinaArtenZeile;
 
+// (ko) NEIN-Rolle (25.11.2026, Hold-out des Koordinators zu (kj)): ein Verneinungsstamm, der nur eine SORGE, eine Gefahr
+// oder das GIFT verneint, ist eine Entwarnung — „Keine Sorge, die kannst du essen.“, „… zu essen ist kein Problem.“, „Sie ist
+// nicht giftig, du kannst sie essen.“ NEIN machte den ganzen Teil still, und die Entwarnung selbst war die falsche Zusage. Die
+// Gegenprobe liest eine Antwort, in der sie nichts fand, deshalb ein ZWEITES Mal, mit diesen Wendungen als „ja“
+// (_gsLinaSicherheit, Ende) — aber nur einen Satz, in dem danach keine echte Verneinung mehr steht: „Keine Sorge, essen solltest
+// du sie aber nicht.“ bleibt, wie er ist. Der erste Durchgang ist der unveränderte; was die Basis warnt, warnt weiter.
+// `_` steht für Leerraum ohne Zeilenumbruch (eine Wendung reicht nie über eine Zeile). `ja: false` — eine Wendung ohne Wertung
+// („nicht nur … sondern auch“), sie fällt weg.
+var GS_LINA_NEIN_ROLLE = [
+  { ja: true,  m: 'kein(?:e|en|er|erlei)?_(?:sorgen?|angst|panik|bedenken|gefahr|risiko|probleme?|gift|giftstoffe|frage)' },
+  { ja: true,  m: 'kein(?:en)?_grund_zur_(?:sorge|panik|beunruhigung|besorgnis)' },
+  { ja: true,  m: '(?:(?:gar|überhaupt|ueberhaupt|absolut|eigentlich)_)?(?:nicht|keineswegs)(?:_(?:sehr|besonders|so|wirklich|mehr|weiter|allzu|sonderlich|im_geringsten))?_(?:giftig|gefährlich|gefaehrlich|toxisch|schädlich|schaedlich|gesundheitsschädlich|gesundheitsschaedlich|bedenklich|schlimm)(?:e|er|es|en|em)?' },
+  { ja: true,  m: 'nichts_(?:dagegen|einzuwenden|zu_befürchten|zu_befuerchten|passieren|geschehen)' },
+  { ja: true,  m: 'macht_nichts' },
+  { ja: true,  m: '(?:don[’\']t|do_not)_worry' },
+  { ja: true,  m: 'not_(?:(?:very|really|at_all)_)?(?:a_problem|poisonous|toxic|dangerous|harmful)' },
+  { ja: true,  m: 'ne_(?:t[’\']_?|vous_)inqui[èée]t(?:e|ez)_pas' },
+  { ja: true,  m: 'pas_(?:de_(?:souci|soucis|problème|probleme|danger|risque|panique|crainte)|toxique|dangereu\\p{L}*|nocif\\p{L}*|vénéneu\\p{L}*|veneneu\\p{L}*)' },
+  { ja: true,  m: 'non_(?:toxique|(?:ti_)?preoccup\\p{L}*|(?:(?:è|e)_)?(?:tossic\\p{L}*|velenos\\p{L}*|pericolos\\p{L}*))' },
+  { ja: false, m: 'nicht_(?:nur|bloss|bloß)' }
+];
+var _gsLinaNeinRolleRe = null;
+// ersetzt die Wendungen in einem Text (am ROHEN Text: Satzzeichen und Grossschreibung bleiben für die Regeln danach)
+function _gsLinaOhneNeinRolle(text) {
+  if (!_gsLinaNeinRolleRe) _gsLinaNeinRolleRe = GS_LINA_NEIN_ROLLE.map(function (r) {
+    return { ja: r.ja, re: new RegExp('(^|[^\\p{L}\\p{N}])(?:' + r.m.replace(/_/g, '[^\\S\\n]+') + ')(?![\\p{L}\\p{N}])', 'giu') };
+  });
+  var s = String(text == null ? '' : text);
+  _gsLinaNeinRolleRe.forEach(function (r) { s = s.replace(r.re, function (_, vor) { return vor + (r.ja ? 'ja' : ''); }); });
+  return s;
+}
+window._gsLinaOhneNeinRolle = _gsLinaOhneNeinRolle;
+
 /**
  * Die Gegenprobe NACH der Antwort: behauptet Lina „essbar" über eine Art, die
  * die Liste mit tox >= 3 führt, kommt eine Warnzeile DARÜBER. Die Antwort wird
  * nicht verschluckt — wer eine Antwort erwartet und nichts bekommt, fragt
  * woanders. Nur diese eine Richtung; „giftig" über etwas Harmloses schadet nicht.
  */
-function _gsLinaSicherheit(antwort, treffer) {
+function _gsLinaSicherheit(antwort, treffer, _nrZweiter) {
   try {
     if (!antwort) return '';
     var hoch = (treffer && treffer.zahl) ? treffer.arten.filter(function (a) { return a.tox >= 3; }) : [];
@@ -92438,6 +92471,16 @@ function _gsLinaSicherheit(antwort, treffer) {
         return _t('lina_sicherheit_gift', '⚠️ Achtung: In unserer Artenliste steht {1} als giftig. Bitte nichts essen, was du nicht sicher bestimmt hast.')
           .replace('{1}', namen);
       }
+    }
+    // (ko) der zweite Durchgang: die Entwarnungen (GS_LINA_NEIN_ROLLE) als „ja“ — je Satz, und nur, wenn der Satz danach keine
+    // echte Verneinung mehr trägt; die Satzzeichen bleiben, wo sie waren
+    if (!_nrZweiter) {
+      var ohneRolle = roh.split(/([.!?\n]+)/).map(function (s, ix) {
+        if (ix % 2) return s;
+        var c = _gsLinaOhneNeinRolle(s);
+        return (c !== s && !NEIN.test(_gsLinaNorm(c))) ? c : s;
+      }).join('');
+      if (ohneRolle !== roh) return _gsLinaSicherheit(ohneRolle, treffer, true);
     }
     return '';
   } catch (_) { return ''; }
