@@ -2334,6 +2334,78 @@ const FAELLE = [
       }
     },
   },
+  {
+    // Lina 17 (Paket 4 „Mit dir denken", 25.11.2026). R6 („Frost trifft eine frostempfindliche Pflanze DRAUSSEN")
+    // rechnete im Pruefwerk selbst — die lokale Frost-Meldung und Linas „Braucht Hilfe" brauchen dieselbe Antwort.
+    // Seit Lina 17 steht die Rechnung EINMAL (gsFrostGefaehrdet), und R6 zeigt sie nur noch an. Dieser Fall haelt
+    // beide gegeneinander — gestellte Uhr, gestelltes Wetter, fuenf Lagen: verletzt mit mehr als drei Pflanzen
+    // („+N weitere"), nicht pruefbar (nur ein Standort fehlt), erfuellt (keine frostempfindliche draussen), eine
+    // Vorhersage ohne Frost, und gar keine Vorhersage. Gemessen wird mit EIGENEN Erwartungen (Namen, Zustand),
+    // nicht nur Gleichheit: zwei Rechnungen, die gemeinsam falsch liegen, waeren sonst gruen.
+    name: 'Wetter W5 · R6 und gsFrostGefaehrdet sind EINE Rechnung (Lina 17): dieselben Pflanzen in derselben Reihenfolge, derselbe Zustand und Grund — verletzt, nicht prüfbar, erfüllt, ohne Frost und ohne Vorhersage',
+    lauf: () => {
+      const heute = gsHeuteTag(), morgen = _gsKalTagPlus(heute, 1);
+      const alt = localStorage.getItem('gs_weather_cache');
+      const sichern = { mp: myPlants, pl: plantings, ga: gardens };
+      const klagen = [];
+      const wetter = (frost) => { const t = [], mi = []; for (let i = 0; i < 3; i++) { t.push(_gsKalTagPlus(heute, i)); mi.push(frost && i === 1 ? -1.5 : 8); }
+        localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: Date.now() - 3600000, data: { daily: { time: t, temperature_2m_min: mi } } })); };
+      // der Hinweis von R6 am Frost-Ereignis von morgen — undefined: es gibt gar kein Frost-Ereignis
+      const r6 = () => { const fr = gsKalenderEreignisse(heute, _gsKalTagPlus(heute, 2)).find(e => e.art === 'wetter' && e.datum === morgen && /^frost:/.test(e.id));
+        return fr ? ((fr.hinweise || []).find(x => x.regel === 'frost_pflanzen') || null) : undefined; };
+      const namenAus = (txt) => { const m = /^trifft draussen: (.*?)(?: \+(\d+) weitere)?$/.exec(String(txt || '')); return m ? { namen: m[1].split(', '), mehr: m[2] ? +m[2] : 0 } : null; };
+      try {
+        if (typeof gsFrostGefaehrdet !== 'function') return { ok: false, warum: 'gsFrostGefaehrdet fehlt — die Frost-Rechnung steht nur im Prüfwerk (R6), Meldung und Lina hätten eine zweite' };
+        gardens = [{ id: 'gw5a', name: 'Balkon W5', kind: 'balkon' }, { id: 'gw5b', name: 'Gewächshaus W5', kind: 'gewaechshaus' }];
+        // Lage 1 · verletzt: Tomate (Balkon), Paprika (Terrasse), Zucchini und Kürbis (Balkon-Garten) — frostempfindlich
+        // und draussen. NICHT: Basilikum (Küchenfenster), Monstera (keine Kultur), Spinat (winterhart), Gurken (Gewächshaus).
+        myPlants = [{ id: 'w5t', name: 'Tomate', location: 'Balkon', tasks: {} }, { id: 'w5b', name: 'Basilikum', location: 'Küchenfenster', tasks: {} },
+                    { id: 'w5m', name: 'Monstera', location: 'Balkon', tasks: {} }, { id: 'w5s', name: 'Spinat', location: 'Balkon', tasks: {} },
+                    { id: 'w5p', name: 'Paprika', location: 'Terrasse', tasks: {} }];
+        plantings = [{ id: 'w5z', gardenId: 'gw5a', name: 'Zucchini', tasks: {} }, { id: 'w5k', gardenId: 'gw5a', name: 'Kürbis', tasks: {} },
+                     { id: 'w5g', gardenId: 'gw5b', name: 'Gurken', tasks: {} }];
+        wetter(true);
+        let fg = gsFrostGefaehrdet(), h = r6();
+        const soll = ['Tomate', 'Paprika', 'Zucchini', 'Kürbis'];
+        if (!fg || fg.zustand !== 'verletzt') klagen.push('1: die Funktion sagt „' + (fg && fg.zustand) + '" statt „verletzt"');
+        if (JSON.stringify((fg && fg.namen) || []) !== JSON.stringify(soll)) klagen.push('1: die Funktion nennt ' + JSON.stringify(fg && fg.namen) + ' statt ' + JSON.stringify(soll));
+        if (!fg || !fg.erster || fg.erster.tag !== morgen || fg.erster.wert !== -1.5) klagen.push('1: der erste Frosttag ist nicht morgen mit −1.5 °C: ' + JSON.stringify(fg && fg.erster));
+        if (!h || h.zustand !== 'verletzt') klagen.push('1: R6 sagt ' + JSON.stringify(h));
+        const n6 = namenAus(h && h.text);
+        if (!n6) klagen.push('1: R6 hat keinen lesbaren Text: „' + (h && h.text) + '"');
+        else {
+          if (JSON.stringify(n6.namen) !== JSON.stringify(soll.slice(0, 3)) || n6.mehr !== soll.length - 3) klagen.push('1: R6 nennt ' + JSON.stringify(n6) + ' — die Funktion ' + JSON.stringify(fg && fg.namen));
+        }
+        if (h && fg && h.grund !== fg.grund) klagen.push('1: der Grund von R6 („' + h.grund + '") ist nicht der der Funktion („' + fg.grund + '")');
+        // Lage 2 · nicht pruefbar: die einzige frostempfindliche Pflanze hat keinen Standort
+        myPlants = [{ id: 'w5u', name: 'Tomate', tasks: {} }, { id: 'w5b2', name: 'Basilikum', location: 'Küchenfenster', tasks: {} }]; plantings = [];
+        fg = gsFrostGefaehrdet(); h = r6();
+        if (!fg || fg.zustand !== 'nicht_pruefbar' || fg.unklar !== 1 || fg.namen.length) klagen.push('2: die Funktion sagt ' + JSON.stringify(fg && { z: fg.zustand, u: fg.unklar, n: fg.namen }) + ' statt nicht_pruefbar mit 1 ohne Standort');
+        if (!h || h.zustand !== 'nicht_pruefbar' || !/1 frostempfindliche Pflanze ohne Standort/.test(h.grund)) klagen.push('2: R6 sagt ' + JSON.stringify(h));
+        if (h && fg && h.grund !== fg.grund) klagen.push('2: der Grund von R6 ist nicht der der Funktion');
+        // Lage 3 · erfuellt: nichts Frostempfindliches draussen
+        myPlants = [{ id: 'w5b3', name: 'Basilikum', location: 'Küchenfenster', tasks: {} }, { id: 'w5s3', name: 'Spinat', location: 'Balkon', tasks: {} }];
+        plantings = [{ id: 'w5g3', gardenId: 'gw5b', name: 'Gurken', tasks: {} }];
+        fg = gsFrostGefaehrdet(); h = r6();
+        if (!fg || fg.zustand !== 'erfuellt' || fg.namen.length || fg.unklar) klagen.push('3: die Funktion sagt ' + JSON.stringify(fg && { z: fg.zustand, u: fg.unklar, n: fg.namen }) + ' statt erfuellt');
+        if (!h || h.zustand !== 'erfuellt') klagen.push('3: R6 sagt ' + JSON.stringify(h));
+        // Lage 4 · eine Vorhersage OHNE Frost: kein Frost-Ereignis, die Funktion sagt erfuellt mit Grund — nie „keine Daten"
+        myPlants = [{ id: 'w5t4', name: 'Tomate', location: 'Balkon', tasks: {} }]; plantings = [];
+        wetter(false);
+        fg = gsFrostGefaehrdet(); h = r6();
+        if (h !== undefined) klagen.push('4: ohne Frost in der Vorhersage gibt es trotzdem ein Frost-Ereignis');
+        if (!fg || fg.zustand !== 'erfuellt' || !Array.isArray(fg.tage) || fg.tage.length || fg.namen.length || !fg.grund) klagen.push('4: die Funktion sagt ' + JSON.stringify(fg && { z: fg.zustand, t: fg.tage, n: fg.namen, g: fg.grund }) + ' statt erfuellt ohne Frosttag und mit Grund');
+        // Lage 5 · gar keine Vorhersage: nicht pruefbar mit Grund — nie „kein Frost"
+        localStorage.removeItem('gs_weather_cache');
+        fg = gsFrostGefaehrdet(); h = r6();
+        if (h !== undefined) klagen.push('5: ohne Vorhersage gibt es ein Frost-Ereignis');
+        if (!fg || fg.zustand !== 'nicht_pruefbar' || fg.tage !== null || !/keine Wettervorhersage/.test(fg.grund || '')) klagen.push('5: die Funktion sagt ' + JSON.stringify(fg && { z: fg.zustand, t: fg.tage, g: fg.grund }) + ' statt nicht_pruefbar „keine Wettervorhersage"');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'verletzt: beide „Tomate, Paprika, Zucchini +1 weitere" · nicht prüfbar: beide „1 … ohne Standort" · erfüllt: beide · ohne Frost: kein Ereignis, Funktion „erfuellt" · ohne Vorhersage: kein Ereignis, Funktion „nicht_pruefbar"' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + (e && e.message) + (klagen.length ? ' · ' + klagen.join(' · ') : '') };
+      } finally { myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga; if (alt == null) localStorage.removeItem('gs_weather_cache'); else localStorage.setItem('gs_weather_cache', alt); }
+    },
+  },
 
 ];
 

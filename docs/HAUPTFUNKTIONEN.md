@@ -193,6 +193,16 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     im Verlauf an die KI; beim Tipp wird gegen den aktuellen Stand geprüft (umgezogen, anderswo abgehakt, umbenannt → nichts);
     zwei gleichnamige am selben Ort stehen zur Auswahl, mit Sorte, Pflanzdatum oder Anzahl beschriftet; die Karten sagen „heute“;
     eine Pflanzung zeigt ihren Verlauf im Gartentagebuch; und der Text einer Karte geht durch die Gift-Gegenprobe.
+17. ✅ v33.86 (`sensor_check` „Lina 17", `kalender_check` W5, Paket 4 „Mit dir denken", (ks)) — **Lina dachte nicht mit.** Frost
+    stand nur im Kalender (R6, eine eigene Rechnung im Prüfwerk); „Tomaten brauchen Schutz — Frost kommt!" musste die Person selbst
+    finden. Rezepte gab es nur im Rezept-Bereich, ohne Bezug zum eigenen Garten, und die Beetplanung kannte Lina nur als Weg im Text.
+    Jetzt ist Frost EINE Rechnung (`gsFrostGefaehrdet`) für den Kalender, „Braucht Hilfe" und eine lokale Meldung (eine je Tag, nie
+    in der Stille, nur mit Erlaubnis); Rezepte aus dem Garten nur zu exakt derselben Art und nie giftig (`gsGartenRezepte`); und
+    zwei lesende Werkzeuge öffnen die Rezepte mit Garten-Filter und den vorhandenen Planer für genau den genannten Garten — ohne
+    neuen KI-Aufruf. Offen: die Kulturdaten nennen die Tomate „Lycopersicon lycopersicum", die Artenliste „Solanum lycopersicum" —
+    eine „Tomate" ohne Latein bekommt keine Tomatenrezepte (sie steht mit Grund unter „ohne Art"), eine „Cherrytomate" mit Latein
+    keinen Frost-Hinweis (brett:2026-11-25-2bbd, Daten-Entscheidung); 11 Rezept-Arten gelten als nicht essbar
+    (brett:2026-11-25-5769); lokale Frost-Meldung und Server-Push wissen nichts voneinander (brett:2026-11-25-e9a4).
 
 ## Offen — Suche
 

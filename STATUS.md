@@ -12,6 +12,85 @@
 
 > Eingefuehrt 2026-05-20 mit `docs/_archiv/CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-11-25 (ks) - v33.86: Lina 17 — Frost von selbst, Rezepte aus dem eigenen Garten, die Beetplanung über den vorhandenen Planer
+
+**Auftrag:** Paket 4 „Mit dir denken" aus Fernandos „Lina viel viel besser": „komplette Beetplanung", „automatisch erkennen
+‚Tomaten brauchen Schutz — Frost kommt!'", „Rezepte aus dem eigenen Garten". Gebaut auf f1ab6d8 (Paket 1 „Lina 16", auf v33.82
+a30c580); v33.83 (ko) ist nicht darin, gestapelt wird danach. Kein Bump, kein neuer KI-Aufruf, keine Push-Quelle, kein Server,
+keine Migration; `_gsLinaSicherheit` mit allem, was dazu gehört, und die Fälle „Lina 11" bis „Lina 16" sind unberührt.
+
+**Gebaut:**
+- **Frost ist EINE Rechnung:** `gsFrostGefaehrdet()` — die Frost-Tage aus `_gsWetterTage()` (heute und später) × frostempfindlich
+  laut Kulturdaten (`_gsKulturZuPflanze(p).k.frost === -1`) × draussen (`gsPflanzeDraussen`), beide Pflanzenlisten. Drei Zustände
+  mit Grund; ohne Vorhersage `nicht_pruefbar` mit `tage: null`, nie die leere Liste. Bis hier rechnete das nur R6 im
+  Kalender-Prüfwerk; R6 liest jetzt die Funktion (Texte und Gründe wie vorher), und zwei Anzeigen kommen dazu.
+- **Die Meldung** `gsFrostMelden()`: lokal über `gsNotif.showKategorie('frost', …)`. Eine je Tag; nie in der Stille-Zeit oder den
+  Stillen Tagen (fällt die Prüfung hinein, steht EIN Timer an ihrem Ende, der nächste Aufruf ersetzt ihn); nur mit
+  Mitteilungs-Erlaubnis; nicht, wenn „🥶 Frostgefahr" abgewählt ist (`gs_push_settings.frost`, dieselbe Wahl wie für den Frost-Push
+  des Servers, keine zweite Einstellung). Sie nennt die Pflanzen (drei, „+N weitere"), Tiefstwert, Tag und Quelle („Vorhersage vom
+  Wetterdienst, Stand vor N h"). Gerufen beim Start und nach frisch geladenem Wetter (`loadGardenWeather`), keine Schleife;
+  `gsOnLogout` räumt den Timer.
+- **Linas „Braucht Hilfe"** (`gsPflanzenHilfe`) nennt die gefährdeten Pflanzen: „Frost am 2.9.2025 (-1.5 °C laut Vorhersage) —
+  frostempfindlich und draussen", Gewicht 200 minus Tage bis zum Frost. Der Prompt sagt, wie sie es sagt („Deine Tomaten brauchen
+  Schutz — Frost kommt!", mit Tag und Tiefstwert aus der Zeile).
+- **Rezepte aus dem Garten:** `gsGartenRezepte()` — ok · leer (mit Grund) · nicht prüfbar (keine Pflanzen, keine Artenliste). Nur
+  `type: 'recipes'`, nur über `_gsRecipeAllowedPlantIds`, je verlinktem Eintrag nur, wenn `gsIstGiftig` nein und `gsIstEssbar` ja
+  sagt (an der ART). Die Art der Pflanze wird nie geraten (`_gsPflanzeArt`): eigenes Latein · alle Einträge GENAU dieses Namens mit
+  EINEM Binomen · Kulturdaten. Ein gleichnamiger giftiger Eintrag nimmt dem Namen die Zusage, ein Binomen, das die Artenliste nicht
+  kennt, ist „unbekannt" (`_gsBinomeDerListe`), und `_gsArtPasst` verlangt eine Unterart des Rezept-Eintrags genau (Broccoli ≠
+  Weisskohl). `ohneArt` sagt je Pflanze warum (gift · mehrdeutig · unbekannt). Die Saison sortiert nur (`gsSaisonMonate`, diesen
+  Monat zuerst); ohne lesbare Monate ist „jetzt" `null`.
+- **Die Rezeptliste mit Garten-Filter** (`gsGartenRezepteOeffnen`, `_gsRecipeGartenFilter`): ein Sieb wie der Art-Filter, ein
+  Hinweis über der Liste („🌿 Aus deinem Garten: …", „Ohne eindeutige Art (dazu kein Rezept): …", Namen über `_gsRecEsc`); „✕ Alle"
+  und jeder Kategorie-Chip nehmen ihn weg.
+- **Zwei lesende Lina-Werkzeuge** (`GS_LINA_LESE_TOOLS`, Knopf unter der Antwort): `open_garden_recipes` (ein Knopf nur, wenn es
+  Gartenrezepte gibt — sonst ein Satz in der Antwort) und `open_planner {garden}` → `gsPlanFuerGarten` für GENAU einen Garten
+  dieses Namens (Masse, Licht, Boden, Schritt „Wünsche", generiert nicht), sonst `openGardenAI` ohne Vorauswahl und ein Satz
+  (`_gsLinaAktionSatz`). Der Knopf gehört der Person und dem Gespräch: ist inzwischen jemand anderes oder niemand angemeldet,
+  öffnet `gsLinaAktionTun` nichts und räumt das Gespräch.
+- **Kontextzeile** „Rezepte aus deinem Garten: <drei Titel>; +N weitere." (`GS_GARTEN_REZEPTE_NENNEN`), ZULETZT in
+  `GS_LINA_ZEILEN_RANG` (sie fällt vor jeder Angabe der Person); ohne Einblick geht sie nicht mit.
+- **Prompt:** Frost aus „Braucht Hilfe"; Rezepte nur aus der Zeile; die zwei Werkzeuge mit Schema; kein eigener Beetplan mit
+  Massen im Chat. Fünf neue Schlüssel in `GS_I18N_JS_STRINGS` (`lina_rez_knopf`, `lina_planer_knopf`, `lina_rez_keine`,
+  `lina_knopf_person`, `lina_knopf_abgemeldet`), zusammengesetzte Sätze über `_gsSatz`.
+
+**Gemessen:**
+- Gegen f1ab6d8 ist der neue Fall rot („es fehlt gsFrostGefaehrdet, gsFrostMelden, gsGartenRezepte — Paket 4 ist nicht gebaut"),
+  W5 ebenso, und „Lina · Einblick" (nachgezogen: die frostgefährdete Tomate steht jetzt mit dem Frost unter „Braucht Hilfe").
+- Der erste volle Lauf war rot an „Lina · jede Zahl im Kontext": die Rezept-Zeile stand im Rang vor den Messwerten und verdrängte
+  sie aus dem Deckel. Jetzt steht sie zuletzt.
+- Von 41 Kulturen tragen 2 ein Latein, das die Artenliste nicht kennt. Die Tomate: Lycopersicon (Kulturdaten) ↔ Solanum
+  lycopersicum (Artenliste) — eine „Tomate" ohne Latein bekommt keine Tomatenrezepte (sie steht mit Grund unter „ohne Art"), eine
+  „Cherrytomate" mit Latein keinen Frost-Hinweis, aber 4 Rezepte → brett:2026-11-25-2bbd. Und der Chinakohl.
+- 11 Rezept-Arten gelten an der Art als nicht essbar (Lavendel, Fichte, Kamille …: 28 Rezepte), der Wermut als giftig — ihre
+  Rezepte erscheinen nie unter „Aus deinem Garten" (brett:2026-11-25-5769). Die Rezeptliste trägt heute nur `type: 'recipes'` (442).
+- Nicht umgestellt, gemessen: das Frost-BANNER (`gsCheckFrostWarning`) prüft < 2 statt ≤ 2 und rundet („Morgen: -1°C" bei -1.5) —
+  Nachtrag zu brett:2026-11-16-c72c. Die lokale Meldung und der Frost-Push des Servers kennen einander nicht (brett:2026-11-25-e9a4).
+
+**Prüfstand:** `sensor_check` „Lina 17" (a) Frost · (b) Meldung · (c) Rezepte · (d) Lina über den echten Weg (gestellte Uhr,
+gestelltes Wetter, gestellte KI und Mitteilungen; `gsLinaSend` → Knopf → Klick; frisch geladenes Wetter über `loadGardenWeather`
+mit gestelltem Wetterdienst) und `kalender_check` „Wetter W5" (R6 und `gsFrostGefaehrdet` in fünf Lagen gleich). **33 Gegenproben
+in einer Kopie, die Datei danach md5-gleich; 31 rot mit dem erwarteten Satz:** R6 rechnet selbst (auch W5 rot) · ohne Kultur-Tor ·
+drinnen zählt · ohne Vorhersage = „kein Frost" (auch W5 rot) · „Braucht Hilfe" ohne Frost · an der Tagesgrenze vorbei · Stille ohne
+Nachholen · alter Timer nicht abgeräumt · an `gsNotif` vorbei · „Frostgefahr" überhört · Draht nach frischem Wetter fehlt · halber
+Name · Name vor Latein · gleichnamig giftig zählt nicht · Unterart = Art · alle Giftprüfungen weg · Giftprüfung an der Pflanze weg ·
+nicht essbar erlaubt · Typ-Sieb weg (rot erst, seit der Fall ein Heilmittel HERSTELLT — die Liste trägt nur Rezepte) · Saison
+sortiert nicht · Saison erfindet · ohne Pflanzen „leer" · unbekanntes Binomen still · Knopf für eine andere Person · Hinweis roh
+(`__pwned`) · unbekannter Garten geraten · Planer-Knopf startet die KI · Zeile vor den Messwerten · Knopf ohne Rezepte · „✕ Alle"
+lässt den Filter · ein Schlüssel fehlt (`i18n_check`). **2 grün, und so erwartet** (doppelte Sicherung, gemessen): die eigene
+Erlaubnis-Prüfung allein weg (`gsNotif.show` prüft selbst) · die Giftprüfung am Rezept-Eintrag allein weg (die Pflanzenseite sperrt
+dieselbe Art schon).
+
+**Lokal (TZ=UTC) auf f1ab6d8 mit diesem Paket:** sensor 74/0 (vorher 73/0) · kalender 58/0 (vorher 57/0) · einstellungen 39/0 ·
+nutzersicht 17/0 · rezept_link ok (524 Einträge) · robust 38/0 · i18n 23/0 · wiring grün (0 kaputt) · statik 10/0 · escape 18/0 ·
+sicherheit (person, schluss, senken) 104/0 · datum 8/0 · austausch 17/0.
+
+**Offen:** brett:2026-11-25-2bbd, brett:2026-11-25-5769, brett:2026-11-25-e9a4, brett:2026-11-16-c72c
+**Nicht geprüft:** echte KI-Antworten (gestellt — ob Lina die Werkzeuge nur auf Wunsch nutzt, sagt erst der Betrieb); eine echte
+Mitteilung auf einem Gerät (`Notification` gestellt) und der Draht beim START (gefahren ist der nach frisch geladenem Wetter); was
+der Planer danach rechnet (der Knopf öffnet nur); der Garten-Hinweis im Dunkelmodus und mit Screenreader (`contrast_check` und
+`a11y_check` öffnen ihn nicht); die Android-Hülle.
+
 ### 2026-11-25 (kp) - v33.85: Lina 16 — Lina hakt ab, schreibt in den Pflegeverlauf, notiert Schädlinge und Krankheiten, entfernt und zieht Pflanzungen um, immer erst nach einem Tipp auf ihre Karte
 
 **Auftrag:** Paket 1 von Fernandos „Lina viel viel besser" („Next Level Aktionen"): Aufgaben direkt abhaken („Habe gegossen!"),

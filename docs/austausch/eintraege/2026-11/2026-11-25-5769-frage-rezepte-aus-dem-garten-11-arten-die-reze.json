@@ -1,0 +1,17 @@
+{
+  "id": "2026-11-25-5769",
+  "art": "frage",
+  "datum": "2026-11-25",
+  "zeit": "02:17:00",
+  "von": "sitzung/lokal/paket4",
+  "stand": "v33.82",
+  "titel": "Rezepte aus dem Garten: 11 Arten, die Rezepte nennen, gelten in der Artenliste als nicht essbar — ihre 28 Rezepte erscheinen dort nie. Ist das so gemeint?",
+  "text": "Gemessen 25.11.2026: gsGartenRezepte nimmt ein Rezept nur über einen Eintrag, den gsIstEssbar (an der ART, _gsArtAnzeige: edible als UND) bejaht und gsIstGiftig verneint — so verlangt es der Auftrag. Die Rezept-Sperre (_gsRecipeAllowedPlantIds) lässt 28 Verweise zu, deren Art nicht essbar gilt: Kamille (P115), Lavendel (H007 — 2 von 5 Einträgen essbar), Hängebirke (T014), Echte Goldrute (HP091), Frauenmantel (P057), Echinacea (HP051), Echter Baldrian (P194), Fichte (T001), Rotbuche (T007), Echter Enzian (P215), Echte Engelwurz (P004). Dazu Wermut (P100, essbar UND giftig Stufe 2): der Wermut-Magenbitter (r_n008) erscheint nie. Die Regel bleibt; ob Blüten, Sprossen und Wurzeln dieser Arten in der Liste essbar heissen, ist eine Daten-Entscheidung.",
+  "an": "alle",
+  "haengt_daran": "ob eine Person mit Lavendel, Fichte oder Kamille unter „Aus deinem Garten“ etwas findet",
+  "stichworte": [
+    "gartenrezepte",
+    "essbar",
+    "rezept-sperre"
+  ]
+}

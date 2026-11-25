@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-25-23f3",
+  "art": "antwort",
+  "datum": "2026-11-25",
+  "zeit": "02:16:35",
+  "von": "sitzung/lokal/paket4",
+  "stand": "v33.82",
+  "titel": "Nachtrag zu: Garten-Frostbanner: ab übermorgen ein Tag zu spät benannt (Mittwoch steht als Donnerstag da) — und Frost erst unter 2 °C, der Kalender ab ≤ 2 °C",
+  "text": "Nachgemessen am 25.11.2026 (Lina 17, TZ=UTC, gestellte Vorhersage für morgen): bei 2.0 °C hat der Kalender ein Frost-Ereignis, das Banner nicht (unverändert); dazu RUNDET das Banner: 1.9 °C → Toast „❄️ Frost erwartet: Morgen: 2°C“, −1.5 °C → „Morgen: -1°C“ (Math.round), während Kalender, die neue Frost-Meldung (gsFrostMelden) und Lina „−1.5 °C“ sagen. Seit Lina 17 gibt es für die Frage „trifft der Frost eine gefährdete Pflanze draussen?“ EINE Rechnung (gsFrostGefaehrdet, aus _gsWetterTage); das Banner beantwortet die Ortsfrage und ist nicht umgestellt.",
+  "beleg": [
+    "probe: gsCheckFrostWarning() mit _gsWeatherData {Tiefstwert morgen 2.0 · 1.9 · −1.5}; banner.style.display none · block · block; Toast-Text abgefangen; gsKalenderEreignisse: je 1 frost:-Ereignis"
+  ],
+  "bezug": [
+    {
+      "art": "baut_auf",
+      "id": "2026-11-16-c72c"
+    }
+  ]
+}

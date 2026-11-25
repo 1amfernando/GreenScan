@@ -2724,7 +2724,11 @@ const FAELLE = [
         const zeile = (kopf) => (ctx.match(new RegExp('^' + kopf + '[^\\n]*', 'm')) || [''])[0];
         const zH = zeile('Braucht Hilfe:'), zD = zeile('Im Detail — Monstera:'), zG = zeile('Gärten:'), zW = zeile('Wetter '), zP = zeile('Pflanzen:'), zF = zeile('Funde auf deiner Karte:');
         if (!/Monstera \(giessen seit 5 Tagen überfällig, Schädling notiert am 29\.8\.2025\)/.test(zH)) klagen.push('Hilfe-Zeile nennt Verzug (9 Tage her, Intervall 4 → 5) oder Schädling nicht: ' + zH);
-        if (/Rosenkohl|Tomate/.test(zH)) klagen.push('eine Pflanze ohne Signal steht unter „Braucht Hilfe": ' + zH);
+        // Lina 17 (Paket 4): die Tomate im Hochbeet ist frostempfindlich (Kulturdaten) und draussen, und morgen sind 1.4 °C
+        // vorhergesagt — seit „Frost von selbst" HAT sie ein Signal (gsFrostGefaehrdet). Bis hier stand sie hier als
+        // „Pflanze ohne Signal"; der Rosenkohl (winterhart) hat weiter keines.
+        if (/Rosenkohl/.test(zH)) klagen.push('eine Pflanze ohne Signal steht unter „Braucht Hilfe": ' + zH);
+        if (!/Tomate \(Frost am 2\.9\.2025 \(1\.4 °C laut Vorhersage\)/.test(zH)) klagen.push('die frostgefährdete Tomate (Hochbeet, 1.4 °C morgen) steht nicht mit dem Frost unter „Braucht Hilfe": ' + zH);
         if (!/Meine Pflanzen, Wohnzimmer/.test(zD) || !/giessen alle 4 T\., seit 5 T\. fällig/.test(zD) || !/Tagebuch: 29\.8\.2025 .*Spinnmilben — Unterseite der Blätter/.test(zD) || !/Fotos: 2 \(im Tagebuch vom 12\.8\.2025\)/.test(zD) || !/Notiz: vom Wochenmarkt/.test(zD)) klagen.push('Detailzeile unvollständig: ' + zD);
         if (/umtopfen/.test(zD)) klagen.push('eine inaktive Aufgabe steht in der Detailzeile');
         if (zD.length > GS_LINA_DETAIL_MAX) klagen.push('Detailzeile ' + zD.length + ' Zeichen über dem Deckel');
@@ -4397,6 +4401,362 @@ const FAELLE = [
         window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
         try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
         try { closeModal('gs-nl-modal'); } catch (_) {}
+      }
+    },
+  },
+  {
+    // Lina 17 (Paket 4 „Mit dir denken", 25.11.2026). Fernando: „komplette Beetplanung", „automatisch erkennen ‚Tomaten
+    // brauchen Schutz — Frost kommt!'", „Rezepte aus dem eigenen Garten". Gestellte Uhr (01.09.2025 12:00 UTC), gestelltes
+    // Wetter, gestellte KI — und jeder Teil über den Weg, den die App wirklich geht:
+    //  (a) Frost: EINE Rechnung (gsFrostGefaehrdet) — R6 im Kalender, Linas „Braucht Hilfe" und „Hinweise" nennen dieselben
+    //      Pflanzen; drinnen, unter Glas und ohne Kulturdaten nichts; ohne Vorhersage „nicht prüfbar" und keine Frost-Hilfe.
+    //  (b) die Meldung (gsFrostMelden): genau eine je Tag, keine in der Stille-Zeit (dann EIN Timer an ihr Ende, nie zwei),
+    //      keine ohne Mitteilungs-Erlaubnis, keine bei abgewählter „Frostgefahr"; sie nennt Pflanzen und Tiefstwert mit Quelle
+    //      — und frisch geladenes Wetter (loadGardenWeather) löst sie von selbst aus.
+    //  (c) Rezepte (gsGartenRezepte): nur Essen, nur exakt dieselbe Art (eigenes Latein, eindeutiger Name, Kulturdaten),
+    //      nie giftig — ein Bärlauch mit dem Latein der Herbstzeitlose bringt keines, ein gleichnamiger Eintrag einer giftigen
+    //      Art (Hundspetersilie als „Petersilie") nimmt der Petersilie ihre Rezepte, der Wermut (giftig) und der Lavendel
+    //      (nicht essbar laut Liste) bekommen keines, ein Broccoli nicht die des Weisskohls (eine Unterart ist nicht die
+    //      Art), eine Art, die die Artenliste nicht kennt, steht mit Grund da; die Warnung eines Rezepts bleibt sichtbar;
+    //      die Saison sortiert, sie erfindet nichts.
+    //  (d) Lina: open_garden_recipes und open_planner über gsLinaSend → Knopf unter der Antwort → Klick. Fremdtext bleibt
+    //      Text, ein Knopf tut für eine andere Person nichts, ein unbekannter Garten wird gesagt, und es gibt keinen neuen
+    //      KI-Aufruf (der Planer generiert nicht von selbst).
+    name: 'Lina 17 · Frost von selbst, Rezepte aus dem Garten, Beetplanung — EINE Frost-Rechnung für Kalender, Meldung und Lina; die Meldung einmal je Tag, nie in der Stille, nie ohne Erlaubnis; Rezepte nur zu exakt derselben Art und nie giftig; zwei lesende Werkzeuge über den echten Weg, Fremdtext bleibt Text',
+    lauf: async () => {
+      const warte = (ms) => new Promise(r => setTimeout(r, ms));
+      const echtT = window.setTimeout, echtCT = window.clearTimeout;
+      const jetzt = Date.now(), T = 864e5;
+      const speicherAlt = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); speicherAlt[k] = localStorage.getItem(k); }
+      const sichern = { ai: window.callAI, li: window.sbIsLoggedIn, sf: window.sbFetch, on: navigator.onLine, gt: window.gsToast, no: window.Notification,
+        mp: myPlants, pl: plantings, ga: gardens, dbn: DB.length, pr: window.gsPPrun };
+      const klagen = [];
+      let kiRufe = 0, laeufe = 0, planerLaeufe = 0;
+      const XSS = '<img src=x onerror="window.__pwned=1">';
+      try {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
+        window.sbIsLoggedIn = () => true;
+        const UID = gsStore.get('gs_sb_uid', null) || 'uid-L17';
+        gsStore.set('gs_sb_uid', UID);
+        window.gsToast = () => {};
+        window.__pwned = 0;
+        window.sbFetch = async (pfad, o) => {
+          const get = !o || !o.method || o.method === 'GET';
+          if (/coach_conversations/.test(pfad)) return get ? { data: [], error: null } : { data: [{ id: 'conv-L17' }], error: null };
+          if (/coach_messages/.test(pfad)) return { data: [{}], error: null };
+          return { data: [], error: null };
+        };
+        window.gsPPrun = function () { planerLaeufe++; };
+        // ── der Zustand wird HERGESTELLT ──
+        const heute = gsHeuteTag(), morgen = _gsKalTagPlus(heute, 1);
+        const wetter = (minMorgen) => { const t = [], mi = [], ma = []; for (let i = 0; i < 3; i++) { t.push(_gsKalTagPlus(heute, i)); mi.push(i === 1 ? minMorgen : 9); ma.push(18); }
+          localStorage.setItem('gs_weather_cache', JSON.stringify({ ts: jetzt - 2 * 3600e3, lat: 47.37, lon: 8.55, data: { daily: { time: t, temperature_2m_min: mi, temperature_2m_max: ma } } })); };
+        gardens = [{ id: 'g17a', name: 'Hochbeet Süd', kind: 'hochbeet', width: 1.2, length: 2, light: 'full_sun', soil: 'loam' },
+                   { id: 'g17b', name: 'Gewächshaus', kind: 'gewaechshaus' },
+                   { id: 'g17x', name: XSS + 'Beet', kind: 'freiland' }];
+        // Tomate (Balkon, eigenes Latein) und Zucchini (Hochbeet) sind frostempfindlich UND draussen; Basilikum und der
+        // „Kräutertopf" (Basilikum-Latein) stehen drinnen, Gurken unter Glas, Monstera hat keine Kultur, Petersilie ist winterhart.
+        myPlants = [
+          { id: 'm17t', name: 'Tomate', species: 'Solanum lycopersicum', location: 'Balkon', tasks: {}, diary: [] },
+          { id: 'm17b', name: 'Basilikum', species: 'Ocimum basilicum', location: 'Küchenfenster', tasks: {}, diary: [] },
+          { id: 'm17m', name: 'Monstera', species: 'Monstera deliciosa', location: 'Balkon', tasks: {}, diary: [] },
+          { id: 'm17p', name: 'Petersilie', location: 'Küchenfenster', tasks: {}, diary: [] },
+          { id: 'm17x', name: XSS + 'Kräutertopf', species: 'Ocimum basilicum', location: 'Küche', tasks: {}, diary: [] },
+          { id: 'm17g', name: 'Bärlauch', species: 'Colchicum autumnale', location: 'Garten', tasks: {}, diary: [] },
+          { id: 'm17u', name: 'Tomat', location: 'Küche', tasks: {}, diary: [] },
+          // Wermut: essbar UND giftig laut Liste (P100, Stufe 2) — es gibt ein Rezept dazu (Wermut-Magenbitter);
+          // Lavendel: die Liste führt die Art als nicht essbar — fünf Rezepte nennen ihn; beide ohne Kulturdaten
+          { id: 'm17w', name: 'Wermut', species: 'Artemisia absinthium', location: 'Garten', tasks: {}, diary: [] },
+          { id: 'm17l', name: 'Lavendel', species: 'Lavandula angustifolia', location: 'Balkon', tasks: {}, diary: [] },
+        ];
+        plantings = [
+          { id: 'p17z', gardenId: 'g17a', name: 'Zucchini', date: '2025-06-01', count: 1, tasks: {} },
+          { id: 'p17g', gardenId: 'g17b', name: 'Gurken', date: '2025-06-01', count: 1, tasks: {} },
+          // Broccoli (Brassica oleracea var. italica) — die zwei Kohl-Rezepte sind für Weisskohl (var. capitata)
+          { id: 'p17b', gardenId: 'g17a', name: 'Broccoli', date: '2025-06-01', count: 1, tasks: {} },
+        ];
+        localStorage.removeItem('gs_lina_einblick');
+        if (typeof gsFrostGefaehrdet !== 'function' || typeof gsFrostMelden !== 'function' || typeof gsGartenRezepte !== 'function') {
+          return { ok: false, warum: 'es fehlt ' + ['gsFrostGefaehrdet', 'gsFrostMelden', 'gsGartenRezepte'].filter(n => typeof window[n] !== 'function').join(', ') + ' — Paket 4 ist nicht gebaut' };
+        }
+
+        // ── (a) Frost: EINE Rechnung, drei Anzeigen ──
+        wetter(-1.5);
+        const fg = gsFrostGefaehrdet();
+        const sollFrost = ['Tomate', 'Zucchini'];
+        if (fg.zustand !== 'verletzt' || JSON.stringify(fg.namen) !== JSON.stringify(sollFrost)) klagen.push('(a) gsFrostGefaehrdet: ' + JSON.stringify({ z: fg.zustand, n: fg.namen }) + ' statt verletzt ' + JSON.stringify(sollFrost));
+        const fr = gsKalenderEreignisse(heute, _gsKalTagPlus(heute, 2)).find(e => e.art === 'wetter' && e.datum === morgen && /^frost:/.test(e.id));
+        const h6 = fr && (fr.hinweise || []).find(x => x.regel === 'frost_pflanzen');
+        const r6Namen = h6 ? String(h6.text || '').replace(/^trifft draussen: /, '').replace(/ \+\d+ weitere$/, '').split(', ').filter(Boolean) : null;
+        if (!h6 || JSON.stringify(r6Namen) !== JSON.stringify(sollFrost)) klagen.push('(a) R6 im Kalender nennt ' + JSON.stringify(r6Namen) + ' statt ' + JSON.stringify(sollFrost));
+        const hilfe = gsPflanzenHilfe();
+        const hilfeFrost = hilfe.filter(x => (x.gruende || []).some(g => /^Frost am /.test(g))).map(x => x.name);
+        if (JSON.stringify(hilfeFrost) !== JSON.stringify(sollFrost)) klagen.push('(a) „Braucht Hilfe" nennt beim Frost ' + JSON.stringify(hilfeFrost) + ' statt ' + JSON.stringify(sollFrost) + ' — keine dritte Rechnung');
+        const gT = (hilfe.find(x => x.name === 'Tomate') || {}).gruende || [];
+        if (!gT.some(g => g.indexOf('-1.5 °C') >= 0 && g.indexOf(_gsLinaTag(morgen)) >= 0)) klagen.push('(a) der Frost-Grund nennt Tag oder Tiefstwert nicht: ' + JSON.stringify(gT));
+        const ctxA = gsLinaContext('Wie geht es meinem Garten?');
+        const zHilfe = (ctxA.match(/^Braucht Hilfe:[^\n]*/m) || [''])[0], zHinw = (ctxA.match(/^Hinweise:[^\n]*/m) || [''])[0];
+        if (!/Tomate \(Frost am /.test(zHilfe) || !/Zucchini \(Frost am /.test(zHilfe)) klagen.push('(a) Linas „Braucht Hilfe" nennt den Frost nicht: ' + zHilfe);
+        if (/Basilikum|Gurken|Monstera/.test(zHilfe)) klagen.push('(a) Linas „Braucht Hilfe" nennt eine Pflanze drinnen, unter Glas oder ohne Kultur: ' + zHilfe);
+        if (zHinw.indexOf('trifft draussen: Tomate, Zucchini') < 0) klagen.push('(a) Linas „Hinweise" (R6) nennen andere Pflanzen: ' + zHinw);
+        // ohne Vorhersage: nicht prüfbar, kein Frost bei „Braucht Hilfe"
+        localStorage.removeItem('gs_weather_cache');
+        const fgOhne = gsFrostGefaehrdet();
+        if (fgOhne.zustand !== 'nicht_pruefbar' || !/keine Wettervorhersage/.test(fgOhne.grund || '') || fgOhne.namen.length) klagen.push('(a) ohne Vorhersage: ' + JSON.stringify({ z: fgOhne.zustand, g: fgOhne.grund, n: fgOhne.namen }));
+        if (gsPflanzenHilfe().some(x => (x.gruende || []).some(g => /^Frost am /.test(g)))) klagen.push('(a) ohne Vorhersage steht trotzdem Frost bei „Braucht Hilfe"');
+
+        // ── (b) die Meldung: einmal je Tag, nie in der Stille, nie ohne Erlaubnis, nie abgewählt ──
+        window.__nots = [];
+        window.Notification = class { constructor(t, o) { window.__nots.push({ t: t, o: o || {} }); } static get permission() { return 'granted'; } static requestPermission() { return Promise.resolve('granted'); } };
+        localStorage.setItem('gs_notif_enabled', '1');
+        const std = new Date().getHours();
+        const ruhig = () => localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: (std + 2) % 24, quietEnd: (std + 3) % 24 }));
+        wetter(-1.5); ruhig(); localStorage.removeItem('gs_notif_kat');
+        const b1 = gsFrostMelden();
+        const n1 = window.__nots.slice();
+        if (!b1 || b1.gemeldet !== true || n1.length !== 1) klagen.push('(b) keine Meldung bei Frost: ' + JSON.stringify(b1 && { g: b1.gemeldet, grund: b1.grund }) + ', ' + n1.length + ' Meldungen');
+        else {
+          const tt = String(n1[0].t || ''), tb = String(n1[0].o.body || '');
+          if (!/Tomate/.test(tt) || !/Zucchini/.test(tt) || !/Frost/.test(tt)) klagen.push('(b) der Titel nennt Frost und die Pflanzen nicht: „' + tt + '"');
+          if (tb.indexOf('-1.5 °C') < 0 || !/Wetterdienst/.test(tb) || !/Stand vor 2 h/.test(tb)) klagen.push('(b) der Text nennt Tiefstwert, Quelle oder Stand nicht: „' + tb + '"');
+          if (/Basilikum|Gurken|Monstera/.test(tt + tb)) klagen.push('(b) die Meldung nennt eine Pflanze, die nicht gefährdet ist');
+        }
+        const b2 = gsFrostMelden();
+        if (window.__nots.length !== 1 || !b2 || b2.gemeldet || b2.grund !== 'kategorie') klagen.push('(b) ein zweiter Aufruf am selben Tag meldet noch einmal (' + window.__nots.length + ' Meldungen, ' + JSON.stringify(b2) + ')');
+        // Stille-Zeit: keine Meldung, EIN Timer an ihr Ende — ein zweiter Aufruf ersetzt ihn, statt einen zweiten zu stellen
+        localStorage.removeItem('gs_notif_kat'); window.__nots = [];
+        localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: std, quietEnd: (std + 1) % 24 }));
+        const timer = [], weg = [];
+        window.setTimeout = function (fn, ms) { const id = echtT(fn, ms); timer.push({ id: id, ms: ms }); return id; };
+        window.clearTimeout = function (id) { weg.push(id); return echtCT(id); };
+        let b3, b4;
+        try { b3 = gsFrostMelden(); b4 = gsFrostMelden(); } finally { window.setTimeout = echtT; window.clearTimeout = echtCT; }
+        if (window.__nots.length) klagen.push('(b) in der Stille-Zeit kam eine Meldung');
+        if (!b3 || b3.grund !== 'stille' || !b3.geplant) klagen.push('(b) in der Stille-Zeit nicht ans Ende verschoben: ' + JSON.stringify(b3));
+        const offen = timer.filter(x => weg.indexOf(x.id) < 0);
+        if (timer.length !== 2 || offen.length !== 1 || !(offen[0].ms > 0 && offen[0].ms <= 3600e3)) klagen.push('(b) Timer in der Stille: ' + JSON.stringify(timer.map(x => x.ms)) + ', noch offen ' + offen.length + ' — erwartet: zwei gestellt, der erste abgeräumt, einer offen bis zum Ende der Stille');
+        ruhig(); gsFrostMelden(); window.__nots = []; localStorage.removeItem('gs_notif_kat');   // räumt den Timer ab (und meldet ausserhalb der Stille)
+        // ohne Erlaubnis — App-Schalter aus, und Browser verweigert
+        localStorage.removeItem('gs_notif_enabled'); localStorage.removeItem('gs_agent_notify');
+        const b5 = gsFrostMelden();
+        localStorage.setItem('gs_notif_enabled', '1');
+        window.Notification = class { constructor(t, o) { window.__nots.push({ t: t, o: o || {} }); } static get permission() { return 'denied'; } static requestPermission() { return Promise.resolve('denied'); } };
+        const b6 = gsFrostMelden();
+        window.Notification = class { constructor(t, o) { window.__nots.push({ t: t, o: o || {} }); } static get permission() { return 'granted'; } static requestPermission() { return Promise.resolve('granted'); } };
+        if (window.__nots.length || (b5 && b5.grund) !== 'aus' || (b6 && b6.grund) !== 'aus') klagen.push('(b) ohne Erlaubnis: ' + window.__nots.length + ' Meldungen, ' + JSON.stringify([b5 && b5.grund, b6 && b6.grund]));
+        // „Frostgefahr" abgewählt (dieselbe Wahl wie für den Frost-Push des Servers)
+        localStorage.setItem('gs_push_settings', JSON.stringify({ quietStart: (std + 2) % 24, quietEnd: (std + 3) % 24, frost: false }));
+        const b7 = gsFrostMelden();
+        if (window.__nots.length || (b7 && b7.grund) !== 'abgewaehlt') klagen.push('(b) „Frostgefahr" abgewählt und trotzdem gemeldet (' + JSON.stringify(b7) + ')');
+        // ohne Vorhersage und ohne Frost: keine Meldung
+        ruhig(); localStorage.removeItem('gs_weather_cache');
+        const b8 = gsFrostMelden(); wetter(6); const b9 = gsFrostMelden();
+        if (window.__nots.length || (b8 && b8.grund) !== 'nicht_pruefbar' || (b9 && b9.grund) !== 'erfuellt') klagen.push('(b) ohne Vorhersage / ohne Frost: ' + window.__nots.length + ' Meldungen, ' + JSON.stringify([b8 && b8.grund, b9 && b9.grund]));
+        // der DRAHT, nicht nur die Rechnung: frisch geladenes Wetter (loadGardenWeather, Wetterdienst gestellt) prüft
+        // den Frost von selbst — genau eine Meldung, mit dem Tiefstwert der neuen Vorhersage
+        localStorage.removeItem('gs_notif_kat'); window.__nots = [];
+        const wdAlt = { d: _gsWeatherData, l: _gsWeatherLoaded, f: window._gsFetch };
+        try {
+          const tW = [], miW = [], maW = []; for (let i = 0; i < 3; i++) { tW.push(_gsKalTagPlus(heute, i)); miW.push(i === 1 ? -2.5 : 9); maW.push(18); }
+          window._gsFetch = async () => ({ ok: true, status: 200, json: async () => ({ daily: { time: tW, temperature_2m_min: miW, temperature_2m_max: maW }, current_weather: { temperature: 10, weathercode: 1, windspeed: 5 } }) });
+          await loadGardenWeather(true);
+        } finally { _gsWeatherData = wdAlt.d; _gsWeatherLoaded = wdAlt.l; window._gsFetch = wdAlt.f; }
+        const nW = window.__nots.slice();
+        if (nW.length !== 1 || String((nW[0] && nW[0].o.body) || '').indexOf('-2.5 °C') < 0) klagen.push('(b) frisch geladenes Wetter (loadGardenWeather) meldet den Frost nicht genau einmal: ' + nW.length + ' Meldungen ' + JSON.stringify(nW.map(x => x.o.body)));
+        window.__nots = [];
+        localStorage.removeItem('gs_notif_enabled');
+
+        // ── (c) Rezepte aus dem Garten: nur exakt dieselbe Art, nie giftig ──
+        const g = gsGartenRezepte();
+        const fuer = (pid) => g.rezepte.filter(x => { const r = recipesData.find(y => y && y.id === x.id); return r && (r.plantIds || []).indexOf(pid) >= 0; });
+        if (g.zustand !== 'ok' || !g.rezepte.length) klagen.push('(c) gsGartenRezepte: ' + JSON.stringify({ z: g.zustand, n: g.rezepte.length, g: g.grund }));
+        const kaputt = g.rezepte.filter(x => { const r = recipesData.find(y => y && y.id === x.id); return !r || r.type !== 'recipes'; });
+        if (kaputt.length) klagen.push('(c) ' + kaputt.length + ' Einträge sind keine Rezepte zum Essen');
+        // nur Essen: ein Heilmittel (type 'remedies', eine Tinktur) zum Basilikum gehört nicht dazu — die Liste trägt heute
+        // nur Rezepte (442), der Fall stellt das Heilmittel deshalb her, sonst prüfte er ein Sieb ohne Ware
+        recipesData.push({ id: 'L17REM', type: 'remedies', cat: 'tinktur', title: 'Prüf-Tinktur', plant: 'Basilikum', plantId: 'H008', plantIds: ['H008'], plantKw: ['basilikum'], plantIdsBlocked: [], season: 'Jun–Sep' });
+        let gRem;
+        try { gRem = gsGartenRezepte(); } finally { const ix = recipesData.findIndex(x => x && x.id === 'L17REM'); if (ix >= 0) recipesData.splice(ix, 1); }
+        if (gRem.rezepte.some(x => x.id === 'L17REM')) klagen.push('(c) ein Heilmittel (Tinktur) steht unter „Rezepte aus dem Garten"');
+        // gerade (eigenes Latein), eindeutiger Name (Zucchini), Kulturdaten (Petersilie, Gurken)
+        [['H008', 'Basilikum'], ['G001', 'Tomate'], ['G003', 'Zucchini'], ['HP330', 'Petersilie'], ['G002', 'Gurken']].forEach(([pid, nm]) => {
+          const f = fuer(pid);
+          if (!f.length) klagen.push('(c) kein Rezept zu ' + nm + ' (' + pid + ')');
+          else if (!f.every(x => x.pflanzen.indexOf(nm) >= 0)) klagen.push('(c) ein Rezept zu ' + pid + ' nennt „' + nm + '" nicht: ' + JSON.stringify(f.map(x => x.pflanzen)));
+        });
+        if (!fuer('H008').every(x => x.pflanzen.indexOf(XSS + 'Kräutertopf') >= 0)) klagen.push('(c) der Kräutertopf (Basilikum-Latein) bekommt die Basilikum-Rezepte nicht');
+        if (fuer('P001').length) klagen.push('(c) ein „Bärlauch" mit dem Latein der Herbstzeitlose bekommt ' + fuer('P001').length + ' Bärlauch-Rezepte');
+        const alleNamen = new Set(); g.rezepte.forEach(x => x.pflanzen.forEach(n => alleNamen.add(n)));
+        ['Monstera', 'Tomat', 'Bärlauch'].forEach(n => { if (alleNamen.has(n)) klagen.push('(c) „' + n + '" hat Rezepte — giftig, unbekannt oder nur ein halber Name'); });
+        const ohne = {}; (g.pflanzen.ohneArt || []).forEach(x => { ohne[x.name] = x.grund; });
+        if (ohne['Bärlauch'] !== 'gift' || ohne['Monstera'] !== 'gift' || ohne['Tomat'] !== 'unbekannt' || ohne['Wermut'] !== 'gift') klagen.push('(c) ohne Art: ' + JSON.stringify(ohne));
+        // nie giftig: der Wermut (essbar UND giftig laut Liste) bekommt den Wermut-Magenbitter nicht
+        if (g.rezepte.some(x => x.id === 'r_n008') || fuer('P100').length || alleNamen.has('Wermut')) klagen.push('(c) ein Wermut (giftig laut Liste) bekommt ein Rezept: ' + JSON.stringify(fuer('P100').map(x => x.id)));
+        // nie „nicht essbar": der Lavendel bekommt keines der Lavendel-Rezepte
+        if (fuer('H007').length || alleNamen.has('Lavendel')) klagen.push('(c) ein Lavendel bekommt ' + fuer('H007').length + ' Rezepte, obwohl die Artenliste die Art nicht als essbar führt');
+        // eine Unterart ist nicht die Art: der Broccoli bekommt die Weisskohl-Rezepte nicht
+        if (fuer('G026').length || alleNamen.has('Broccoli')) klagen.push('(c) ein Broccoli (var. italica) bekommt ' + fuer('G026').length + ' Weisskohl-Rezepte (var. capitata) — eine Unterart ist nicht die Art');
+        // Sicherheit mit eigenem Massstab: jedes Rezept hat einen verlinkten Eintrag, der weder giftig noch nicht essbar ist
+        const unsicher = g.rezepte.filter(x => { const r = recipesData.find(y => y && y.id === x.id); return !(r.plantIds || []).some(pid => { const sp = DB.find(s => s && s.id === pid); return sp && !gsIstGiftig(sp) && gsIstEssbar(sp); }); });
+        if (unsicher.length) klagen.push('(c) ' + unsicher.length + ' Rezepte ohne einen essbaren, ungiftigen Eintrag: ' + unsicher.map(x => x.id).join(', '));
+        // die Saison sortiert und erfindet nichts: „jetzt" genau dann, wenn die Monate des Rezepts den September enthalten
+        const mon = new Date().getMonth();
+        let ersterNicht = g.rezepte.findIndex(x => x.jetzt !== true);
+        if (ersterNicht >= 0 && g.rezepte.slice(ersterNicht).some(x => x.jetzt === true)) klagen.push('(c) ein Rezept der Saison steht hinter einem ausserhalb');
+        g.rezepte.forEach(x => { const r = recipesData.find(y => y && y.id === x.id); const mm = gsSaisonMonate(r.season); const soll = mm ? mm.indexOf(mon) >= 0 : null;
+          if (x.jetzt !== soll) klagen.push('(c) „' + x.id + '": jetzt=' + x.jetzt + ' bei „' + r.season + '"'); if (x.saison !== String(r.season || '')) klagen.push('(c) die Saison von „' + x.id + '" wurde verändert'); });
+        // ein gleichnamiger Eintrag einer giftigen Art: Hundspetersilie als „Petersilie" → keine Petersilien-Rezepte mehr
+        DB.push({ id: 'L17HUNDS', name: 'Petersilie', lat: 'Aethusa cynapium', fam: 'Apiaceae', cat: 'wildpflanze', emoji: '☠️', edible: false, toxic: true, tox: 4, desc: 'Prüfeintrag', warning: 'giftig', lookalike: 'Petersilie' });
+        let gGift;
+        try { gGift = gsGartenRezepte(); } finally { const ix = DB.findIndex(s => s && s.id === 'L17HUNDS'); if (ix >= 0) DB.splice(ix, 1); }
+        const petGift = gGift.rezepte.filter(x => x.pflanzen.indexOf('Petersilie') >= 0);
+        if (petGift.length) klagen.push('(c) mit einer gleichnamigen giftigen „Petersilie" (Hundspetersilie) gibt es ' + petGift.length + ' Petersilien-Rezepte');
+        if (!(gGift.pflanzen.ohneArt || []).some(x => x.name === 'Petersilie' && x.grund === 'gift')) klagen.push('(c) die Petersilie steht nicht mit Grund „gift" unter „ohne Art"');
+        // die Warnung eines Rezepts bleibt sichtbar — im echten Detail
+        const mitWarn = g.rezepte.find(x => x.id === 'r_basilikum_oel');
+        if (!mitWarn || mitWarn.warnung !== true) klagen.push('(c) das Basilikum-Öl (mit Warnung) fehlt oder trägt keine Warnung: ' + JSON.stringify(mitWarn));
+        else {
+          openRecipeDetail('r_basilikum_oel'); await warte(150);
+          const w = document.querySelector('#modal-recipe-detail [data-rezept="warnung"]');
+          if (!w || !/Vollständig trocknen/.test(w.textContent || '')) klagen.push('(c) die Warnung des Rezepts steht im Detail nicht da');
+          try { closeModal('modal-recipe-detail'); } catch (_) {}
+        }
+        // ohne Pflanzen: nicht prüfbar mit Grund — nie eine leere Liste ohne Grund
+        const mpSich = myPlants, plSich = plantings;
+        myPlants = []; plantings = [];
+        const gLeer = gsGartenRezepte();
+        if (gLeer.zustand !== 'nicht_pruefbar' || !gLeer.grund) klagen.push('(c) ohne Pflanzen: ' + JSON.stringify({ z: gLeer.zustand, g: gLeer.grund }));
+        myPlants = [{ id: 'm17mo', name: 'Monstera', species: 'Monstera deliciosa', tasks: {} }];
+        const gKeine = gsGartenRezepte();
+        if (gKeine.zustand !== 'leer' || gKeine.rezepte.length || !gKeine.grund) klagen.push('(c) nur eine Monstera: ' + JSON.stringify({ z: gKeine.zustand, n: gKeine.rezepte.length }));
+        // ein Binomen, das die Artenliste nicht kennt, ist keine Art für Rezepte — und das wird GESAGT: eine „Tomate"
+        // ohne Latein (Kulturdaten: Lycopersicon lycopersicum, Artenliste: Solanum lycopersicum) steht unter „ohne Art"
+        myPlants = [{ id: 'm17tk', name: 'Tomate', tasks: {} }];
+        const gTom = gsGartenRezepte(), oaTom = (gTom.pflanzen.ohneArt || [])[0] || {};
+        if (gTom.zustand !== 'leer' || oaTom.name !== 'Tomate' || oaTom.grund !== 'unbekannt') klagen.push('(c) eine „Tomate" ohne Latein steht nicht mit Grund „unbekannt" unter „ohne Art": ' + JSON.stringify({ z: gTom.zustand, oa: gTom.pflanzen.ohneArt }));
+        // die Gegenrichtung der Unterart-Regel: ein Weisskohl bekommt die Weisskohl-Rezepte
+        myPlants = [{ id: 'm17wk', name: 'Weisskohl', tasks: {} }];
+        const gWk = gsGartenRezepte();
+        if (!gWk.rezepte.some(x => { const r = recipesData.find(y => y && y.id === x.id); return r && (r.plantIds || []).indexOf('G026') >= 0; })) klagen.push('(c) ein Weisskohl bekommt die Weisskohl-Rezepte nicht — die Unterart-Regel sperrt zu viel: ' + JSON.stringify({ z: gWk.zustand, ids: gWk.rezepte.map(x => x.id) }));
+        myPlants = mpSich; plantings = plSich;
+
+        // ── (d) Lina über den echten Weg ──
+        const scroll = () => document.getElementById('gs-lina-scroll');
+        const knopf = () => { const b = Array.from(document.querySelectorAll('#gs-lina-scroll [data-lina-aktion]')); return b[b.length - 1] || null; };
+        const aktion = (tool, args) => '\n[[GS_ACTION]]' + JSON.stringify({ tool: tool, args: args || {} });
+        const letzte = () => String(((window._gsLinaMsgs || []).filter(m => m.role === 'assistant').slice(-1)[0] || {}).content || '');
+        const senden = async (frage, antwort) => {
+          window.callAI = async () => { kiRufe++; return antwort; };
+          const f = document.getElementById('gs-lina-input'); if (!f) throw new Error('kein Eingabefeld');
+          f.value = frage; window._gsLinaSending = false; laeufe++;
+          await gsLinaSend(); await warte(120);
+        };
+        const planerOffen = () => { const m = document.getElementById('modal-planner-pro'); return !!(m && m.classList.contains('open')); };
+        window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        await gsOpenLina(); await warte(120);
+        // 1 · open_garden_recipes: Knopf → Rezepte mit dem Garten-Filter, Pflanzen als Text
+        await senden('Was kann ich aus meinem Garten kochen?', 'Aus deinem Garten geht einiges.' + aktion('open_garden_recipes'));
+        const k1 = knopf();
+        if (!k1 || !/Rezepte aus deinem Garten/.test(k1.textContent || '')) klagen.push('(d) kein Knopf „Rezepte aus deinem Garten": ' + (k1 && k1.textContent));
+        else {
+          k1.click(); await warte(900);
+          const scr = document.getElementById('screen-recipes');
+          const karten = document.querySelectorAll('#recipes-list .recipe-card').length;
+          const ban = document.querySelector('#recipes-list [data-gs-garten-rezepte]');
+          if (!scr || !scr.classList.contains('active')) klagen.push('(d) die Rezepte sind nach dem Tipp nicht offen');
+          if (karten !== g.rezepte.length) klagen.push('(d) ' + karten + ' Rezeptkarten statt ' + g.rezepte.length + ' aus deinem Garten');
+          if (!ban || (ban.textContent || '').indexOf('Basilikum') < 0) klagen.push('(d) kein Garten-Hinweis über der Liste: ' + (ban && ban.textContent));
+          else if ((ban.textContent || '').indexOf('<img src=x') < 0 || ban.querySelector('img')) klagen.push('(d) der Pflanzenname mit <img> steht nicht als Text im Hinweis');
+          const alle = ban && ban.querySelector('[data-gs-action="recipe-plant-filter-clear"]');
+          if (alle) { alle.click(); await warte(200); }
+          if (document.querySelector('#recipes-list [data-gs-garten-rezepte]') || document.querySelectorAll('#recipes-list .recipe-card').length <= g.rezepte.length) klagen.push('(d) „✕ Alle" nimmt den Garten-Filter nicht weg');
+        }
+        await gsOpenLina(); await warte(120);
+        // 2 · open_planner mit einem Garten, den es genau einmal gibt: Masse übernommen, Schritt 4, nichts generiert
+        await senden('Hilf mir, das Hochbeet zu planen', 'Gern — der Planer rechnet Licht, Nachbarn und Platz.' + aktion('open_planner', { garden: 'Hochbeet Süd' }));
+        const k2 = knopf();
+        if (!k2 || (k2.textContent || '').indexOf('Beetplanung für „Hochbeet Süd“') < 0) klagen.push('(d) kein Knopf „Beetplanung für „Hochbeet Süd“": ' + (k2 && k2.textContent));
+        else {
+          const kiVor = kiRufe;
+          k2.click(); await warte(1000);
+          const w = (document.getElementById('pp-width') || {}).value, l = (document.getElementById('pp-length') || {}).value;
+          const v4 = document.getElementById('pp-view-4');
+          if (!planerOffen()) klagen.push('(d) der Planer ist nach dem Tipp nicht offen');
+          if (String(w) !== '1.2' || String(l) !== '2') klagen.push('(d) die Masse des Hochbeets sind nicht übernommen: ' + w + ' × ' + l);
+          if (!v4 || !v4.classList.contains('active')) klagen.push('(d) der Planer steht nicht bei „Wünsche" (Schritt 4)');
+          if (kiRufe !== kiVor || planerLaeufe) klagen.push('(d) der Knopf hat die KI gerufen (' + (kiRufe - kiVor) + ' Lina, ' + planerLaeufe + ' Planer)');
+          try { closeModal('modal-planner-pro'); } catch (_) {}
+        }
+        await gsOpenLina(); await warte(120);
+        // 3 · ein Garten, den es nicht gibt: der Satz sagt es, der Planer öffnet ohne Vorauswahl (Schritt 1)
+        await senden('Plane den Kartoffelacker', 'Mach ich.' + aktion('open_planner', { garden: 'Kartoffelacker' }));
+        if (letzte().indexOf('Einen Garten „Kartoffelacker“ finde ich nicht') < 0) klagen.push('(d) kein Satz zum unbekannten Garten: ' + letzte().slice(-120));
+        const k3 = knopf();
+        if (!k3 || !/Beetplanung öffnen/.test(k3.textContent || '') || /für „/.test(k3.textContent || '')) klagen.push('(d) unbekannter Garten: Knopf ' + (k3 && k3.textContent));
+        else {
+          k3.click(); await warte(700);
+          const v1 = document.getElementById('pp-view-1');
+          if (!planerOffen() || !v1 || !v1.classList.contains('active')) klagen.push('(d) ohne Garten öffnet der Planer nicht bei Schritt 1');
+          try { closeModal('modal-planner-pro'); } catch (_) {}
+        }
+        await gsOpenLina(); await warte(120);
+        // 4 · Fremdtext: ein Gartenname mit <img> steht als Text auf dem Knopf
+        await senden('Plane das Beet', 'Gern.' + aktion('open_planner', { garden: XSS + 'Beet' }));
+        const k4 = knopf();
+        if (!k4 || (k4.textContent || '').indexOf('<img src=x') < 0 || (scroll() && scroll().querySelector('img'))) klagen.push('(d) der Gartenname mit <img> steht nicht als Text auf dem Knopf: ' + (k4 && k4.textContent));
+        // 5 · eine andere Person: der Knopf tut nichts
+        await senden('Plane das Hochbeet', 'Gern.' + aktion('open_planner', { garden: 'Hochbeet Süd' }));
+        const k5 = knopf();
+        if (!k5) klagen.push('(d) kein Knopf für den Personen-Fall — der Fall misst nichts');
+        else {
+          gsStore.set('gs_sb_uid', 'uid-L17-B');
+          k5.click(); await warte(700);
+          gsStore.set('gs_sb_uid', UID);
+          if (planerOffen()) klagen.push('(d) der Knopf öffnete den Planer für eine andere Person');
+          try { closeModal('modal-planner-pro'); } catch (_) {}
+        }
+        // 6 · keine Rezepte: kein Knopf, ein Satz
+        await gsOpenLina(); await warte(120);
+        const mpS2 = myPlants, plS2 = plantings;
+        myPlants = [{ id: 'm17mo2', name: 'Monstera', species: 'Monstera deliciosa', tasks: {}, diary: [] }]; plantings = [];
+        await senden('Was kann ich kochen?', 'Schau mal.' + aktion('open_garden_recipes'));
+        myPlants = mpS2; plantings = plS2;
+        if (knopf()) klagen.push('(d) ohne Gartenrezepte steht trotzdem ein Knopf da');
+        if (letzte().indexOf('Zu deinen Pflanzen führt die App gerade kein Rezept.') < 0) klagen.push('(d) ohne Gartenrezepte fehlt der Satz: ' + letzte().slice(-100));
+        // 7 · die Kontextzeile: nur Titel, gedeckelt, eingeordnet — ZULETZT: sie fällt vor den Messwerten der Person
+        //     (die Geräte früherer Fälle füllen den Deckel; hier ohne Geräte, damit die Zeile Platz hat)
+        localStorage.setItem('gs_geraete', '[]');
+        const ctxR = gsLinaContext('');
+        const zR = (ctxR.match(/^Rezepte aus deinem Garten:[^\n]*/m) || [''])[0];
+        const N = (typeof GS_GARTEN_REZEPTE_NENNEN === 'number') ? GS_GARTEN_REZEPTE_NENNEN : 3;
+        const sollZ = 'Rezepte aus deinem Garten: ' + g.rezepte.slice(0, N).map(x => x.titel).join('; ') + (g.rezepte.length > N ? '; +' + (g.rezepte.length - N) + ' weitere' : '') + '.';
+        if (zR !== sollZ) klagen.push('(d) die Kontextzeile ist „' + zR + '" statt „' + sollZ + '"');
+        if (GS_LINA_ZEILEN_RANG[GS_LINA_ZEILEN_RANG.length - 1] !== 'Rezepte aus deinem Garten:') klagen.push('(d) die Rezept-Zeile steht nicht ZULETZT in GS_LINA_ZEILEN_RANG: ' + JSON.stringify(GS_LINA_ZEILEN_RANG.slice(-3)));
+        if (!/open_garden_recipes/.test(LINA_SYSTEM) || !/open_planner/.test(LINA_SYSTEM)) klagen.push('(d) der Systemprompt nennt die zwei Werkzeuge nicht');
+        // 8 · kein neuer KI-Aufruf: je Frage genau einer
+        if (kiRufe !== laeufe) klagen.push('(d) ' + kiRufe + ' KI-Aufrufe bei ' + laeufe + ' Fragen');
+        await warte(300);
+        if (window.__pwned) klagen.push('__pwned wurde gesetzt');
+        if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
+        return { ok: true, info: 'Frost: Kalender, Hilfe, Hinweise, Meldung nennen „Tomate, Zucchini" · Meldung 1× je Tag, in der Stille 0 (ein Timer), ohne Erlaubnis 0, abgewählt 0, frisches Wetter 1 · ' + g.rezepte.length + ' Gartenrezepte, Bärlauch(Herbstzeitlose)/Monstera/Tomat/Wermut/Lavendel/Broccoli keine, Weisskohl seine, „Tomate" ohne Latein „unbekannt", Hundspetersilie nimmt der Petersilie ihre · Lina: Rezepte-Knopf (' + g.rezepte.length + ' Karten), Planer mit Hochbeet (Schritt 4, keine KI), unbekannter Garten gesagt, <img> als Text, andere Person: nichts' };
+      } catch (e) { return { ok: false, warum: 'Ausnahme: ' + (e && e.message) + (klagen.length ? ' · ' + klagen.join(' · ') : '') };
+      } finally {
+        window.setTimeout = echtT; window.clearTimeout = echtCT;
+        window.callAI = sichern.ai; window.sbIsLoggedIn = sichern.li; window.sbFetch = sichern.sf; window.gsToast = sichern.gt; window.Notification = sichern.no; window.gsPPrun = sichern.pr;
+        try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => sichern.on }); } catch (_) {}
+        try { if (typeof gsFrostMelden === 'function') { localStorage.removeItem('gs_notif_enabled'); gsFrostMelden(); } } catch (_) {}   // räumt einen Stille-Timer ab
+        try { const ix = DB.findIndex(s => s && s.id === 'L17HUNDS'); if (ix >= 0) DB.splice(ix, 1); } catch (_) {}
+        try { const ix = recipesData.findIndex(x => x && x.id === 'L17REM'); if (ix >= 0) recipesData.splice(ix, 1); } catch (_) {}
+        try {
+          const jetztKeys = []; for (let i = 0; i < localStorage.length; i++) jetztKeys.push(localStorage.key(i));
+          jetztKeys.forEach(k => { if (!Object.prototype.hasOwnProperty.call(speicherAlt, k)) localStorage.removeItem(k); });
+          Object.keys(speicherAlt).forEach(k => { if (localStorage.getItem(k) !== speicherAlt[k]) localStorage.setItem(k, speicherAlt[k]); });
+        } catch (_) {}
+        myPlants = sichern.mp; plantings = sichern.pl; gardens = sichern.ga;
+        try { if (typeof _gsRecipeGartenFilter !== 'undefined') _gsRecipeGartenFilter = false; } catch (_) {}
+        window._gsLinaSending = false; window._gsLinaMsgs = []; window._gsLinaConvId = null;
+        try { localStorage.removeItem('gs_lina_verlauf'); } catch (_) {}
+        try { closeModal('modal-planner-pro'); } catch (_) {} try { closeModal('modal-recipe-detail'); } catch (_) {} try { closeModal('gs-nl-modal'); } catch (_) {}
       }
     },
   },

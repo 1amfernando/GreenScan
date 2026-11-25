@@ -47,6 +47,7 @@ Person angemeldet ist (`_gsPerson`). *(sensor_check L9, L10, L11)*
 | Kalender heute · Nächste 7 Tage · Hinweise | `gsKalenderEreignisse(heute, +6 Tage)` — drei Zeilen, v33.39 | je 3 + „+N weitere“; Hinweise nur `verletzt` |
 | Naechste Aussaat, Plan-Termine | `gsKalenderEreignisse(heute, +60 Tage)` | je 3 + „+N" |
 | ARTEN | `_gsArtenTreffer(frage)` → `_gsArtAnzeige` je Art | `GS_LINA_ARTEN_MAX` 260 Zeichen |
+| Rezepte aus deinem Garten (Lina 17) | `gsGartenRezepte()` — nur Essen, exakt dieselbe Art, nie giftig; in `GS_LINA_ZEILEN_RANG` ZULETZT (ein Vorschlag faellt vor den Messwerten der Person) | `GS_GARTEN_REZEPTE_NENNEN` (3) Titel + „+N weitere“; kein passendes Rezept → „keine“; ohne Pflanzen keine Zeile |
 | Gesamt | | `GS_LINA_ZAHLEN_MAX` 1000 Zeichen — seit v33.39 faellt EINE GANZE ZEILE, nie ein halber Satz (`_gsLinaDeckeln`), Reihenfolge und Fallordnung aus `GS_LINA_ZEILEN_RANG`, und „(+N Zeilen ausgelassen)“ steht dabei |
 
 ### Der Einblick (`gsLinaEinblick(frage)`, zweiter Block, eigener Deckel)
@@ -67,7 +68,7 @@ die Wetter-Zeile heisst dann „Wetter am gewählten Ort".
 
 | Zeile | Quelle | Deckel |
 |---|---|---|
-| Braucht Hilfe | `gsPflanzenHilfe()` — Aufgabe ≥ `GS_HILFE_UEBERFAELLIG_TAGE` (2) im Verzug (`gsGetDueTasks`) oder Schaedling bzw. Krankheit an der Pflanze in den letzten `GS_HILFE_SCHAEDLING_TAGE` (14) Tagen (`gsSchaedlingeNotiert`; „Schädling notiert am …", seit Lina 16 auch „Krankheit notiert am …") | 4 + „+N weitere“; ohne Signal nennt die Zeile, WAS geprueft wurde — „kein Schädling" nur, wenn das Cloud-Tagebuch geladen ist (`gs_garden_diary_cache`) |
+| Braucht Hilfe | `gsPflanzenHilfe()` — Aufgabe ≥ `GS_HILFE_UEBERFAELLIG_TAGE` (2) im Verzug (`gsGetDueTasks`) oder Schaedling bzw. Krankheit an der Pflanze in den letzten `GS_HILFE_SCHAEDLING_TAGE` (14) Tagen (`gsSchaedlingeNotiert`; „Schädling notiert am …", seit Lina 16 auch „Krankheit notiert am …"); seit Lina 17 auch „Frost am … (… °C laut Vorhersage)“ aus `gsFrostGefaehrdet` — dieselbe Rechnung wie R6 im Kalender und die lokale Meldung, Gewicht vor allem anderen | 4 + „+N weitere“; ohne Signal nennt die Zeile, WAS geprueft wurde — „kein Schädling" nur, wenn das Cloud-Tagebuch geladen ist (`gs_garden_diary_cache`) |
 | Schädlinge im Tagebuch | `gsSchaedlingeNotiert()` über `gsTagebuchAlle` — `pest` und `pest_observation`, seit Lina 16 auch `disease` (jeder Eintrag sagt in `art`, was er ist); die Cloud-Schreiber (`gsPestAddToDiary`, `gsDiaryAddEntry`) legen sie OHNE Pflanze an, `gsCloudTagebuchLaden` spiegelt sie; Lina schreibt sie an die Pflanze (`p.diary`). Krankheiten ohne Pflanze stehen in einer eigenen Zeile „Krankheiten im Tagebuch" | je 3 + „+N weitere" |
 | Im Detail — <Pflanze> | eigene Pflanzen, die in der FRAGE stehen (`_gsLinaPflanzenInFrage`: ganzer Name an Wortgrenzen, Mehrzahl-Endung) → Ort, Aufgaben (`_gsTaskDays`), 3 Tagebuch-Eintraege, Foto-ZAEHLER, Notiz | 2 Pflanzen, je `GS_LINA_DETAIL_MAX` 420 Zeichen — ganze Angaben fallen von hinten |
 | Wetter <Ort> | `gs_weather_cache` (Rohwerte Open-Meteo), Schwellen aus `_gsWetterTage` | 3 Tage, 3 Warnungen. Nur wenn die Vorhersage zum gewaehlten Ort gehoert UND den heutigen Tag enthaelt |
@@ -89,7 +90,9 @@ Kontext.
 ## Was Lina DARF (`gsLinaDispatch`, 9 Faelle)
 
 Lesend: `navigate`, `open_calendar {day}`, `open_saekalender`, `search_species`,
-`prefill_form`. Schreibend, nur nach `gsConfirmModal`: `propose_add_plant`,
+`prefill_form`, seit Lina 17 `open_garden_recipes` und `open_planner {garden}` (unten). Ein lesender
+Knopf merkt sich Person und Gespraech; `gsLinaAktionTun` oeffnet nichts fuer eine andere Person.
+Schreibend, nur nach `gsConfirmModal`: `propose_add_plant`,
 `propose_reminder` / `propose_task` (Intervall aus `TASK_DEFS`, Pflanze ueber
 `gsLinaResolvePlant` → `_gsPflanzeFinden`, exakt) und seit v33.39
 `add_calendar_note {day, text, plantName?}` — ein datierter Eintrag im
@@ -152,6 +155,27 @@ ueber `gsLinaDispatch` (dort ein leerer `case`), sondern so:
 Was Lina darueber sagt, steht im Prompt: nur auf ausdruecklichen Wunsch, nie raten, nie „ist eingetragen" schreiben — das sagt
 die Karte. *(sensor_check „Lina 16", 13 Gegenproben; dazu 7 aus der Gegenpruefung und 23 aus der Pruefung von #359, Faelle (p)–(v))*
 
+### Seit Lina 17 (ks, v33.86; Paket 4 „Mit dir denken"): Frost, Rezepte aus dem Garten, Beetplanung
+
+1. **Frost ist EINE Rechnung:** `gsFrostGefaehrdet()` — Frost-Tage aus `_gsWetterTage` (heute und spaeter) × frostempfindlich
+   laut Kulturdaten (`_gsKulturZuPflanze`, `frost === -1`) × draussen (`gsPflanzeDraussen`); drei Zustaende, ohne Vorhersage
+   `nicht_pruefbar` (`tage: null`). Drei Anzeigen lesen sie: R6 im Kalender, „Braucht Hilfe" und die lokale Meldung
+   `gsFrostMelden()` (Kategorie `frost` ueber `gsNotif.showKategorie` — eine je Tag, nie in der Stille, nur mit Erlaubnis und
+   nur, wenn „Frostgefahr" in den Push-Einstellungen nicht abgewaehlt ist; in der Stille EIN Timer an ihr Ende). Gerufen beim
+   Start und nach frisch geladenem Wetter (`loadGardenWeather` — der Fall faehrt diesen Draht). *(kalender_check W5)* Das
+   Frost-BANNER (`gsCheckFrostWarning`) beantwortet die Ortsfrage mit eigener Schwelle (< 2) und rundet — brett:2026-11-16-c72c.
+2. **Rezepte nur zu exakt derselben Art, nie giftig:** `gsGartenRezepte()` — Art der Pflanze ueber `_gsPflanzeArt` (eigenes
+   Latein · eindeutiger Name der Artenliste · Kulturdaten; ein gleichnamiger giftiger Eintrag nimmt dem Namen die Zusage; ein
+   Binomen, das die Artenliste nicht kennt, ist „unbekannt" — `_gsBinomeDerListe`), Abgleich `_gsArtPasst` (Binomen wie die
+   Rezept-Sperre; eine Unterart des Rezept-Eintrags muss die Pflanze genau tragen: Broccoli bekommt kein Weisskohl-Rezept),
+   Rezept-Seite `_gsRecipeAllowedPlantIds` + `gsIstGiftig`/`gsIstEssbar` an der ART (Wermut: giftig; Lavendel: nicht essbar
+   laut Liste — beide ohne Rezept, brett:2026-11-25-5769). Die Saison sortiert nur. Eine „Tomate" ohne Latein steht unter
+   „ohne Art": die Kulturdaten nennen sie Lycopersicon, die Artenliste Solanum (brett:2026-11-25-2bbd).
+3. **Zwei lesende Werkzeuge** (Knopf unter der Antwort, keine KI dahinter): `open_garden_recipes` → `gsGartenRezepteOeffnen`
+   (Rezeptliste mit Garten-Filter, „✕ Alle" nimmt ihn weg); `open_planner {garden}` → `gsPlanFuerGarten` fuer GENAU einen
+   Garten dieses Namens (Masse, Licht, Boden, Schritt „Wünsche", generiert nicht), sonst `openGardenAI` ohne Vorauswahl. Was
+   der Knopf nicht sagen kann, steht als Satz in der Antwort (`_gsLinaAktionSatz`). *(sensor_check „Lina 17")*
+
 ## Die sechs Regeln, die fuer jeden Freitext-Weg gelten
 
 1. **Erdung ueber `_gsArtenTreffer`** — ganzer Name oder Binomen an Wortgrenzen;
@@ -208,7 +232,9 @@ die Karte. *(sensor_check „Lina 16", 13 Gegenproben; dazu 7 aus der Gegenpruef
 - **Push schreiben, Routinen fahren, „ueber Nacht" etwas tun**: 0
   Edge-Functions referenzieren `coach_messages`; Lina existiert nur im
   geoeffneten Tab. Frost-Push und Wochen-Zahl kommen vom Cron
-  (`daily-push-checker`, `weather-alert-checker`), ohne Lina.
+  (`daily-push-checker`, `weather-alert-checker`), ohne Lina. Die lokale
+  Frost-Meldung (`gsFrostMelden`, seit Lina 17) zeigt die App auf DIESEM Geraet,
+  solange sie laeuft — auch sie ohne Lina, und Lina selbst meldet nichts.
 - **Bilder sehen**: `callVisionAI` gibt es, das Lina-Fenster hat keinen
   Foto-Weg; der Scanner ist der Weg zum Foto.
 - **Praeferenzen lernen**: Es gibt keinen Ort fuer Praeferenzen der PERSON
