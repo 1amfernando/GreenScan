@@ -134,6 +134,10 @@ alten schreibenden (T2): Nein schreibt nichts, Ja genau eines.
    „nicht giftig, du kannst sie essen" (`GS_LINA_NEIN_ROLLE`, `_gsLinaOhneNeinRolle`). Findet der erste
    Durchgang nichts, liest die Gegenprobe die Antwort ein zweites Mal mit diesen Wendungen als „ja" —
    nur Saetze ohne echte Verneinung. Der erste Durchgang bleibt der der Basis.
+   Seit v33.84 ((ku)) gilt ein KURZES letztes Wort (5–9 Zeichen) allein, wenn jeder gepruefte Eintrag damit
+   giftig ist (`GS_LINA_KURZ_MIN`, `_gsLinaGiftArten`, dieselbe Menge in `_gsArtenTreffer`): „Goldregen",
+   „Germer", „Nieswurz". Kein Name: ein klein geschriebener Zusatz und `GS_LINA_KURZ_KEIN_NAME`; und nie
+   innerhalb eines ganzen Namens („Nieswurz-Schafgarbe" ist keine Nieswurz).
 3. **Der Notfall kommt VOR dem Sende-Riegel** und nimmt die Antwort nicht weg.
 4. **Zahlen im Kontext sind Rohwerte aus einem Datensatz** — `sensor_check`
    „Lina" haelt jede Prozent-/Gradzahl gegen den Speicher. Eine Zahl, die in

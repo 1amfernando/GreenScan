@@ -75,7 +75,7 @@
 <meta name="twitter:description" content="3136 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="33.83.20261125">
+<meta name="app-version" content="33.84.20261125">
 <!-- v33.65: die App uebersetzt sich selbst (gsI18n); ohne diese Angabe bot der Browser bei jedem Neuladen
      in einer anderen Sprache als Deutsch noch einmal die Seitenuebersetzung an. -->
 <meta name="google" content="notranslate">
@@ -80760,6 +80760,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v33.84', date: '25.11.2026',
+      headline: 'Lina erkennt auch kurze Namen giftiger Pflanzen — Goldregen, Germer, Nieswurz, Akelei',
+      summary: 'Sicherheitspaket für Lina. Kurze Namen giftiger Pflanzen und Pilze wie Goldregen, Germer, Nieswurz, Akelei, Buchsbaum oder Clivia kannte die Prüfung nach Linas Antwort nicht: „Ja, Goldregen ist essbar.“ oder „Ja, die kannst du essen.“ auf „Kann ich Goldregen-Samen essen?“ blieben ohne Warnung — auch im Chat zum Scan-Ergebnis. Jetzt warnt Lina dort, und sie weiss schon beim Antworten, dass die Pflanze giftig ist. Ein Wort, das auch harmlose Pflanzen tragen (Täubling), und harmlose Namen wie die Nieswurz-Schafgarbe lösen keine Warnung aus.',
+      user_summary: 'Lina warnt jetzt auch bei kurzen Namen giftiger Pflanzen wie Goldregen oder Germer.',
+      user_items: [
+        {emoji:'🛡️', bold:'Mehr Giftpflanzen erkannt:', text:' Goldregen, Germer, Nieswurz, Akelei, Buchsbaum, Clivia und zehn weitere — auch als „Goldregen-Samen“.'},
+        {emoji:'💬', bold:'Auch im Scan-Chat:', text:' fragst du zu einem Scan-Ergebnis nach, gilt dieselbe Prüfung.'},
+        {emoji:'✅', bold:'Kein Fehlalarm:', text:' die harmlose Nieswurz-Schafgarbe oder „ein zeitloses Rezept“ lösen keine Warnung aus.'},
+      ]
+  },
+  {
     v: 'v33.83', date: '25.11.2026',
       headline: 'Lina warnt auch, wenn eine falsche Zusage mit „Keine Sorge“ beginnt',
       summary: 'Lina 15. „Keine Sorge, die kannst du essen.“, „Das zu essen ist kein Problem.“ und „Sie ist nicht giftig, du kannst sie essen.“ sagen etwas über eine Giftpflanze zu — die Warnung blieb trotzdem aus, weil „kein“ und „nicht“ wie eine Verneinung aussahen. Jetzt liest Lina eine solche Antwort ein zweites Mal und warnt. Eine echte Verneinung („Keine Sorge, essen solltest du sie aber nicht.“) bleibt ohne Warnung.',
@@ -81050,18 +81061,6 @@ window.GS_RELEASES = [
         {emoji:'🧪', bold:'Prüfstände:', text:' kalender_check, scan_check, nutzersicht_check, wiring_check, escape_check, a11y_check, apk_check und robust_check tragen die neuen Fälle; der Zahlungsteil (stripe_*, _shared/zahlung_regeln.mjs) blieb unberührt.'}
       ],
   },
-  {
-    v: 'v33.64', date: '19.11.2026',
-      headline: 'Pilz-Scanner: dieselbe Vorsicht wie der Server — und ein giftiger Kandidat trägt seine Warnung',
-      summary: 'Scanner 11 (Hauptfunktionen, Brett 2026-11-11-2714). Gemessen am 19.11.2026, nur lesend: die ausgelieferte mushroom-identify lädt 200 von 276 Arten des Registers — 76 fehlen dem Modell, 19 davon giftig. Im Repo behoben (supabase/functions/_shared/pilz_wissen.mjs: alle Arten, gekürzt würde zuerst die harmloseste Gruppe); live wirkt das erst, wenn Fernando die Function ausliefert (FUER-FERNANDO §31). In der App, sofort: die Schwelle für eine Bestimmung ist 70 wie am Server (GS_PILZ_SICHER_AB, vorher 60), eine tödliche oder giftige Art trägt immer die rote Kopfzeile, Kandidaten stehen mit Namen und Warnung da, ein Fehler ist ein Satz, und die Antwort gehört der Person, die gefragt hat. Prüfstände: scan_check PZ1–PZ4, edge_check 80_pilz.',
-      user_summary: 'Der Pilz-Scanner ist vorsichtiger: erst ab 70 % Sicherheit nennt er eine Art, und giftige Kandidaten sind klar markiert. Ein Pilz gehört vor dem Essen immer zur Pilzkontrolle (VAPKO).',
-      user_items: [
-        {emoji:'🍄', bold:'Vorsichtiger:', text:' unter 70 % Sicherheit steht „unsichere Identifikation“ statt einer Essbarkeit.'},
-        {emoji:'☠️', bold:'Giftige Kandidaten markiert:', text:' mögliche Arten stehen mit ihrem Namen da, und ein giftiger oder tödlicher trägt seine Warnung.'},
-        {emoji:'🚫', bold:'Rot bleibt rot:', text:' eine giftige oder tödliche Art zeigt immer die rote Kopfzeile.'},
-        {emoji:'💬', bold:'Verständliche Meldung:', text:' klappt die Bestimmung nicht, steht ein ganzer Satz da statt eines technischen Kürzels.'}
-      ],
-  },
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -81272,7 +81271,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v33.83';
+var GS_VERSION = 'v33.84';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -92051,13 +92050,20 @@ function _gsArtenTreffer(text) {
     var q = ' ' + _gsLinaNorm(text) + ' ';
     if (q.length < 5) return leer;
     var gefunden = [];
+    // (ku) Befund 9c9c: kurze letzte Wörter (5–9 Zeichen), deren geprüfte Einträge ALLE giftig sind — dieselbe Menge wie in der
+    // Gift-Gegenprobe (_gsLinaGiftArten). „Kann ich Goldregen essen?" bekam sonst keine ARTEN-Zeile, und der Scan-Chat, der die
+    // Frage nur hiermit liest, sah die Art nicht.
+    // Ein kurzes Wort zählt nur AUSSERHALB eines ganzen Namens, den der Text nennt — „Nieswurz-Schafgarbe" (harmlos) ist keine
+    // Nieswurz. Die Gift-Gegenprobe kennt dafür die Hülle (kg); hier werden die ganzen Namen erst gesammelt, dann ausgeblendet.
+    var kurzGift = {}, kurzKand = [], ganzeNamen = [];
+    try { kurzGift = (_gsLinaGiftArten() || {}).kurz || {}; } catch (_) {}
     for (var i = 0; i < DB.length; i++) {
       var sp = DB[i];
       if (!sp) continue;
       var n = _gsLinaNorm(sp.name), l = _gsLinaNorm(sp.lat);
       // Ganzer Name (> 3 Zeichen) oder ganzes Binomen (> 5), an Wortgrenzen.
-      if ((n.length > 3 && q.indexOf(' ' + n + ' ') !== -1) ||
-          (l.length > 5 && q.indexOf(' ' + l + ' ') !== -1)) { gefunden.push(sp); continue; }
+      var ganz = n.length > 3 && q.indexOf(' ' + n + ' ') !== -1;
+      if (ganz || (l.length > 5 && q.indexOf(' ' + l + ' ') !== -1)) { gefunden.push(sp); if (ganz) ganzeNamen.push(n); continue; }
       // Deutsch dekliniert: „Kann ich den GRÜNEN Knollenblätterpilz essen?"
       // trifft „Grüner Knollenblätterpilz" nie als ganzen Namen. Das LETZTE
       // Wort eines mehrteiligen Namens bleibt dabei unverändert — und es ist
@@ -92079,8 +92085,21 @@ function _gsArtenTreffer(text) {
         if (letztes.length >= 10 && q.indexOf(' ' + letztes + ' ') !== -1) {
           sp = Object.create(sp); sp._nurTeilname = true;   // gemerkt, siehe unten
           gefunden.push(sp);
-        }
+        } else if (letztes.length < 10 && kurzGift[letztes] === true && q.indexOf(' ' + letztes + ' ') !== -1) kurzKand.push([sp, letztes]);
       }
+    }
+    if (kurzKand.length) {
+      var qOhne = q;   // die längsten Namen zuerst — sonst zerschnitte „Schafgarbe" die „Nieswurz-Schafgarbe", bevor sie ausgeblendet ist
+      ganzeNamen.slice().sort(function (a, b) { return b.length - a.length; })
+        .forEach(function (gn) { qOhne = qOhne.split(' ' + gn + ' ').join('  '); });
+      // dazu die Hüllen der Gift-Gegenprobe (kg): harmlose, geprüfte Namen aus mehreren Wörtern, auch dekliniert —
+      // „Kann ich Nieswurz-Schafgarben … essen?" nennt die Schafgarbe in der Mehrzahl, nicht die Nieswurz
+      try { ((_gsLinaGiftArten() || {}).huellen || []).forEach(function (h) { qOhne = qOhne.replace(new RegExp(h.source, 'g'), ' '); }); } catch (_) {}
+      kurzKand.forEach(function (kk) {
+        if (qOhne.indexOf(' ' + kk[1] + ' ') === -1) return;
+        var t = Object.create(kk[0]); t._nurTeilname = true;
+        gefunden.push(t);
+      });
     }
     if (!gefunden.length) return leer;
     // Der UMGANGSNAME zieht seine Familie mit. „Ist Holunder essbar?" trifft
@@ -92496,6 +92515,14 @@ window._gsLinaSicherheit = _gsLinaSicherheit;
 // nur, wenn jeder Eintrag dieses Namens giftig ist — „Holunder (Roth)" ohne Zusatz heisst „Holunder" wie der Schwarze, und
 // „Ja, Holunderblüten kannst du essen." warnte sonst vor dem Roten Holunder (gemessen an 80 Ess-Sätzen).
 var GS_LINA_TEILWORT = '(?:blätter|blaetter|blatt|blüten|blueten|blüte|bluete|beeren|beere|früchte|fruechte|frucht|samen|wurzeln|wurzel|knollen|knolle|zwiebeln|zwiebel|rinde|stängel|staengel|stengel|triebe|trieb|kerne|schoten|nadeln|tee|saft)';
+// (ku) Befund 9c9c: ein KURZES letztes Wort (5 bis 9 Zeichen) gilt allein, wenn jeder geprüfte Eintrag mit diesem Wort giftig
+// ist — dieselbe Regel wie ab zehn Zeichen. Gemessen 25.11.2026: „Goldregen", „Germer", „Nieswurz", „Buchsbaum", „Akelei",
+// „Clivia" und zwölf weitere erkannte die Gegenprobe in KEINER Form, also auch nicht „Goldregen-Samen". Kein Name ist ein
+// Zusatz, der im Eintrag klein steht („Echter Oleander weiss"), und ein Wort aus GS_LINA_KURZ_KEIN_NAME, das auch etwas anderes
+// meint: „Zwerg" ist eine Wuchsform, „zeitlose" auch ein Adjektiv („ein zeitloses Rezept" — die Herbstzeitlose erkennt ihr voller
+// Name), und ein „Rosenbaum" im Garten ist meist ein Rosenstämmchen mit essbaren Blüten, nicht der Oleander der Liste.
+var GS_LINA_KURZ_MIN = 5;
+var GS_LINA_KURZ_KEIN_NAME = /^(?:zwerg|zeitlose|rosenbaum)$/;
 var _gsLinaGiftCache = null, _gsLinaGiftCacheN = -1;
 function _gsLinaGiftArten() {
   var n = (typeof DB !== 'undefined' && DB && DB.length) ? DB.length : 0;
@@ -92520,6 +92547,7 @@ function _gsLinaGiftArten() {
     letzte[lw] = letzte[lw] || { gift: 0, veto: 0, mehrteilig: false };
     if (giftig) letzte[lw].gift++; else if (!rumpf) letzte[lw].veto++;
     if (tokens.length > 1 || tokens[0].length > 1) letzte[lw].mehrteilig = true;
+    if (!/^\p{Lu}/u.test(roh.split(/\s+/).pop().split('-').pop())) letzte[lw].klein = true;   // (ku) ein Zusatz, kein Name
     var nk = _gsLinaNorm(roh).replace(/ /g, '');   // „Birken-Reizker" und „Birkenreizker" sind EIN Name
     namen[nk] = namen[nk] || { gift: 0, veto: 0 };
     if (giftig) namen[nk].gift++; else if (!rumpf && exakt) namen[nk].veto++;
@@ -92553,15 +92581,21 @@ function _gsLinaGiftArten() {
     if (l.length > 5 && l.indexOf(' ') > 0) { var ql = '(?:^| )' + esc(l) + '(?= |$)'; if (!art.quellen[ql]) { art.quellen[ql] = 1; art.muster.push(new RegExp(ql)); } }
     (art.letzte = art.letzte || []).push(lw);
   }
+  var kurz = {};
   reihe.forEach(function (art) {
     (art.letzte || []).forEach(function (lw) {
       var z = letzte[lw];
-      if (!z || !z.mehrteilig || lw.length < 10 || z.veto > 0) return;
+      if (!z || !z.mehrteilig || z.veto > 0) return;
+      if (lw.length < 10) {   // (ku) kurz: nur ein Name, kein Zusatz
+        if (lw.length < GS_LINA_KURZ_MIN || z.klein || GS_LINA_KURZ_KEIN_NAME.test(lw)) return;
+        kurz[lw] = true;
+      }
       var ql = '(?:^| )' + nomen(lw) + '(?= |$)';
       if (!art.quellen[ql]) { art.quellen[ql] = 1; art.muster.push(new RegExp(ql)); }
     });
   });
   reihe.huellen = huellen;
+  reihe.kurz = kurz;   // (ku) dieselben Wörter liest _gsArtenTreffer — die ARTEN-Zeile und der Scan-Chat sehen sie auch
   _gsLinaGiftCache = reihe; _gsLinaGiftCacheN = n;
   return reihe;
 }

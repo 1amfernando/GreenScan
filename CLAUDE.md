@@ -2387,6 +2387,26 @@ Artenauskunft an `_gsArtAnzeige`; **Lina hatte davon nichts** (0 Treffer auf
 > nichts: „Die Tollkirsche zu essen ist kein Problem.“ hat sonst kein Zusage-Wort mehr (Gegenprobe K03). Gemessen: Vorlagen über
 > 312 giftige Namen 0 → 311 je Wendung (de/en/fr/it), beide Orakel unverändert (`sensor_check` „Lina 15“, fünf Gegenproben).
 
+> **Ein kurzer Name zählt wie ein langer, wenn die Liste ihn nur für Gift kennt — aber nur ausserhalb eines ganzen Namens**
+> (v33.84, (ku); Brett 9c9c). Das letzte Wort eines mehrteiligen Namens galt allein erst ab zehn Zeichen. 18 Namen giftiger
+> Arten waren kürzer („Goldregen“, „Germer“, „Nieswurz“, „Akelei“, „Buchsbaum“, „Clivia“ …). Die Gegenprobe erkannte sie in
+> keiner Form, auch nicht als „Goldregen-Samen“, und der Scan-Chat liest die Frage nur über `_gsArtenTreffer` und sah sie
+> ebenso wenig. Seither gilt ein Wort ab fünf Zeichen allein, wenn jeder geprüfte Eintrag damit giftig ist (`GS_LINA_KURZ_MIN`,
+> `_gsLinaGiftArten().kurz`; dieselbe Menge liest `_gsArtenTreffer`, also auch die ARTEN-Zeile). Drei Grenzen:
+> - Ein Wort, das im Eintrag klein steht, ist ein Zusatz („Echter Oleander weiss“).
+> - Ein Wort, das auch etwas anderes meint, steht in `GS_LINA_KURZ_KEIN_NAME`: „Zwerg“, „zeitlose“ („ein zeitloses Rezept“),
+>   „Rosenbaum“ (im Garten meist ein Rosenstämmchen mit essbaren Blüten).
+> - In `_gsArtenTreffer` zählt ein kurzes Wort nur AUSSERHALB eines ganzen Namens, den der Text nennt, und ausserhalb der
+>   Hüllen der Gift-Gegenprobe (kg). Die längsten Namen werden zuerst ausgeblendet, sonst zerschneidet „Schafgarbe“ die harmlose
+>   „Nieswurz-Schafgarbe“, bevor sie weg ist; die Hülle kennt auch die Mehrzahl („Nieswurz-Schafgarben“).
+>
+> Die dritte Grenze hat erst das Orakel gefunden, kein Fall: Die Gift-Gegenprobe kannte die Hülle (kg), `_gsArtenTreffer` nicht.
+> Die erste Reparatur blendete nur den Namen in der Grundform aus, und das Garten-Orakel (Mehrzahl) fand dieselbe Lücke ein
+> zweites Mal. **Wer eine Regel an zwei Lesern einführt, misst beide gegen dieselbe Liste — und nimmt im zweiten Leser
+> dieselbe Regel, nicht eine Nachbildung.**
+> Gemessen: 16 Wörter 0 → 6 von 6 Zusage-Formen, beide Orakel und die 42 Vorlagen aus (ko) identisch mit der Basis
+> (`sensor_check` „Lina 15b“, neun Gegenproben).
+
 > **`_gsLinaNorm` streicht Satzzeichen — wer danach Saetze trennt, trennt an
 > nichts** (v33.32). Der Split in `_gsLinaSicherheit` lief zwei Auslieferungen
 > lang ins Leere, und der Kommentar darueber behauptete das Gegenteil. Wer
