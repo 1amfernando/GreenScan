@@ -15,8 +15,8 @@ gsLinaSend()                                index.html, grep "async function gsL
  ├─ callAI(hist.slice(-16), LINA_SYSTEM + ctx, 900)   kein Tool-Use: {model, max_tokens, system, messages}
  ├─ _gsLinaSicherheit(antwort, treffer)      Zusage „essbar" ueber eine Art mit tox ≥ 3 → Warnzeile darueber
  │    └─ _gsLinaTrefferMitPflanzen(text, t) dazu die Arten eigener Pflanzen, die die Frage (auch beim Spitznamen) nennt
- ├─ _gsLinaKarteBauen(aktion)                die fuenf Karten-Werkzeuge (Lina 16): eine KARTE unter der Antwort — oder eine Rueckfrage
- │    └─ gsLinaKarteTun(mi, wahl, nr)        erst der Tipp schreibt: Person, Gespraech, Karte geprueft → EIN Schreiber, EIN Satz
+ ├─ _gsLinaKarteBauen(aktion, frage)         die fuenf Karten-Werkzeuge (Lina 16): eine KARTE unter der Antwort — oder eine Rueckfrage
+ │    └─ gsLinaKarteTun(mi, wahl, nr)        erst der Tipp schreibt: Person, Gespraech, Karte, Stand geprueft → EIN Schreiber, EIN Satz
  └─ gsLinaDispatch(aktion)                   EINE Textzeile am Antwortende, Whitelist, die aelteren Schreib-Tools nach gsConfirmModal
 ```
 
@@ -116,11 +116,20 @@ ueber `gsLinaDispatch` (dort ein leerer `case`), sondern so:
    Erst der Tipp (`gsLinaKarteTun`) schreibt. Ohne `plantName` bietet `propose_task_done` die Pflanzen zur AUSWAHL an, bei
    denen genau diese Aufgabe heute faellig ist (`gsGetDueTasks`, beide Listen, hoechstens `GS_LINA_KARTE_WAHL_MAX`).
 2. **Nie raten.** `_gsLinaPflanzenWahl` nimmt ALLE Treffer von `_gsLinaPflanzenTreffer` (Name oder Spitzname exakt, beide
-   Listen). Mehrdeutig, unbekannt, ein Teilname → keine Karte, sondern eine Rueckfrage. `gardenName` grenzt ein; „Meine
-   Pflanzen" meint die Liste. Entfernen und Umziehen nur fuer Pflanzungen; ein Zielgarten nur mit genau diesem Namen.
+   Listen). Unbekannt oder ein Teilname → keine Karte, sondern eine Rueckfrage. Mehrdeutig an VERSCHIEDENEN Orten (je ein
+   Garten, „Meine Pflanzen") → eine Rueckfrage, denn die KI kann den Garten nennen; mehrdeutig am SELBEN Ort → die Karte zeigt
+   sie zur AUSWAHL (`{ wahl, labels, gleich }`), beschriftet von `_gsLinaWahlLabels` mit so vielen Merkmalen wie noetig
+   (`_gsLinaPflanzeMerkmal`: Sorte, Pflanzdatum, Anzahl — gezaehlt ueber ALLE eigenen Pflanzen); was sich auch so nicht
+   unterscheiden laesst, wird nicht angeboten (gezaehlt bzw. ein Satz). Eine Rueckfrage, deren Antwort die KI nicht in Name und
+   Garten SAGEN kann, waere eine Schleife. `gardenName` grenzt ein; „Meine Pflanzen" meint die Liste. Entfernen und Umziehen nur
+   fuer Pflanzungen; ein Zielgarten nur mit genau diesem Namen. `gsLinaResolvePlant` nimmt nur einen eindeutigen Treffer.
 3. **Die Karte gehoert der Person und dem Gespraech** (§3.6): sie traegt `_gsPerson()`, `_gsLinaGespraechNr` und ihre eigene
    Nummer; stimmt beim Tipp eines davon nicht, wird nichts geschrieben (abgemeldet / andere Person: Lina schliesst und
-   vergisst das Gespraech). Zwischen Pruefung und Schreiben steht kein `await`.
+   vergisst das Gespraech). **Und was eine Wahl ZEIGT, muss beim Tipp noch stimmen:** jede merkt sich Liste, Name, Garten,
+   Gartenname, beim Abhaken den letzten Eintrag der Aufgabe, beim Umziehen den vollen Namen des Ziels (`_gsLinaStand`);
+   `_gsLinaStandPruefen` haelt das beim Tipp gegen den Stand — sonst ein Satz und nichts geschrieben (eine liegen gelassene
+   Karte „aus Beet A" entfernte sonst die inzwischen umgezogene Pflanze aus Beet B). Zwischen Pruefung und Schreiben steht
+   kein `await`.
 4. **Ein Schreiber je Werkzeug, erst schreiben, dann melden** — jeder gibt `true` · `false` · `null`, jeder Wert EINEN Satz:
    abhaken = `gsQuickDone`; Notiz, Schaedling, Krankheit = `_gsPflegeEintragSchreiben` (derselbe Kern wie das Formular
    `gsAddDiaryEntry`, Deckel `GS_PFLEGEVERLAUF_MAX` nach Zeit, `quelle: 'lina'`); Entfernen = `_gsPflanzungEntfernen` (die
@@ -132,9 +141,16 @@ ueber `gsLinaDispatch` (dort ein leerer `case`), sondern so:
    Ein Name, wie ihn der KONTEXT gekuerzt zeigt („Echter Monstera Thai…", mit oder ohne „…"), meint genau diesen Eintrag
    (`_gsLinaKontextFormen`) — ein Teilname weiter nicht.
 5. **Fremdtext bleibt Text:** Namen und Notiz nur durch `escHtml`; im `onclick` nur Zahlen.
+6. **Heute.** Die Werkzeuge kennen kein Datum, jeder Tipp schreibt jetzt — die Karten sagen es („… als heute erledigt
+   eintragen?", „… mit dem heutigen Datum?"), und der Prompt erlaubt abhaken, Notiz und Schaedling nur fuer heute.
+7. **Ohne Einblick bleibt ein Satz der App auf dem Bildschirm** (`_gsLinaSatzAnhaengen` in `gsLinaSend`): die Rueckfrage einer
+   Karte nennt Gaerten, Spitznamen, Standorte — mit Einblick geht sie in den Verlauf, ohne nur in `zusatz` (nicht in `hist`,
+   nicht in den Spiegel, nicht in `coach_messages`).
+8. **Der Text einer Karte geht durch die Gift-Gegenprobe** (`_gsLinaKarteGiftPruefen` → `_gsLinaSicherheit`): er kommt von der
+   KI und geht in die Daten. Warnt sie, steht die Warnung auf der Karte und der Knopf heisst „Trotzdem …".
 
 Was Lina darueber sagt, steht im Prompt: nur auf ausdruecklichen Wunsch, nie raten, nie „ist eingetragen" schreiben — das sagt
-die Karte. *(sensor_check „Lina 16", 13 Gegenproben; dazu 7 aus der Gegenpruefung)*
+die Karte. *(sensor_check „Lina 16", 13 Gegenproben; dazu 7 aus der Gegenpruefung und 23 aus der Pruefung von #359, Faelle (p)–(v))*
 
 ## Die sechs Regeln, die fuer jeden Freitext-Weg gelten
 

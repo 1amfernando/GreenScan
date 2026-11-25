@@ -29,6 +29,7 @@ auf v33.85 steht im eigenen Commit.
 - **Nie raten:** `_gsLinaPflanzenWahl` nimmt ALLE Treffer von `_gsLinaPflanzenTreffer` (Name oder Spitzname exakt, beide
   Listen; `gsLinaResolvePlant` nimmt dieselbe Vergleichsregel). Mehrdeutig, unbekannt oder ein Teilname geben keine Karte,
   sondern eine Rückfrage in der Antwort (sie geht mit in den Verlauf). `gardenName` grenzt ein, „Meine Pflanzen" meint die Liste.
+  *(Seit der Prüfung von #359, unten: am selben Ort eine Auswahl, ohne Einblick nur auf dem Bildschirm.)*
 - **Die Karte gehört der Person und dem Gespräch:** sie trägt `_gsPerson()`, `_gsLinaGespraechNr` und ihre Nummer; stimmt beim
   Tipp eines nicht, wird nichts geschrieben (abgemeldet oder andere Person: Lina schliesst und vergisst das Gespräch). Zwischen
   Prüfung und Schreiben steht kein `await`.
@@ -103,10 +104,68 @@ sicherheit (person, schluss, senken) 104/0 · nutzersicht 17/0 · robust 38/0 ·
 datum 8/0 · austausch 17/0 · i18n 23/0 · wiring 0 kaputt · render (0 JS-Fehler, 0 abgeschnitten) · field grün · contrast 0 unter AA ·
 sync 26/0 · save 29/0 · escape 18/0 · versprechen 0 rot.
 
-**Offen:** brett:2026-11-25-370c (die drei älteren Schreib-Werkzeuge).
-**Nicht geprüft:** echte KI-Antworten (gestellt — ob die KI die Werkzeuge nur auf Wunsch nutzt, sagt erst der Betrieb); ein
-echtes zweites Gerät und ein echter Server (der Abgleich ist gestellt); die Karte mit Screenreader und als Antippfläche
-(`a11y_check` und `touch_check` öffnen kein Gespräch mit Karte); die Android-Hülle. Den Kontrast hat ein eigenes Skript
+**Prüfung des Koordinators zu #359** (zwei Prüfer, nur lesend, meine Behauptungen nicht als Vorgabe; drei Kernbelege hat er
+selbst im Kopf-Stand nachgelesen): drei MITTEL-Funde und drei kleine — alle im Folge-Commit behoben.
+- **M1 · „Aus heisst aus" (Brett 6bbf):** die Rückfrage einer Karte nennt Gartennamen, Spitznamen und Standorte; sie stand in der
+  Antwort (`content`) und ging mit `hist` bei der nächsten Frage an die KI — auch ohne Einblick. Jetzt hängt `_gsLinaSatzAnhaengen`
+  sie MIT Einblick an die Antwort (die KI sieht, was die App gefragt hat), OHNE nur an den Bildschirm (`zusatz`, `data-lina-zusatz`):
+  nicht in `hist`, nicht im Spiegel, nicht in `coach_messages`. Die Knöpfe einer Karte gingen nie in den Verlauf; der Fall misst es jetzt.
+- **M2 · die Karte gegen den aktuellen Stand:** geschrieben wurde nach Id; Garten und Name waren nur Anzeige. „Entferne die Tomate aus
+  Beet A" (Karte X liegen gelassen) → „zieh sie nach Beet B" (getippt) → ein Tipp auf X entfernte sie aus Beet B. Jetzt merkt sich
+  jede Wahl, was sie zeigt (`_gsLinaStand`: Liste, Name, Garten, Gartenname, beim Abhaken der letzte Eintrag der Aufgabe, beim
+  Umziehen der volle Name des Ziels), und `_gsLinaStandPruefen` hält es beim Tipp gegen den Stand — sonst „„X" hat sich inzwischen
+  geändert — nichts geändert. Bitte frag noch einmal." bzw. „Bei „X" ist „Giessen" inzwischen schon eingetragen — nichts doppelt
+  eingetragen." Zwischen Prüfung und Schreiben weiter kein `await`.
+  **Dazu (daten1):** zwei gleichnamige Pflanzungen im selben Garten ergaben zwei GLEICHE Knöpfe und eine Rückfrage, die nichts sagte.
+  Mit Sorte hätte sie etwas gesagt, sich aber nicht beantworten lassen — die KI nennt nur Name und Garten, „Tomate" Cherry und
+  Ochsenherz im Hochbeet wäre eine Schleife gewesen. Deshalb: stehen alle Treffer an VERSCHIEDENEN Orten, bleibt die Rückfrage (die
+  KI kann den Garten nennen); stehen zwei am SELBEN Ort, zeigt die Karte sie zur Auswahl, beschriftet mit Sorte, Pflanzdatum oder
+  Anzahl (in „Meine Pflanzen": seit wann) — so viele Merkmale wie nötig, gezählt über ALLE eigenen Pflanzen (`_gsLinaWahlLabels`;
+  die Person kennt auch die, die gerade nicht fällig ist). Was sich auch so nicht unterscheiden lässt, wird nicht angeboten: auf der
+  Karte „N weitere mit denselben Angaben", beim Namen genannt ein Satz. Eine Gefahr-Karte mit Auswahl hat rote Knöpfe.
+- **M3 · Datum:** die Werkzeuge haben keines, jeder Tipp schreibt „jetzt" — „Habe vorgestern gegossen" setzte `lastDone` auf heute
+  und verschob das nächste Giessen. Die Karten sagen es jetzt („… als heute erledigt eintragen?", „Notiz eintragen — mit dem heutigen
+  Datum?", „Schädling/Krankheit notieren — mit dem heutigen Datum?"), und der Prompt erlaubt die drei Werkzeuge nur für heute
+  („gestern", „vorgestern", „letzte Woche" → keine Aktionszeile, ein Satz). Ein Datumsargument wäre der grössere Bau — als Idee
+  aufs Brett (brett:2026-11-25-08fc), nicht gebaut.
+- **a · `gsLinaResolvePlant`** nimmt nur einen EINDEUTIGEN Treffer: mit der Kurzform aus dem Kontext nahm er bei zwei gleich gekürzten
+  Namen still den ersten (gemessen: `mp_1` statt einer Rückfrage). Die zwei Aufrufer, die davon abhingen, fragen jetzt selbst:
+  `propose_add_plant` warnt weiter „steht schon da", eine Erinnerung für zwei „Tomate" sagt, dass es sie mehrmals gibt.
+- **b · Wortlaut:** eine Pflanzung zeigt ihren Verlauf im Gartentagebuch (`openPlantDiary` kennt nur „Meine Pflanzen") — Karte und
+  Satz sagen das jetzt. Und der Changelog versprach „kommt beim nächsten Abgleich nicht zurück"; eine Löschmarke verliert aber gegen
+  einen späteren Stempel eines anderen Geräts. Jetzt: „bleibt weg, solange kein anderes Gerät sie danach ändert".
+- **c · der Kartentext** (Notiz und Schädlingsname — von der KI, bis 300 Zeichen) ging an `_gsLinaSicherheit` vorbei in die Daten:
+  „Rote Beeren essbar" als Notiz bei der Eibe. Jetzt läuft er durch dieselbe Gegenprobe (`_gsLinaKarteGiftPruefen`: Arten der Frage,
+  der Pflanze der Karte und des Textes). Warnt sie, steht die Warnung auf der Karte, und der Knopf heisst „Trotzdem eintragen" bzw.
+  „Trotzdem notieren" (in der Nebenfarbe).
+
+**Prüfstand:** `sensor_check` „Lina 16" (p)–(v), vor (k) eingefügt: (p) Einblick aus/an mit `hist`, Spiegel und `coach_messages`
+mitgeschrieben · (q) zwei Salat im Hochbeet (Auswahl mit Sorte, genau der getippte abgehakt, „im Gartentagebuch"), „Habe gegossen!"
+mit nur EINEM fälligen Salat (trotzdem mit Sorte), zwei gleiche Rucola (nicht angeboten, gezählt, beim Namen ein Satz), Auswahl ohne
+Einblick nicht im Verlauf · (r) Entfernen nach Umzug, anderswo abgehakt, umbenannt, Ziel umbenannt — je nichts geschrieben und ein
+Satz · (s) „heute" auf drei Karten und die Zeitregel im Prompt · (t) `gsLinaResolvePlant` mit zwei gleich gekürzten Namen, „steht
+schon da", Erinnerung · (u) Pflanzung → Gartentagebuch (Karte, Satz, `gsTagebuchAlle`), Changelog · (v) Eibe: Warnung und „Trotzdem"
+für Notiz und Schädling, eine harmlose Notiz still. **23 Gegenproben, jede einzeln rot mit dem erwarteten Satz** (Datei danach
+md5-gleich): Satz ohne Einblick in den Verlauf · Satz nicht auf dem Bildschirm · keine Prüfung beim Tipp · anderswo abgehakt nicht
+erkannt · umbenanntes Ziel nicht erkannt · neuer Name nicht erkannt · am selben Ort weiter die Rückfrage · gleiche Knöpfe ohne
+Merkmal · nicht Unterscheidbares angeboten · Merkmal nur unter den Fälligen · Abhak-Karte ohne „heute" · Prompt ohne Zeitregel ·
+`gsLinaResolvePlant` nimmt den ersten · `propose_add_plant` über `gsLinaResolvePlant` · Erinnerung „brauche die Pflanze zuerst" ·
+Satz für Pflanzungen „Pflegeverlauf" · Notiz-Karte einer Pflanzung „Pflegeverlauf" · alter Changelog-Wortlaut · keine Gegenprobe
+am Kartentext · Warnung ohne „Trotzdem" · jede Notiz mit Warnung · die Knöpfe einer Auswahl im Verlauf · und der Stand 3328d52
+selbst. Kontrast der neuen Teile (eigenes Skript, wie oben): Warnung, Zählzeile, rote Auswahl-Knöpfe und die Rückfrage auf dem
+Bildschirm — 24 Textstellen, kleinster Kontrast 5,62:1 hell und dunkel, keine unter AA.
+
+**Bekannt, nicht in diesem Commit** (auf dem Brett): Entfernen bei genau vollem Speicher scheitert schon an der Löschmarke, die
+Pflanzung bleibt — bewusst, aber ein neuer Abbruch im Normalfall (brett:2026-11-25-37e4); bei einer Rücknahme bleibt die
+Archiv-Kopie aus `gsCapWithArchive` stehen (brett:2026-11-25-3223); ein Umzug in einen Garten, den ein anderes Gerät gelöscht hat,
+lässt nach dem Abgleich eine Waise (brett:2026-11-25-2f05); „ich habe es abgehakt" verbietet nur der Prompt (brett:2026-11-25-d726);
+eine Krankheit von Lina steht im Pflegeverlauf ohne Herkunft (brett:2026-11-25-afba).
+
+**Offen:** brett:2026-11-25-370c (die drei älteren Schreib-Werkzeuge), brett:2026-11-25-37e4, brett:2026-11-25-3223,
+brett:2026-11-25-2f05, brett:2026-11-25-d726, brett:2026-11-25-afba, brett:2026-11-25-08fc.
+**Nicht geprüft:** echte KI-Antworten (gestellt — ob die KI die Werkzeuge nur auf Wunsch und nur für heute nutzt, sagt erst der
+Betrieb); ein echtes zweites Gerät und ein echter Server (der Abgleich ist gestellt); die Karte mit Screenreader und als
+Antippfläche (`a11y_check` und `touch_check` öffnen kein Gespräch mit Karte); die Android-Hülle. Den Kontrast hat ein eigenes Skript
 nachgerechnet, weil auch `contrast_check` kein Gespräch mit Karte öffnet: vier Karten (Auswahl, Zitat, Entfernen mit
 Gefahr-Knopf, bestätigt mit Meldung), 19 Textstellen, kleinster Kontrast 5,62:1 hell und dunkel, keine unter AA.
 
@@ -18041,7 +18100,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 - **Version:** `v33.85` (Client; die Nummer ist der Platz in der Merge-Reihe, gestapelt auf v33.84) · SW-Cache `gs-v33.85` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe „**Live-Mode** aktiv seit v26.40“ ist **nicht belegt** — die Einträge v26.38–v26.51 führen den Umstieg selbst als offen, keiner meldet ihn erledigt, und `stripe_webhook_events` hatte nie eine Zeile (STATUS (jk)). Die Prüfung im Dashboard macht Fernando (FUER-FERNANDO §30i, Schritt 0).
-- **Frontend:** `index.html` **104'470 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Bump auf v33.85; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.65).
+- **Frontend:** `index.html` **104'681 Zeilen / rund 6,3 MB** (gezählt mit `wc -l` nach dem Folge-Commit zu v33.85; v33.72 nahm rund 300 Zeilen Funktionen ohne Aufrufer heraus) (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'337 Einträge / 3'136 Arten** — nach der Entdopplung der App gezählt, so wie `gsArtenZahlen()` und `nutzersicht_check` E9 es tun; die rohe Datei hat 4'342 Zeilen) · `data/releases.v1.js` (Changelog-Archiv, **604 Einträge** — mit dem Parser gezählt (24.11.2026, v33.77); wird erst beim Öffnen geladen, seit v33.59 mit `?v=<GS_VERSION>`; inline in `index.html` stehen **20** — am Deckel; jeder Bump verschiebt den ältesten ins Archiv, zuletzt v33.65).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **99 RPCs** vom Frontend gerufen (97 bei der Momentaufnahme vom 02.09. vorhanden; `fn_admin_analytics` bewusst offen, `is_admin_user` seither dazugekommen — `backend_check`) · **40 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** (die Fassungen der Sicherheitsreparatur v33.59: **keine**) · **229 Migrationen** (die nicht angewandten stehen einzeln in Sektion 2 — neu seit 11.11.: die sechs `20261110_*` und `20260831_kosten_und_cron_wachhund_v30_95.sql`, die bis dahin in keiner Liste stand; am 10.11. angewandt: vier ältere, siehe dort; seit 06.10.: `20261006_friendships_nur_empfaenger.sql`, Annehmen nur durch den Empfänger; seit 25.09.: `20260925_admin_audit_vollstaendig.sql`; seit 24.09.: `20260924_admin_grants.sql`). Advisor: **0 ERROR**.
 - **Prüfstände:** **48** `*_check` in `scripts/` (siehe `CLAUDE.md` §7.1; neu in v33.72: `statik_check` — liest die App als Programm, ESLint nur als Parser — und `datum_check` — Europe/Zurich, gestellte Uhr; neu in v33.59: `sicherheit_check`, `edge_check`, `rls_check` — mit Fall-Verzeichnissen `scripts/sicherheit/`, `scripts/edge/`, `scripts/rls/`; neu am 11.11.: `austausch_check` — er misst diese Zahl und die drei anderen dieses Abschnitts nach, sie stehen in keiner anderen Datei mehr; neu in v33.58: `modell_check`, `rezept_link_check`), dazu `arten_quellen_vergleich.js` (nur Messung). `scripts/pruefstaende.sh` fährt **alle 48** (bis 25.09. stand hier „35" — gezählt waren nur die Zeilen, die mit `run` beginnen; vier weitere stehen hinter `TAILN=`). Ergebnis des letzten vollen Laufs: Eintrag (jv). Neu seit v32.65: `quiz_check.js` — der erste, der SQL wirklich ausführt (lokales Postgres, `scripts/_pg_local.sh`). Seit v32.66: `escape_check.js` — rendert Fremdtext mit feindlichen Werten. Seit v32.67: `robust_check.js` (B1/B3/B5/B6). Seit v32.68: `schluessel_check.js` (A1, SQL + App). Seit v33.42: `admin_check.js` — sagt das Admin-Panel, was es weiss (vier Zustände je Sektion); seit v33.50 auch die Schreib-Seite (`GS_ADM_AKTIONEN`, sechs Zustände); seit v33.51 die Spur mit einer SQL-Hälfte in lokalem Postgres (21 Fälle). Seit v33.43: `android_check.js` — hält die App, was eine Android-App verspricht (der Zurück-Knopf). Seit v33.44: `risiko_check.js` — was geht SPÄTER schief (Datum, Grösse, Abhängigkeit)? Seit v33.49: `apk_check.js` — ist die Android-App dieselbe App? (baut das Paket wirklich, führt `Pfade.java` aus). Seit v32.69 fährt `scripts/pruefstaende.sh` alle nacheinander — und `.github/workflows/pruefstaende.yml` tut es auf jedem PR.
 - **Architektur-Detailkarte:** `docs/_archiv/BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).

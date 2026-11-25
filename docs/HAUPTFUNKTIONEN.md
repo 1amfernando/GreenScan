@@ -189,6 +189,10 @@ gelten für v33.58 und wandern; gesucht wird über den Funktionsnamen.
     oder unbekannt gibt eine Rückfrage statt einer Karte; voller Speicher, Abmelden, eine andere Person oder ein anderes Gespräch
     schreiben nichts. Notierte Krankheiten kommen jetzt bei „Braucht Hilfe" an. Die drei älteren Schreib-Werkzeuge haben diese
     Prüfungen noch nicht (brett:2026-11-25-370c).
+    **Nach der Prüfung von #359 (Folge-Commit, Fälle (p)–(v)):** ohne Einblick steht eine Rückfrage nur auf dem Bildschirm, nie
+    im Verlauf an die KI; beim Tipp wird gegen den aktuellen Stand geprüft (umgezogen, anderswo abgehakt, umbenannt → nichts);
+    zwei gleichnamige am selben Ort stehen zur Auswahl, mit Sorte, Pflanzdatum oder Anzahl beschriftet; die Karten sagen „heute“;
+    eine Pflanzung zeigt ihren Verlauf im Gartentagebuch; und der Text einer Karte geht durch die Gift-Gegenprobe.
 
 ## Offen — Suche
 

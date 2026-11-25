@@ -1,0 +1,26 @@
+{
+  "id": "2026-11-25-3223",
+  "art": "befund",
+  "datum": "2026-11-25",
+  "zeit": "04:39:58",
+  "von": "sitzung/lokal/kp2",
+  "stand": "v33.85",
+  "titel": "Pflegeverlauf: scheitert das Speichern, bleibt die Archiv-Kopie aus gsCapWithArchive stehen — die Rücknahme nimmt sie nicht zurück",
+  "vorschlag": "erst speichern, dann archivieren — oder das Archiv-Schreiben in die Rücknahme aufnehmen; Fall: 201 Einträge, voller Speicher, Archiv vorher/nachher zählen",
+  "beleg": [
+    "_gsPflegeEintragSchreiben deckelt mit gsCapWithArchive VOR dem Schreibversuch (wie gsAddDiaryEntry und gsQuickDone seit v31.08); bei false wird p.diary zurückgesetzt, die ins Archiv gelegten ältesten Einträge stehen dann doppelt da (Liste UND Archiv). Nur ab GS_PFLEGEVERLAUF_MAX (200) Einträgen einer Pflanze erreichbar. Gelesen, nicht gemessen; Prüfung des Koordinators zu #359."
+  ],
+  "stichworte": [
+    "lina",
+    "lina-16",
+    "pflegeverlauf",
+    "archiv",
+    "speicher-voll"
+  ],
+  "anker": [
+    {
+      "datei": "index.html",
+      "text": "p.diary = gsCapWithArchive('plant_diary', p.diary, GS_PFLEGEVERLAUF_MAX, 'zeit'); // v30.35 Cap, v31.08 mit Archiv, Scheibe 2: nach Zeit"
+    }
+  ]
+}

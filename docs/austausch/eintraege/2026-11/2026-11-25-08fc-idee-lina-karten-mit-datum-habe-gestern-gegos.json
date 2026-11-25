@@ -1,0 +1,17 @@
+{
+  "id": "2026-11-25-08fc",
+  "art": "idee",
+  "datum": "2026-11-25",
+  "zeit": "04:40:24",
+  "von": "sitzung/lokal/kp2",
+  "stand": "v33.85",
+  "titel": "Lina-Karten mit Datum: „Habe gestern gegossen“ trägt gestern ein, nicht heute",
+  "nutzen": "Seit #359 sagen die Karten „heute“, und Lina lehnt einen anderen Tag ab — „gestern gegossen“ ist aber einer der häufigsten Sätze im Garten, und die Fälligkeit stimmt nur mit dem echten Tag (heute eingetragen verschiebt das nächste Giessen um einen Tag)",
+  "pruefbar": "propose_task_done/diary/pest bekommen ein Argument day (JJJJ-MM-TT, nie in der Zukunft, höchstens N Tage zurück); gsQuickDone und _gsPflegeEintragSchreiben nehmen eine Zeit; sensor_check „Lina 16“: gestern → lastDone und Tagebuchzeit von gestern, Fälligkeit (gsGetDueTasks) neu gerechnet, Kalender zeigt den Eintrag am richtigen Tag; datum_check in Europe/Zurich nach Mitternacht",
+  "stichworte": [
+    "lina",
+    "lina-16",
+    "datum",
+    "abhaken"
+  ]
+}

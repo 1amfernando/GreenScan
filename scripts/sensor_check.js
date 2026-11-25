@@ -3862,7 +3862,10 @@ const FAELLE = [
     // nur die Löschmarke), nach Abmelden oder Personenwechsel, nach einem Gesprächswechsel — Fremdtext bleibt Text, und
     // der Abgleich mit einem älteren Cloud-Stand bringt die entfernte Pflanzung nicht zurück und zieht die umgezogene
     // nicht zurück (Löschmarke und Stempel). Dieser Fall steht zuletzt: (n) meldet wirklich ab (gsOnLogout).
-    name: 'Lina 16 · Abhaken, Tagebuch, Schädling, Beet: jede Schreib-Aktion steht als Karte da und schreibt erst beim Tipp — exakt aufgelöst (mehrdeutig, unbekannt, Teilname: Rückfrage statt Karte), bei vollem Speicher nichts und ein Satz, nach Abmelden, Personen- oder Gesprächswechsel nichts, Fremdtext bleibt Text, Entfernen setzt die Löschmarke, und der Abgleich bringt nichts zurück',
+    // Prüfung des Koordinators (#359): (p) ohne Einblick steht die Rückfrage nur auf dem Bildschirm, (q) zwei gleichnamige am
+    // selben Ort stehen zur Auswahl (unterscheidbar), (r) beim Tipp wird gegen den aktuellen Stand geprüft, (s) „heute",
+    // (t) gsLinaResolvePlant nur eindeutig, (u) eine Pflanzung → Gartentagebuch, (v) der Kartentext durch die Gift-Gegenprobe.
+    name: 'Lina 16 · Abhaken, Tagebuch, Schädling, Beet: jede Schreib-Aktion steht als Karte da und schreibt erst beim Tipp — exakt aufgelöst (mehrdeutig an verschiedenen Orten: Rückfrage; am selben Ort: Auswahl mit Sorte oder Datum; unbekannt, Teilname, nicht unterscheidbar: ein Satz), ohne Einblick die Rückfrage nur auf dem Bildschirm, beim Tipp gegen den aktuellen Stand geprüft, mit dem heutigen Datum, der Kartentext durch die Gift-Gegenprobe, bei vollem Speicher nichts und ein Satz, nach Abmelden, Personen- oder Gesprächswechsel nichts, Fremdtext bleibt Text, Entfernen setzt die Löschmarke, und der Abgleich bringt nichts zurück',
     lauf: async () => {
       const warte = (ms) => new Promise(r => setTimeout(r, ms));
       const T = 864e5, jetzt = Date.now(), iso = (ms) => new Date(ms).toISOString();
@@ -4139,6 +4142,178 @@ const FAELLE = [
         await senden('Notiz bei meiner Monstera', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Echter Monstera', text: 'TEIL-NOTIZ' }));
         if (karten().length !== vorT) klagen.push('(o) „Echter Monstera“ (ein Teilname) bekam eine Karte');
 
+        // (p) Prüfung des Koordinators, M1 („Aus heisst aus", Brett 6bbf): OHNE Einblick nennt die Rückfrage einer Karte Garten-
+        //     und Spitznamen nur auf dem BILDSCHIRM — nicht im Verlauf, der bei der nächsten Frage an die KI geht (hist), nicht im
+        //     Spiegel, nicht in coach_messages. Mit Einblick steht sie im Verlauf (die KI sieht, was die App gefragt hat).
+        const ORTE = /Hochbeet|Balkon/, sfP = window.sbFetch, posts = [];
+        window.sbFetch = async (pfad, o) => { if (/coach_messages/.test(pfad) && o && o.body) posts.push(String(o.body)); return sfP(pfad, o); };
+        const fragen = async (frage, antwort) => {   // eine Frage, deren Aufruf an die KI mitgeschrieben wird
+          let h = null; window._gsLinaSending = false;
+          window.callAI = async (hist) => { h = hist; return antwort; };
+          const f = document.getElementById('gs-lina-input'); f.value = frage; await gsLinaSend(); await warte(120);
+          return h;
+        };
+        localStorage.setItem('gs_lina_einblick', '0');
+        gsLinaNew(); await warte(40);
+        await senden('Notiere bei der Tomate: erste Blüte', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Tomate', text: 'Erste Blüte' }));
+        const zsP = scroll() ? Array.from(scroll().querySelectorAll('[data-lina-zusatz]')).map(e => e.textContent).join(' ') : '';
+        if (!/„Tomate" gibt es bei dir mehrmals: Meine Pflanzen · Balkon; Garten „Hochbeet"\. Welche meinst du\?/.test(zsP)) klagen.push('(p) Einblick aus: die Rückfrage steht nicht auf dem Bildschirm: ' + zsP.slice(0, 160));
+        if (ORTE.test(letzteAntwort())) klagen.push('(p) Einblick aus: die Rückfrage steht im Verlauf (content): ' + letzteAntwort().slice(-160));
+        const histP = await fragen('Danke dir', 'Gut.');
+        if (!histP) klagen.push('(p) die nächste Frage ging nicht an die KI — der Fall misst nichts');
+        else if (ORTE.test(JSON.stringify(histP))) klagen.push('(p) Einblick aus: hist trägt Garten- oder Spitznamen an die KI: ' + JSON.stringify(histP).slice(0, 220));
+        if (ORTE.test(localStorage.getItem('gs_lina_verlauf') || '')) klagen.push('(p) Einblick aus: der Spiegel trägt die Rückfrage');
+        if (!posts.length) klagen.push('(p) coach_messages bekam nichts — der Fall misst den Weg in die Cloud nicht');
+        else if (posts.some(b => ORTE.test(b))) klagen.push('(p) Einblick aus: coach_messages bekam die Rückfrage');
+        localStorage.removeItem('gs_lina_einblick');
+        await senden('Notiere bei der Tomate: erste Blüte', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Tomate', text: 'Erste Blüte' }));
+        if (!/„Tomate" gibt es bei dir mehrmals: Meine Pflanzen · Balkon; Garten „Hochbeet"\. Welche meinst du\?/.test(letzteAntwort())) klagen.push('(p) Einblick an: die Rückfrage steht nicht im Verlauf: ' + letzteAntwort().slice(-160));
+        window.sbFetch = sfP;
+
+        // (q) M2 (daten1): „Salat" zweimal im SELBEN Garten (Batavia, Eisberg) — eine Rückfrage liesse sich nicht beantworten (die
+        //     KI nennt nur Name und Garten), also zeigt die Karte beide zur Auswahl, mit der Sorte beschriftet; „Habe gegossen!"
+        //     ebenso (auch wenn nur EINER fällig ist — die Person kennt beide). Zwei Rucola, die sich in nichts unterscheiden,
+        //     stehen nicht zur Wahl, und das wird gezählt; beim Namen genannt: ein Satz. Ohne Einblick gehen die Knöpfe (sie
+        //     nennen Gärten und Sorten) nicht in den Verlauf.
+        const S = () => ({ gardenId: 'g_l16_b', date: '2025-08-01', count: 1, tasks: { water: { active: true, intervalDays: 2, lastDone: iso(jetzt - 3 * T) } } });
+        plantings.push(Object.assign({ id: 'pl_l16_s1', name: 'Salat', variety: 'Batavia' }, S()), Object.assign({ id: 'pl_l16_s2', name: 'Salat', variety: 'Eisberg' }, S()),
+                       Object.assign({ id: 'pl_l16_r1', name: 'Rucola' }, S()), Object.assign({ id: 'pl_l16_r2', name: 'Rucola' }, S()));
+        if (_gsPflanzungenSpeichern() === false) return { ok: false, warum: '(q) die Salat-Pflanzungen liessen sich nicht speichern — der Fall misst nichts' };
+        const wahlTexte = (k) => k ? Array.from(k.querySelectorAll('[data-lina-karte-wahl]')).filter(b => b.getAttribute('data-lina-karte-wahl') !== '-1').map(b => b.textContent) : [];
+        const giessen = (p) => (p && p.tasks && p.tasks.water) ? p.tasks.water.lastDone : null;
+        localStorage.setItem('gs_lina_einblick', '0');
+        gsLinaNew(); await warte(40);
+        n0 = karten().length;
+        await senden('Habe den Salat gegossen', 'Super.' + aktion('propose_task_done', { task: 'water', plantName: 'Salat', gardenName: 'Hochbeet' }));
+        const wq = wahlTexte(letzteKarte());
+        if (karten().length !== n0 + 1 || wq.length !== 2) klagen.push('(q) Salat zweimal im Hochbeet: ' + wq.length + ' Wahlen statt 2 · ' + JSON.stringify(wq) + ' · ' + letzteAntwort().slice(-140));
+        else {
+          if (!wq.some(t => /Sorte „Batavia"/.test(t)) || !wq.some(t => /Sorte „Eisberg"/.test(t)) || wq[0] === wq[1]) klagen.push('(q) die Knöpfe unterscheiden die Salate nicht: ' + JSON.stringify(wq));
+          const bE = Array.from(letzteKarte().querySelectorAll('[data-lina-karte-wahl]')).find(b => /Eisberg/.test(b.textContent));
+          if (bE) { bE.click(); await warte(80); }
+          if (giessen(plS('pl_l16_s2')) !== iso(jetzt)) klagen.push('(q) der Eisberg-Salat wurde nicht abgehakt');
+          if (giessen(plS('pl_l16_s1')) === iso(jetzt)) klagen.push('(q) der Batavia-Salat wurde mit abgehakt');
+          if (!/✓ Salat: Giessen eingetragen — steht im Gartentagebuch\./.test((letzteKarte() || {}).textContent || '')) klagen.push('(q) der Satz nach dem Abhaken einer Pflanzung sagt nicht „im Gartentagebuch": ' + ((letzteKarte() || {}).textContent || '').slice(-140));
+          await tippe(-1);
+        }
+        await senden('Habe gegossen!', 'Toll!' + aktion('propose_task_done', { task: 'water' }));
+        const kq2 = letzteKarte(), wq2 = wahlTexte(kq2);
+        if (!wq2.includes('Salat · Garten „Hochbeet" · Sorte „Batavia" · seit 1 Tag fällig')) klagen.push('(q) „Habe gegossen!": der Batavia-Salat steht nicht unterscheidbar da: ' + JSON.stringify(wq2));
+        if (wq2.some(t => /^Rucola/.test(t))) klagen.push('(q) „Habe gegossen!": zwei gleiche Rucola stehen zur Wahl: ' + JSON.stringify(wq2));
+        if (!/2 weitere mit denselben Angaben/.test((kq2 || {}).textContent || '')) klagen.push('(q) „Habe gegossen!": die zwei gleichen Rucola sind nicht gezählt');
+        const histQ = await fragen('Danke', 'Gut.');
+        if (!histQ || /Hochbeet|Batavia|Eisberg|Rucola/.test(JSON.stringify(histQ))) klagen.push('(q) Einblick aus: die Knöpfe einer Auswahl gehen in den Verlauf: ' + JSON.stringify(histQ || null).slice(0, 220));
+        localStorage.removeItem('gs_lina_einblick');
+        n0 = karten().length;
+        await senden('Notiere bei der Rucola: geerntet', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Rucola', text: 'geerntet' }));
+        if (karten().length !== n0 || !/„Rucola" steht bei dir mehrmals mit denselben Angaben/.test(letzteAntwort())) klagen.push('(q) zwei gleiche Rucola beim Namen: eine Karte oder kein Satz — ' + letzteAntwort().slice(-140));
+
+        // (r) M2: was eine Karte ZEIGT, gilt beim Tipp noch — sonst nichts. Karte X „Lauch aus dem Hochbeet entfernen" bleibt liegen,
+        //     Karte Y zieht den Lauch auf den Balkon (getippt): ein Tipp auf X entfernt NICHTS (vorher: den Lauch aus dem Balkon).
+        //     Ebenso: ein inzwischen anderswo abgehaktes Giessen steht nicht zweimal da, eine umbenannte Pflanze bekommt keine
+        //     Notiz, und in einen inzwischen umbenannten Garten wird nicht umgezogen.
+        plantings.push({ id: 'pl_l16_lauch', gardenId: 'g_l16_b', name: 'Lauch', date: '2025-08-01', count: 1, tasks: { water: { active: true, intervalDays: 2, lastDone: iso(jetzt) } } });
+        if (_gsPflanzungenSpeichern() === false) return { ok: false, warum: '(r) der Lauch liess sich nicht speichern — der Fall misst nichts' };
+        await senden('Nimm den Lauch aus dem Hochbeet', 'Ok.' + aktion('propose_remove_planting', { plantName: 'Lauch', gardenName: 'Hochbeet' }));
+        const xKnopf = knopf(0);
+        await senden('Zieh den Lauch auf den Balkon', 'Ok.' + aktion('propose_move_planting', { plantName: 'Lauch', toGarden: 'Balkon Süd' }));
+        await tippe(0);
+        if ((plS('pl_l16_lauch') || {}).gardenId !== 'g_l16_a') klagen.push('(r) der Umzug des Lauchs hat nicht geklappt — der Fall misst nichts');
+        if (!xKnopf) klagen.push('(r) keine Entfernen-Karte — der Fall misst nichts');
+        else {
+          const rufeX = tunRufe;
+          xKnopf.click(); await warte(80);
+          if (tunRufe === rufeX) klagen.push('(r) der alte Knopf wurde nicht ausgelöst — der Fall misst nichts');
+          if (!plS('pl_l16_lauch') || !plV('pl_l16_lauch')) klagen.push('(r) die Karte „aus dem Hochbeet" hat den umgezogenen Lauch vom Balkon entfernt');
+          if (Object.prototype.hasOwnProperty.call(_gsGeloeschtLesen()['gs_plantings'] || {}, 'pl_l16_lauch')) klagen.push('(r) für den Lauch steht eine Löschmarke');
+          if (!/„Lauch" hat sich inzwischen geändert — nichts geändert\. Bitte frag noch einmal\./.test(text())) klagen.push('(r) kein Satz, dass sich etwas geändert hat: ' + text().slice(-160));
+        }
+        await senden('Habe gegossen!', 'Toll!' + aktion('propose_task_done', { task: 'water' }));
+        const eKn = Array.from((letzteKarte() || document.createElement('i')).querySelectorAll('[data-lina-karte-wahl]')).find(b => b.textContent.indexOf('<img src=x') === 0);
+        if (!eKn) klagen.push('(r) der Efeu steht nicht zur Wahl — der Fall misst nichts');
+        else {
+          if (gsQuickDone('mp_l16_xss', 'water') !== true) klagen.push('(r) gsQuickDone (die Startseite) hakt nicht ab — der Fall misst nichts');
+          const zaehle = () => (((mpS('mp_l16_xss') || {}).diary) || []).filter(e => e && e.source === 'quick_done').length;
+          const nE = zaehle();
+          eKn.click(); await warte(80);
+          if (zaehle() !== nE) klagen.push('(r) ein anderswo abgehaktes Giessen steht nach dem Tipp zweimal da (' + nE + ' → ' + zaehle() + ')');
+          if (!/ist „Giessen" inzwischen schon eingetragen — nichts doppelt eingetragen/.test(text())) klagen.push('(r) kein Satz, dass es schon eingetragen ist');
+        }
+        await tippe(-1);
+        await senden('Notiz bei der Monstera', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Monstera', text: 'UMBENANNT-NOTIZ' }));
+        const monV = mpV('mp_l16_mon'); monV.name = 'Monstera deliciosa'; savePlantsToStorage();
+        await tippe(0);
+        if (notizen(mpS('mp_l16_mon')).indexOf('UMBENANNT-NOTIZ') >= 0 || notizen(mpV('mp_l16_mon')).indexOf('UMBENANNT-NOTIZ') >= 0) klagen.push('(r) eine umbenannte Pflanze bekam die Notiz der alten Karte');
+        if (!/„Monstera" hat sich inzwischen geändert/.test(text())) klagen.push('(r) umbenannt: kein Satz');
+        monV.name = 'Monstera'; savePlantsToStorage();
+        await senden('Lauch zurück ins Hochbeet', 'Ok.' + aktion('propose_move_planting', { plantName: 'Lauch', toGarden: 'Hochbeet' }));
+        const gHB = gardens.find(g => g && g.id === 'g_l16_b'); gHB.name = 'Hochbeet Nord'; saveGardenData();
+        await tippe(0);
+        if ((plS('pl_l16_lauch') || {}).gardenId !== 'g_l16_a') klagen.push('(r) der Zielgarten heisst inzwischen anders — trotzdem umgezogen');
+        gHB.name = 'Hochbeet'; saveGardenData();
+
+        // (s) M3: die Karten sagen „heute" (die Werkzeuge kennen kein Datum — jeder Tipp schreibt jetzt), und der Prompt erlaubt sie
+        //     nur für heute: „gestern", „vorgestern", „letzte Woche" → keine Aktionszeile.
+        await senden('Habe das Basilikum gegossen', 'Gut.' + aktion('propose_task_done', { task: 'water', plantName: 'Basilikum' }));
+        if (!/Giessen als heute erledigt eintragen\?/.test((letzteKarte() || {}).textContent || '')) klagen.push('(s) die Abhak-Karte sagt nicht „heute": ' + ((letzteKarte() || {}).textContent || '').slice(0, 90));
+        await tippe(-1);
+        await senden('Notiz bei Basilikum', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Basilikum', text: 'HEUTE-NOTIZ' }));
+        if (!/Notiz eintragen — mit dem heutigen Datum\?/.test((letzteKarte() || {}).textContent || '')) klagen.push('(s) die Notiz-Karte sagt nicht „mit dem heutigen Datum"');
+        await tippe(-1);
+        await senden('Blattläuse am Basilikum', 'Oh.' + aktion('propose_pest_note', { plantName: 'Basilikum', what: 'Blattläuse', kind: 'pest' }));
+        if (!/Schädling notieren — mit dem heutigen Datum\?/.test((letzteKarte() || {}).textContent || '')) klagen.push('(s) die Schädlings-Karte sagt nicht „mit dem heutigen Datum"');
+        await tippe(-1);
+        if (!/nur, wenn die Person von heute spricht/.test(LINA_SYSTEM) || !/„gestern", „vorgestern", „letzte Woche"/.test(LINA_SYSTEM) || !/hänge KEINE Aktionszeile an/.test(LINA_SYSTEM)) klagen.push('(s) der Prompt nennt die Zeitregel nicht');
+
+        // (t) Prüfung des Koordinators, a: gsLinaResolvePlant nimmt nur einen EINDEUTIGEN Treffer — zwei Monstera, die der Kontext
+        //     gleich kürzt, sind keiner (vorher: still die erste). propose_add_plant sagt bei zwei „Tomate" weiter „steht schon da",
+        //     und eine Erinnerung für zwei „Tomate" sagt, dass es sie mehrmals gibt.
+        myPlants.push({ id: 'mp_l16_lang2', name: 'Echter Monstera Thai Constellation Variegata', diary: [], tasks: {} });
+        if (_gsLinaKurz('Echter Monstera Thai Constellation Variegata', 30) !== kurzN) klagen.push('(t) die zwei Namen kürzen nicht gleich — der Fall misst nichts');
+        if (gsLinaResolvePlant(null, kurzN) !== null) klagen.push('(t) zwei gleich gekürzte Namen: gsLinaResolvePlant nimmt ' + ((gsLinaResolvePlant(null, kurzN) || {}).id));
+        if (gsLinaResolvePlant(null, 'Tomate') !== null) klagen.push('(t) „Tomate" (zweimal) ergibt einen Treffer');
+        if ((gsLinaResolvePlant(null, 'Basilikum') || {}).id !== 'mp_l16_bas') klagen.push('(t) ein eindeutiger Name wird nicht mehr gefunden');
+        myPlants.pop();
+        let addMsg = null; const gcm = window.gsConfirmModal, toasts = [];
+        window.gsConfirmModal = async (o) => { addMsg = String((o && o.message) || ''); return false; };
+        window.gsToast = (m) => { toasts.push(String(m)); };
+        try {
+          await gsLinaDispatch({ tool: 'propose_add_plant', args: { name: 'Tomate' } });
+          await gsLinaDispatch({ tool: 'propose_reminder', args: { task: 'water', plantName: 'Tomate', intervalDays: 3 } });
+        } finally { window.gsConfirmModal = gcm; window.gsToast = () => {}; }
+        if (!/steht schon in deinen Pflanzen/.test(addMsg || '')) klagen.push('(t) propose_add_plant mit zwei „Tomate": keine Warnung „steht schon" (' + addMsg + ')');
+        if (!toasts.some(t => /„Tomate" gibt es bei dir mehrmals/.test(t))) klagen.push('(t) eine Erinnerung für zwei „Tomate": kein Satz, dass es sie mehrmals gibt (' + JSON.stringify(toasts) + ')');
+
+        // (u) Prüfung des Koordinators, b: eine Pflanzung zeigt ihren Verlauf im Gartentagebuch (openPlantDiary kennt sie nicht) —
+        //     Karte und Satz sagen das; und der Changelog verspricht nicht, dass eine entfernte Pflanzung NIE zurückkommt.
+        await senden('Notiz beim Kürbis', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Kürbis', text: 'GARTEN-NOTIZ' }));
+        if (!/steht danach im Gartentagebuch/.test((letzteKarte() || {}).textContent || '')) klagen.push('(u) die Karte einer Pflanzung sagt nicht „im Gartentagebuch"');
+        await tippe(0);
+        if (!/✓ Bei „Kürbis" im Gartentagebuch eingetragen\./.test(text())) klagen.push('(u) der Satz für eine Pflanzung sagt nicht „im Gartentagebuch": ' + text().slice(-120));
+        if (!gsTagebuchAlle().some(e => e && e.pflanze_id === 'pl_l16_k' && /GARTEN-NOTIZ/.test(String(e.note || '') + String(e.text || '')))) klagen.push('(u) die Notiz der Pflanzung steht nicht im Gartentagebuch');
+        const rel = JSON.stringify((window.GS_RELEASES || []).find(r => r && r.v === 'v33.85') || {});
+        if (/kommt die entfernte nicht zurück/.test(rel) || !/solange kein anderes Gerät sie danach ändert/.test(rel)) klagen.push('(u) der Changelog verspricht zu viel über die Löschmarke');
+
+        // (v) Prüfung des Koordinators, c: der Text einer Karte kommt von der KI und geht in die Daten — er läuft durch die
+        //     Gift-Gegenprobe. „Rote Beeren essbar" bei der Eibe: die Karte warnt, der Knopf heisst „Trotzdem eintragen", vor dem
+        //     Tipp steht nichts da; eine harmlose Notiz bleibt still; ein Schädlings-Name mit „essbar" ebenso wie die Notiz.
+        myPlants.push({ id: 'mp_l16_eibe', name: 'Eibe', diary: [], tasks: {} });
+        if (savePlantsToStorage() === false) return { ok: false, warum: '(v) die Eibe liess sich nicht speichern — der Fall misst nichts' };
+        await senden('Schreib zur Eibe: rote Beeren essbar', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Eibe', text: 'Rote Beeren essbar' }));
+        const kv = letzteKarte(), wv = kv && kv.querySelector('[data-lina-karte-warnung]');
+        if (!wv || !/giftig/.test(wv.textContent)) klagen.push('(v) keine Warnung auf der Karte: ' + (kv ? kv.textContent.slice(0, 200) : '-'));
+        if (!knopf(0) || knopf(0).textContent !== 'Trotzdem eintragen') klagen.push('(v) der Knopf heisst nicht „Trotzdem eintragen": ' + (knopf(0) ? knopf(0).textContent : '-'));
+        if (notizen(mpS('mp_l16_eibe')).length) klagen.push('(v) vor dem Tipp steht schon eine Notiz');
+        await tippe(-1);
+        await senden('Schreib zur Eibe: neuer Trieb', 'Gern.' + aktion('propose_diary_entry', { plantName: 'Eibe', text: 'Neuer Trieb am Stamm' }));
+        if (letzteKarte() && letzteKarte().querySelector('[data-lina-karte-warnung]')) klagen.push('(v) eine harmlose Notiz bekam eine Warnung');
+        if (!knopf(0) || knopf(0).textContent !== 'Eintragen') klagen.push('(v) eine harmlose Notiz: der Knopf heisst nicht „Eintragen"');
+        await tippe(-1);
+        await senden('An der Eibe', 'Oh.' + aktion('propose_pest_note', { plantName: 'Eibe', what: 'Die Beeren sind essbar', kind: 'pest' }));
+        if (!letzteKarte() || !letzteKarte().querySelector('[data-lina-karte-warnung]') || !knopf(0) || knopf(0).textContent !== 'Trotzdem notieren') klagen.push('(v) ein Schädlings-Name mit „essbar" bei der Eibe: keine Warnung oder kein „Trotzdem notieren"');
+        await tippe(-1);
+        myPlants = myPlants.filter(p => p && p.id !== 'mp_l16_eibe'); savePlantsToStorage();
+
         // (k) Abgemeldet bzw. eine andere Person angemeldet (zweiter Tab, derselbe Speicher) zwischen Karte und Tipp: nichts
         // geschrieben, Lina geht zu und vergisst das Gespräch
         const schreib = [];
@@ -4205,7 +4380,7 @@ const FAELLE = [
         }
         if (window.__pwned) klagen.push('__pwned wurde gesetzt');
         if (klagen.length) return { ok: false, warum: klagen.join(' · ') };
-        return { ok: true, info: 'Abhaken (Karte, Abbrechen, Eintragen) · „Habe gegossen!" bietet 3 fällige an, eine Wahl schreibt genau eine · nichts fällig/Aufgabe fehlt: Satz · Notiz mit <img> als Text, Quelle lina, im Kalender · „Tomate" mehrdeutig → Rückfrage, mit Garten eindeutig · „Mon", Fremdname: keine Karte · Schädling und Krankheit in Hilfe und Kontext · Entfernen mit Löschmarke · Umziehen · voller Speicher (auch nur die Marke): nichts + Satz · alter Knopf nach Gesprächswechsel: nichts · abgemeldet/andere Person/gsOnLogout: nichts · Abgleich mit altem Cloud-Stand: Zucchini bleibt weg, Kürbis bleibt im Hochbeet' };
+        return { ok: true, info: 'Abhaken (Karte, Abbrechen, Eintragen) · „Habe gegossen!" bietet 3 fällige an, eine Wahl schreibt genau eine · nichts fällig/Aufgabe fehlt: Satz · Notiz mit <img> als Text, Quelle lina, im Kalender · „Tomate" mehrdeutig → Rückfrage, mit Garten eindeutig · „Mon", Fremdname: keine Karte · Schädling und Krankheit in Hilfe und Kontext · Entfernen mit Löschmarke · Umziehen · voller Speicher (auch nur die Marke): nichts + Satz · alter Knopf nach Gesprächswechsel: nichts · ohne Einblick die Rückfrage nur auf dem Bildschirm (hist, Spiegel, coach_messages ohne Orte) · zwei Salat im Hochbeet: Auswahl mit Sorte, zwei gleiche Rucola nicht angeboten · beim Tipp geprüft (umgezogen, anderswo abgehakt, umbenannt, Ziel umbenannt: nichts) · „heute" auf den Karten und im Prompt · gsLinaResolvePlant nur eindeutig · Pflanzung → Gartentagebuch · „Rote Beeren essbar" bei der Eibe: Warnung + „Trotzdem" · abgemeldet/andere Person/gsOnLogout: nichts · Abgleich mit altem Cloud-Stand: Zucchini bleibt weg, Kürbis bleibt im Hochbeet' };
       } catch (e) { return { ok: false, warum: 'Ausnahme: ' + (e && e.message) + (klagen.length ? ' · ' + klagen.join(' · ') : '') };
       } finally {
         localStorage.setItem = sichern.si;

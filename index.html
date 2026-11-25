@@ -16869,9 +16869,11 @@ window.GS_I18N_JS_STRINGS = {
   'lina_k_entfernen':          'Entfernen',
   'lina_k_umziehen':           'Umziehen',
   'lina_k_fertig':             'Fertig',
-  'lina_k_tb_titel':           'In den Pflegeverlauf schreiben?',
-  'lina_k_pest_titel':         'Schädling notieren?',
-  'lina_k_krank_titel':        'Krankheit notieren?',
+  'lina_k_tb_titel':           'Notiz eintragen — mit dem heutigen Datum?',
+  'lina_k_pest_titel':         'Schädling notieren — mit dem heutigen Datum?',
+  'lina_k_krank_titel':        'Krankheit notieren — mit dem heutigen Datum?',
+  'lina_k_trotzdem':           'Trotzdem eintragen',
+  'lina_k_trotzdem_notieren':  'Trotzdem notieren',
   'lina_k_weg_titel':          'Pflanzung entfernen?',
   'lina_k_zug_titel':          'Pflanzung umziehen?',
   'lina_k_wohin':              'In welchen Garten soll die Pflanzung? Sag mir seinen Namen.',
@@ -80908,9 +80910,9 @@ window.GS_RELEASES = [
       user_summary: 'Lina kann abhaken, notieren und Pflanzungen umziehen — immer erst nach deinem Tipp auf ihre Karte.',
       user_items: [
         {emoji:'✅', bold:'„Habe gegossen!“:', text:' Lina schlägt vor, die Aufgabe abzuhaken. Nennst du keine Pflanze, zeigt sie dir die heute fälligen zur Auswahl.'},
-        {emoji:'📝', bold:'Notizen, Schädlinge, Krankheiten:', text:' sie landen im Pflegeverlauf der Pflanze, genau dort, wo du sie auch von Hand einträgst.'},
-        {emoji:'🪴', bold:'Beet aufräumen:', text:' Lina kann eine Pflanzung entfernen oder in einen anderen Garten ziehen. Beim nächsten Abgleich mit der Cloud kommt die entfernte nicht zurück.'},
-        {emoji:'👆', bold:'Erst dein Tipp:', text:' nichts wird geschrieben, bevor du auf die Karte tippst — und bei zwei gleichnamigen Pflanzen fragt Lina nach.'},
+        {emoji:'📝', bold:'Notizen, Schädlinge, Krankheiten:', text:' sie landen im Pflegeverlauf der Pflanze, genau dort, wo du sie auch von Hand einträgst — bei einer Pflanzung im Garten im Gartentagebuch. Eingetragen wird mit dem heutigen Datum.'},
+        {emoji:'🪴', bold:'Beet aufräumen:', text:' Lina kann eine Pflanzung entfernen oder in einen anderen Garten ziehen. Die entfernte bleibt weg, solange kein anderes Gerät sie danach ändert.'},
+        {emoji:'👆', bold:'Erst dein Tipp:', text:' nichts wird geschrieben, bevor du auf die Karte tippst — und hat sich inzwischen etwas geändert, auch dann nicht. Bei zwei gleichnamigen Pflanzen fragt Lina nach oder zeigt dir beide zur Auswahl.'},
       ]
   },
   {
@@ -91985,7 +91987,7 @@ var LINA_SYSTEM =
   '• propose_remove_planting {"plantName":"...","gardenName":"..."} — entfernt eine Pflanzung aus einem Garten (lässt sich nicht rückgängig machen).\n' +
   '• propose_move_planting {"plantName":"...","gardenName":"...","toGarden":"..."} — zieht eine Pflanzung in einen anderen, schon vorhandenen Garten um.\n' +
   'REGELN: Erfinde keine anderen Tools, keine anderen screens/tasks. Schreib-Aktionen zeigt die App der Person zur Bestätigung — du fügst nie heimlich etwas hinzu. Erinnerungen gehen nur auf Pflanzen, die die Person schon hat (in „Meine Pflanzen" oder als Pflanzung in einem Garten; sonst schlage zuerst propose_add_plant vor). Wenn keine Aktion nötig ist, hänge KEINE Zeile an.\n' +
-  'ABHAKEN, TAGEBUCH, BEET: propose_task_done, propose_diary_entry, propose_pest_note, propose_remove_planting und propose_move_planting zeigt die App als Karte unter deiner Antwort; erst der Tipp der Person schreibt. Nutze sie nur, wenn die Person es ausdrücklich will oder erzählt, dass sie es getan hat. plantName ist der Name oder Spitzname der Pflanze, wie die Person sie nennt oder wie sie unter „Pflanzen" im KONTEXT steht; gardenName ist der Garten, in dem die Pflanzung steht — oder "Meine Pflanzen" — und nur nötig, wenn derselbe Name mehrmals vorkommt. Bist du unsicher, welche Pflanze gemeint ist, frag nach — rate nie. Schreib nie, etwas SEI eingetragen, entfernt oder umgezogen: das sagt die App, nachdem die Person getippt hat.\n' +
+  'ABHAKEN, TAGEBUCH, BEET: propose_task_done, propose_diary_entry, propose_pest_note, propose_remove_planting und propose_move_planting zeigt die App als Karte unter deiner Antwort; erst der Tipp der Person schreibt. Nutze sie nur, wenn die Person es ausdrücklich will oder erzählt, dass sie es getan hat. plantName ist der Name oder Spitzname der Pflanze, wie die Person sie nennt oder wie sie unter „Pflanzen" im KONTEXT steht; gardenName ist der Garten, in dem die Pflanzung steht — oder "Meine Pflanzen" — und nur nötig, wenn derselbe Name mehrmals vorkommt. Bist du unsicher, welche Pflanze gemeint ist, frag nach — rate nie. Schreib nie, etwas SEI eingetragen, entfernt oder umgezogen: das sagt die App, nachdem die Person getippt hat. Die App trägt mit dem HEUTIGEN Datum ein: propose_task_done, propose_diary_entry und propose_pest_note nur, wenn die Person von heute spricht („heute", „gerade", „eben") oder keinen Zeitpunkt nennt. Nennt sie einen anderen Tag („gestern", „vorgestern", „letzte Woche", ein Datum), hänge KEINE Aktionszeile an und sag ihr, dass du nur für heute eintragen kannst.\n' +
   'Löschen kannst du nur eines vorschlagen: eine Pflanzung aus einem Garten entfernen (mit Bestätigung). Sonst löschst du nichts, und du änderst nie Einstellungen, Rollen oder Zahlungen und tust keine Admin-Dinge.';
 
 // v32.56: Lina kennt die Zahlen (OEKOSYSTEM-V1.md §11 Idee 6). Bis v32.55 wusste
@@ -93612,7 +93614,8 @@ function gsLinaRender(typing){
       body += '<div style="display:flex;justify-content:'+(isU?'flex-end':'flex-start')+';margin:8px 0;">'
         + '<div style="max-width:82%;padding:10px 13px;border-radius:var(--r-lg);font-size:var(--fs-md);line-height:1.55;white-space:pre-wrap;word-break:break-word;'
         + (isU ? 'background:var(--fill-brand);color:#fff;border-bottom-right-radius:4px;' : 'background:var(--surface2);color:var(--text);border-bottom-left-radius:4px;')
-        + '">' + (isU ? escHtml(m.content) : '🌿 ' + _gsLinaAuszeichnung(m.content)) + '</div></div>';
+        + '">' + (isU ? escHtml(m.content) : '🌿 ' + _gsLinaAuszeichnung(m.content)
+            + (m.zusatz ? '<span data-lina-zusatz="1">\n\n' + _gsLinaAuszeichnung(m.zusatz) + '</span>' : '')) + '</div></div>';
       if (!isU) {
         if (m.karte) body += _gsLinaKarteHtml(m.karte, mi);   // Lina 16: die Karte einer schreibenden Aktion
         var _kn = '', _ks = 'padding:8px 12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--r-xl);font-size:var(--fs-sm);font-weight:700;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;';
@@ -93992,6 +93995,15 @@ async function gsLinaSend(){
     } catch(_){}
     window._gsLinaNotfallHinweis = false;
     var _msgA = { role:'assistant', content:reply };
+    // Prüfung des Koordinators (M1, Brett 6bbf „Aus heisst aus"): ein Satz der APP zu Linas Antwort — die Rückfrage einer
+    // Karte — nennt Daten der Person (Gartennamen, Spitznamen, Standort, wie oft es einen Namen gibt). Mit Einblick geht er in
+    // den Verlauf: die KI sieht bei der nächsten Frage, was die App gefragt hat. OHNE Einblick steht er nur auf dem
+    // Bildschirm (`zusatz`) — über `hist`, den Spiegel und coach_messages käme er sonst doch bei der KI an.
+    var _gsLinaSatzAnhaengen = function (satz) {
+      var _an = true; try { _an = (typeof gsLinaEinblickAn === 'function') ? gsLinaEinblickAn() : true; } catch (_) {}
+      if (_an) { reply = String(reply || '') + '\n\n' + satz; _msgA.content = reply; }
+      else _msgA.zusatz = (_msgA.zusatz ? _msgA.zusatz + '\n\n' : '') + satz;
+    };
     // Lesende Aktionen laufen nicht mehr von selbst (sie schlossen Lina, bevor
     // die Antwort gelesen war) — sie haengen als Knopf an dieser Zeile.
     // Schreibende fragen ohnehin und laufen weiter unten wie bisher.
@@ -94000,14 +94012,15 @@ async function gsLinaSend(){
       _linaAct = null;
     }
     // Lina 16 (kp): die schreibenden Karten-Werkzeuge — eine Karte unter der Antwort, die erst der Tipp der Person
-    // ausfuehrt. Ist die Pflanze unbekannt oder mehrdeutig, gibt es keine Karte, sondern EINEN Satz in der Antwort
-    // (er geht mit in den Verlauf). Nur im Gespraech, in dem gefragt wurde und das noch gezeigt wird (LINA-9) — die
-    // Person hat sich nach `callAI` nicht gewechselt (oben geprueft), und bis zum Zeichnen steht kein `await`.
+    // ausfuehrt. Ist die Pflanze unbekannt oder mehrdeutig, gibt es keine Karte, sondern EINEN Satz zur Antwort (mit
+    // Einblick im Verlauf, ohne nur auf dem Bildschirm — _gsLinaSatzAnhaengen). Nur im Gespraech, in dem gefragt wurde und
+    // das noch gezeigt wird (LINA-9) — die Person hat sich nach `callAI` nicht gewechselt (oben geprueft), und bis zum
+    // Zeichnen steht kein `await`. Die Frage geht mit: an ihr prueft die Karte ihren eigenen Text (_gsLinaKarteGiftPruefen).
     if (_linaAct && GS_LINA_KARTEN_TOOLS.indexOf(_linaAct.tool) >= 0) {
       if (_hier()) {
-        var _kb = _gsLinaKarteBauen(_linaAct);
+        var _kb = _gsLinaKarteBauen(_linaAct, text);
         if (_kb && _kb.karte) _msgA.karte = _kb.karte;
-        else if (_kb && _kb.satz) { reply = String(reply || '') + '\n\n' + _kb.satz; _msgA.content = reply; }
+        else if (_kb && _kb.satz) _gsLinaSatzAnhaengen(_kb.satz);
       }
       _linaAct = null;
     }
@@ -94081,16 +94094,18 @@ function gsLinaResolvePlant(id, name){
   try {
     if (id && typeof _gsPflanzeFinden === 'function') { var f = _gsPflanzeFinden(id); if (f && f.p) return f.p; }
     if (name){
-      // Lina 16: dieselbe Vergleichsregel wie die Karten (_gsLinaPflanzenTreffer) — der erste Name, sonst der erste Spitzname
-      var tr = _gsLinaPflanzenTreffer(name);
-      return (tr.name[0] || tr.nick[0] || {}).p || null;
+      // Lina 16: dieselbe Vergleichsregel wie die Karten (_gsLinaPflanzenTreffer) — und nur ein EINDEUTIGER Treffer (Prüfung des
+      // Koordinators, a): mit der Kurzform aus dem Kontext nahm dieser schreibende Weg bei zwei gleich gekuerzten Namen still den
+      // ersten. Zwei Treffer sind keiner — wie bei den Karten (_gsLinaPflanzenWahl).
+      var tr = _gsLinaPflanzenTreffer(name), alle = tr.name.concat(tr.nick);
+      return alle.length === 1 ? (alle[0].p || null) : null;
     }
   } catch(_){}
   return null;
 }
 // Lina 16 (kp): ALLE eigenen Pflanzen mit genau diesem Namen oder Spitznamen (ohne Gross/klein, ohne Rand), in beiden
-// Listen — je Treffer mit seiner Liste und, bei einer Pflanzung, ihrem Garten. gsLinaResolvePlant nimmt davon den
-// ersten (so seit v33.33); ein Schreibvorgang mit Karte fragt bei mehr als einem nach (_gsLinaPflanzenWahl).
+// Listen — je Treffer mit seiner Liste und, bei einer Pflanzung, ihrem Garten. gsLinaResolvePlant nimmt einen Treffer nur,
+// wenn er der einzige ist; ein Schreibvorgang mit Karte fragt bei mehr als einem nach (_gsLinaPflanzenWahl).
 // Lina 16 (Gegenprüfung): der KONTEXT kürzt Namen (_gsLinaKurz, 30 bzw. 40 Zeichen) — „Echter Monstera Thai…“. Gibt die KI einen
 // Namen so zurück, wie er dort stand (mit „…“, „...“ oder ohne), meint sie genau diesen Eintrag. Kein Teilname: verglichen wird
 // nur mit der Form, die der Kontext wirklich zeigte, und nur, wenn kein Name und kein Spitzname exakt passt.
@@ -94205,6 +94220,134 @@ function _gsLinaPflanzeOrt(t) {
     return _t('lina_k_meine', 'Meine Pflanzen') + (zusatz ? ' · ' + zusatz : '');
   } catch (_) { return ''; }
 }
+// Prüfung des Koordinators (M2 · daten1): was zwei gleichnamige Pflanzen für die PERSON unterscheidet — bei einer Pflanzung
+// die Angaben aus dem Garten (savePlanting: Sorte, Pflanzdatum, Anzahl), in „Meine Pflanzen" der Tag, an dem sie dazukam
+// (Spitzname und Standort nennt schon _gsLinaPflanzeOrt). `stufe` sagt, wie viele dieser Angaben gebraucht werden.
+function _gsLinaPflanzeMerkmal(t, stufe) {
+  try {
+    var p = t && t.p;
+    if (!p) return '';
+    var datum = function (v) {
+      var d = (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) ? new Date(v.slice(0, 10) + 'T12:00:00') : null;
+      return (d && !isNaN(d.getTime())) ? d.toLocaleDateString(gsLocale()) : '';
+    };
+    var teile = [];
+    if (t.liste === 'plantings') {
+      var sorte = _gsLinaKartenText(p.variety, 30), gepflanzt = datum(p.date), n = Math.floor(Number(p.count));
+      teile = [sorte ? _gsSatz('Sorte „{1}"', sorte) : '', gepflanzt ? _gsSatz('gepflanzt am {1}', gepflanzt) : '', n > 1 ? _gsSatz('{1} Stück', n) : ''];
+    } else {
+      var dazu = datum(p.added);
+      teile = [dazu ? _gsSatz('dazugekommen am {1}', dazu) : ''];
+    }
+    return teile.slice(0, stufe > 0 ? stufe : teile.length).filter(Boolean).join(', ');
+  } catch (_) { return ''; }
+}
+// Alle eigenen Pflanzen als Treffer ({p, liste, garten}) — fuer die Frage, ob ein Name an einem Ort mehrmals vorkommt.
+function _gsLinaAllePflanzen() {
+  var gaerten = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : [], aus = [];
+  try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) myPlants.forEach(function (p) { if (p && typeof p === 'object') aus.push({ p: p, liste: 'myPlants', garten: null }); }); } catch (_) {}
+  try { if (typeof plantings !== 'undefined' && Array.isArray(plantings)) plantings.forEach(function (p) { if (p && typeof p === 'object') aus.push({ p: p, liste: 'plantings', garten: gaerten.find(function (g) { return g && g.id === p.gardenId; }) || null }); }); } catch (_) {}
+  return aus;
+}
+// Die Beschriftung je Treffer: Name · Ort — und wo es denselben Namen am selben Ort noch einmal gibt (unter ALLEN eigenen
+// Pflanzen: die Person kennt auch die, die gerade nicht zur Wahl stehen), dazu so viele Merkmale wie noetig. `gleich[i]`:
+// unter den Treffern auch so nicht zu unterscheiden — ein solcher wird NICHT angeboten (zwei gleiche Knoepfe hiessen, dass
+// die App raet, welcher gemeint ist).
+function _gsLinaWahlLabels(ts) {
+  var basis = function (t) { return (_gsLinaKartenText(t.p.name, 60) || '?') + ' · ' + _gsLinaPflanzeOrt(t); };
+  var gruppen = Object.create(null), stufe = Object.create(null);   // Schluessel aus fremder Hand: ohne Prototyp
+  _gsLinaAllePflanzen().forEach(function (t) { var b = basis(t); if (!Object.prototype.hasOwnProperty.call(gruppen, b)) gruppen[b] = []; gruppen[b].push(t); });
+  Object.keys(gruppen).forEach(function (b) {
+    var g = gruppen[b];
+    stufe[b] = 0;
+    if (g.length < 2) return;
+    for (var n = 1; n <= 3; n++) {
+      stufe[b] = n;
+      var ls = g.map(function (t) { return _gsLinaPflanzeMerkmal(t, n); });
+      if (ls.every(function (l, i) { return ls.indexOf(l) === i; })) return;
+    }
+  });
+  var labels = ts.map(function (t) {
+    var b = basis(t), n = Object.prototype.hasOwnProperty.call(stufe, b) ? stufe[b] : 0, mk = n ? _gsLinaPflanzeMerkmal(t, n) : '';
+    return mk ? b + ' · ' + mk : b;
+  });
+  var zahl = Object.create(null);
+  labels.forEach(function (l) { zahl[l] = (zahl[l] || 0) + 1; });
+  return { labels: labels, gleich: labels.map(function (l) { return zahl[l] > 1; }) };
+}
+// Was eine Wahl ZEIGT (M2): Liste, Name, Garten und — beim Abhaken — den letzten Eintrag der Aufgabe. Die Karte schreibt
+// nach Id; der Rest ist Anzeige und muss beim Tipp noch stimmen (_gsLinaStandPruefen).
+function _gsLinaStand(t, key) {
+  var p = t && t.p;
+  if (!p) return null;
+  var s = function (v) { return v == null ? '' : String(v); };
+  var task = (key && p.tasks && typeof p.tasks === 'object' && Object.prototype.hasOwnProperty.call(p.tasks, key)) ? p.tasks[key] : null;
+  return { liste: t.liste, name: s(p.name), garten: t.liste === 'plantings' ? s(p.gardenId) : null,
+           gartenName: (t.liste === 'plantings' && t.garten) ? s(t.garten.name) : null,
+           erledigt: (task && typeof task === 'object') ? s(task.lastDone) : null };
+}
+// Beim Tipp: gilt noch, was die Wahl zeigt? '' heisst ja; sonst der Satz, warum NICHTS geschrieben wird. Zwischen Karte und
+// Tipp koennen eine andere Karte (Umziehen), ein anderer Bildschirm (abhaken, umbenennen) oder der Abgleich mit einem anderen
+// Geraet die Pflanze veraendert haben — „aus Beet A" haette die Tomate aus Beet B entfernt, und ein inzwischen anderswo
+// abgehaktes Giessen stuende zweimal da. Eine Pflanze, die es nicht mehr gibt, meldet der Schreiber selbst (null).
+function _gsLinaStandPruefen(k, o) {
+  try {
+    var st = o && o.stand;
+    if (!st) return '';
+    var f = (typeof _gsPflanzeFinden === 'function') ? _gsPflanzeFinden(o.id) : null;
+    if (!f || !f.p) return '';
+    var s = function (v) { return v == null ? '' : String(v); };
+    var geaendert = _gsSatz('„{1}" hat sich inzwischen geändert — nichts geändert. Bitte frag noch einmal.', o.name);
+    if (f.liste !== st.liste || s(f.p.name) !== st.name) return geaendert;
+    var gs = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : [];
+    if (st.liste === 'plantings') {
+      if (s(f.p.gardenId) !== st.garten) return geaendert;
+      var g = gs.find(function (x) { return x && s(x.id) === st.garten; });
+      if ((g ? s(g.name) : null) !== st.gartenName) return geaendert;
+    }
+    if (o.ziel) {
+      var z = gs.find(function (x) { return x && x.id === o.ziel.id; });
+      if (z && s(z.name) !== o.ziel.voll) return geaendert;
+    }
+    if (k.tool === 'propose_task_done' && k.key) {
+      var task = (f.p.tasks && typeof f.p.tasks === 'object' && Object.prototype.hasOwnProperty.call(f.p.tasks, k.key)) ? f.p.tasks[k.key] : null;
+      if (task && typeof task === 'object' && s(task.lastDone) !== st.erledigt) return _gsSatz('Bei „{1}" ist „{2}" inzwischen schon eingetragen — nichts doppelt eingetragen.', o.name, k.aufgabe);
+    }
+  } catch (_) {}
+  return '';
+}
+// Die Wahl(en) einer Karte aus _gsLinaPflanzenWahl: ein Treffer → EIN Knopf mit `knopf`; mehrere am selben Ort → je einer mit
+// seiner Beschriftung. Jede Wahl merkt sich, was sie zeigt (_gsLinaStand). `mehr(t)` gibt Felder fuer das Werkzeug dazu.
+function _gsLinaWahlOptionen(w, knopf, key, mehr) {
+  var ts = w.t ? [w.t] : (w.wahl || []);
+  return ts.map(function (t, i) {
+    var o = { id: t.p.id, name: _gsLinaKartenText(t.p.name, 60) || '?', knopf: w.t ? knopf : w.labels[i], zustand: 'offen', stand: _gsLinaStand(t, key) };
+    return mehr ? Object.assign(o, mehr(t)) : o;
+  });
+}
+// Die Zeile „wo" einer Notiz-Karte: ein Treffer → bei welcher Pflanze und wo es danach steht (b: eine Pflanzung zeigt ihren
+// Verlauf im Gartentagebuch, nicht im Pflegeverlauf — openPlantDiary kennt nur „Meine Pflanzen"); mehrere → die Bitte zu tippen.
+function _gsLinaKarteWo(w, plantName) {
+  if (!w.t) return _gsSatz('„{1}" gibt es bei dir mehrmals — tippe an, bei welcher:', _gsLinaKartenText(plantName, 60));
+  var nm = _gsLinaKartenText(w.t.p.name, 60), ort = _gsLinaPflanzeOrt(w.t);
+  return (w.t.liste === 'plantings') ? _gsSatz('Bei „{1}" ({2}) — steht danach im Gartentagebuch:', nm, ort) : _gsSatz('Bei „{1}" ({2}) — steht danach im Pflegeverlauf:', nm, ort);
+}
+// Prüfung des Koordinators (c): der Text einer Karte kommt von der KI und geht in die DATEN der Person — er laeuft durch
+// dieselbe Gegenprobe wie Linas Antwort (_gsLinaSicherheit), mit den Arten der Frage, der Pflanze(n) der Karte und denen,
+// die der Text selbst nennt. Warnt sie, steht die Warnung auf der Karte und der Knopf sagt „Trotzdem …" — still gespeichert
+// wird eine „essbar"-Zusage ueber eine giftige Art nicht mehr („Rote Beeren essbar" als Notiz bei der Eibe).
+function _gsLinaKarteGiftPruefen(k, txt, w, frage, trotzdem) {
+  try {
+    if (!txt || typeof _gsLinaSicherheit !== 'function') return;
+    var ts = w.t ? [w.t] : (w.wahl || []);
+    var q = String(frage || '') + '\n' + ts.map(function (t) { return String((t.p && (t.p.latin || t.p.lat)) || '') + ' ' + String((t.p && t.p.name) || ''); }).join('\n');
+    var tr = (typeof _gsArtenTreffer === 'function') ? _gsArtenTreffer(q) : null;
+    var warn = _gsLinaSicherheit(txt, (typeof _gsLinaTrefferMitPflanzen === 'function') ? _gsLinaTrefferMitPflanzen(q, tr) : tr);
+    if (!warn) return;
+    k.warnung = warn;
+    if (w.t) k.optionen.forEach(function (o) { o.knopf = trotzdem; });
+  } catch (_) {}
+}
 // Gaerten mit genau diesem Namen; `meine` heisst: der Name meint die Liste „Meine Pflanzen" (kein Garten heisst so).
 function _gsLinaGartenWahl(gn) {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
@@ -94216,9 +94359,10 @@ function _gsLinaGartenWahl(gn) {
   var meine = !gs.length && (gl === 'meine pflanzen' || gl === String(_t('lina_k_meine', 'Meine Pflanzen')).toLowerCase());
   return { gaerten: gs, ids: gs.map(function (g) { return g.id; }), meine: meine };
 }
-// Welche Pflanze meint eine Lina-Aktion? Genau ein Treffer → { t: {p, liste, garten} }; sonst → { satz } (eine Rueckfrage
-// oder ein Satz) — NIE ein Griff in die Liste. `gartenName` grenzt ein (exakter Gartenname; „Meine Pflanzen" meint die
-// Liste). `nurPflanzungen`: Entfernen und Umziehen gehen nur fuer Pflanzungen in einem Garten.
+// Welche Pflanze meint eine Lina-Aktion? Genau ein Treffer → { t: {p, liste, garten} }; mehrere am selben Ort → { wahl,
+// labels, gleich } (die Karte zeigt sie zur Auswahl); sonst → { satz } (eine Rueckfrage oder ein Satz) — NIE ein Griff in
+// die Liste. `gartenName` grenzt ein (exakter Gartenname; „Meine Pflanzen" meint die Liste). `nurPflanzungen`: Entfernen
+// und Umziehen gehen nur fuer Pflanzungen in einem Garten.
 function _gsLinaPflanzenWahl(name, gartenName, nurPflanzungen) {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
   var nm = _gsLinaKartenText(name, 60);   // fuer den Satz gekuerzt — verglichen wird der ganze Name
@@ -94239,8 +94383,21 @@ function _gsLinaPflanzenWahl(name, gartenName, nurPflanzungen) {
     alle = pfl;
   }
   if (alle.length > 1) {
-    var orte = alle.slice(0, 4).map(_gsLinaPflanzeOrt), mehr = alle.length - orte.length;
-    return { satz: _gsSatz('„{1}" gibt es bei dir mehrmals: {2}. Welche meinst du?', nm, orte.join('; ') + (mehr > 0 ? '; ' + _gsSatz('+{1} weitere', mehr) : '')) };
+    // Prüfung des Koordinators (M2 · daten1): eine Rueckfrage hilft nur, wenn sich ihre Antwort SAGEN laesst — die KI nennt
+    // Name und Garten, sonst nichts. Stehen alle Treffer an verschiedenen Orten (je ein Garten, „Meine Pflanzen"), ist das so.
+    // Stehen zwei am selben Ort (im selben Garten, beide in „Meine Pflanzen"), fuehrte jede Antwort zur selben Rueckfrage
+    // zurueck („Tomate" Cherry und Ochsenherz im Hochbeet): dann zeigt die Karte sie zur Auswahl, beschriftet mit Sorte,
+    // Pflanzdatum oder Anzahl. Was sich auch so nicht unterscheiden laesst, wird nicht angeboten — und gezaehlt.
+    var ortK = alle.map(function (x) { return x.liste === 'plantings' ? 'g:' + String(x.p.gardenId) : 'm'; });
+    if (!ortK.some(function (o, i) { return ortK.indexOf(o) !== i; })) {
+      var orte = alle.slice(0, 4).map(_gsLinaPflanzeOrt), mehr = alle.length - orte.length;
+      return { satz: _gsSatz('„{1}" gibt es bei dir mehrmals: {2}. Welche meinst du?', nm, orte.join('; ') + (mehr > 0 ? '; ' + _gsSatz('+{1} weitere', mehr) : '')) };
+    }
+    var lb = _gsLinaWahlLabels(alle), wahl = [], labels = [];
+    alle.forEach(function (x, i) { if (!lb.gleich[i]) { wahl.push(x); labels.push(lb.labels[i]); } });
+    if (!wahl.length) return { satz: _gsSatz('„{1}" steht bei dir mehrmals mit denselben Angaben ({2}) — welche gemeint ist, kann ich nicht unterscheiden. Hier trage ich nichts ein.', nm, _gsLinaPflanzeOrt(alle[0])) };
+    if (wahl.length > GS_LINA_KARTE_WAHL_MAX) return { satz: _gsSatz('„{1}" gibt es bei dir {2}-mal — nenne mir den Garten, dann zeige ich dir die Auswahl.', nm, alle.length) };
+    return { wahl: wahl, labels: labels, gleich: alle.length - wahl.length };
   }
   return { t: alle[0] };
 }
@@ -94260,17 +94417,25 @@ function _gsLinaFaelligWahl(key, def, gartenName) {
   }
   if (!due.length) return { satz: _gsSatz('Heute ist bei keiner Pflanze „{1}" fällig. Sag mir, bei welcher Pflanze — dann trage ich es ein.', def.name) };
   var gaerten = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : [];
-  var optionen = due.slice(0, GS_LINA_KARTE_WAHL_MAX).map(function (x) {
+  var ts = due.map(function (x) {
     var li = liste(x) || 'myPlants';
-    var t = { p: x.plant, liste: li, garten: li === 'plantings' ? (gaerten.find(function (g) { return g && g.id === x.plant.gardenId; }) || null) : null };
-    var wann = x.days === 0 ? _t('lina_k_heute', 'heute fällig') : (x.days === -1 ? _t('lina_k_seit1', 'seit 1 Tag fällig') : _gsSatz('seit {1} Tagen fällig', -x.days));
-    var nm = _gsLinaKartenText(x.plant.name, 60) || '?';
-    return { id: x.plant.id, name: nm, knopf: nm + ' · ' + _gsLinaPflanzeOrt(t) + ' · ' + wann, zustand: 'offen' };
+    return { p: x.plant, liste: li, garten: li === 'plantings' ? (gaerten.find(function (g) { return g && g.id === x.plant.gardenId; }) || null) : null };
   });
-  return { optionen: optionen, mehr: due.length - optionen.length };
+  // M2 (daten1): zwei gleichnamige Pflanzungen im selben Garten ergaben zwei GLEICHE Knoepfe — beschriftet wird mit Sorte,
+  // Pflanzdatum oder Anzahl, und was sich auch so nicht unterscheiden laesst, steht nicht zur Wahl (auf der Karte gezaehlt).
+  var lb = _gsLinaWahlLabels(ts), frei = [];
+  due.forEach(function (x, i) { if (!lb.gleich[i]) frei.push(i); });
+  if (!frei.length) return { satz: _gsSatz('„{1}" ist heute bei mehreren Pflanzen fällig, die ich nicht unterscheiden kann (gleicher Name, gleicher Ort, gleiche Angaben). Hier trage ich nichts ein.', def.name) };
+  var optionen = frei.slice(0, GS_LINA_KARTE_WAHL_MAX).map(function (i) {
+    var x = due[i];
+    var wann = x.days === 0 ? _t('lina_k_heute', 'heute fällig') : (x.days === -1 ? _t('lina_k_seit1', 'seit 1 Tag fällig') : _gsSatz('seit {1} Tagen fällig', -x.days));
+    return { id: x.plant.id, name: _gsLinaKartenText(x.plant.name, 60) || '?', knopf: lb.labels[i] + ' · ' + wann, zustand: 'offen', stand: _gsLinaStand(ts[i], key) };
+  });
+  return { optionen: optionen, mehr: frei.length - optionen.length, gleich: due.length - frei.length };
 }
 // Die Karte zu einer Aktion — oder, wenn keine Karte entstehen darf, EIN Satz fuer die Antwort ({ satz }). Liest nur.
-function _gsLinaKarteBauen(act) {
+// `frage` ist die Frage der Person — an ihr (und an der Pflanze) prueft die Karte ihren eigenen Text (c).
+function _gsLinaKarteBauen(act, frage) {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (k, f) { return f; };
   try {
     if (!act || GS_LINA_KARTEN_TOOLS.indexOf(act.tool) < 0) return null;
@@ -94279,7 +94444,7 @@ function _gsLinaKarteBauen(act) {
     var wer = _gsPerson();
     if (!wer) return null;                                    // ohne Anmeldung gibt es nichts zu schreiben
     var k = { nr: ++_gsLinaKarteZaehler, tool: act.tool, wer: wer, gnr: _gsLinaGespraechNr, zustand: 'offen',
-              titel: '', text: '', zitat: '', gefahr: false, mehr: 0, optionen: [], meldungen: [] };
+              titel: '', text: '', zitat: '', warnung: '', gefahr: false, mehr: 0, gleich: 0, optionen: [], meldungen: [] };
     var w;
     switch (act.tool) {
       case 'propose_task_done': {
@@ -94287,21 +94452,32 @@ function _gsLinaKarteBauen(act) {
         var def = (typeof TASK_DEFS !== 'undefined' && key) ? TASK_DEFS[key] : null;   // TASK_DEFS ohne Prototyp (v33.59)
         if (!def) return kaputt;
         k.key = key; k.aufgabe = def.name;
-        k.titel = _gsSatz('{1} {2} als erledigt eintragen?', def.icon, def.name);
+        // M3: eingetragen wird mit dem heutigen Datum (gsQuickDone) — die Karte sagt es, damit „Habe vorgestern gegossen"
+        // nicht still als heute erledigt dasteht und das naechste Giessen verschiebt (die Werkzeuge kennen kein Datum).
+        k.titel = _gsSatz('{1} {2} als heute erledigt eintragen?', def.icon, def.name);
         if (_gsLinaKartenText(a.plantName, 60)) {
           w = _gsLinaPflanzenWahl(a.plantName, a.gardenName, false);
-          if (!w.t) return { satz: w.satz };
-          var tasks = w.t.p.tasks;
-          if (!tasks || typeof tasks !== 'object' || !Object.prototype.hasOwnProperty.call(tasks, key) || !tasks[key]) {
-            return { satz: _gsSatz('Bei „{1}" gibt es die Aufgabe „{2}" nicht — eine Erinnerung dafür kann ich einrichten, wenn du willst.', _gsLinaKartenText(w.t.p.name, 60), def.name) };
+          if (!w.t && !w.wahl) return { satz: w.satz };
+          var hat = function (t) { var tk = t.p.tasks; return !!(tk && typeof tk === 'object' && Object.prototype.hasOwnProperty.call(tk, key) && tk[key]); };
+          if (w.wahl) {
+            var wl = [], ll = [];
+            w.wahl.forEach(function (t, i) { if (hat(t)) { wl.push(t); ll.push(w.labels[i]); } });
+            if (!wl.length) return { satz: _gsSatz('Bei „{1}" gibt es die Aufgabe „{2}" nicht — eine Erinnerung dafür kann ich einrichten, wenn du willst.', _gsLinaKartenText(a.plantName, 60), def.name) };
+            w = { wahl: wl, labels: ll, gleich: w.gleich };
+            k.text = _gsSatz('„{1}" gibt es bei dir mehrmals — tippe an, wo du es gemacht hast:', _gsLinaKartenText(a.plantName, 60));
+          } else {
+            if (!hat(w.t)) return { satz: _gsSatz('Bei „{1}" gibt es die Aufgabe „{2}" nicht — eine Erinnerung dafür kann ich einrichten, wenn du willst.', _gsLinaKartenText(w.t.p.name, 60), def.name) };
+            k.text = (w.t.liste === 'plantings')
+              ? _gsSatz('Bei „{1}" ({2}) — danach steht es im Gartentagebuch.', _gsLinaKartenText(w.t.p.name, 60), _gsLinaPflanzeOrt(w.t))
+              : _gsSatz('Bei „{1}" ({2}) — danach steht es im Pflegeverlauf.', _gsLinaKartenText(w.t.p.name, 60), _gsLinaPflanzeOrt(w.t));
           }
-          k.text = _gsSatz('Bei „{1}" ({2}) — danach steht es im Pflegeverlauf.', _gsLinaKartenText(w.t.p.name, 60), _gsLinaPflanzeOrt(w.t));
-          k.optionen = [{ id: w.t.p.id, name: _gsLinaKartenText(w.t.p.name, 60), knopf: _t('lina_k_eintragen', 'Eintragen'), zustand: 'offen' }];
+          k.optionen = _gsLinaWahlOptionen(w, _t('lina_k_eintragen', 'Eintragen'), key);
+          k.gleich = w.gleich || 0;
         } else {
           var fw = _gsLinaFaelligWahl(key, def, a.gardenName);
           if (!fw.optionen) return { satz: fw.satz };
           k.text = _t('lina_k_welche_faellig', 'Heute fällig — tippe an, wo du es gemacht hast:');
-          k.optionen = fw.optionen; k.mehr = fw.mehr;
+          k.optionen = fw.optionen; k.mehr = fw.mehr; k.gleich = fw.gleich || 0;
         }
         return { karte: k };
       }
@@ -94309,12 +94485,14 @@ function _gsLinaKarteBauen(act) {
         var txt = _gsLinaKartenText(a.text, GS_LINA_NOTIZ_MAX);
         if (!txt) return kaputt;
         w = _gsLinaPflanzenWahl(a.plantName, a.gardenName, false);
-        if (!w.t) return { satz: w.satz };
-        k.titel = '📓 ' + _t('lina_k_tb_titel', 'In den Pflegeverlauf schreiben?');
-        k.text = _gsSatz('Bei „{1}" ({2}):', _gsLinaKartenText(w.t.p.name, 60), _gsLinaPflanzeOrt(w.t));
+        if (!w.t && !w.wahl) return { satz: w.satz };
+        k.titel = '📓 ' + _t('lina_k_tb_titel', 'Notiz eintragen — mit dem heutigen Datum?');   // M3
+        k.text = _gsLinaKarteWo(w, a.plantName);
         k.zitat = txt;
         k.eintrag = { action: 'note', title: 'Notiz', note: txt };
-        k.optionen = [{ id: w.t.p.id, name: _gsLinaKartenText(w.t.p.name, 60), knopf: _t('lina_k_eintragen', 'Eintragen'), zustand: 'offen' }];
+        k.optionen = _gsLinaWahlOptionen(w, _t('lina_k_eintragen', 'Eintragen'), '');
+        k.gleich = w.gleich || 0;
+        _gsLinaKarteGiftPruefen(k, txt, w, frage, _t('lina_k_trotzdem', 'Trotzdem eintragen'));
         return { karte: k };
       }
       case 'propose_pest_note': {
@@ -94323,23 +94501,28 @@ function _gsLinaKarteBauen(act) {
         art = /^(disease|krankheit)$/.test(art) ? 'disease' : (/^(pest|schädling|schaedling)$/.test(art) ? 'pest' : '');
         if (!was || !art) return kaputt;
         w = _gsLinaPflanzenWahl(a.plantName, a.gardenName, false);
-        if (!w.t) return { satz: w.satz };
+        if (!w.t && !w.wahl) return { satz: w.satz };
         var em = (art === 'disease') ? '🦠' : '🐛';
-        k.titel = em + ' ' + (art === 'disease' ? _t('lina_k_krank_titel', 'Krankheit notieren?') : _t('lina_k_pest_titel', 'Schädling notieren?'));
-        k.text = _gsSatz('Bei „{1}" ({2}):', _gsLinaKartenText(w.t.p.name, 60), _gsLinaPflanzeOrt(w.t));
+        k.titel = em + ' ' + (art === 'disease' ? _t('lina_k_krank_titel', 'Krankheit notieren — mit dem heutigen Datum?') : _t('lina_k_pest_titel', 'Schädling notieren — mit dem heutigen Datum?'));   // M3
+        k.text = _gsLinaKarteWo(w, a.plantName);
         k.zitat = was;
         k.eintrag = { action: art, title: em + ' ' + was, note: null };
-        k.optionen = [{ id: w.t.p.id, name: _gsLinaKartenText(w.t.p.name, 60), knopf: _t('lina_k_notieren', 'Notieren'), zustand: 'offen' }];
+        k.optionen = _gsLinaWahlOptionen(w, _t('lina_k_notieren', 'Notieren'), '');
+        k.gleich = w.gleich || 0;
+        _gsLinaKarteGiftPruefen(k, was, w, frage, _t('lina_k_trotzdem_notieren', 'Trotzdem notieren'));
         return { karte: k };
       }
       case 'propose_remove_planting': {
         w = _gsLinaPflanzenWahl(a.plantName, a.gardenName, true);
-        if (!w.t) return { satz: w.satz };
-        var gname = (w.t.garten && w.t.garten.name) ? _gsLinaKartenText(w.t.garten.name, 40) : '?';
+        if (!w.t && !w.wahl) return { satz: w.satz };
+        var gname = function (t) { return (t.garten && t.garten.name) ? _gsLinaKartenText(t.garten.name, 40) : '?'; };
         k.gefahr = true;
         k.titel = '🗑️ ' + _t('lina_k_weg_titel', 'Pflanzung entfernen?');
-        k.text = _gsSatz('„{1}" aus dem Garten „{2}" — mit ihren Aufgaben und ihrem Pflegeverlauf. Das lässt sich nicht rückgängig machen.', _gsLinaKartenText(w.t.p.name, 60), gname);
-        k.optionen = [{ id: w.t.p.id, name: _gsLinaKartenText(w.t.p.name, 60), garten: gname, knopf: _t('lina_k_entfernen', 'Entfernen'), zustand: 'offen' }];
+        k.text = w.t
+          ? _gsSatz('„{1}" aus dem Garten „{2}" — mit ihren Aufgaben und ihren Einträgen im Gartentagebuch. Das lässt sich nicht rückgängig machen.', _gsLinaKartenText(w.t.p.name, 60), gname(w.t))
+          : _gsSatz('„{1}" steht mehrmals da — tippe an, welche weg soll. Mit ihren Aufgaben und ihren Einträgen im Gartentagebuch; das lässt sich nicht rückgängig machen.', _gsLinaKartenText(a.plantName, 60));
+        k.optionen = _gsLinaWahlOptionen(w, _t('lina_k_entfernen', 'Entfernen'), '', function (t) { return { garten: gname(t) }; });
+        k.gleich = w.gleich || 0;
         return { karte: k };
       }
       case 'propose_move_planting': {
@@ -94349,13 +94532,24 @@ function _gsLinaKarteBauen(act) {
         if (!zw.gaerten.length) return { satz: _gsSatz('Einen Garten „{1}" finde ich nicht — umziehen geht nur in einen Garten, den es schon gibt.', zn) };
         if (zw.gaerten.length > 1) return { satz: _gsSatz('Den Garten „{1}" gibt es zweimal — welchen meinst du? Benenne ihn im Garten um, dann geht es.', zn) };
         w = _gsLinaPflanzenWahl(a.plantName, a.gardenName, true);
-        if (!w.t) return { satz: w.satz };
+        if (!w.t && !w.wahl) return { satz: w.satz };
         var ziel = zw.gaerten[0], zname = _gsLinaKartenText(ziel.name, 40);
-        if (w.t.p.gardenId === ziel.id) return { satz: _gsSatz('„{1}" steht schon im Garten „{2}".', _gsLinaKartenText(w.t.p.name, 60), zname) };
-        var von = (w.t.garten && w.t.garten.name) ? _gsLinaKartenText(w.t.garten.name, 40) : '?';
+        var von = function (t) { return (t.garten && t.garten.name) ? _gsLinaKartenText(t.garten.name, 40) : '?'; };
+        if (w.wahl) {
+          var wz = [], lz = [];
+          w.wahl.forEach(function (t, i) { if (t.p.gardenId !== ziel.id) { wz.push(t); lz.push(w.labels[i]); } });
+          if (!wz.length) return { satz: _gsSatz('„{1}" steht schon im Garten „{2}".', _gsLinaKartenText(a.plantName, 60), zname) };
+          w = { wahl: wz, labels: lz, gleich: w.gleich };
+        } else if (w.t.p.gardenId === ziel.id) return { satz: _gsSatz('„{1}" steht schon im Garten „{2}".', _gsLinaKartenText(w.t.p.name, 60), zname) };
         k.titel = '↪️ ' + _t('lina_k_zug_titel', 'Pflanzung umziehen?');
-        k.text = _gsSatz('„{1}" von „{2}" nach „{3}".', _gsLinaKartenText(w.t.p.name, 60), von, zname);
-        k.optionen = [{ id: w.t.p.id, name: _gsLinaKartenText(w.t.p.name, 60), garten: von, ziel: { id: ziel.id, name: zname }, knopf: _t('lina_k_umziehen', 'Umziehen'), zustand: 'offen' }];
+        k.text = w.t
+          ? _gsSatz('„{1}" von „{2}" nach „{3}".', _gsLinaKartenText(w.t.p.name, 60), von(w.t), zname)
+          : _gsSatz('„{1}" steht mehrmals da — tippe an, welche nach „{2}" soll:', _gsLinaKartenText(a.plantName, 60), zname);
+        // M2: das Ziel merkt sich seinen vollen Namen — heisst der Garten beim Tipp anders, zeigte die Karte etwas Altes
+        k.optionen = _gsLinaWahlOptionen(w, _t('lina_k_umziehen', 'Umziehen'), '', function (t) {
+          return { garten: von(t), ziel: { id: ziel.id, name: zname, voll: String(ziel.name == null ? '' : ziel.name) } };
+        });
+        k.gleich = w.gleich || 0;
         return { karte: k };
       }
     }
@@ -94374,7 +94568,10 @@ function _gsLinaKarteHtml(k, mi) {
       + '<div style="font-weight:800;font-size:var(--fs-md);' + (gefahr ? 'color:var(--c-danger-d);' : '') + '">' + escHtml(k.titel) + '</div>';
     if (k.text) h += '<div style="margin-top:4px;">' + escHtml(k.text) + '</div>';
     if (k.zitat) h += '<div data-lina-karte-zitat="1" style="margin-top:6px;padding:6px 9px;border-left:3px solid var(--border);background:var(--surface2);white-space:pre-wrap;word-break:break-word;">' + escHtml(k.zitat) + '</div>';
+    // (c) die Gegenprobe hat am Text der KI gewarnt — die Warnung steht ueber den Knoepfen (wie ueber Linas Antwort)
+    if (k.warnung) h += '<div data-lina-karte-warnung="1" style="margin-top:6px;padding:6px 9px;border-left:3px solid var(--c-danger);font-weight:700;color:var(--c-danger-d);">' + escHtml(k.warnung) + '</div>';
     if (k.mehr > 0 && k.zustand === 'offen') h += '<div style="margin-top:4px;color:var(--muted);">' + escHtml(_gsSatz('+{1} weitere — nenne die Pflanze beim Namen.', k.mehr)) + '</div>';
+    if (k.gleich > 0 && k.zustand === 'offen') h += '<div data-lina-karte-gleich="1" style="margin-top:4px;color:var(--muted);">' + escHtml(_gsSatz('{1} weitere mit denselben Angaben — welche gemeint ist, kann ich nicht unterscheiden.', k.gleich)) + '</div>';
     (k.meldungen || []).forEach(function (z) { if (z) h += '<div data-lina-karte-meldung="1" style="margin-top:6px;font-weight:700;">' + escHtml(z) + '</div>'; });
     if (k.zustand === 'offen') {
       var basis = 'padding:8px 12px;border-radius:var(--r-xl);font-size:var(--fs-sm);font-weight:700;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;';
@@ -94385,7 +94582,9 @@ function _gsLinaKarteHtml(k, mi) {
       h += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">';
       k.optionen.forEach(function (o, oi) {
         if (!o || o.zustand !== 'offen') return;
-        h += '<button type="button" data-lina-karte-wahl="' + oi + '"' + (gefahr ? ' data-lina-karte-gefahr="1"' : '') + ' onclick="gsLinaKarteTun(' + i + ',' + oi + ',' + nr + ')" style="' + basis + (einzeln ? haupt : wahl) + '">' + escHtml(o.knopf) + '</button>';
+        // eine Warnung (c) macht den Knopf zur Nebensache; eine Gefahr bleibt auch in der Auswahl rot
+        var stil = k.warnung ? wahl : ((einzeln || gefahr) ? haupt : wahl);
+        h += '<button type="button" data-lina-karte-wahl="' + oi + '"' + (gefahr ? ' data-lina-karte-gefahr="1"' : '') + ' onclick="gsLinaKarteTun(' + i + ',' + oi + ',' + nr + ')" style="' + basis + stil + '">' + escHtml(o.knopf) + '</button>';
       });
       var schon = k.optionen.some(function (o) { return o && o.zustand === 'ok'; });
       h += '<button type="button" data-lina-karte-wahl="-1" onclick="gsLinaKarteTun(' + i + ',-1,' + nr + ')" style="' + basis + 'background:var(--surface2);color:var(--text);border:1px solid var(--border);">'
@@ -94398,10 +94597,14 @@ function _gsLinaKarteHtml(k, mi) {
 // Was ein Tipp auf eine Wahl ausfuehrt: genau EIN Schreiber je Werkzeug, und je Rueckgabe EIN Satz.
 function _gsLinaKarteAusfuehren(k, o) {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function (kk, f) { return f; };
+  // M2: zuerst, ob noch stimmt, was die Wahl zeigt — sonst wird nichts geschrieben (bis zum Schreiber kein `await`)
+  var anders = _gsLinaStandPruefen(k, o);
+  if (anders) return { ok: null, satz: anders };
+  var imGarten = !!(o.stand && o.stand.liste === 'plantings');   // (b) eine Pflanzung zeigt ihren Verlauf im Gartentagebuch
   switch (k.tool) {
     case 'propose_task_done': {
       var r = (typeof gsQuickDone === 'function') ? gsQuickDone(o.id, k.key) : null;   // die eine Erledigt-Logik (CLAUDE.md §3.3)
-      if (r === true) return { ok: true, satz: _gsSatz('✓ {1}: {2} eingetragen — steht im Pflegeverlauf.', o.name, k.aufgabe) };
+      if (r === true) return { ok: true, satz: imGarten ? _gsSatz('✓ {1}: {2} eingetragen — steht im Gartentagebuch.', o.name, k.aufgabe) : _gsSatz('✓ {1}: {2} eingetragen — steht im Pflegeverlauf.', o.name, k.aufgabe) };
       if (r === false) return { ok: false, satz: _t('lina_k_voll_aufgabe', 'Nicht gespeichert — der Speicher ist voll. Die Aufgabe bleibt offen; bitte alte Fotos oder Scans löschen.') };
       return { ok: null, satz: _gsSatz('Bei „{1}" gibt es diese Aufgabe nicht mehr — nichts eingetragen.', o.name) };
     }
@@ -94416,6 +94619,7 @@ function _gsLinaKarteAusfuehren(k, o) {
       var r2 = _gsPflegeEintragSchreiben(o.id, Object.assign({ ts: ts }, k.eintrag, { quelle: 'lina', bestaetigt_am: new Date().toISOString() }));
       if (r2 === true) {
         try { if (typeof renderMyPlants === 'function') renderMyPlants(); } catch (_) {}
+        if (imGarten) return { ok: true, satz: (k.tool === 'propose_pest_note') ? _gsSatz('✓ Bei „{1}" im Gartentagebuch notiert.', o.name) : _gsSatz('✓ Bei „{1}" im Gartentagebuch eingetragen.', o.name) };
         return { ok: true, satz: (k.tool === 'propose_pest_note') ? _gsSatz('✓ Bei „{1}" im Pflegeverlauf notiert.', o.name) : _gsSatz('✓ Im Pflegeverlauf von „{1}" eingetragen.', o.name) };
       }
       if (r2 === false) return { ok: false, satz: _t('lina_k_voll', 'Nicht gespeichert — der Speicher ist voll. Es wurde nichts eingetragen; bitte alte Fotos oder Scans löschen.') };
@@ -94521,8 +94725,10 @@ async function gsLinaDispatch(act){
       var nm = String(a.name||'').trim().slice(0,60); if (!nm) return;
       if (typeof gsConfirmModal !== 'function') return;
       // Steht eine Pflanze dieses Namens schon da, SAGT es die Rueckfrage — vorher
-      // legte ein zweites „Ja" still eine Dublette an.
-      var _schon = !!gsLinaResolvePlant(null, nm);
+      // legte ein zweites „Ja" still eine Dublette an. Gezaehlt wird jeder Treffer: gsLinaResolvePlant
+      // nimmt seit der Prüfung von #359 nur einen eindeutigen, und zwei „Tomate" sind auch „schon da".
+      var _schon = false;
+      try { var _trA = _gsLinaPflanzenTreffer(nm); _schon = (_trA.name.length + _trA.nick.length) > 0; } catch(_){}
       var ok = await gsConfirmModal({ title:'🌱 ' + _gsSatz('Pflanze hinzufügen?'),
         message: _schon ? _gsSatz('„{1}" steht schon in deinen Pflanzen. Trotzdem ein zweites Mal hinzufügen?', nm) : _gsSatz('Soll ich „{1}" zu Meine Pflanzen hinzufügen?', nm),
         ok:_gsSatz('Hinzufügen'), cancel:_gsSatz('Abbrechen') });
@@ -94534,7 +94740,13 @@ async function gsLinaDispatch(act){
       var key = String(a.task||'').toLowerCase();
       if (typeof TASK_DEFS==='undefined' || !TASK_DEFS[key]) return;   // nur Whitelist-Tasks
       var p = gsLinaResolvePlant(a.plantId, a.plantName);
-      if (!p) { if (typeof gsToast==='function') gsToast('Dafür brauche ich die Pflanze zuerst in „Meine Pflanzen" 🌿', 'info'); return; }
+      if (!p) {
+        // (a) zwei Treffer sind keiner — dann sagt der Satz das, nicht „brauche die Pflanze zuerst"
+        var _mehrfach = false;
+        try { var _trR = _gsLinaPflanzenTreffer(a.plantName); _mehrfach = (_trR.name.length + _trR.nick.length) > 1; } catch(_){}
+        if (typeof gsToast==='function') gsToast(_mehrfach ? _gsSatz('„{1}" gibt es bei dir mehrmals — eine Erinnerung richte ich nur für eine eindeutige Pflanze ein. Richte sie direkt bei der Pflanze ein.', _gsLinaKartenText(a.plantName, 60)) : 'Dafür brauche ich die Pflanze zuerst in „Meine Pflanzen" 🌿', 'info');
+        return;
+      }
       var days = parseInt(a.intervalDays,10); if (!(days>0)) days = (TASK_DEFS[key].intervals && TASK_DEFS[key].intervals[0] && TASK_DEFS[key].intervals[0].v) || 7;
       if (typeof gsConfirmModal !== 'function') return;
       var ok2 = await gsConfirmModal({ title:'⏰ ' + _gsSatz('Erinnerung einrichten?'), message:_gsSatz('{1} für „{2}" alle {3} Tage?', TASK_DEFS[key].name, (p.nick||p.name), days), ok:_gsSatz('Einrichten'), cancel:_gsSatz('Abbrechen') });
